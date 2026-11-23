@@ -345,6 +345,10 @@ final class CommandPaletteManager: ObservableObject {
         // before the focused-owner seam so the modal's Escape escape hatch
         // remains available.
         if event.keyCode == 53 {
+            // Esc during a lyrics timing hold cancels the hold (#640), not the lyrics.
+            if LyricsTimingHoldInput.isHoldInProgress {
+                return false
+            }
             if viewModel.isPresented {
                 viewModel.hide()
                 return true

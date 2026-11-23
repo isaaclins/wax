@@ -252,12 +252,6 @@ final class SpotiglassSettingsStore: ObservableObject {
             disk: disk.appearance.lyricsTextSize,
             field: "appearance.lyricsTextSize"
         )
-        merged.appearance.lyricsOffsetMilliseconds = choose(
-            local.appearance.lyricsOffsetMilliseconds,
-            baseline: baseline.appearance.lyricsOffsetMilliseconds,
-            disk: disk.appearance.lyricsOffsetMilliseconds,
-            field: "appearance.lyricsOffsetMilliseconds"
-        )
         merged.appearance.lyricsTextScale = choose(
             local.appearance.lyricsTextScale,
             baseline: baseline.appearance.lyricsTextScale,

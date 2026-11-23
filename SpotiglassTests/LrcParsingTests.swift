@@ -90,26 +90,25 @@ final class LrcParsingTests: XCTestCase {
         XCTAssertEqual(LrcLineParser.effectivePositionMs(positionMs: 1_000, offsetMs: 500), 1_500)
     }
 
-    func testAppearanceSettingsDefaultsOffsetToZeroForLegacyFiles() throws {
-        // Older settings.json predates the offset key entirely.
-        let legacy = Data(#"{"colorScheme":"dark"}"#.utf8)
-        let decoded = try JSONDecoder().decode(AppearanceSettings.self, from: legacy)
-        XCTAssertEqual(decoded.lyricsOffsetMilliseconds, 0)
+    /// #640: a clicked line plays from where it's sung with the song's shift. Lyrics shown 30 s
+    /// sooner put the line stamped 60 s at 30 s into the song.
+    func testClickedLineSeeksToWhereItIsSungWithTheShift() {
+        XCTAssertEqual(LrcLineParser.songPositionMs(lyricsPositionMs: 60_000, offsetMs: 30_000), 30_000)
+        XCTAssertEqual(LrcLineParser.songPositionMs(lyricsPositionMs: 60_000, offsetMs: -5_000), 65_000)
+        XCTAssertEqual(LrcLineParser.songPositionMs(lyricsPositionMs: 60_000, offsetMs: 0), 60_000)
+        XCTAssertEqual(LrcLineParser.songPositionMs(lyricsPositionMs: 2_000, offsetMs: 9_000), 0, "never before the song starts")
+        // The line it seeks to is the one the lyrics then highlight.
+        XCTAssertEqual(LrcLineParser.effectivePositionMs(positionMs: 30_000, offsetMs: 30_000), 60_000)
     }
 
-    func testAppearanceSettingsClampsOutOfRangeOffset() throws {
-        let tooHigh = Data(#"{"lyricsOffsetMilliseconds":999999}"#.utf8)
-        let tooLow = Data(#"{"lyricsOffsetMilliseconds":-999999}"#.utf8)
-        XCTAssertEqual(
-            try JSONDecoder().decode(AppearanceSettings.self, from: tooHigh).lyricsOffsetMilliseconds,
-            AppearanceSettings.lyricsOffsetLimitMs
-        )
-        XCTAssertEqual(
-            try JSONDecoder().decode(AppearanceSettings.self, from: tooLow).lyricsOffsetMilliseconds,
-            -AppearanceSettings.lyricsOffsetLimitMs
-        )
-        // In-range values survive untouched.
-        XCTAssertEqual(AppearanceSettings(lyricsOffsetMilliseconds: 500).lyricsOffsetMilliseconds, 500)
+    func testAppearanceSettingsIgnoresTheRetiredGlobalOffset() throws {
+        // The global offset slider is gone (#640): a file that still has its value reads the
+        // rest as before and drops the value on the next save.
+        let legacy = Data(#"{"colorScheme":"dark","lyricsOffsetMilliseconds":750}"#.utf8)
+        let decoded = try JSONDecoder().decode(AppearanceSettings.self, from: legacy)
+        XCTAssertEqual(decoded.colorScheme, .dark)
+        let saved = try XCTUnwrap(String(data: JSONEncoder().encode(decoded), encoding: .utf8))
+        XCTAssertFalse(saved.contains("lyricsOffsetMilliseconds"))
     }
 
     func testActivePlainLineIndex() {

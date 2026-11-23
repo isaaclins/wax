@@ -23,7 +23,12 @@ struct AppearanceSettingsView: View {
 
             Section {
                 lyricsTextSizeSection
-                lyricsOffsetSection
+            } footer: {
+                // The timing slider is gone (#640): each song's timing is fixed on its lyrics.
+                Text(SpotiglassL10n.string("settings.appearance.lyricsTiming.hint"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Section {
@@ -157,77 +162,6 @@ struct AppearanceSettingsView: View {
                         $0.appearance.lyricsTextScale = 1.0
                     }
                 }
-            }
-        )
-    }
-
-    // MARK: - Lyric sync offset
-
-    private var lyricsOffsetSection: some View {
-        let limitSeconds = Double(AppearanceSettings.lyricsOffsetLimitMs) / 1_000
-
-        return VStack(alignment: .leading, spacing: SpotiglassDesign.spacingS) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(SpotiglassL10n.string("settings.appearance.lyricsOffset"))
-                    .font(.headline)
-                Spacer()
-                Text(lyricsOffsetValueLabel)
-                    .font(.system(.subheadline, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel(lyricsOffsetValueLabel)
-            }
-
-            Slider(
-                value: lyricsOffsetSecondsBinding,
-                in: -limitSeconds...limitSeconds,
-                step: 0.05
-            ) {
-                Text(SpotiglassL10n.string("settings.appearance.lyricsOffset"))
-            } minimumValueLabel: {
-                Text(SpotiglassL10n.string("settings.appearance.lyricsOffset.later"))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            } maximumValueLabel: {
-                Text(SpotiglassL10n.string("settings.appearance.lyricsOffset.earlier"))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .labelsHidden()
-
-            Button(SpotiglassL10n.string("settings.appearance.lyricsOffset.reset")) {
-                settingsStore.update { $0.appearance.lyricsOffsetMilliseconds = 0 }
-            }
-            .buttonStyle(.link)
-            .font(.caption)
-            .disabled(settingsStore.settings.appearance.lyricsOffsetMilliseconds == 0)
-
-            Text(SpotiglassL10n.string("settings.appearance.lyricsOffset.hint"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .accessibilityElement(children: .contain)
-    }
-
-    /// "In sync" at zero, otherwise e.g. "0.50 s earlier" / "0.30 s later".
-    private var lyricsOffsetValueLabel: String {
-        let ms = settingsStore.settings.appearance.lyricsOffsetMilliseconds
-        if ms == 0 {
-            return SpotiglassL10n.string("settings.appearance.lyricsOffset.inSync")
-        }
-        let seconds = String(format: "%.2f", abs(Double(ms)) / 1_000)
-        let key = ms > 0
-            ? "settings.appearance.lyricsOffset.value.earlier"
-            : "settings.appearance.lyricsOffset.value.later"
-        return String(format: SpotiglassL10n.string(key), seconds)
-    }
-
-    private var lyricsOffsetSecondsBinding: Binding<Double> {
-        Binding(
-            get: { Double(settingsStore.settings.appearance.lyricsOffsetMilliseconds) / 1_000 },
-            set: { newValue in
-                let ms = AppearanceSettings.clampOffset(Int((newValue * 1_000).rounded()))
-                settingsStore.update { $0.appearance.lyricsOffsetMilliseconds = ms }
             }
         )
     }

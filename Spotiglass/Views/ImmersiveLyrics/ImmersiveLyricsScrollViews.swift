@@ -15,6 +15,9 @@ enum LyricsMotion {
     /// Spring for lyrics-text-size changes — slightly longer to let typography settle.
     static let sizeSpring: Animation = .spring(response: 0.48, dampingFraction: 0.82)
 
+    /// Quick spring for the lyrics following a timing hold's drag, line by line (#640).
+    static let holdSpring: Animation = .spring(response: 0.22, dampingFraction: 0.9)
+
     /// Engage/disengage state crossfade.
     static let engageSpring: Animation = .spring(response: 0.35, dampingFraction: 0.9)
 
@@ -43,13 +46,27 @@ struct LyricsScrollRenderModel: Equatable {
 
     let activeID: Int
     let lines: [Line]
+    /// While the lyrics are held to fix their timing (#640): the shift letting go would save.
+    /// The active line is then the held one, in the highlight.
+    var holdShiftMs: Int?
+
+    var isHolding: Bool { holdShiftMs != nil }
+
+    /// The line held in the highlight and where the song is now, without any shift.
+    struct Hold: Equatable {
+        let lineID: Int
+        let rawPositionMs: Int
+    }
 
     static func timed(
         lines: [SyncedLyricLine],
-        positionMs: Int
+        positionMs: Int,
+        hold: Hold? = nil
     ) -> Self {
         let activeIndex = LrcLineParser.activeTimedLineIndex(positionMs: positionMs, lines: lines)
-        let activeID = lines.indices.contains(activeIndex) ? lines[activeIndex].id : (lines.first?.id ?? 0)
+        let timedActiveID = lines.indices.contains(activeIndex) ? lines[activeIndex].id : (lines.first?.id ?? 0)
+        let heldLine = hold.flatMap { hold in lines.first { $0.id == hold.lineID } }
+        let activeID = heldLine?.id ?? timedActiveID
         let renderLines = lines.enumerated().map { _, line in
             Line(
                 id: line.id,
@@ -58,7 +75,9 @@ struct LyricsScrollRenderModel: Equatable {
                 seekPositionMs: line.startTimeMs
             )
         }
-        return Self(activeID: activeID, lines: renderLines)
+        // What letting go now would save: the held line starts at the song's position.
+        let holdShiftMs = heldLine.flatMap { line in hold.map { line.startTimeMs - $0.rawPositionMs } }
+        return Self(activeID: activeID, lines: renderLines, holdShiftMs: holdShiftMs)
     }
 
     static func plain(
@@ -92,13 +111,14 @@ enum ImmersiveLyricsReadyContentModel: Equatable {
     static func renderModel(
         for lyrics: FetchedLyrics,
         positionMs: Int,
-        trackDurationMs: Int?
+        trackDurationMs: Int?,
+        hold: LyricsScrollRenderModel.Hold? = nil
     ) -> Self {
         switch lyrics {
         case .instrumental:
             .instrumental
         case .synced(let lines):
-            .timed(.timed(lines: lines, positionMs: positionMs))
+            .timed(.timed(lines: lines, positionMs: positionMs, hold: hold))
         case .unsyncedPlain(let lines):
             .plain(.plain(lines: lines, positionMs: positionMs, durationMs: trackDurationMs))
         }
@@ -188,6 +208,9 @@ struct ImmersiveLyricsScrollCore<ID: Hashable, Content: View>: View {
     let activeID: ID
     let reduceMotion: Bool
     let usesLyricsScrollEdgeFade: Bool
+    /// While the lyrics are held to fix their timing, the active line stays centred whatever
+    /// the user scrolled before, and follows the drag quickly.
+    var isHolding = false
     /// Content closure receives an `engageAutoCenter` callback so tappable
     /// lines inside can re-engage the auto-center on tap (mirrors what the
     /// "Return to current line" pill does), letting the scroll position
@@ -217,8 +240,12 @@ struct ImmersiveLyricsScrollCore<ID: Hashable, Content: View>: View {
                     scrolledID = activeID
                 }
                 .onChange(of: activeID) { _, new in
-                    guard controller.isAutoCentering else { return }
+                    guard controller.isAutoCentering || isHolding else { return }
                     centerOn(new, animated: !reduceMotion)
+                }
+                .onChange(of: isHolding) { _, _ in
+                    controller.engageImmediately()
+                    centerOn(activeID, animated: !reduceMotion)
                 }
                 .onChange(of: controller.isAutoCentering) { _, engaged in
                     guard engaged else { return }
@@ -255,15 +282,30 @@ struct ImmersiveLyricsScrollCore<ID: Hashable, Content: View>: View {
     @ViewBuilder
     private var scrollView: some View {
         let inner = ScrollView {
-            content(engageAutoCenter)
-                .padding(.top, ImmersiveLyricsLayout.lyricsInnerTopPadding)
-                .padding(.bottom, ImmersiveLyricsLayout.lyricsInnerBottomPadding)
+            // Half the view's height before the first line and after the last, so every line,
+            // the first and last too, can sit in the middle where the current line is shown. A
+            // timing hold's highlight stays there while the lyrics move under it (#640).
+            VStack(spacing: 0) {
+                Self.edgeRoom
+                content(engageAutoCenter)
+                Self.edgeRoom
+            }
         }
         if usesLyricsScrollEdgeFade {
-            inner.mask { ImmersiveLyricsLayout.scrollEdgeFadeGradient }
+            // Wider than the lyrics, so the timing highlight's box around a line isn't cut off.
+            inner.mask {
+                ImmersiveLyricsLayout.scrollEdgeFadeGradient
+                    .padding(.horizontal, -SpotiglassDesign.spacingL)
+            }
         } else {
             inner
         }
+    }
+
+    private static var edgeRoom: some View {
+        Color.clear
+            .containerRelativeFrame(.vertical) { length, _ in length / 2 }
+            .accessibilityHidden(true)
     }
 
     private func engageAutoCenter() {
@@ -273,7 +315,7 @@ struct ImmersiveLyricsScrollCore<ID: Hashable, Content: View>: View {
 
     private func centerOn(_ id: ID, animated: Bool) {
         if animated {
-            withAnimation(LyricsMotion.centerSpring) {
+            withAnimation(isHolding ? LyricsMotion.holdSpring : LyricsMotion.centerSpring) {
                 scrolledID = id
             }
         } else {
@@ -314,10 +356,29 @@ struct ImmersiveLyricsTimedLyricsScrollView: View {
         ImmersiveLyricsScrollCore(
             activeID: renderModel.activeID,
             reduceMotion: reduceMotion,
-            usesLyricsScrollEdgeFade: usesLyricsScrollEdgeFade
+            usesLyricsScrollEdgeFade: usesLyricsScrollEdgeFade,
+            isHolding: renderModel.isHolding
         ) { engageAutoCenter in
             LazyVStack(alignment: .leading, spacing: lyricsTextSize.timedLineSpacing) {
                 ForEach(renderModel.lines) { line in
+                    lyricLine(line, engageAutoCenter: engageAutoCenter)
+                        .modifier(LyricsTimingHighlight(
+                            shiftMs: line.isActive ? renderModel.holdShiftMs : nil
+                        ))
+                        .id(line.id)
+                }
+            }
+            .scrollTargetLayout()
+            .animation(reduceMotion ? nil : LyricsMotion.lineSpring, value: renderModel.activeID)
+            .animation(reduceMotion ? nil : LyricsMotion.sizeSpring, value: lyricsTextSize)
+        }
+        .frame(maxWidth: .infinity, maxHeight: maxHeight, alignment: .leading)
+    }
+
+    private func lyricLine(
+        _ line: LyricsScrollRenderModel.Line,
+        engageAutoCenter: @escaping () -> Void
+    ) -> some View {
                     TappableLyricLine(
                         isActive: line.isActive,
                         reduceMotion: reduceMotion,
@@ -337,14 +398,53 @@ struct ImmersiveLyricsTimedLyricsScrollView: View {
                             reduceMotion: reduceMotion
                         )
                     }
-                    .id(line.id)
+    }
+}
+
+/// The fixed highlight around the held line during a timing hold, with how far the timing
+/// has moved (#640).
+struct LyricsTimingHighlight: ViewModifier {
+    /// Set on the held line only.
+    let shiftMs: Int?
+
+    /// How far the box reaches past the line on each side. The lyrics leave at least this much
+    /// room beside them, in the main window and the pop-out.
+    static let boxOverhang = SpotiglassDesign.spacingS
+
+    /// The label's width, kept clear at the end of the line so a long line wraps before it.
+    @State private var labelWidth: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        if let shiftMs {
+            let label = LyricsTimingHold.label(forShiftMs: shiftMs)
+            // The box is drawn around the line without changing its height.
+            content
+                .padding(.trailing, labelWidth + SpotiglassDesign.spacingS)
+                .overlay(alignment: .trailing) {
+                    Text(label)
+                        .font(.callout.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, SpotiglassDesign.spacingS)
+                        .padding(.vertical, SpotiglassDesign.spacingXS)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .fixedSize()
+                        .onGeometryChange(for: CGFloat.self, of: \.size.width) { labelWidth = $0 }
                 }
-            }
-            .scrollTargetLayout()
-            .animation(reduceMotion ? nil : LyricsMotion.lineSpring, value: renderModel.activeID)
-            .animation(reduceMotion ? nil : LyricsMotion.sizeSpring, value: lyricsTextSize)
+                .background {
+                    RoundedRectangle(cornerRadius: SpotiglassDesign.spacingS, style: .continuous)
+                        .fill(.white.opacity(0.14))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: SpotiglassDesign.spacingS, style: .continuous)
+                                .strokeBorder(.white.opacity(0.22), lineWidth: 1)
+                        }
+                        .padding(.vertical, -SpotiglassDesign.spacingS)
+                        .padding(.horizontal, -Self.boxOverhang)
+                }
+                .accessibilityValue(Text(label))
+        } else {
+            content
         }
-        .frame(maxWidth: .infinity, maxHeight: maxHeight, alignment: .leading)
     }
 }
 
