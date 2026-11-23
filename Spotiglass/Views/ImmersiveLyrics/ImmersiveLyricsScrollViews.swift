@@ -52,12 +52,9 @@ struct LyricsScrollRenderModel: Equatable {
 
     var isHolding: Bool { holdShiftMs != nil }
 
-    /// The line held in the highlight, the line the hold started on, the song's shift then and
-    /// where the song is now without it.
+    /// The line held in the highlight and where the song is now, without any shift.
     struct Hold: Equatable {
         let lineID: Int
-        let startLineID: Int
-        let savedOffsetMs: Int
         let rawPositionMs: Int
     }
 
@@ -78,15 +75,8 @@ struct LyricsScrollRenderModel: Equatable {
                 seekPositionMs: line.startTimeMs
             )
         }
-        let holdShiftMs = heldLine.flatMap { line in
-            hold.map { hold in
-                // Until the highlight moves, letting go changes nothing: the label shows the
-                // song's timing as it is.
-                line.id == hold.startLineID
-                    ? hold.savedOffsetMs
-                    : line.startTimeMs - hold.rawPositionMs
-            }
-        }
+        // What letting go now would save: the held line starts at the song's position.
+        let holdShiftMs = heldLine.flatMap { line in hold.map { line.startTimeMs - $0.rawPositionMs } }
         return Self(activeID: activeID, lines: renderLines, holdShiftMs: holdShiftMs)
     }
 

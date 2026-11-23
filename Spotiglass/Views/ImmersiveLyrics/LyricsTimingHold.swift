@@ -9,11 +9,7 @@ final class LyricsTimingHold {
     struct Session: Equatable {
         let songID: String
         let lines: [SyncedLyricLine]
-        /// The line the lyrics showed when the hold started.
-        let startIndex: Int
         var heldIndex: Int
-        /// The song's shift when the hold started.
-        let savedOffsetMs: Int
         /// Drag not yet worth a whole line.
         var leftoverPoints: CGFloat = 0
     }
@@ -38,9 +34,7 @@ final class LyricsTimingHold {
         session = Session(
             songID: songID,
             lines: lines,
-            startIndex: index,
-            heldIndex: index,
-            savedOffsetMs: savedOffsetMs
+            heldIndex: index
         )
         return true
     }
@@ -65,11 +59,11 @@ final class LyricsTimingHold {
     }
 
     /// Ends the hold. Returns the song and the shift that makes the held line start at
-    /// `rawPositionMs`, or nil when the highlight is still on the line it started on.
+    /// `rawPositionMs`: whatever line is in the highlight counts as sung right now, the one the
+    /// hold started on too (paused a moment after a line began, that lines it up exactly).
     func finish(rawPositionMs: Int) -> (songID: String, offsetMs: Int)? {
         guard let session else { return nil }
         self.session = nil
-        guard session.heldIndex != session.startIndex else { return nil }
         return (session.songID, session.lines[session.heldIndex].startTimeMs - rawPositionMs)
     }
 
@@ -145,19 +139,25 @@ final class LyricsTimingHoldInput {
     private var pressTask: Task<Void, Never>?
     private var phase: Phase = .idle {
         didSet {
-            switch (oldValue == .idle, phase == .idle) {
-            case (true, false): Self.pressesInProgress += 1
-            case (false, true): Self.pressesInProgress -= 1
-            default: break
+            if phase == .idle {
+                Self.busyInputs.remove(self)
+            } else {
+                Self.busyInputs.add(self)
             }
         }
     }
 
-    private static var pressesInProgress = 0
+    /// Inputs in the middle of a press. Held weakly: one that goes away mid-press (its view
+    /// closed) stops counting, so Esc can't stay taken.
+    private static let busyInputs = NSHashTable<LyricsTimingHoldInput>.weakObjects()
 
     /// While the lyrics are held (or the right button is still down after a cancel), Esc is the
     /// hold's: the app's own Escape handling (closing the lyrics) leaves it alone.
-    static var isHoldInProgress: Bool { pressesInProgress > 0 }
+    static var isHoldInProgress: Bool {
+        // The lookup hands the input back autoreleased; draining here keeps it from outliving
+        // the view that owned it.
+        autoreleasepool { busyInputs.anyObject != nil }
+    }
 
     init(
         hold: LyricsTimingHold,

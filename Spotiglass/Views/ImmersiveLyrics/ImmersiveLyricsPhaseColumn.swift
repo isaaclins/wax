@@ -70,8 +70,6 @@ struct ImmersiveLyricsReadyContentView: View {
         guard let session = timingHold?.session else { return nil }
         return LyricsScrollRenderModel.Hold(
             lineID: session.lines[session.heldIndex].id,
-            startLineID: session.lines[session.startIndex].id,
-            savedOffsetMs: session.savedOffsetMs,
             // Read on every frame the lyrics draw, so the label follows the music.
             rawPositionMs: timingHold?.rawPositionMs() ?? positionMs
         )

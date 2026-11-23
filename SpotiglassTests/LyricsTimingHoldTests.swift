@@ -121,13 +121,26 @@ final class LyricsTimingHoldTests: XCTestCase {
         XCTAssertEqual(hold.session?.heldIndex, lines.count - 1)
     }
 
-    func testLettingGoOnTheStartingLineChangesNothing() {
+    /// Paused at 12 s with the 10 s line still highlighted: letting go without moving lines that
+    /// line up with now. Dragging away and back counts the same.
+    func testLettingGoOnTheStartingLineMakesItNow() throws {
         let hold = LyricsTimingHold()
+        hold.begin(songID: "song:a", lines: lines, savedOffsetMs: 0, rawPositionMs: { 12_000 })
+        XCTAssertEqual(hold.session?.heldIndex, 0)
+        XCTAssertEqual(try XCTUnwrap(hold.finish(rawPositionMs: 12_000)).offsetMs, -2_000)
+
         hold.begin(songID: "song:a", lines: lines, savedOffsetMs: 500, rawPositionMs: { 18_500 })
         XCTAssertEqual(hold.drag(contentUpBy: 45, linePitch: 40), 1)
         XCTAssertEqual(hold.drag(contentUpBy: -45, linePitch: 40), -1)
-        XCTAssertNil(hold.finish(rawPositionMs: 25_000))
+        XCTAssertEqual(try XCTUnwrap(hold.finish(rawPositionMs: 19_000)).offsetMs, -1_000, "line 2 starts at 18 s")
         XCTAssertNil(hold.session)
+    }
+
+    func testASongWithOneTimedLineCanBeFixed() throws {
+        let hold = LyricsTimingHold()
+        let single = [SyncedLyricLine(id: 0, startTimeMs: 5_000, words: "Only line")]
+        hold.begin(songID: "song:a", lines: single, savedOffsetMs: 0, rawPositionMs: { 9_000 })
+        XCTAssertEqual(try XCTUnwrap(hold.finish(rawPositionMs: 9_000)).offsetMs, -4_000)
     }
 
     func testNoHoldWithoutTimedLines() {
@@ -152,7 +165,7 @@ final class LyricsTimingHoldTests: XCTestCase {
         let model = LyricsScrollRenderModel.timed(
             lines: lines,
             positionMs: 19_000,
-            hold: .init(lineID: 5, startLineID: 2, savedOffsetMs: 1_000, rawPositionMs: 18_000)
+            hold: .init(lineID: 5, rawPositionMs: 18_000)
         )
         XCTAssertEqual(model.activeID, 5)
         XCTAssertTrue(model.isHolding)
@@ -160,13 +173,13 @@ final class LyricsTimingHoldTests: XCTestCase {
         XCTAssertEqual(model.lines.first { $0.id == 5 }?.distance, 0)
     }
 
-    func testUntilTheHighlightMovesTheLabelShowsTheSongsTimingAsItIs() {
+    func testBeforeMovingTheLabelShowsWhatLettingGoWouldSave() {
         let model = LyricsScrollRenderModel.timed(
             lines: lines,
             positionMs: 19_000,
-            hold: .init(lineID: 2, startLineID: 2, savedOffsetMs: 1_000, rawPositionMs: 18_000)
+            hold: .init(lineID: 2, rawPositionMs: 18_000)
         )
-        XCTAssertEqual(model.holdShiftMs, 1_000)
+        XCTAssertEqual(model.holdShiftMs, 0, "line 2 starts at 18 s, the song is at 18 s")
     }
 
     /// Found in the app: with a saved shift that put the lyrics before the song's start, the
@@ -176,7 +189,7 @@ final class LyricsTimingHoldTests: XCTestCase {
         let model = LyricsScrollRenderModel.timed(
             lines: lines,
             positionMs: 0,
-            hold: .init(lineID: 2, startLineID: 0, savedOffsetMs: -47_000, rawPositionMs: 30_000)
+            hold: .init(lineID: 2, rawPositionMs: 30_000)
         )
         XCTAssertEqual(model.holdShiftMs, -12_000, "line 2 starts at 18 s, the song is at 30 s")
     }
@@ -305,6 +318,15 @@ final class LyricsTimingHoldTests: XCTestCase {
         // A mouse wheel notch is a line's worth.
         XCTAssertTrue(rig.input.handle(.scroll(deltaY: 2, precise: false)))
         XCTAssertEqual(rig.hold.session?.heldIndex, 2)
+    }
+
+    /// An input that goes away mid-press (its lyrics closed) must not leave Esc taken for good.
+    func testAnInputGoneMidPressNoLongerHoldsEsc() {
+        var rig: InputRig? = makeInput()
+        XCTAssertTrue(rig?.input.handle(.rightDown(.zero, inside: true)) == true)
+        XCTAssertTrue(LyricsTimingHoldInput.isHoldInProgress)
+        rig = nil
+        XCTAssertFalse(LyricsTimingHoldInput.isHoldInProgress)
     }
 
     func testScrollWithoutAHoldIsLeftToTheLyrics() {
