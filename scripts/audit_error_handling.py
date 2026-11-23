@@ -348,8 +348,8 @@ C_STATUS_VOID = re.compile(r'\(\s*void\s*\)\s*' + C_STATUS_CALL)
 # Core Audio API and the host's callbacks here; the driver's own `...Status`
 # helpers return void.
 C_STATUS_STATEMENT = re.compile(
-    r'^[ \t]*(?:[\w.>\-]*(?:->|\.))?(?:' + AUDIO_API +
-    r'|PropertiesChanged|RequestDeviceConfigurationChange|WriteMix)\s*\(', re.M)
+    r'(?<![\w.>\-])(?:[\w.>\-]*(?:->|\.))?(?:' + AUDIO_API +
+    r'|PropertiesChanged|RequestDeviceConfigurationChange|WriteMix)\s*\(')
 SWIFT_STATUS_DROP = re.compile(r'(?<![\w.])_\s*=\s*(?:try\s+)?(?:\w+\.)?(' + AUDIO_API + r')\s*\(')
 
 
@@ -370,10 +370,11 @@ def starts_statement(code, start):
 def rule_status_c(code):
     for m in C_STATUS_VOID.finditer(code):
         yield line_of(code, m.start())
+    # Anywhere a statement can start: at the start of a line, and also after
+    # `if (...)`, `{` or `;` on the same line.
     for m in C_STATUS_STATEMENT.finditer(code):
-        at = m.start() + len(m.group(0)) - len(m.group(0).lstrip())
-        if starts_statement(code, at):
-            yield line_of(code, at)
+        if starts_statement(code, m.start()):
+            yield line_of(code, m.start())
 
 
 def rule_status_swift(code):

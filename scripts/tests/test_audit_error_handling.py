@@ -273,13 +273,20 @@ class RulesFailOnNewCode(Fixture):
                     AudioDeviceStart(router->device, router->ioProc);
                 if (AudioDeviceStop(router->device, router->ioProc) != noErr) { log(); }
                 WriteRouterStatus("ready", uid, 0);
+                if (router->started) AudioDeviceStop(router->device, router->ioProc);
+                if (ok) { gPlugin.host->PropertiesChanged(gPlugin.host, id, 1, &addr); }
+                (void)AudioDeviceStart(router->device, router->ioProc);
+                return AudioDeviceStart(router->device, router->ioProc);
             }
             ''')
         code, out = self.audit()
         self.assertEqual(code, 1, out)
         self.assertIn('SpotiglassEQDriver/EQRouter.cpp:3: [ignored-status]', out)
         self.assertIn('SpotiglassEQDriver/EQRouter.cpp:4: [ignored-status]', out)
-        for line in (7, 8, 9):
+        self.assertIn('SpotiglassEQDriver/EQRouter.cpp:10: [ignored-status]', out)
+        self.assertIn('SpotiglassEQDriver/EQRouter.cpp:11: [ignored-status]', out)
+        self.assertIn('SpotiglassEQDriver/EQRouter.cpp:12: [ignored-status]', out)
+        for line in (7, 8, 9, 13):
             self.assertNotIn('EQRouter.cpp:%d:' % line, out)
 
     def test_formatting_the_error_is_not_logging_it(self):
