@@ -12,6 +12,8 @@ struct ImmersiveLyricsView: View {
     var followsOtherService = false
 
     @EnvironmentObject private var settingsStore: SpotiglassSettingsStore
+    /// Each song's own lyric timing, fixed by holding the lyrics (#640).
+    @ObservedObject private var timingStore = LyricsTimingStore.shared
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var isLyricsListFocused: Bool
@@ -29,9 +31,13 @@ struct ImmersiveLyricsView: View {
         settingsStore.settings.appearance.lyricsTextMetrics
     }
 
-    /// User's manual lyric sync nudge, in milliseconds.
+    /// This song's lyric timing shift, in milliseconds.
     private var lyricsOffsetMs: Int {
-        settingsStore.settings.appearance.lyricsOffsetMilliseconds
+        timingStore.offsetMs(for: currentTrack?.uri)
+    }
+
+    private var loadedLyrics: FetchedLyrics? {
+        if case let .ready(lyrics) = lyricsModel.phase { lyrics } else { nil }
     }
 
     var body: some View {
@@ -51,6 +57,14 @@ struct ImmersiveLyricsView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Right-click and hold anywhere on the lyrics to fix the song's timing (#640).
+        .lyricsTimingHold(
+            playbackViewModel: playbackViewModel,
+            songID: currentTrack?.uri,
+            lyrics: loadedLyrics,
+            textSize: lyricsTextSize,
+            store: timingStore
+        )
         // The lyrics fill the main column only: the sidebar, the toolbar (with Close lyrics) and
         // the player bar stay usable next to them, so this is not a modal surface (#438).
         .accessibilityElement(children: .contain)

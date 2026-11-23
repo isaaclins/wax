@@ -174,7 +174,6 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
             language: .german,
             colorScheme: .dark,
             lyricsTextSize: .large,
-            lyricsOffsetMilliseconds: 750,
             lyricsTextScale: 1.8
         )
         original.keybinds = [

@@ -5,7 +5,7 @@ import SwiftUI
 /// content re-renders on a new position (#409).
 struct LyricsPositionReader<Content: View>: View {
     @ObservedObject var playbackViewModel: PlaybackSessionViewModel
-    /// The user's lyric sync nudge, in milliseconds.
+    /// The song's lyric timing shift, in milliseconds.
     let offsetMs: Int
     @ViewBuilder let content: (_ positionMs: Int) -> Content
 
@@ -50,6 +50,22 @@ struct LyricsPositionReader<Content: View>: View {
         case .disconnected, .connecting, .ready, .transferring, .unavailable, .error:
             return 0
         }
+    }
+}
+
+/// Where the playing song is right now.
+@MainActor
+enum LyricsPlaybackPosition {
+    /// The song's position, without any lyric timing shift.
+    static func rawMs(playbackViewModel: PlaybackSessionViewModel, now: Date = Date()) -> Int {
+        let anchor = playbackViewModel.progress.anchor
+        if let anchor, anchor.isAdvancing {
+            return anchor.interpolatedPositionMs(at: now)
+        }
+        return LyricsPositionReader<EmptyView>.staticPositionMs(
+            anchor: anchor,
+            connectionState: playbackViewModel.connectionState
+        )
     }
 }
 
@@ -141,6 +157,8 @@ private struct LyricsPopOutPlayerView: View {
     /// are app-wide, so the main lyrics view and this window never fetch the same song twice.
     @StateObject private var lyricsModel: ImmersiveLyricsViewModel
     @EnvironmentObject private var settingsStore: SpotiglassSettingsStore
+    /// Each song's own lyric timing, fixed by holding the lyrics (#640).
+    @ObservedObject private var timingStore = LyricsTimingStore.shared
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -197,7 +215,7 @@ private struct LyricsPopOutPlayerView: View {
             if let track {
                 LyricsPositionReader(
                     playbackViewModel: playbackViewModel,
-                    offsetMs: settingsStore.settings.appearance.lyricsOffsetMilliseconds
+                    offsetMs: timingStore.offsetMs(for: lyricTrack?.uri)
                 ) { positionMs in
                     LyricsPopOutStripLine(
                         // Without lyrics there's no line to show, whatever the last song left.
@@ -215,11 +233,15 @@ private struct LyricsPopOutPlayerView: View {
         }
     }
 
+    private var loadedLyrics: FetchedLyrics? {
+        if case let .ready(lyrics) = lyricsModel.phase { lyrics } else { nil }
+    }
+
     private var fullLyrics: some View {
         GeometryReader { geo in
             LyricsPositionReader(
                 playbackViewModel: playbackViewModel,
-                offsetMs: settingsStore.settings.appearance.lyricsOffsetMilliseconds
+                offsetMs: timingStore.offsetMs(for: lyricTrack?.uri)
             ) { positionMs in
                 ImmersiveLyricsLyricsPhaseColumn(
                     lyricsModel: lyricsModel,
@@ -236,8 +258,17 @@ private struct LyricsPopOutPlayerView: View {
             }
         }
         // The lyrics scroll draws past its frame (for the active line's glow); in this small
-        // window that put scrolled-away lines under the title row.
-        .clipped()
+        // window that put scrolled-away lines under the title row. Sideways the timing hold's
+        // box around a line may reach past it (#640).
+        .clipShape(HorizontalOverhangClip(overhang: LyricsTimingHighlight.boxOverhang))
+        // Right-click and hold anywhere on the lyrics to fix the song's timing (#640).
+        .lyricsTimingHold(
+            playbackViewModel: playbackViewModel,
+            songID: lyricTrack?.uri,
+            lyrics: loadedLyrics,
+            textSize: settingsStore.settings.appearance.lyricsTextMetrics,
+            store: timingStore
+        )
     }
 
     private var controls: some View {
@@ -620,5 +651,14 @@ enum LyricsPopOutContent: Equatable {
 
     var status: (title: String, subtitle: String)? {
         if case let .status(title, subtitle, _) = self { (title, subtitle) } else { nil }
+    }
+}
+
+/// Clips above and below, and only `overhang` past the sides.
+struct HorizontalOverhangClip: Shape {
+    let overhang: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        Path(rect.insetBy(dx: -overhang, dy: 0))
     }
 }

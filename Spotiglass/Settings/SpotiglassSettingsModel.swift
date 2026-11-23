@@ -270,11 +270,6 @@ struct LyricsTextMetrics: Equatable {
 
 /// Shell appearance preferences persisted in ``SpotiglassSettingsFile``.
 struct AppearanceSettings: Codable, Equatable {
-    /// Largest lyric sync nudge the UI offers, in milliseconds, in either direction.
-    /// Positive values pull lyric lines *earlier* to compensate for the typical
-    /// fetch/playback-report lag; negative values push them later.
-    static let lyricsOffsetLimitMs = 2_000
-
     /// Allowed range for ``lyricsTextScale``. The upper bound is generous so the
     /// lyrics can get dramatically larger than the biggest preset.
     static let lyricsTextScaleRange: ClosedRange<Double> = 0.7...3.0
@@ -286,8 +281,6 @@ struct AppearanceSettings: Codable, Equatable {
     var language: AppLanguage
     var colorScheme: AppearanceColorScheme
     var lyricsTextSize: LyricsTextSize
-    /// Manual lyric timing nudge in milliseconds (see ``lyricsOffsetLimitMs``).
-    var lyricsOffsetMilliseconds: Int
     /// Continuous multiplier applied on top of the ``lyricsTextSize`` preset (1.0 = preset as-is).
     var lyricsTextScale: Double
 
@@ -300,13 +293,11 @@ struct AppearanceSettings: Codable, Equatable {
         language: AppLanguage = AppLanguage.resolvedDefault(),
         colorScheme: AppearanceColorScheme = .system,
         lyricsTextSize: LyricsTextSize = .medium,
-        lyricsOffsetMilliseconds: Int = 0,
         lyricsTextScale: Double = 1.0
     ) {
         self.language = language
         self.colorScheme = colorScheme
         self.lyricsTextSize = lyricsTextSize
-        self.lyricsOffsetMilliseconds = Self.clampOffset(lyricsOffsetMilliseconds)
         self.lyricsTextScale = Self.clampedLyricsTextScale(lyricsTextScale)
     }
 
@@ -332,16 +323,6 @@ struct AppearanceSettings: Codable, Equatable {
             default: .medium,
             tracker: tracker
         )
-        let rawOffset = container.decodeRepairing(
-            Int.self,
-            forKey: .lyricsOffsetMilliseconds,
-            default: 0,
-            tracker: tracker
-        )
-        lyricsOffsetMilliseconds = Self.clampOffset(rawOffset)
-        if rawOffset != lyricsOffsetMilliseconds {
-            tracker?.noteRepair(at: container.codingPath + [CodingKeys.lyricsOffsetMilliseconds], "\(rawOffset) is out of range, set to \(lyricsOffsetMilliseconds)")
-        }
         let rawScale = container.decodeRepairing(
             Double.self,
             forKey: .lyricsTextScale,
@@ -354,16 +335,10 @@ struct AppearanceSettings: Codable, Equatable {
         }
     }
 
-    /// Keeps a (possibly hand-edited or future-version) offset within the supported range.
-    static func clampOffset(_ value: Int) -> Int {
-        min(max(value, -lyricsOffsetLimitMs), lyricsOffsetLimitMs)
-    }
-
     private enum CodingKeys: String, CodingKey {
         case language
         case colorScheme
         case lyricsTextSize
-        case lyricsOffsetMilliseconds
         case lyricsTextScale
     }
 }

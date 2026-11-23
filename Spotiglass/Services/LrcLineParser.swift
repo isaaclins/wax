@@ -32,7 +32,7 @@ enum LrcLineParser {
         }
     }
 
-    /// Applies the user's manual lyric sync nudge to a raw playback position.
+    /// Applies the song's lyric timing shift (#640) to a raw playback position.
     ///
     /// A positive `offsetMs` advances lyric selection (lines appear earlier, to
     /// compensate for the usual fetch/playback-report lag); a negative value

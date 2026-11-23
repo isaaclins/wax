@@ -63,12 +63,26 @@ struct ImmersiveLyricsReadyContentView: View {
     let usesLyricsScrollEdgeFade: Bool
     let lyricsTextSize: LyricsTextMetrics
     var onSeek: ((Int) -> Void)? = nil
+    @Environment(\.lyricsTimingHold) private var timingHold
+
+    /// The held line while the lyrics are held to fix their timing (#640).
+    private var hold: LyricsScrollRenderModel.Hold? {
+        guard let session = timingHold?.session else { return nil }
+        return LyricsScrollRenderModel.Hold(
+            lineID: session.lines[session.heldIndex].id,
+            startLineID: session.lines[session.startIndex].id,
+            savedOffsetMs: session.savedOffsetMs,
+            // Read on every frame the lyrics draw, so the label follows the music.
+            rawPositionMs: timingHold?.rawPositionMs() ?? positionMs
+        )
+    }
 
     var body: some View {
         switch ImmersiveLyricsReadyContentModel.renderModel(
             for: lyrics,
             positionMs: positionMs,
-            trackDurationMs: trackDurationMs
+            trackDurationMs: trackDurationMs,
+            hold: hold
         ) {
         case .instrumental:
             Text(SpotiglassL10n.string("lyrics.instrumental"))

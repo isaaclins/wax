@@ -136,6 +136,7 @@
 		E50000000000000000000010 /* LrcParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000001E /* LrcParsingTests.swift */; };
 		E50000000000000000000020 /* LyricsOverlayController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000001F /* LyricsOverlayController.swift */; };
 		E50000000000000000000022 /* LyricsDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000023 /* LyricsDiskCache.swift */; };
+		A1737BDF9C87A70336523100 /* LyricsHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1186497CD7437D37A68316BB /* LyricsHaptics.swift */; };
 		E50000000000000000000024 /* LrcLibClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000025 /* LrcLibClientTests.swift */; };
 		E50000000000000000000040 /* PlaybackOutputSFResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000041 /* PlaybackOutputSFResolver.swift */; };
 		E50000000000000000000042 /* MacDefaultAudioOutputNameProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000043 /* MacDefaultAudioOutputNameProvider.swift */; };
@@ -158,6 +159,10 @@
 		E50000000000000000000082 /* ImmersiveLyricsLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000007A /* ImmersiveLyricsLayout.swift */; };
 		LPO439000000000000000012 /* LyricsPopOutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = LPO439000000000000000002 /* LyricsPopOutView.swift */; };
 		LPO439000000000000000011 /* LyricsPopOutWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = LPO439000000000000000001 /* LyricsPopOutWindow.swift */; };
+		6324AC691355C0FE1C95DD29 /* LyricsTimingHold.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BD08E178822A83F14D0C1A8 /* LyricsTimingHold.swift */; };
+		CB938939B34512C54C82971A /* LyricsTimingHoldSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3010185EE0ADCCB835329A51 /* LyricsTimingHoldSurface.swift */; };
+		29BA3B9754F245C2663FE20E /* LyricsTimingHoldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACEC7C74993E8046CCBBAEF2 /* LyricsTimingHoldTests.swift */; };
+		25E301C06D4760860236FBF5 /* LyricsTimingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CDCE5D50C3B77F6C1326AD1 /* LyricsTimingStore.swift */; };
 		E50000000000000000000083 /* ImmersiveLyricsLeftColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000007B /* ImmersiveLyricsLeftColumn.swift */; };
 		E50000000000000000000084 /* ImmersiveLyricsNextInQueueSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000007C /* ImmersiveLyricsNextInQueueSection.swift */; };
 		E50000000000000000000085 /* ImmersiveLyricsPhaseColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000007D /* ImmersiveLyricsPhaseColumn.swift */; };
@@ -629,6 +634,7 @@
 		E5000000000000000000001E /* LrcParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LrcParsingTests.swift; sourceTree = "<group>"; };
 		E5000000000000000000001F /* LyricsOverlayController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsOverlayController.swift; sourceTree = "<group>"; };
 		E50000000000000000000023 /* LyricsDiskCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsDiskCache.swift; sourceTree = "<group>"; };
+		1186497CD7437D37A68316BB /* LyricsHaptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsHaptics.swift; sourceTree = "<group>"; };
 		E50000000000000000000025 /* LrcLibClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LrcLibClientTests.swift; sourceTree = "<group>"; };
 		E50000000000000000000041 /* PlaybackOutputSFResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackOutputSFResolver.swift; sourceTree = "<group>"; };
 		E50000000000000000000043 /* MacDefaultAudioOutputNameProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacDefaultAudioOutputNameProvider.swift; sourceTree = "<group>"; };
@@ -651,6 +657,10 @@
 		E5000000000000000000007A /* ImmersiveLyricsLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersiveLyricsLayout.swift; sourceTree = "<group>"; };
 		LPO439000000000000000002 /* LyricsPopOutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsPopOutView.swift; sourceTree = "<group>"; };
 		LPO439000000000000000001 /* LyricsPopOutWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsPopOutWindow.swift; sourceTree = "<group>"; };
+		7BD08E178822A83F14D0C1A8 /* LyricsTimingHold.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsTimingHold.swift; sourceTree = "<group>"; };
+		3010185EE0ADCCB835329A51 /* LyricsTimingHoldSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsTimingHoldSurface.swift; sourceTree = "<group>"; };
+		ACEC7C74993E8046CCBBAEF2 /* LyricsTimingHoldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsTimingHoldTests.swift; sourceTree = "<group>"; };
+		7CDCE5D50C3B77F6C1326AD1 /* LyricsTimingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsTimingStore.swift; sourceTree = "<group>"; };
 		E5000000000000000000007B /* ImmersiveLyricsLeftColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersiveLyricsLeftColumn.swift; sourceTree = "<group>"; };
 		E5000000000000000000007C /* ImmersiveLyricsNextInQueueSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersiveLyricsNextInQueueSection.swift; sourceTree = "<group>"; };
 		E5000000000000000000007D /* ImmersiveLyricsPhaseColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersiveLyricsPhaseColumn.swift; sourceTree = "<group>"; };
@@ -1107,6 +1117,7 @@
 				PRO00000000000000000000F7 /* SpotifyDTOs+Search.swift */,
 				PRO00000000000000000000F8 /* HTTPClient.swift */,
 				E5000000000000000000001A /* LrcLineParser.swift */,
+				7CDCE5D50C3B77F6C1326AD1 /* LyricsTimingStore.swift */,
 				E5000000000000000000001B /* LrcLibClient.swift */,
 				728E7A072FEAA69600FB3C01 /* SpotifyDTOs+Home.swift */,
 				728E7A092FEAA69C00FB3C01 /* SpotifyAPIClient+Home.swift */,
@@ -1255,6 +1266,7 @@
 				TST0000000000000000010104 /* CommandPaletteShortcutCoverageTests.swift */,
 				TST0000000000000000010103 /* CommandPaletteManagerKeyEventTests.swift */,
 				LPO439000000000000000003 /* LyricsPopOutTests.swift */,
+				ACEC7C74993E8046CCBBAEF2 /* LyricsTimingHoldTests.swift */,
 				229A9559D6BDA3D94DA53A79 /* MainWindowLanguageSwitchTests.swift */,
 				0DCEB90D25003FA7DD4F0A7A /* MainWindowLiveSettingsTests.swift */,
 				TST0000000000000000010102 /* LyricsOverlayControllerTests.swift */,
@@ -1494,10 +1506,13 @@
 				E5000000000000000000007A /* ImmersiveLyricsLayout.swift */,
 				LPO439000000000000000002 /* LyricsPopOutView.swift */,
 				LPO439000000000000000001 /* LyricsPopOutWindow.swift */,
+				7BD08E178822A83F14D0C1A8 /* LyricsTimingHold.swift */,
+				3010185EE0ADCCB835329A51 /* LyricsTimingHoldSurface.swift */,
 				E5000000000000000000007B /* ImmersiveLyricsLeftColumn.swift */,
 				E5000000000000000000007C /* ImmersiveLyricsNextInQueueSection.swift */,
 				E5000000000000000000007D /* ImmersiveLyricsPhaseColumn.swift */,
 				E5000000000000000000007E /* ImmersiveLyricsScrollViews.swift */,
+				1186497CD7437D37A68316BB /* LyricsHaptics.swift */,
 			);
 			path = ImmersiveLyrics;
 			sourceTree = "<group>";
@@ -1868,6 +1883,7 @@
 				BB10000000000000000000008 /* ArtistBrowsingModels.swift in Sources */,
 				BB10000000000000000000009 /* ArtistFallbackCooldownStore.swift in Sources */,
 				E50000000000000000000022 /* LyricsDiskCache.swift in Sources */,
+				A1737BDF9C87A70336523100 /* LyricsHaptics.swift in Sources */,
 				P10000000000000000000002 /* PinnedItem.swift in Sources */,
 				P10000000000000000000003 /* PinnedItemTransfer.swift in Sources */,
 				P10000000000000000000004 /* PinnedItemsCache.swift in Sources */,
@@ -1922,6 +1938,9 @@
 				E50000000000000000000082 /* ImmersiveLyricsLayout.swift in Sources */,
 				LPO439000000000000000012 /* LyricsPopOutView.swift in Sources */,
 				LPO439000000000000000011 /* LyricsPopOutWindow.swift in Sources */,
+				6324AC691355C0FE1C95DD29 /* LyricsTimingHold.swift in Sources */,
+				CB938939B34512C54C82971A /* LyricsTimingHoldSurface.swift in Sources */,
+				25E301C06D4760860236FBF5 /* LyricsTimingStore.swift in Sources */,
 				E50000000000000000000083 /* ImmersiveLyricsLeftColumn.swift in Sources */,
 				E50000000000000000000084 /* ImmersiveLyricsNextInQueueSection.swift in Sources */,
 				E50000000000000000000085 /* ImmersiveLyricsPhaseColumn.swift in Sources */,
@@ -2117,6 +2136,7 @@
 				TST0000000000000000000104 /* CommandPaletteShortcutCoverageTests.swift in Sources */,
 				TST0000000000000000000103 /* CommandPaletteManagerKeyEventTests.swift in Sources */,
 				LPO439000000000000000013 /* LyricsPopOutTests.swift in Sources */,
+				29BA3B9754F245C2663FE20E /* LyricsTimingHoldTests.swift in Sources */,
 				401E4AC78673A0C53DDD9B0E /* MainWindowLanguageSwitchTests.swift in Sources */,
 				17D206BF00FBB16E91E45A38 /* MainWindowLiveSettingsTests.swift in Sources */,
 				TST0000000000000000000102 /* LyricsOverlayControllerTests.swift in Sources */,

@@ -90,26 +90,14 @@ final class LrcParsingTests: XCTestCase {
         XCTAssertEqual(LrcLineParser.effectivePositionMs(positionMs: 1_000, offsetMs: 500), 1_500)
     }
 
-    func testAppearanceSettingsDefaultsOffsetToZeroForLegacyFiles() throws {
-        // Older settings.json predates the offset key entirely.
-        let legacy = Data(#"{"colorScheme":"dark"}"#.utf8)
+    func testAppearanceSettingsIgnoresTheRetiredGlobalOffset() throws {
+        // The global offset slider is gone (#640): a file that still has its value reads the
+        // rest as before and drops the value on the next save.
+        let legacy = Data(#"{"colorScheme":"dark","lyricsOffsetMilliseconds":750}"#.utf8)
         let decoded = try JSONDecoder().decode(AppearanceSettings.self, from: legacy)
-        XCTAssertEqual(decoded.lyricsOffsetMilliseconds, 0)
-    }
-
-    func testAppearanceSettingsClampsOutOfRangeOffset() throws {
-        let tooHigh = Data(#"{"lyricsOffsetMilliseconds":999999}"#.utf8)
-        let tooLow = Data(#"{"lyricsOffsetMilliseconds":-999999}"#.utf8)
-        XCTAssertEqual(
-            try JSONDecoder().decode(AppearanceSettings.self, from: tooHigh).lyricsOffsetMilliseconds,
-            AppearanceSettings.lyricsOffsetLimitMs
-        )
-        XCTAssertEqual(
-            try JSONDecoder().decode(AppearanceSettings.self, from: tooLow).lyricsOffsetMilliseconds,
-            -AppearanceSettings.lyricsOffsetLimitMs
-        )
-        // In-range values survive untouched.
-        XCTAssertEqual(AppearanceSettings(lyricsOffsetMilliseconds: 500).lyricsOffsetMilliseconds, 500)
+        XCTAssertEqual(decoded.colorScheme, .dark)
+        let saved = try XCTUnwrap(String(data: JSONEncoder().encode(decoded), encoding: .utf8))
+        XCTAssertFalse(saved.contains("lyricsOffsetMilliseconds"))
     }
 
     func testActivePlainLineIndex() {

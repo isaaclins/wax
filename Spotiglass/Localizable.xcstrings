@@ -6854,6 +6854,98 @@
         }
       }
     },
+    "lyrics.timing.later": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Songtext %@ s später"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lyrics %@ s later"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letra %@ s después"
+          }
+        }
+      }
+    },
+    "lyrics.timing.original": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Originales Timing"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Original timing"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiempo original"
+          }
+        }
+      }
+    },
+    "lyrics.timing.reset": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timing zurücksetzen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset timing"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restablecer tiempo"
+          }
+        }
+      }
+    },
+    "lyrics.timing.sooner": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Songtext %@ s früher"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lyrics %@ s sooner"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letra %@ s antes"
+          }
+        }
+      }
+    },
     "lyrics.tryAgain": {
       "extractionState": "stale",
       "localizations": {
@@ -13527,190 +13619,6 @@
         }
       }
     },
-    "settings.appearance.lyricsOffset": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Songtext-Synchronisierung"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lyric sync"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sincronización de letras"
-          }
-        }
-      }
-    },
-    "settings.appearance.lyricsOffset.earlier": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Früher"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Earlier"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Antes"
-          }
-        }
-      }
-    },
-    "settings.appearance.lyricsOffset.hint": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Passe das Timing der Songtexte an, falls Zeilen zu früh oder zu spät erscheinen. Ziehe in Richtung „Früher“, damit Zeilen eher erscheinen, praktisch, wenn der Text dem Ton etwas hinterherhinkt."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nudge lyric timing if lines feel early or late. Drag toward “Earlier” so lines appear sooner, handy when lyrics lag a little behind the audio."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajusta la sincronización si las líneas aparecen antes o después de tiempo. Arrastra hacia «Antes» para que las líneas aparezcan más pronto, útil cuando la letra va un poco por detrás del audio."
-          }
-        }
-      }
-    },
-    "settings.appearance.lyricsOffset.inSync": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Synchron"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In sync"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sincronizado"
-          }
-        }
-      }
-    },
-    "settings.appearance.lyricsOffset.later": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Später"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Later"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Después"
-          }
-        }
-      }
-    },
-    "settings.appearance.lyricsOffset.reset": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auf synchron zurücksetzen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reset to in sync"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restablecer a sincronizado"
-          }
-        }
-      }
-    },
-    "settings.appearance.lyricsOffset.value.earlier": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ s früher"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ s earlier"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ s antes"
-          }
-        }
-      }
-    },
-    "settings.appearance.lyricsOffset.value.later": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ s später"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ s later"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ s después"
-          }
-        }
-      }
-    },
     "settings.appearance.lyricsPreview.label.generic": {
       "extractionState": "manual",
       "localizations": {
@@ -13937,6 +13845,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Controla el tamaño de fuente y el espaciado entre líneas en la vista inmersiva de letras."
+          }
+        }
+      }
+    },
+    "settings.appearance.lyricsTiming.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Songtext nicht synchron? Halte den Songtext während des Songs mit einem Rechtsklick gedrückt, zieh die gesungene Zeile in die Markierung und lass los. Das Timing wird für diesen Song gespeichert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lyrics out of sync? While the song plays, right-click and hold the lyrics, drag the line being sung into the highlight and let go. The timing is saved for that song."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿La letra no va sincronizada? Mientras suena la canción, mantén pulsado el clic derecho sobre la letra, arrastra la línea que se canta hasta el resaltado y suelta. El ajuste se guarda para esa canción."
           }
         }
       }

@@ -74,6 +74,35 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
         XCTAssertTrue(manager.handleKeyEvent(keyDown(keyCode: 53)))
     }
 
+    /// #640: Esc while the lyrics are held to fix their timing cancels the hold. The palette's
+    /// monitor sees it first and closed the lyrics instead, saving the hold on release.
+    func testEscapeDuringALyricsTimingHoldIsLeftToTheHold() {
+        let manager = CommandPaletteManager()
+        var dismissed = false
+        manager.dismissLyricsOverlayIfPresented = {
+            dismissed = true
+            return true
+        }
+        let line = SyncedLyricLine(id: 0, startTimeMs: 0, words: "Line")
+        let input = LyricsTimingHoldInput(
+            hold: LyricsTimingHold(),
+            store: LyricsTimingStore(defaults: UserDefaults(suiteName: "CommandPaletteManagerKeyEventTests-hold")!),
+            haptics: SilentLyricsHaptics()
+        ) {
+            LyricsTimingHoldInput.Context(songID: "song", lines: [line], savedOffsetMs: 0, rawPositionMs: { 0 }, linePitch: 40)
+        }
+        XCTAssertTrue(input.handle(.rightDown(.zero, inside: true)))
+        XCTAssertTrue(LyricsTimingHoldInput.isHoldInProgress)
+
+        XCTAssertFalse(manager.handleKeyEvent(keyDown(keyCode: 53)))
+        XCTAssertFalse(dismissed)
+
+        XCTAssertTrue(input.handle(.rightUp(.zero)))
+        XCTAssertFalse(LyricsTimingHoldInput.isHoldInProgress)
+        XCTAssertTrue(manager.handleKeyEvent(keyDown(keyCode: 53)), "after the hold Esc closes the lyrics again")
+        XCTAssertTrue(dismissed)
+    }
+
     /// #438: the sidebar stays usable next to the lyrics. Escape while renaming a playlist
     /// there cancelled nothing and closed the lyrics instead; it belongs to the text field.
     func testEscapeInATextFieldNextToTheLyricsLeavesThemOpen() {
@@ -645,4 +674,10 @@ private final class TestFocusedKeyEventOwnerView: NSView, FocusedKeyEventOwner {
 
 private final class LyricsKeyTestResponderView: NSView {
     override var acceptsFirstResponder: Bool { true }
+}
+
+private final class SilentLyricsHaptics: LyricsHaptics {
+    func holdStarted() {}
+    func lineChanged() {}
+    func saved() {}
 }
