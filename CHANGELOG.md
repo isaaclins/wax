@@ -2,6 +2,13 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.60] - 2026-11-23
+
+### Fixed
+
+- Hold the lyrics and drag the line being sung into the middle to fix a song's lyric timing, and the fix is saved for each song.
+- Clicking a lyrics line now jumps to the right spot when a song has a timing shift.
+
 ## [0.8.59] - 2026-11-18
 
 ### Fixed
