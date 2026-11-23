@@ -88,12 +88,14 @@ def sid(prefix, text):
 
 
 class Library:
-    def __init__(self, spec, resolved, base):
+    def __init__(self, spec, resolved, base, long_playlist=0):
         self.base = base
         self.user = spec.get("user", "Sample")
         self.tracks = [self._track(t) for t in resolved]
         self.by_title = {t["requested"]: track for t, track in zip(resolved, self.tracks)}
         self.playlists = [self._playlist(p) for p in spec["playlists"]]
+        if long_playlist:
+            self.playlists.append(self._long_playlist(long_playlist))
         now = spec.get("nowPlaying", "")
         self.now_playing = self.by_title.get(now, self.tracks[0])
         self.started = time.time() - 111  # a little under two minutes into the song
@@ -133,6 +135,16 @@ class Library:
                 "items": {"total": len(tracks), "href": f"{self.base}/v1/playlists/{pid}/items"},
                 "href": f"{self.base}/v1/playlists/{pid}", "external_urls": {"spotify": "https://open.spotify.com"},
                 "_tracks": tracks}
+
+    def _long_playlist(self, count):
+        """A playlist of `count` songs for timing big pages (#473): the library over and over, each copy
+        with its own id, like a real playlist of that many different songs."""
+        tracks = [dict(t, id=f"{t['id']}x{i}", uri=f"spotify:track:{t['id']}x{i}")
+                  for i, t in ((i, self.tracks[i % len(self.tracks)]) for i in range(count))]
+        playlist = self._playlist({"name": "Long Mix", "tracks": []})
+        playlist.update(images=tracks[0]["album"]["images"], _tracks=tracks)
+        playlist["tracks"]["total"] = playlist["items"]["total"] = count
+        return playlist
 
     def artists(self):
         seen = {}
@@ -385,13 +397,15 @@ def main():
     parser.add_argument("--library", type=Path, default=HERE / "sample-library.json")
     parser.add_argument("--cache", type=Path, default=Path("build/screenshot-mode/library-cache.json"))
     parser.add_argument("--now-playing", help="title of the track shown as playing (default: from the library)")
+    parser.add_argument("--long-playlist", type=int, default=0, metavar="N",
+                        help="add a playlist \"Long Mix\" with N songs (to time big pages)")
     args = parser.parse_args()
 
     spec = json.loads(args.library.read_text())
     if args.now_playing:
         spec["nowPlaying"] = args.now_playing
     base = f"http://127.0.0.1:{args.port}"
-    lib = Library(spec, resolve_tracks(spec["tracks"], args.cache), base)
+    lib = Library(spec, resolve_tracks(spec["tracks"], args.cache), base, args.long_playlist)
     print(f"mock: {len(lib.tracks)} tracks, {len(lib.playlists)} playlists, playing "
           f"{lib.now_playing['name']} on {base}", file=sys.stderr)
     ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(lib)).serve_forever()

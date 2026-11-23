@@ -3,7 +3,7 @@
 # No Spotify account, Premium, Keychain item or audio driver is used. See docs/screenshots.md.
 #
 #   scripts/screenshots.sh start [--light] [--now-playing "Title"] [--with-apple-music] [--release]
-#                                                                     build, start mock, launch app
+#                                [--long-playlist N]                  build, start mock, launch app
 #   scripts/screenshots.sh resize [rounds] [steps] [max-ms-per-step]  time resizes like a window manager
 #   scripts/screenshots.sh shot <name> [window-title]                 capture a window to $SHOTS_DIR/<name>.png
 #   scripts/screenshots.sh key <keycode> [cmd] [shift] [alt] [ctrl]    press a shortcut, e.g. `key 40 cmd` = ⌘K
@@ -25,7 +25,7 @@ APP="$WORK/Wax.app"
 FAKE_HOME="$WORK/home"
 WINDOW_FRAME="${WINDOW_FRAME:-120, 80, 1320, 860}"   # x, y, width, height in points
 
-usage() { sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
+usage() { sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
 # --with-apple-music runs under the real bundle id (MusicKit issues its developer token for that id
 # only), so the real app's defaults domain is saved at start and put back at stop.
@@ -84,18 +84,24 @@ SWIFT
 }
 
 start() {
-    local scheme="dark" now_playing="" apple_music=0 configuration="Debug"
+    local scheme="dark" now_playing="" apple_music=0 configuration="Debug" long_playlist=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --light) scheme="light" ;;
             --now-playing) now_playing="$2"; shift ;;
             --with-apple-music) apple_music=1 ;;
             --release) configuration="Release" ;;
+            --long-playlist) long_playlist="$2"; shift ;;
             *) usage ;;
         esac
         shift
     done
     [ -z "$(app_pid)" ] || { echo "screenshots: already running; run 'stop' first" >&2; exit 1; }
+    # Another checkout's mock on the same port would answer the mock's health check, and the app
+    # would show that library instead (without --long-playlist, say).
+    if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
+        echo "screenshots: port $PORT is taken by another run; set SPOTIGLASS_MOCK_PORT" >&2; exit 1
+    fi
     if [ "$apple_music" = 1 ]; then
         # Refuse before the build. The backups are claimed only once the copy is staged, so a run
         # refused on the way never holds them until `stop`.
@@ -144,7 +150,7 @@ JSON
 
     echo "==> starting mock on 127.0.0.1:$PORT"
     python3 scripts/screenshot-mode/mock_spotify.py --port "$PORT" --cache "$WORK/library-cache.json" \
-        ${now_playing:+--now-playing "$now_playing"} >"$WORK/mock.log" 2>&1 &
+        ${now_playing:+--now-playing "$now_playing"} ${long_playlist:+--long-playlist "$long_playlist"} >"$WORK/mock.log" 2>&1 &
     echo $! >"$WORK/mock.pid"
     for _ in $(seq 1 120); do
         curl -sf "http://127.0.0.1:$PORT/health" >/dev/null && break
