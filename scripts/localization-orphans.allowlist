@@ -38,8 +38,6 @@ palette.command.service.switch.spotify.title
 palette.command.view.sidebar.toggle.subtitle
 palette.command.view.sidebar.toggle.title
 
-# Runtime-selected AppearanceSettingsView lookup.
-
 # The default macOS View menu owns this top-level title; the app only adds
 # command groups to it, so SwiftUI has no source lookup for the title itself.
 menu.view.title

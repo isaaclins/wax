@@ -172,7 +172,8 @@ struct ImmersiveLyricsView: View {
             positionMs: positionMs,
             reduceMotion: reduceMotion,
             usesLyricsScrollEdgeFade: usesLyricsScrollEdgeFade,
-            lyricsTextSize: lyricsTextSize
+            lyricsTextSize: lyricsTextSize,
+            lyricsOffsetMs: lyricsOffsetMs
         )
     }
 }

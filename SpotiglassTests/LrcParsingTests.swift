@@ -90,6 +90,17 @@ final class LrcParsingTests: XCTestCase {
         XCTAssertEqual(LrcLineParser.effectivePositionMs(positionMs: 1_000, offsetMs: 500), 1_500)
     }
 
+    /// #640: a clicked line plays from where it's sung with the song's shift. Lyrics shown 30 s
+    /// sooner put the line stamped 60 s at 30 s into the song.
+    func testClickedLineSeeksToWhereItIsSungWithTheShift() {
+        XCTAssertEqual(LrcLineParser.songPositionMs(lyricsPositionMs: 60_000, offsetMs: 30_000), 30_000)
+        XCTAssertEqual(LrcLineParser.songPositionMs(lyricsPositionMs: 60_000, offsetMs: -5_000), 65_000)
+        XCTAssertEqual(LrcLineParser.songPositionMs(lyricsPositionMs: 60_000, offsetMs: 0), 60_000)
+        XCTAssertEqual(LrcLineParser.songPositionMs(lyricsPositionMs: 2_000, offsetMs: 9_000), 0, "never before the song starts")
+        // The line it seeks to is the one the lyrics then highlight.
+        XCTAssertEqual(LrcLineParser.effectivePositionMs(positionMs: 30_000, offsetMs: 30_000), 60_000)
+    }
+
     func testAppearanceSettingsIgnoresTheRetiredGlobalOffset() throws {
         // The global offset slider is gone (#640): a file that still has its value reads the
         // rest as before and drops the value on the next save.

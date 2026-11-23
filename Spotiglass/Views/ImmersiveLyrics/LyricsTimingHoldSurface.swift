@@ -214,6 +214,8 @@ final class LyricsTimingHoldView: NSView {
         case .rightMouseUp:
             return .rightUp(event.locationInWindow)
         case .scrollWheel:
+            // Scrolling in another window stays that window's.
+            guard event.window === window else { return nil }
             return .scroll(deltaY: event.scrollingDeltaY, precise: event.hasPreciseScrollingDeltas)
         case .keyDown where event.keyCode == Self.escapeKeyCode:
             return .escape

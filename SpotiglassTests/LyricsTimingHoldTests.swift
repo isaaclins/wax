@@ -336,6 +336,18 @@ final class LyricsTimingHoldTests: XCTestCase {
         XCTAssertEqual(rig.hold.session?.heldIndex, 4)
     }
 
+    func testASidewaysDragLeavesScrollingWorking() async {
+        let rig = makeInput()
+        _ = rig.input.handle(.rightDown(CGPoint(x: 0, y: 0), inside: true))
+        let armed = await rig.clock.waitForSleepers()
+        XCTAssertTrue(armed)
+        rig.clock.advance(by: LyricsTimingHoldInput.holdDelay)
+        await waitUntil { rig.hold.session != nil }
+        _ = rig.input.handle(.rightDragged(CGPoint(x: 30, y: 0)))
+        XCTAssertTrue(rig.input.handle(.scroll(deltaY: -40, precise: true)))
+        XCTAssertEqual(rig.hold.session?.heldIndex, 3)
+    }
+
     /// An input that goes away mid-press (its lyrics closed) must not leave Esc taken for good.
     func testAnInputGoneMidPressNoLongerHoldsEsc() {
         var rig: InputRig? = makeInput()
@@ -503,8 +515,14 @@ final class LyricsTimingHoldTests: XCTestCase {
         XCTAssertTrue(surface.route(escape) === escape, "Esc without a hold still closes the lyrics")
 
         let scroll = try XCTUnwrap(CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: 12, wheel2: 0, wheel3: 0))
-        let scrollEvent = try XCTUnwrap(NSEvent(cgEvent: scroll))
-        XCTAssertEqual(surface.holdEvent(for: scrollEvent), .scroll(deltaY: scrollEvent.scrollingDeltaY, precise: scrollEvent.hasPreciseScrollingDeltas))
+        let elsewhere = try XCTUnwrap(NSEvent(cgEvent: scroll))
+        XCTAssertNil(surface.holdEvent(for: elsewhere), "scrolling in another window stays that window's")
+        scroll.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(window.windowNumber))
+        scroll.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(window.windowNumber))
+        let here = try XCTUnwrap(NSEvent(cgEvent: scroll))
+        if here.window === window {
+            XCTAssertEqual(surface.holdEvent(for: here), .scroll(deltaY: here.scrollingDeltaY, precise: here.hasPreciseScrollingDeltas))
+        }
     }
 
     func testRightClickOutsideTheSurfaceIsLeftAlone() throws {

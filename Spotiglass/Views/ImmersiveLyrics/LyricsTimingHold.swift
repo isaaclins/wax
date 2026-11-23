@@ -129,7 +129,8 @@ final class LyricsTimingHoldInput {
         case ignoringUntilUp
     }
 
-    static let holdDelay: Duration = .milliseconds(250)
+    /// Long enough that an ordinary right click doesn't start a hold.
+    static let holdDelay: Duration = .milliseconds(400)
     static let dragSlop: CGFloat = 4
 
     let hold: LyricsTimingHold
@@ -273,7 +274,9 @@ final class LyricsTimingHoldInput {
 
     private func dragHold(contentUpBy points: CGFloat, to point: CGPoint, isPointerDrag: Bool = true) {
         guard case let .holding(_, dragging) = phase else { return }
-        phase = .holding(last: point, dragging: dragging || isPointerDrag)
+        // Only a pointer drag that moved up or down stands for the motion a trackpad may also
+        // report as scrolling; a sideways one leaves scrolling working.
+        phase = .holding(last: point, dragging: dragging || (isPointerDrag && points != 0))
         let pitch = context()?.linePitch ?? 0
         if hold.drag(contentUpBy: points, linePitch: pitch) != 0 {
             haptics.lineChanged()

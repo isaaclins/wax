@@ -252,7 +252,11 @@ private struct LyricsPopOutPlayerView: View {
                     lyricsTextSize: settingsStore.settings.appearance.lyricsTextMetrics,
                     maxHeight: geo.size.height,
                     onSeek: { ms in
-                        Task { await playbackViewModel.seek(to: ms) }
+                        let target = LrcLineParser.songPositionMs(
+                            lyricsPositionMs: ms,
+                            offsetMs: timingStore.offsetMs(for: lyricTrack?.uri)
+                        )
+                        Task { await playbackViewModel.seek(to: target) }
                     }
                 )
             }

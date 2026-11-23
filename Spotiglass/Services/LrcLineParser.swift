@@ -32,14 +32,18 @@ enum LrcLineParser {
         }
     }
 
-    /// Applies the song's lyric timing shift (#640) to a raw playback position.
-    ///
-    /// A positive `offsetMs` advances lyric selection (lines appear earlier, to
-    /// compensate for the usual fetch/playback-report lag); a negative value
-    /// delays it. The result is floored at zero so the very first line never
-    /// gets skipped by a large negative offset.
+    /// Applies the song's lyric timing shift (#640), set by holding the lyrics, to a raw
+    /// playback position. A positive `offsetMs` shows the lyrics sooner (a later line is
+    /// highlighted now); a negative one later. The result is floored at zero so the very first
+    /// line never gets skipped by a large negative offset.
     static func effectivePositionMs(positionMs: Int, offsetMs: Int) -> Int {
         max(0, positionMs + offsetMs)
+    }
+
+    /// Where in the song a lyric timestamp is sung with the song's shift applied: the seek
+    /// target of a clicked line (#640).
+    static func songPositionMs(lyricsPositionMs: Int, offsetMs: Int) -> Int {
+        max(0, lyricsPositionMs - offsetMs)
     }
 
     /// Last line whose `startTimeMs` is at or before `positionMs` (clamped).

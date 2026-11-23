@@ -12,6 +12,8 @@ struct ImmersiveLyricsMainLayout: View {
     let reduceMotion: Bool
     let usesLyricsScrollEdgeFade: Bool
     let lyricsTextSize: LyricsTextMetrics
+    /// The song's lyric timing shift: a clicked line plays from where it's sung with it.
+    var lyricsOffsetMs = 0
     /// Height of the narrow header, measured: a long title or artist line wraps and makes it
     /// taller than its 64 pt cover.
     @State private var compactHeaderHeight = SpotiglassDesign.Layout.lyricsCompactArtworkSize
@@ -21,7 +23,8 @@ struct ImmersiveLyricsMainLayout: View {
     /// SwiftUI tap callback stays synchronous.
     private var seekHandler: (Int) -> Void {
         { ms in
-            Task { await playbackViewModel.seek(to: ms) }
+            let target = LrcLineParser.songPositionMs(lyricsPositionMs: ms, offsetMs: lyricsOffsetMs)
+            Task { await playbackViewModel.seek(to: target) }
         }
     }
 
