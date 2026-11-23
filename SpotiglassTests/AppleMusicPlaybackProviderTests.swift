@@ -1671,6 +1671,36 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertTrue(Self.isPaused(session), "the settle window hid the media key's pause")
     }
 
+    /// The poll reads the media key's pause before MusicKit's notice of it arrives: that read is
+    /// left out (the window after a confirmed play is still open), and the notice that follows
+    /// must still bring the pause on screen.
+    func testAMediaKeyPauseThePollReadFirstStillShowsWithTheNotice() async throws {
+        let player = ScriptedAppleMusicPlayer()
+        let provider = AppleMusicPlaybackProvider(player: player)
+        let session = PlaybackSessionViewModel(provider: provider)
+        try await provider.connectPlayer(generation: session.playbackHostGeneration)
+        session.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(.items(uris: Self.uris, startURI: nil), deviceID: "x")
+        player.advance(by: 1)
+        await session.syncTransportFromSpotify()
+        session.noteLocalPlaybackMutation(shouldSyncTransportImmediately: false, playExpectation: .playing)
+        session.transportPollTask?.cancel()
+        await session.syncTransportFromSpotify()
+        XCTAssertEqual(session.localMutationSettleTicksRemaining, 1)
+
+        // The key pauses; the poll gets there before the notice.
+        let notice = player.onPlayerChange
+        player.onPlayerChange = nil
+        player.pressMediaKey()
+        player.onPlayerChange = notice
+        await session.syncTransportFromSpotify()
+        notice?()
+        await waitUntil("the pause shown", changes: session.objectWillChange, deadline: .seconds(1)) {
+            Self.isPaused(session)
+        }
+        XCTAssertTrue(Self.isPaused(session), "the bar kept showing playing after the notice")
+    }
+
     /// A press the player confirmed, then "next": MusicKit announces the skip while it still
     /// reports the old song at 0:00. That read must stay hidden like any read after a skip, and
     /// the earlier press's confirmation must not open the window for it.

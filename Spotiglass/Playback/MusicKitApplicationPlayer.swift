@@ -1212,7 +1212,7 @@ final class AppleMusicPlayerStateObserver {
 
     private var queueSubscription: AnyCancellable?
     private var subscribedQueue: ObjectIdentifier?
-    /// Called after a change MusicKit announced (not after one a read found) was logged.
+    /// Called after every change MusicKit announces (not after one only a read found).
     var onChange: (@MainActor () -> Void)?
 
     init(player: ApplicationMusicPlayer) {
@@ -1235,7 +1235,10 @@ final class AppleMusicPlayerStateObserver {
     private nonisolated func changed() {
         DispatchQueue.main.async { [weak self] in
             MainActor.assumeIsolated {
-                guard let self, self.report() else { return }
+                guard let self else { return }
+                self.report()
+                // Passed on even when a read logged the change first: that read may have come
+                // while the session still waited for a press, and been left out (#645).
                 self.onChange?()
             }
         }
