@@ -162,6 +162,54 @@ class RulesFailOnNewCode(Fixture):
         self.assertIn('Spotiglass/Playback/Eq.swift:3: [blocking-wait]', out)
         self.assertNotIn('Eq.swift:4:', out)  # an async sleep doesn't block
 
+    def test_module_qualified_print_is_still_print(self):
+        self.write('SpotiglassEQPrivilegedHelper/main.swift', 'Swift.print("helper started")\n')
+        self.assertFinding('SpotiglassEQPrivilegedHelper/main.swift', 1, 'print-logging')
+
+    def test_debug_block_only_counts_when_the_flag_is_required(self):
+        self.write('SpotiglassEQDriver/Plugin.cpp', '''\
+            #if defined(SPOTIGLASS_EQ_DEBUG) || defined(NDEBUG)
+            fprintf(stderr, "StartIO\\n");
+            #endif
+            #if defined(SPOTIGLASS_EQ_DEBUG) && VERBOSE
+            fprintf(stderr, "Mix\\n");
+            #endif
+            ''')
+        code, out = self.audit()
+        self.assertEqual(code, 1, out)
+        self.assertIn('SpotiglassEQDriver/Plugin.cpp:2: [print-logging]', out)
+        self.assertNotIn('Plugin.cpp:5:', out)
+
+    def test_wait_wrapped_over_lines(self):
+        self.write('Spotiglass/Playback/Eq.swift', '''\
+            func waitForDevice() {
+                _ = semaphore.wait(
+                    timeout: .now() + 30
+                )
+            }
+            ''')
+        self.assertFinding('Spotiglass/Playback/Eq.swift', 2, 'blocking-wait')
+
+    def test_catch_pattern_wrapped_over_lines(self):
+        self.write('Spotiglass/Services/Client.swift', '''\
+            func a() {
+                do { try x() } catch let error as NSError
+                    where error.code == 7 {}
+            }
+            ''')
+        self.assertFinding('Spotiglass/Services/Client.swift', 2, 'catch-drops-error')
+
+    def test_an_injected_log_closure_is_logging(self):
+        # AppBundleMigration logs through its `log: (String) -> Void` parameter.
+        self.write('Spotiglass/Infrastructure/AppBundleMigration.swift', '''\
+            func migrate() {
+                do { try move() } catch {
+                    log("Wax bundle rename deferred: \\(error)")
+                }
+            }
+            ''')
+        self.assertClean()
+
     def test_formatting_the_error_is_not_logging_it(self):
         # SpotiglassLog.describe(error) only builds a string; a catch that puts it
         # on screen still drops the error.

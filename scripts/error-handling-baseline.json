@@ -539,11 +539,6 @@
     "code": "if answered.wait(timeout: .now() + timeout) == .timedOut, answer.take() {"
   },
   {
-    "file": "Spotiglass/Infrastructure/AppBundleMigration.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … log( error )"
-  },
-  {
     "file": "Spotiglass/Infrastructure/ScreenshotMode.swift",
     "rule": "try-reason",
     "code": "load: (URL) -> Data? = { try? Data(contentsOf: $0) }"

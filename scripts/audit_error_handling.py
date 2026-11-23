@@ -232,6 +232,7 @@ LOG_CALL = re.compile(r'\b' + LOGGERS + r'\.' + LOG_FUNCS + r'\s*\(')
 HANDS_ON = re.compile(
     LOG_CALL.pattern +           # logged
     r'|\blog[A-Z]\w*\s*\('       # a log helper (logRequestFailure(...))
+    r'|\blog\s*\('                # an injected log closure (log: (String) -> Void)
     r'|\bthrow\b'                # rethrown or mapped
     r'|\bthrowing\s*:'           # continuation.resume(throwing:)
     r'|\.failure\s*\('           # handed on as a Result
@@ -244,7 +245,10 @@ def rule_catch(code):
         if brace == -1:
             continue
         pattern = code[m.end():brace]
-        if '\n' in pattern.strip() or ';' in pattern:
+        # A pattern may wrap (`catch let e as NSError\n where e.code == 7 {`), but
+        # it never holds a statement or a closing brace; those mean this `catch`
+        # isn't followed by its own block.
+        if ';' in pattern or '}' in pattern or pattern.count('\n') > 3:
             continue
         if re.fullmatch(r'\s*(is|let\s+\w+\s+as)\s+CancellationError\s*', pattern):
             continue
@@ -257,9 +261,13 @@ def rule_catch(code):
             yield line_of(code, m.start()), first
 
 
-SWIFT_PRINT = re.compile(r'(?<![\w.])(print|debugPrint|NSLog)\s*\(')
+SWIFT_PRINT = re.compile(r'(?:(?<![\w.])|(?<=\bSwift\.)|(?<=\bFoundation\.))(print|debugPrint|NSLog)\s*\(')
 C_PRINT = re.compile(r'(?<![\w.>])(printf|NSLog|puts)\s*\(|\bfprintf\s*\(\s*(stderr|stdout)\b')
-DEBUG_IF = re.compile(r'^\s*#\s*(if\s+defined\s*\(\s*SPOTIGLASS_EQ_DEBUG\s*\)|ifdef\s+SPOTIGLASS_EQ_DEBUG\b)')
+# Only a condition that guarantees the flag: the flag alone, or the flag AND
+# something else. `defined(SPOTIGLASS_EQ_DEBUG) || ...` can be true without it.
+DEBUG_IF = re.compile(
+    r'^\s*#\s*(?:if\s+defined(?:\s*\(\s*SPOTIGLASS_EQ_DEBUG\s*\)|\s+SPOTIGLASS_EQ_DEBUG\b)(?:\s*&&[^|]*)?'
+    r'|ifdef\s+SPOTIGLASS_EQ_DEBUG)\s*$')
 
 
 def rule_print_swift(code):
@@ -296,9 +304,9 @@ BLOCKING = re.compile(
 
 
 def rule_blocking(code):
-    for idx, line in enumerate(code.split('\n')):
-        if BLOCKING.search(line):
-            yield idx + 1
+    # Across lines: `semaphore.wait(\n    timeout: ...)` is still a wait.
+    for m in BLOCKING.finditer(code):
+        yield line_of(code, m.start())
 
 
 
