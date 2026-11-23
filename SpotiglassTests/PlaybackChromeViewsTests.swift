@@ -14,7 +14,6 @@ final class PlaybackChromeViewsTests: XCTestCase {
     }
 
     func testScrubberViewExposesAccessibilityProgress() throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let view = ScrubberView(
             progress: ScrubberProgress(
                 anchor: PlaybackProgressAnchor(
@@ -69,7 +68,6 @@ final class PlaybackChromeViewsTests: XCTestCase {
     }
 
     func testPlaybackControlsPlayingShowsTrackTitleAndLyricsControl() throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let playback = makePlayingPlayback()
         let view = PlaybackControlsView(
             viewModel: playback,
@@ -199,7 +197,6 @@ final class PlaybackChromeViewsTests: XCTestCase {
     }
 
     func testPlaybackControlsInitializationErrorShowsReconnect() throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let playback = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
         playback.handle(.initializationError("Web Playback failed to load"))
@@ -215,7 +212,6 @@ final class PlaybackChromeViewsTests: XCTestCase {
     }
 
     func testPlaybackControlsPlaybackErrorShowsRetry() throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let playback = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
         playback.handle(.playbackError("No active device"))
@@ -231,7 +227,6 @@ final class PlaybackChromeViewsTests: XCTestCase {
     }
 
     func testPlaybackControlsDisablesRepeatUntilTransportStateKnown() async throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let api = MockPlaybackAPI()
         api.fetchPlayerSnapshotError = SpotifyAPIError.network("offline")
         let playback = PlaybackSessionViewModel(
@@ -250,12 +245,16 @@ final class PlaybackChromeViewsTests: XCTestCase {
         XCTAssertTrue(repeatButton.isDisabled())
     }
 
-    func testPlaybackControlsReadyShowsTransportAccessibility() throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
+    func testPlaybackControlsReadyShowsTransportAccessibility() async throws {
+        // The player reports the repeat mode: setting it on the model by hand is undone by the
+        // next transport sync, which is how the bar really learns it.
+        let api = MockPlaybackAPI()
+        try await api.setRepeat(mode: .context, deviceID: "device-1")
         let playback = PlaybackSessionViewModel(
-            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         playback.handle(.ready(deviceID: "device-1"))
-        playback.repeatMode = .context
+        await playback.syncTransportFromSpotify()
+        XCTAssertEqual(playback.repeatMode, .context)
         let view = PlaybackControlsView(
             viewModel: playback,
             isLyricsPresented: .constant(false),
@@ -993,7 +992,6 @@ final class PlaybackChromeViewsTests: XCTestCase {
     }
 
     func testPlaybackControlsEnablesPlayPauseForRemotePlayback() throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let playback = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
         playback.deviceID = "local-device"
@@ -1011,7 +1009,6 @@ final class PlaybackChromeViewsTests: XCTestCase {
     }
 
     func testPlaybackControlsArtistLineRendersOpenArtistButtons() throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let playback = makePlayingPlayback()
         let view = PlaybackControlsView(
             viewModel: playback,
@@ -1024,7 +1021,6 @@ final class PlaybackChromeViewsTests: XCTestCase {
     }
 
     func testPlaybackControlsKeepLyricsAndArtistActionsSeparate() throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let playback = makePlayingPlayback(artists: ["M83", "The Weeknd"])
         let view = PlaybackControlsView(
             viewModel: playback,

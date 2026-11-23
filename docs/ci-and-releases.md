@@ -61,7 +61,7 @@ The app checks the feed automatically about once per day, or via **Wax → Check
 ### One-time setup (maintainer)
 
 1. **EdDSA keys** (once per Mac / org):
-   - Download [Sparkle 2.7.1](https://github.com/sparkle-project/Sparkle/releases/download/2.7.1/Sparkle-2.7.1.tar.xz) or use SPM artifacts under `build/DerivedData/SourcePackages/artifacts/sparkle/`.
+   - Download [Sparkle 2.10.1](https://github.com/sparkle-project/Sparkle/releases/download/2.10.1/Sparkle-2.10.1.tar.xz) or use SPM artifacts under `build/DerivedData/SourcePackages/artifacts/sparkle/`.
    - Run `bin/generate_keys` and confirm `SUPublicEDKey` in [Spotiglass/App/SparkleInfo.plist](../Spotiglass/App/SparkleInfo.plist) matches the printed public key.
    - Export the private key: `bin/generate_keys -x scripts/sparkle_eddsa_private.key` (do **not** commit this file).
 2. **Backup of the update key**: store the **full contents** of `sparkle_eddsa_private.key` as the repository Actions secret `SPARKLE_EDDSA_PRIVATE_KEY`. No workflow reads it, since releases are signed locally. It is the off-machine backup of the key: every installed copy trusts only the matching `SUPublicEDKey`, so losing the private key means no existing install can ever be updated again. Keep the secret, and update it if the key is ever rotated. GitHub never shows a secret's value again, so keep another copy (for example in a password manager) to restore from.
