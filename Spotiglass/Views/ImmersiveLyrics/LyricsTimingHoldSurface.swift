@@ -210,8 +210,10 @@ final class LyricsTimingHoldView: NSView {
             let inside = bounds.contains(convert(event.locationInWindow, from: nil))
             return .rightDown(event.locationInWindow, inside: inside)
         case .rightMouseDragged:
+            guard event.window === window else { return nil }
             return .rightDragged(event.locationInWindow)
         case .rightMouseUp:
+            guard event.window === window else { return nil }
             return .rightUp(event.locationInWindow)
         case .scrollWheel:
             // Scrolling in another window stays that window's.

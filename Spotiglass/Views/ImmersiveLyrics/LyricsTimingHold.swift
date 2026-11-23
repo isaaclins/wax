@@ -75,7 +75,9 @@ final class LyricsTimingHold {
     static func label(forShiftMs shiftMs: Int) -> String {
         let tenths = Int((Double(abs(shiftMs)) / 100).rounded())
         guard tenths > 0 else { return SpotiglassL10n.string("lyrics.timing.original") }
-        let seconds = String(format: "%.1f", Double(tenths) / 10)
+        let seconds = (Double(tenths) / 10).formatted(
+            .number.precision(.fractionLength(1)).locale(SpotiglassL10n.locale)
+        )
         let key = shiftMs > 0 ? "lyrics.timing.sooner" : "lyrics.timing.later"
         return String(format: SpotiglassL10n.string(key), seconds)
     }
@@ -122,13 +124,16 @@ final class LyricsTimingHoldInput {
     private enum Phase: Equatable {
         case idle
         case pressed(start: CGPoint, last: CGPoint)
-        /// `dragging`: the pointer moved with the button held. A trackpad may then report the
-        /// same motion as scrolling too, which is left out so the lyrics move once.
-        case holding(last: CGPoint, dragging: Bool)
+        /// `lastDrag`: when the pointer last moved up or down with the button held. A trackpad
+        /// may report that motion as scrolling too, which is left out for a moment so the
+        /// lyrics move once.
+        case holding(last: CGPoint, lastDrag: ContinuousClock.Instant?)
         /// The hold was cancelled with the button still down: its release does nothing.
         case ignoringUntilUp
     }
 
+    /// How long after a pointer drag scrolling counts as the same motion.
+    static let dragEchoWindow: Duration = .milliseconds(150)
     /// Long enough that an ordinary right click doesn't start a hold.
     static let holdDelay: Duration = .milliseconds(400)
     static let dragSlop: CGFloat = 4
@@ -194,8 +199,8 @@ final class LyricsTimingHoldInput {
         case let (.rightDragged(point), .holding(last, _)):
             dragHold(contentUpBy: point.y - last.y, to: point)
             return true
-        case let (.scroll(deltaY, precise), .holding(last, dragging)):
-            if !dragging {
+        case let (.scroll(deltaY, precise), .holding(last, lastDrag)):
+            if lastDrag.map({ clock.now < $0.advanced(by: Self.dragEchoWindow) }) != true {
                 let pitch = context()?.linePitch ?? 0
                 dragHold(contentUpBy: -deltaY * (precise ? 1 : pitch), to: last, isPointerDrag: false)
             }
@@ -221,7 +226,7 @@ final class LyricsTimingHoldInput {
         case (.escape, .pressed), (.escape, .holding):
             cancel(buttonStillDown: true)
             return true
-        case (.rightDragged, .ignoringUntilUp), (.scroll, .ignoringUntilUp):
+        case (.rightDragged, .ignoringUntilUp), (.scroll, .ignoringUntilUp), (.escape, .ignoringUntilUp):
             return true
         default:
             return false
@@ -268,15 +273,15 @@ final class LyricsTimingHoldInput {
             phase = .ignoringUntilUp
             return
         }
-        phase = .holding(last: last, dragging: false)
+        phase = .holding(last: last, lastDrag: nil)
         haptics.holdStarted()
     }
 
     private func dragHold(contentUpBy points: CGFloat, to point: CGPoint, isPointerDrag: Bool = true) {
-        guard case let .holding(_, dragging) = phase else { return }
+        guard case let .holding(_, lastDrag) = phase else { return }
         // Only a pointer drag that moved up or down stands for the motion a trackpad may also
         // report as scrolling; a sideways one leaves scrolling working.
-        phase = .holding(last: point, dragging: dragging || (isPointerDrag && points != 0))
+        phase = .holding(last: point, lastDrag: isPointerDrag && points != 0 ? clock.now : lastDrag)
         let pitch = context()?.linePitch ?? 0
         if hold.drag(contentUpBy: points, linePitch: pitch) != 0 {
             haptics.lineChanged()

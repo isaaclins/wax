@@ -336,6 +336,29 @@ final class LyricsTimingHoldTests: XCTestCase {
         XCTAssertEqual(rig.hold.session?.heldIndex, 4)
     }
 
+    /// A point of pointer jitter mustn't turn trackpad scrolling off for the rest of the hold:
+    /// a moment after the last drag, scrolling moves the lyrics again.
+    func testScrollingWorksAgainAMomentAfterAPointerDrag() {
+        let rig = makeInput()
+        _ = rig.input.handle(.rightDown(CGPoint(x: 0, y: 0), inside: true))
+        _ = rig.input.handle(.rightDragged(CGPoint(x: 0, y: 5)))
+        _ = rig.input.handle(.rightDragged(CGPoint(x: 0, y: 6)))
+        XCTAssertEqual(rig.hold.session?.heldIndex, 2)
+        rig.clock.advance(by: LyricsTimingHoldInput.dragEchoWindow)
+        XCTAssertTrue(rig.input.handle(.scroll(deltaY: -40, precise: true)))
+        XCTAssertEqual(rig.hold.session?.heldIndex, 3)
+    }
+
+    func testASecondEscAfterACancelStaysWithTheHold() {
+        let rig = makeInput()
+        _ = rig.input.handle(.rightDown(.zero, inside: true))
+        _ = rig.input.handle(.rightDragged(CGPoint(x: 0, y: 80)))
+        XCTAssertTrue(rig.input.handle(.escape))
+        XCTAssertTrue(rig.input.handle(.escape), "the button is still down, so the lyrics stay open")
+        XCTAssertTrue(rig.input.handle(.rightUp(.zero)))
+        XCTAssertFalse(rig.input.handle(.escape))
+    }
+
     func testASidewaysDragLeavesScrollingWorking() async {
         let rig = makeInput()
         _ = rig.input.handle(.rightDown(CGPoint(x: 0, y: 0), inside: true))
