@@ -13,8 +13,10 @@ final class PlaybackTrace {
 
     private let now: () -> ContinuousClock.Instant
     private let write: (String) -> Void
-    /// Runs its block once the frame being drawn is handed to the screen: the next turn of the
-    /// main queue, after the run loop's layout and Core Animation commit.
+    /// Runs its block on the next turn of the main queue, once the window's update for the change
+    /// is done. That usually comes after the run loop's layout and Core Animation commit, but
+    /// nothing guarantees the order, and the screen shows the frame a refresh later: the line
+    /// times Wax's own work for a change, not when the display shows it.
     private let afterDrawing: (@escaping @MainActor () -> Void) -> Void
 
     /// The last thing the app was asked to do, when, and how many sends of one command it asked
@@ -110,8 +112,9 @@ final class PlaybackTrace {
         lastPressAt = now()
     }
 
-    /// The bar changes to `what` ("playing", "paused"): once it is drawn, how long after the press,
-    /// or after the player reported it when no press asked for it (a media key, the end of a song).
+    /// The bar changes to `what` ("playing", "paused"): once the window's update for it is done, how
+    /// long after the press, or after the player reported it when no press asked for it (a media
+    /// key, the end of a song).
     func barShows(_ what: String) {
         let since: (Duration) -> String
         let start: ContinuousClock.Instant?
@@ -128,7 +131,7 @@ final class PlaybackTrace {
         lastPressAt = nil
         lastReportAt = nil
         afterDrawing { [self] in
-            write("bar shows \(what)" + (start.map { since($0.duration(to: now())) } ?? ""))
+            write("bar updated to \(what)" + (start.map { since($0.duration(to: now())) } ?? ""))
         }
     }
 

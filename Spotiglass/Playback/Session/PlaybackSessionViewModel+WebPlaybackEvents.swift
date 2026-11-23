@@ -248,7 +248,7 @@ extension PlaybackSessionViewModel {
             // Once a read showed the last pause or play applied, the player changing again is
             // something new, not its state trailing that command: the settle window that hides
             // trailing reads would hide it until the next poll.
-            if localCommandConfirmedByRead, pendingPlayTransition == nil {
+            if localCommandConfirmedByRead, pendingPlayTransition == nil, skipLeftItemURI == nil {
                 localMutationSettleTicksRemaining = 0
                 localCommandExpectsPlaying = nil
                 localCommandConfirmedByRead = false

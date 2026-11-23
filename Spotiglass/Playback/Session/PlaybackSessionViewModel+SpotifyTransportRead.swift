@@ -197,7 +197,7 @@ extension PlaybackSessionViewModel {
         }
         guard let localCommandExpectsPlaying else { return true }
         let agrees = snapshot.isPlaying == localCommandExpectsPlaying
-        if agrees { localCommandConfirmedByRead = true }
+        if agrees, skipLeftItemURI == nil { localCommandConfirmedByRead = true }
         return agrees
     }
 
@@ -395,14 +395,13 @@ extension PlaybackSessionViewModel {
     ) {
         localMutationSettleTicksRemaining = max(localMutationSettleTicksRemaining, 2)
         transportRateLimitedUntil = nil
+        // A new command (a skip, a seek, a press) waits for a read of its own before the player's
+        // announcements count as new (#645).
+        localCommandConfirmedByRead = false
         switch playExpectation {
         case .unchanged: break
-        case .playing:
-            localCommandConfirmedByRead = localCommandConfirmedByRead && localCommandExpectsPlaying == true
-            localCommandExpectsPlaying = true
-        case .paused:
-            localCommandConfirmedByRead = localCommandConfirmedByRead && localCommandExpectsPlaying == false
-            localCommandExpectsPlaying = false
+        case .playing: localCommandExpectsPlaying = true
+        case .paused: localCommandExpectsPlaying = false
         }
         if !provider.capabilities.contains(.pushesPlayerState),
            transportPollReadingSerial != transportPollLoopSerial {

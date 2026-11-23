@@ -1671,6 +1671,41 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertTrue(Self.isPaused(session), "the settle window hid the media key's pause")
     }
 
+    /// A press the player confirmed, then "next": MusicKit announces the skip while it still
+    /// reports the old song at 0:00. That read must stay hidden like any read after a skip, and
+    /// the earlier press's confirmation must not open the window for it.
+    func testAChangeNoticeDuringASkipAfterAConfirmedPressKeepsTheOldSongsPosition() async throws {
+        let player = ScriptedAppleMusicPlayer()
+        let provider = AppleMusicPlaybackProvider(player: player)
+        let session = PlaybackSessionViewModel(provider: provider)
+        try await provider.connectPlayer(generation: session.playbackHostGeneration)
+        session.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(.items(uris: Self.uris, startURI: nil), deviceID: "x")
+        player.advance(by: 40)
+        await session.syncTransportFromSpotify()
+        session.transportPollTask?.cancel()
+        // A play the player confirmed at the first read after it.
+        session.noteLocalPlaybackMutation(shouldSyncTransportImmediately: false, playExpectation: .playing)
+        session.transportPollTask?.cancel()
+        await session.syncTransportFromSpotify()
+        XCTAssertTrue(session.localCommandConfirmedByRead)
+
+        await session.next()
+        XCTAssertEqual(player.commands.last, "next")
+        session.transportPollTask?.cancel()
+        await session.transportSyncSchedulerTask?.value
+        player.advance(by: 0.07)
+        player.onPlayerChange?()
+        await session.transportSyncSchedulerTask?.value
+        XCTAssertEqual(session.currentNowPlaying?.uri, Self.uris[0])
+        XCTAssertGreaterThan(session.currentNowPlaying?.positionMilliseconds ?? 0, 30_000, "the old song jumped to 0:00")
+
+        player.advance(by: 1)
+        player.onPlayerChange?()
+        await session.transportSyncSchedulerTask?.value
+        XCTAssertEqual(session.currentNowPlaying?.uri, Self.uris[1], "the next song shows once the player has it")
+    }
+
     // MARK: - Errors name the service
 
     func testSpotifyErrorsKeepTheirMessages() {

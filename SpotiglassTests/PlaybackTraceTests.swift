@@ -53,22 +53,22 @@ final class PlaybackTraceTests: XCTestCase {
         trace.playPausePressed()
         time += .microseconds(3_000)
         trace.barShows("paused")
-        XCTAssertTrue(lines.isEmpty, "written before the frame was drawn")
+        XCTAssertTrue(lines.isEmpty, "written before the window's update was done")
         // Layout and the commit of the frame take their time too.
         time += .microseconds(1_800)
         drawn.removeFirst()()
-        XCTAssertEqual(lines.last, "bar shows paused 4.8 ms after the press")
+        XCTAssertEqual(lines.last, "bar updated to paused 4.8 ms after the press")
 
         trace.playerReported("status paused -> playing at 0:02.0")
         time += .milliseconds(3)
         trace.barShows("playing")
         drawn.removeFirst()()
-        XCTAssertEqual(lines.last, "bar shows playing 3.0 ms after the player reported it")
+        XCTAssertEqual(lines.last, "bar updated to playing 3.0 ms after the player reported it")
 
         // A change nothing announced (Spotify's page, a read) says only what the bar shows.
         trace.barShows("paused")
         drawn.removeFirst()()
-        XCTAssertEqual(lines.last, "bar shows paused")
+        XCTAssertEqual(lines.last, "bar updated to paused")
     }
 
     func testACommandSentAgainWithinASecondIsMarkedAsARepeat() {
