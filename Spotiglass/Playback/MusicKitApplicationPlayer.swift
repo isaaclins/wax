@@ -47,12 +47,19 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     private var repeatWanted: MusicPlayer.RepeatMode?
     /// Notices the position jumping while it plays, for the log (#590).
     private var positionWatch = PlaybackPositionWatch()
-    /// Logs what the player reports by itself: status, rate, the current entry (#590).
+    /// Logs what the player reports by itself: status, rate, the current entry (#590), and
+    /// passes each change on (#645).
     private let stateObserver: AppleMusicPlayerStateObserver
     /// Queued songs come without their artists' IDs; these are read once per song (#637).
     private let songArtists = AppleMusicSongArtists()
     /// Upcoming songs whose artists are read ahead; the queue shows about this many.
     static let upcomingArtistLookahead = 25
+
+    /// Called when the player's status, rate or current song changed by itself (#645).
+    var onPlayerChange: (@MainActor () -> Void)? {
+        get { stateObserver.onChange }
+        set { stateObserver.onChange = newValue }
+    }
 
     init() {
         stateObserver = AppleMusicPlayerStateObserver(player: ApplicationMusicPlayer.shared)
@@ -1191,6 +1198,10 @@ enum AppleMusicContentRestrictions {
 /// interrupted, seeking), its rate, and the entry it is on. MusicKit announces a change before it
 /// makes it, so each change is read on the next turn of the main queue, and only lines that differ
 /// from the last one are written.
+///
+/// Each change MusicKit announces is also passed on through ``onChange`` (#645): media keys,
+/// Control Center, AirPods and the system reach MusicKit without the app, and the session only
+/// read the player every 2 to 20 seconds, so a pause from the keyboard showed "playing" until then.
 @MainActor
 final class AppleMusicPlayerStateObserver {
     private let player: ApplicationMusicPlayer
@@ -1201,6 +1212,8 @@ final class AppleMusicPlayerStateObserver {
 
     private var queueSubscription: AnyCancellable?
     private var subscribedQueue: ObjectIdentifier?
+    /// Called after a change MusicKit announced (not after one a read found) was logged.
+    var onChange: (@MainActor () -> Void)?
 
     init(player: ApplicationMusicPlayer) {
         self.player = player
@@ -1220,19 +1233,29 @@ final class AppleMusicPlayerStateObserver {
     }
 
     private nonisolated func changed() {
-        DispatchQueue.main.async { [weak self] in MainActor.assumeIsolated { self?.report() } }
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.report() else { return }
+                self.onChange?()
+            }
+        }
     }
 
-    private func report() {
+    /// Logs what differs from the last line. Returns whether anything did.
+    @discardableResult
+    private func report() -> Bool {
+        var changed = false
         let status = Self.describe(player.state.playbackStatus)
         if status != lastStatus {
             PlaybackTrace.shared.playerReported("status \(lastStatus ?? "unknown") -> \(status) at \(position)")
             lastStatus = status
+            changed = true
         }
         let rate = player.state.playbackRate
         if rate != lastRate {
             PlaybackTrace.shared.playerReported("rate \(lastRate.map { "\($0)" } ?? "unknown") -> \(rate)")
             lastRate = rate
+            changed = true
         }
         let entryID = player.queue.currentEntry?.id
         if lastEntryID != .some(entryID) {
@@ -1242,7 +1265,9 @@ final class AppleMusicPlayerStateObserver {
                 "current entry -> \(entryID ?? "none") (position \(index.map { "\($0 + 1)" } ?? "-") of \(entries.count))"
             )
             lastEntryID = .some(entryID)
+            changed = true
         }
+        return changed
     }
 
     private var position: String {

@@ -627,6 +627,10 @@ struct PlaybackControlsView: View {
                 Image(systemName: playPauseIcon)
                     .contentTransition(.symbolEffect(.replace))
                     .animation(.smooth(duration: 0.18), value: playPauseIcon)
+                    // The log says how long a press took to show (#645).
+                    .onChange(of: playPauseIcon) { _, icon in
+                        PlaybackTrace.shared.barShows(icon == "pause.fill" ? "playing" : "paused")
+                    }
                     // Apple Music's Play is off while nothing is loaded (#396): it must look off.
                     .opacity(viewModel.isPlaybackToggleReady ? 1 : 0.45)
             }

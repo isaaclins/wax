@@ -240,6 +240,21 @@ extension PlaybackSessionViewModel {
             )))
         case let .log(message):
             SpotiglassLog.info(.playback, "Spotify playback SDK: \(message)")
+        case .playerChanged:
+            // A pause from a media key, Control Center or AirPods shows at once instead of at
+            // the next poll, 2 to 20 s later (#645). The read goes through the same checks as
+            // the poll's, so a status from before a press can't undo it.
+            guard isPlayerStateRead, !isRemotePlaybackActive else { return }
+            // Once a read showed the last pause or play applied, the player changing again is
+            // something new, not its state trailing that command: the settle window that hides
+            // trailing reads would hide it until the next poll.
+            if localCommandConfirmedByRead, pendingPlayTransition == nil {
+                localMutationSettleTicksRemaining = 0
+                localCommandExpectsPlaying = nil
+                localCommandConfirmedByRead = false
+                playPauseReadHoldUntil = nil
+            }
+            scheduleTransportSync()
         }
     }
 

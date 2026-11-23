@@ -42,6 +42,9 @@ protocol AppleMusicPlayerControlling: AnyObject {
     func play(_ request: AppleMusicQueueRequest, isCurrent: @escaping @MainActor () -> Bool) async throws
     func pause()
     func resume() async throws
+    /// Called when the player's status, rate or current song changed by itself: a media key,
+    /// Control Center, AirPods, the end of a song (#645).
+    var onPlayerChange: (@MainActor () -> Void)? { get set }
     /// Stops playback. MusicKit keeps the queue; the songs added to it with Add to Queue are
     /// forgotten, so a new play doesn't carry them over from the session that ended.
     func stop()
@@ -69,8 +72,10 @@ protocol AppleMusicPlayerControlling: AnyObject {
 /// Apple Music behind ``MusicPlaybackProvider``, played by MusicKit's `ApplicationMusicPlayer`.
 ///
 /// There is one player, this Mac, so it reports one constant device id, has no device
-/// transfer, nothing to reload and no pushed state: the session reads the player on its poll
+/// transfer and nothing to reload. Its state is read: the session reads the player on its poll
 /// cadence and confirms commands with the settle window from ``MusicPlaybackCapabilities``.
+/// MusicKit says when its player changed, and the provider passes that on as
+/// ``MusicPlaybackEvent/playerChanged``, so the session reads it at once (#645).
 /// Apple's player publishes Now Playing (Control Center, media keys) itself, so this provider
 /// never writes `MPNowPlayingInfoCenter`.
 ///
@@ -123,6 +128,17 @@ final class AppleMusicPlaybackProvider: MusicPlaybackProvider {
     init(player: (any AppleMusicPlayerControlling)? = nil, queueReadWaitLimit: Duration = .seconds(15)) {
         self.player = player ?? MusicKitApplicationPlayer()
         self.queueReadWaitLimit = queueReadWaitLimit
+        self.player.onPlayerChange = { [weak self] in self?.playerChanged() }
+    }
+
+    /// The lifecycle the player connected in, which its change events belong to.
+    private var connectedGeneration: PlaybackHostGeneration?
+
+    /// The player changed by itself (a media key, Control Center, the end of a song): the
+    /// session reads it now instead of at its next poll, up to 20 s later (#645).
+    private func playerChanged() {
+        guard let connectedGeneration else { return }
+        eventHandler?(MusicPlaybackEventEnvelope(event: .playerChanged, hostGeneration: connectedGeneration))
     }
 
     // MARK: - Player lifecycle
@@ -133,6 +149,7 @@ final class AppleMusicPlaybackProvider: MusicPlaybackProvider {
         guard player.isAuthorized() else {
             throw MusicPlaybackError(service: .appleMusic, reason: .missingPermission, detail: "Apple Music access is off")
         }
+        connectedGeneration = generation
         eventHandler?(MusicPlaybackEventEnvelope(event: .ready(deviceID: Self.deviceID), hostGeneration: generation))
     }
 

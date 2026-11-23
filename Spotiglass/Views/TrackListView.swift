@@ -81,7 +81,10 @@ struct TrackListView<Row: View>: View {
                 }
 
                 ForEach(tracks) { track in
-                    rowBuilder(track)
+                    // One view per song, whatever the row builder returns: a builder's view
+                    // isn't known to be one view, so on every play / pause the table walked
+                    // every song of the list to collect the rows' ids, 20 ms with 2,543 songs (#645).
+                    HStack(spacing: 0) { rowBuilder(track) }
                         .frame(height: TrackListRow.listRowHeight)
                         // With the list's own inset the row's edge lands on the
                         // page margin, under the header's artwork and titles.

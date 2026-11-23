@@ -196,7 +196,9 @@ extension PlaybackSessionViewModel {
             if readURI != nil { self.skipLeftItemURI = nil }
         }
         guard let localCommandExpectsPlaying else { return true }
-        return snapshot.isPlaying == localCommandExpectsPlaying
+        let agrees = snapshot.isPlaying == localCommandExpectsPlaying
+        if agrees { localCommandConfirmedByRead = true }
+        return agrees
     }
 
     /// For a player whose state is only read, an empty read means nothing is
@@ -395,8 +397,12 @@ extension PlaybackSessionViewModel {
         transportRateLimitedUntil = nil
         switch playExpectation {
         case .unchanged: break
-        case .playing: localCommandExpectsPlaying = true
-        case .paused: localCommandExpectsPlaying = false
+        case .playing:
+            localCommandConfirmedByRead = localCommandConfirmedByRead && localCommandExpectsPlaying == true
+            localCommandExpectsPlaying = true
+        case .paused:
+            localCommandConfirmedByRead = localCommandConfirmedByRead && localCommandExpectsPlaying == false
+            localCommandExpectsPlaying = false
         }
         if !provider.capabilities.contains(.pushesPlayerState),
            transportPollReadingSerial != transportPollLoopSerial {

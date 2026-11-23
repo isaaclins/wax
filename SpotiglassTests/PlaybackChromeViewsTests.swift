@@ -864,6 +864,21 @@ final class PlaybackChromeViewsTests: XCTestCase {
         }
     }
 
+    /// A part of the bar that grows (a longer title, Reconnect appearing) moves the others: the
+    /// bar is laid out again when a part changes its size.
+    func testTheBarLaysOutAgainWhenAPartChangesItsSize() {
+        let probe = BarPartProbe()
+        _ = ViewTestHost.host(BarPartProbeView(probe: probe), size: CGSize(width: 900, height: 120))
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { probe.controlsMinX != nil }), "the controls were never placed")
+        let narrow = probe.controlsMinX ?? 0
+
+        probe.controlsWidth = 240
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { abs((probe.controlsMinX ?? 0) - (narrow - 100)) < 0.5 }),
+            "the controls grew by 200 points but stayed at x \(probe.controlsMinX ?? 0) instead of moving 100 to the left"
+        )
+    }
+
     func testPlaybackTransportLayoutAtWindowMinimumKeepsScrubberUsable() throws {
         for size in [CGSize(width: 520, height: 360), CGSize(width: 760, height: 500)] {
             let controller = ViewTestHost.host(
@@ -1506,5 +1521,28 @@ private final class SentSeeks: @unchecked Sendable {
 
     func append(_ milliseconds: Int) {
         lock.withLock { stored.append(milliseconds) }
+    }
+}
+
+@MainActor
+private final class BarPartProbe: ObservableObject {
+    @Published var controlsWidth: CGFloat = 40
+    var controlsMinX: CGFloat?
+}
+
+private struct BarPartProbeView: View {
+    @ObservedObject var probe: BarPartProbe
+
+    var body: some View {
+        PlaybackTransportArrangementLayout(spacing: 8, rowSpacing: 4) {
+            Color.clear.frame(width: 100, height: 20)
+                .layoutValue(key: PlaybackTransportArrangementLayout.PartKey.self, value: .summary)
+            Color.clear.frame(width: probe.controlsWidth, height: 20)
+                .onGeometryChange(for: CGFloat.self, of: { $0.frame(in: .global).minX }) { probe.controlsMinX = $0 }
+                .layoutValue(key: PlaybackTransportArrangementLayout.PartKey.self, value: .controls)
+            Color.clear.frame(height: 4)
+                .layoutValue(key: PlaybackTransportArrangementLayout.PartKey.self, value: .scrubber)
+        }
+        .frame(width: 900)
     }
 }

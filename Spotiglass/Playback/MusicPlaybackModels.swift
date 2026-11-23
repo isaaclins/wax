@@ -583,6 +583,9 @@ enum MusicPlaybackEvent: Equatable {
     case accountError(String)
     case playbackError(String)
     case log(String)
+    /// A player whose state is read changed by itself (Apple Music: MusicKit's status, rate or
+    /// current song, after a media key or Control Center): read it now (#645).
+    case playerChanged
 }
 
 enum PlaybackBridgeMessageError: Error, Equatable {

@@ -1581,6 +1581,96 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertLessThan(session.currentNowPlaying?.positionMilliseconds ?? .max, 5_000)
     }
 
+    // MARK: - Changes the player makes by itself (#645)
+
+    /// Replays what the log showed on a Mac mini with Wax 0.8.59 and Apple Music (2026-11-23):
+    /// a playlist playing, then the play/pause key on the keyboard. MusicKit paused at once
+    /// ("player status playing -> paused", no request before it), and the bar went on showing
+    /// "playing" until the session's next read of the player, 2.2 s later; the key that started
+    /// the music again showed after 2.3 s. The session reads every 2 s while playing, every 8 s
+    /// while paused and every 20 s when it has nothing read yet, so the wait could be 20 s.
+    /// No poll runs here: only MusicKit's change notice can bring the change on screen.
+    func testTheMediaKeyShowsWithinFiftyMillisecondsWithoutWaitingForTheNextRead() async throws {
+        let player = ScriptedAppleMusicPlayer()
+        let provider = AppleMusicPlaybackProvider(player: player)
+        let session = PlaybackSessionViewModel(provider: provider)
+        try await provider.connectPlayer(generation: session.playbackHostGeneration)
+        session.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(.items(uris: Self.uris, startURI: nil), deviceID: "x")
+        player.advance(by: 1)
+        await session.syncTransportFromSpotify()
+        XCTAssertTrue(Self.isPlaying(session))
+        session.transportPollTask?.cancel()
+        let readsBefore = player.reads
+
+        for (expectPaused, what) in [(true, "a pause"), (false, "a play")] {
+            let pressed = ContinuousClock.now
+            player.pressMediaKey()
+            await waitUntil("\(what) from the media key shown", changes: session.objectWillChange, deadline: .seconds(1)) {
+                Self.isPaused(session) == expectPaused
+            }
+            let shownAfter = pressed.duration(to: .now)
+            XCTAssertLessThanOrEqual(shownAfter, .milliseconds(50), "\(what) from the media key showed after \(shownAfter)")
+        }
+        XCTAssertEqual(player.reads - readsBefore, 2, "one read per change, not a poll")
+        XCTAssertEqual(player.commands.filter { $0 == "pause" || $0 == "resume" }, [], "the app sent nothing: MusicKit did it")
+    }
+
+    /// A change notice that arrives while a press is still on its way to the player reads a
+    /// player that hasn't applied the press yet. That read must not undo the press (#645: "a
+    /// late or stale status from the service never flips the UI back").
+    func testAChangeNoticeBeforeThePlayerHasThePressDoesNotUndoIt() async throws {
+        let player = ScriptedAppleMusicPlayer()
+        let provider = AppleMusicPlaybackProvider(player: player)
+        let session = PlaybackSessionViewModel(provider: provider)
+        try await provider.connectPlayer(generation: session.playbackHostGeneration)
+        session.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(.items(uris: Self.uris, startURI: nil), deviceID: "x")
+        player.advance(by: 1)
+        await session.syncTransportFromSpotify()
+        session.transportPollTask?.cancel()
+
+        await session.requestTogglePlayPause()?.value
+        XCTAssertTrue(Self.isPaused(session))
+        // MusicKit announces something (the pause is still 333 ms away): the read says playing.
+        player.onPlayerChange?()
+        await session.transportSyncSchedulerTask?.value
+        XCTAssertTrue(Self.isPaused(session), "a read from before the player paused flipped the bar back")
+
+        player.advance(by: 0.4)
+        player.onPlayerChange?()
+        await session.transportSyncSchedulerTask?.value
+        XCTAssertTrue(Self.isPaused(session))
+    }
+
+    /// Play in Wax, the player confirms it, then the media key pauses: the settle window that
+    /// hides reads trailing the press must not hide the key's pause until the next poll.
+    func testAMediaKeyRightAfterAConfirmedPressShowsAtOnce() async throws {
+        let player = ScriptedAppleMusicPlayer()
+        let provider = AppleMusicPlaybackProvider(player: player)
+        let session = PlaybackSessionViewModel(provider: provider)
+        try await provider.connectPlayer(generation: session.playbackHostGeneration)
+        session.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(.items(uris: Self.uris, startURI: nil), deviceID: "x")
+        player.advance(by: 1)
+        await session.syncTransportFromSpotify()
+        session.transportPollTask?.cancel()
+
+        // A play in Wax that the player applied before the first read after it: that read
+        // confirms it, and the window still has a read to go.
+        session.noteLocalPlaybackMutation(shouldSyncTransportImmediately: false, playExpectation: .playing)
+        session.transportPollTask?.cancel()
+        await session.syncTransportFromSpotify()
+        XCTAssertTrue(Self.isPlaying(session))
+        XCTAssertEqual(session.localMutationSettleTicksRemaining, 1, "the case needs the settle window still open")
+
+        player.pressMediaKey()
+        await waitUntil("the media key's pause shown", changes: session.objectWillChange, deadline: .seconds(1)) {
+            Self.isPaused(session)
+        }
+        XCTAssertTrue(Self.isPaused(session), "the settle window hid the media key's pause")
+    }
+
     // MARK: - Errors name the service
 
     func testSpotifyErrorsKeepTheirMessages() {
@@ -1914,6 +2004,18 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         later("pause") { [self] in positionBase = position(); playing = false }
     }
 
+    /// Called like MusicKit's own change notice, by ``pressMediaKey()``.
+    var onPlayerChange: (@MainActor () -> Void)?
+
+    /// The play/pause key on the keyboard, Control Center or AirPods: macOS hands it to MusicKit,
+    /// which flips its player without the app and announces the change (#645).
+    func pressMediaKey() {
+        positionBase = position()
+        positionAnchor = now
+        playing.toggle()
+        onPlayerChange?()
+    }
+
     func resume() async throws {
         // Like MusicKit on the queue it restored from the last launch: `play()` returns and
         // nothing plays (#586).
@@ -1989,7 +2091,11 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         book.finishAdd(plan)
     }
 
+    /// How often the player was read.
+    private(set) var reads = 0
+
     func readState() -> AppleMusicPlayerState {
+        reads += 1
         guard queue.indices.contains(index) else {
             return AppleMusicPlayerState(status: .stopped, current: nil, positionMilliseconds: 0, shuffle: shuffle, repeatMode: repeatMode)
         }
