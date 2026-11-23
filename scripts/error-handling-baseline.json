@@ -566,17 +566,6 @@
   },
   {
     "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … diagnostics.error( String(describing: error), privacy: .public )",
-    "count": 3
-  },
-  {
-    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … diagnostics.error( url.path, privacy: .public String(describing: error), privacy: .public )"
-  },
-  {
-    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
     "rule": "try-reason",
     "code": "_ = try? stopped.seekToEnd()"
   },
@@ -1466,15 +1455,5 @@
     "file": "SpotiglassEQDriver/SpotiglassEQPlugin.cpp",
     "rule": "ignored-status",
     "code": "(void)AudioObjectSetPropertyData("
-  },
-  {
-    "file": "SpotiglassEQPrivilegedHelper/main.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … helperLog.error( temporaryURL.path, privacy: .public String(describing: error), privacy: .public )"
-  },
-  {
-    "file": "SpotiglassEQPrivilegedHelper/main.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … let status: Int32 = error is HelperOperationError && isRejected(error) ? 64 : 74"
   }
 ]

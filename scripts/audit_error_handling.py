@@ -6,7 +6,8 @@ Rules (each finding prints as `path:line: [rule] message`):
 
   try-reason        `try?` needs a reason comment on the same line or the line
                     above: `// try?: best-effort cleanup, nothing depends on it`.
-  catch-drops-error A `catch` block must log (SpotiglassLog or a log* helper) or
+  catch-drops-error A `catch` block must log (SpotiglassLog.error/info/debug, the
+                    helper's helperLog, or a log* helper) or
                     hand the error on (throw, resume(throwing:), .failure(...)).
                     An empty `catch {}` always fails. `catch is CancellationError`
                     is exempt: cancelling is not a failure.
@@ -220,8 +221,16 @@ def rule_try_reason(code, comments, raw_lines):
 
 
 CATCH = re.compile(r'(?<![\w.])catch\b')
+# The calls that write to the log: SpotiglassLog in the app, the privileged
+# helper's own os.Logger (helperLog), and the log file sink's os.Logger
+# (diagnostics), which can't log through itself. SpotiglassLog.describe(...)
+# only formats an error into a string, so it is not logging.
+LOG_FUNCS = r'(?:error|info|debug|notice|warning|fault|critical)'
+LOGGERS = r'(?:SpotiglassLog|helperLog|diagnostics)'
+LOG_CALL = re.compile(r'\b' + LOGGERS + r'\.' + LOG_FUNCS + r'\s*\(')
+
 HANDS_ON = re.compile(
-    r'SpotiglassLog\.'           # logged
+    LOG_CALL.pattern +           # logged
     r'|\blog[A-Z]\w*\s*\('       # a log helper (logRequestFailure(...))
     r'|\bthrow\b'                # rethrown or mapped
     r'|\bthrowing\s*:'           # continuation.resume(throwing:)
@@ -292,7 +301,6 @@ def rule_blocking(code):
             yield idx + 1
 
 
-LOG_CALL = re.compile(r'\bSpotiglassLog\.\w+\s*\(')
 
 
 def rule_localized(code):
@@ -463,12 +471,19 @@ def main(argv=None):
             failures += 1
 
     if args.no_growth_from:
-        try:
-            old_text = subprocess.run(
-                ['git', 'show', '%s:%s' % (args.no_growth_from, BASELINE_REL)],
-                cwd=root, check=True, capture_output=True, text=True).stdout
-        except subprocess.CalledProcessError:
+        ref = args.no_growth_from
+        resolves = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', ref + '^{commit}'],
+                                  cwd=root, capture_output=True).returncode == 0
+        if not resolves:
+            print('--no-growth-from: %s is not a commit here, so the baseline cannot be compared' % ref)
+            failures += 1
             old_text = None
+        else:
+            shown = subprocess.run(['git', 'show', '%s:%s' % (ref, BASELINE_REL)],
+                                   cwd=root, capture_output=True, text=True)
+            # No baseline at that commit yet (the change that adds the audit):
+            # nothing to compare with.
+            old_text = shown.stdout if shown.returncode == 0 else None
         if old_text is not None:
             old = load_baseline_text(old_text)
             for k, cnt in sorted(baseline.items()):

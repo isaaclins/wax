@@ -162,6 +162,37 @@ class RulesFailOnNewCode(Fixture):
         self.assertIn('Spotiglass/Playback/Eq.swift:3: [blocking-wait]', out)
         self.assertNotIn('Eq.swift:4:', out)  # an async sleep doesn't block
 
+    def test_formatting_the_error_is_not_logging_it(self):
+        # SpotiglassLog.describe(error) only builds a string; a catch that puts it
+        # on screen still drops the error.
+        self.write('Spotiglass/Settings/SettingsView.swift', '''\
+            func save() {
+                do { try store.save() } catch {
+                    message = SpotiglassLog.describe(error)
+                }
+            }
+            ''')
+        self.assertFinding('Spotiglass/Settings/SettingsView.swift', 2, 'catch-drops-error')
+
+    def test_the_helper_and_the_log_file_log_with_their_own_loggers(self):
+        # The privileged helper logs with helperLog and the log file sink with
+        # diagnostics (both os.Logger), as in their real catches on main.
+        self.write('SpotiglassEQPrivilegedHelper/main.swift', '''\
+            func clean() {
+                do { try fileManager.removeItem(at: temporaryURL) } catch {
+                    helperLog.error("Could not remove the temporary copy: \\(String(describing: error), privacy: .public)")
+                }
+            }
+            ''')
+        self.write('Spotiglass/Infrastructure/SpotiglassLog.swift', '''\
+            func rotate() {
+                do { try moveItem(url, earlierURL) } catch {
+                    diagnostics.error("Could not move the log aside (\\(String(describing: error), privacy: .public))")
+                }
+            }
+            ''')
+        self.assertClean()
+
     def test_localized_description_shown_but_fine_inside_a_log_call(self):
         self.write('Spotiglass/Settings/SpotiglassSettingsStore.swift', '''\
             func save() {
@@ -261,6 +292,23 @@ class Baseline(Fixture):
         code, out = self.audit('--no-growth-from', 'HEAD')
         self.assertEqual(code, 1, out)
         self.assertIn('added to the baseline', out)
+
+    def test_no_growth_from_a_ref_that_does_not_exist_fails(self):
+        # A broken fetch in CI must not switch the check off.
+        git = ['git', '-C', str(self.root), '-c', 'user.name=t', '-c', 'user.email=t@t']
+        subprocess.run(git + ['init', '-q'], check=True)
+        subprocess.run(git + ['commit', '-q', '--allow-empty', '-m', 'base'], check=True)
+        code, out = self.audit('--no-growth-from', 'no-such-ref')
+        self.assertEqual(code, 1, out)
+        self.assertIn('no-such-ref is not a commit', out)
+
+    def test_no_growth_from_a_commit_without_a_baseline_yet_passes(self):
+        # The change that adds the audit compares with a base that has no baseline.
+        git = ['git', '-C', str(self.root), '-c', 'user.name=t', '-c', 'user.email=t@t']
+        subprocess.run(git + ['init', '-q'], check=True)
+        subprocess.run(git + ['commit', '-q', '--allow-empty', '-m', 'base'], check=True)
+        code, out = self.audit('--no-growth-from', 'HEAD')
+        self.assertEqual(code, 0, out)
 
 
 class RealRepository(unittest.TestCase):
