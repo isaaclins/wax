@@ -122,7 +122,9 @@ final class LyricsTimingHoldInput {
     private enum Phase: Equatable {
         case idle
         case pressed(start: CGPoint, last: CGPoint)
-        case holding(last: CGPoint)
+        /// `dragging`: the pointer moved with the button held. A trackpad may then report the
+        /// same motion as scrolling too, which is left out so the lyrics move once.
+        case holding(last: CGPoint, dragging: Bool)
         /// The hold was cancelled with the button still down: its release does nothing.
         case ignoringUntilUp
     }
@@ -188,12 +190,14 @@ final class LyricsTimingHoldInput {
                 dragHold(contentUpBy: point.y - start.y, to: point)
             }
             return true
-        case let (.rightDragged(point), .holding(last)):
+        case let (.rightDragged(point), .holding(last, _)):
             dragHold(contentUpBy: point.y - last.y, to: point)
             return true
-        case let (.scroll(deltaY, precise), .holding(last)):
-            let pitch = context()?.linePitch ?? 0
-            dragHold(contentUpBy: -deltaY * (precise ? 1 : pitch), to: last)
+        case let (.scroll(deltaY, precise), .holding(last, dragging)):
+            if !dragging {
+                let pitch = context()?.linePitch ?? 0
+                dragHold(contentUpBy: -deltaY * (precise ? 1 : pitch), to: last, isPointerDrag: false)
+            }
             return true
         case let (.rightUp(point), .pressed):
             endPress()
@@ -263,13 +267,13 @@ final class LyricsTimingHoldInput {
             phase = .ignoringUntilUp
             return
         }
-        phase = .holding(last: last)
+        phase = .holding(last: last, dragging: false)
         haptics.holdStarted()
     }
 
-    private func dragHold(contentUpBy points: CGFloat, to point: CGPoint) {
-        guard case .holding = phase else { return }
-        phase = .holding(last: point)
+    private func dragHold(contentUpBy points: CGFloat, to point: CGPoint, isPointerDrag: Bool = true) {
+        guard case let .holding(_, dragging) = phase else { return }
+        phase = .holding(last: point, dragging: dragging || isPointerDrag)
         let pitch = context()?.linePitch ?? 0
         if hold.drag(contentUpBy: points, linePitch: pitch) != 0 {
             haptics.lineChanged()

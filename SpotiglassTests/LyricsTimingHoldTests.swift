@@ -307,17 +307,33 @@ final class LyricsTimingHoldTests: XCTestCase {
         XCTAssertEqual(rig.store.offsetMs(for: "song:a"), -5_500, "line 1 starts at 14 s")
     }
 
-    func testTrackpadScrollWhileHoldingMovesTheLyricsToo() {
+    func testTrackpadScrollWhileHoldingMovesTheLyricsToo() async {
         let rig = makeInput()
         _ = rig.input.handle(.rightDown(CGPoint(x: 0, y: 0), inside: true))
-        _ = rig.input.handle(.rightDragged(CGPoint(x: 0, y: 5)))
+        let armed = await rig.clock.waitForSleepers()
+        XCTAssertTrue(armed)
+        rig.clock.advance(by: LyricsTimingHoldInput.holdDelay)
+        await waitUntil { rig.hold.session != nil }
         XCTAssertEqual(rig.hold.session?.heldIndex, 2)
         // Content moving up (negative delta) brings later lines in.
         XCTAssertTrue(rig.input.handle(.scroll(deltaY: -40, precise: true)))
         XCTAssertEqual(rig.hold.session?.heldIndex, 3)
         // A mouse wheel notch is a line's worth.
-        XCTAssertTrue(rig.input.handle(.scroll(deltaY: 2, precise: false)))
+        XCTAssertTrue(rig.input.handle(.scroll(deltaY: 1, precise: false)))
         XCTAssertEqual(rig.hold.session?.heldIndex, 2)
+    }
+
+    /// A held two-finger click that moves may report the motion as a drag and as scrolling: once
+    /// the pointer drags, the scrolling is left out so the lyrics move once.
+    func testScrollAlongsideAPointerDragDoesntMoveTheLyricsTwice() {
+        let rig = makeInput()
+        _ = rig.input.handle(.rightDown(CGPoint(x: 0, y: 0), inside: true))
+        _ = rig.input.handle(.rightDragged(CGPoint(x: 0, y: 40)))
+        XCTAssertEqual(rig.hold.session?.heldIndex, 3)
+        XCTAssertTrue(rig.input.handle(.scroll(deltaY: -40, precise: true)), "still the hold's")
+        XCTAssertEqual(rig.hold.session?.heldIndex, 3)
+        _ = rig.input.handle(.rightDragged(CGPoint(x: 0, y: 80)))
+        XCTAssertEqual(rig.hold.session?.heldIndex, 4)
     }
 
     /// An input that goes away mid-press (its lyrics closed) must not leave Esc taken for good.

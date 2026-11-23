@@ -19,7 +19,7 @@ protocol LyricsHaptics: AnyObject {
 final class TrackpadLyricsHaptics: LyricsHaptics {
     static let shared = TrackpadLyricsHaptics()
 
-    /// Actuator strengths: 3 weak, 4 medium, 6 strong.
+    /// Actuator strengths: 3 weak, 4 medium, 6 strong (the values HapticKey uses).
     enum Strength: Int32 {
         case tick = 3
         case firm = 4
@@ -83,8 +83,12 @@ final class MultitouchActuators {
             actuators = Self.openActuators(functions)
         }
         var played = false
-        for actuator in actuators where functions.actuate(actuator, actuationID, 0, 1.0, 2.0) == 0 {
+        for actuator in actuators where functions.actuate(actuator, actuationID, 0, 0, 2.0) == 0 {
             played = true
+        }
+        if !played {
+            // A trackpad that was disconnected (and maybe connected again) is looked for anew.
+            actuators = []
         }
         return played
     }
