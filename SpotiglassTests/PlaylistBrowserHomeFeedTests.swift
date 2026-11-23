@@ -101,6 +101,33 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         XCTAssertEqual(api.topTracksCallCount, 2)
     }
 
+    /// Selected top tracks on Home are what the menu bar's Add to Queue, Pin and Like act on, as
+    /// in every other track list. Home kept its own selection, so with two top tracks selected
+    /// those commands stayed greyed out and the right-click menu only saw its own row (#173).
+    func testSelectedHomeTopTracksAreWhatTheMenuBarActsOn() async {
+        let api = MockBrowsingAPI(playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])], trackResults: [:])
+        api.topTracksHandler = { _, _ in
+            ["t1", "t2", "t3"].map { self.recentlyPlayedTrack(id: $0, albumID: "al-\($0)", albumName: "Album \($0)") }
+        }
+        let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        await vm.load()
+        await vm.selectSidebar(.home)
+        let rows = try? XCTUnwrap(vm.homeTopTracks.value)
+        XCTAssertEqual(rows?.count, 3)
+
+        // As the track table writes it when the listener clicks the third row, then shift-clicks the first.
+        vm.selectedDetailTrackIDs = Set(["t3", "t1"].compactMap { id in rows?.first { $0.title == "Track \(id)" }?.id })
+
+        XCTAssertEqual(vm.selectedTrackRows.map(\.title), ["Track t1", "Track t3"])
+        XCTAssertTrue(PlaylistBrowserView.canEnqueueTrackSelection(rows: vm.selectedTrackRows, hasPlaybackDevice: true))
+        let clickedID = try? XCTUnwrap(rows?.first { $0.title == "Track t3" }?.id)
+        XCTAssertEqual(vm.effectiveTrackTargets(forRowID: clickedID ?? "").map(\.title), ["Track t1", "Track t3"])
+
+        // Leaving Home drops the selection, like leaving any other list.
+        await vm.selectSidebar(.playlist("one"))
+        XCTAssertTrue(vm.selectedTrackRows.isEmpty)
+    }
+
     func testManualHomeRefreshFetchesChangedSectionsOutsideFreshCache() async {
         let firstRecentlyPlayed = recentlyPlayedTrack(id: "recent-1", albumID: "album-1", albumName: "Album 1")
         let secondRecentlyPlayed = recentlyPlayedTrack(id: "recent-2", albumID: "album-2", albumName: "Album 2")

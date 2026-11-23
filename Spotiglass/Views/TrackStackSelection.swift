@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Selection for track rows stacked outside a `List` (search results, Home's top tracks), so they
+/// Selection for track rows stacked outside a `List` (search results), so they
 /// select like every table in the app (#628): click selects one row, shift-click extends the
 /// range from the last clicked row, command-click adds or removes one row, ⌘A selects all, the
 /// arrow keys move the selection (with shift they extend it). The right-click menu then acts on

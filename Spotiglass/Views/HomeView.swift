@@ -19,9 +19,6 @@ struct HomeView: View {
     /// Shared continuation action supplied by the browser host.
     let onRequestLibraryContinuation: ((TrackRowViewModel) -> Void)?
 
-    /// Several result rows can be selected and acted on together, like any track list (#628).
-    @State private var trackSelection = TrackStackSelection()
-
     private let quickAccessColumns = [
         GridItem(.adaptive(minimum: SpotiglassDesign.Layout.quickAccessTileMinWidth), spacing: SpotiglassDesign.spacingS)
     ]
@@ -46,18 +43,39 @@ struct HomeView: View {
         #if DEBUG
         let _ = ViewBodyTally.record("HomeView")
         #endif
-        ScrollView {
-            VStack(alignment: .leading, spacing: SpotiglassDesign.Layout.sectionSpacing) {
-                HomeGreetingHeader(viewModel: viewModel)
+        let tracks = viewModel.homeTopTracks.value ?? []
+        let marks = TrackRowPlaybackSource(session: playbackViewModel).marks(in: tracks)
+        // The whole page sits in the native track table, the way the artist page does (#319):
+        // greeting, quick access and the shelf above the rows, so the top tracks select, move
+        // with the arrow keys and read out to VoiceOver like every other track list, and the
+        // selection is the one the menu bar acts on (#173).
+        TrackListView(
+            tracks: tracks,
+            selection: $viewModel.selectedDetailTrackIDs,
+            rowBuilder: { track in
+                marks.row(for: track) { mark in topTrackRow(track, mark: mark, in: tracks) }
+            },
+            pendingScrollRestoreTrackID: .constant(nil),
+            onFirstVisibleTrackChanged: { _ in },
+            playSelection: { selectedIDs in
+                guard let uri = tracks.first(where: { selectedIDs.contains($0.id) })?.playableURI else { return }
+                play(uri, in: tracks)
+            },
+            headerContent: AnyView(listHeader)
+        )
+    }
 
-                quickAccessGrid
-                recentlyPlayedSection
-                topTracksSection
-            }
-            .padding(SpotiglassDesign.Layout.contentMargin)
-            .frame(maxWidth: .infinity, alignment: .leading)
+    private var listHeader: some View {
+        VStack(alignment: .leading, spacing: SpotiglassDesign.Layout.sectionSpacing) {
+            HomeGreetingHeader(viewModel: viewModel)
+
+            quickAccessGrid
+            recentlyPlayedSection
+            topTracksHeader
         }
-        .background(.background)
+        .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
+        .padding(.vertical, SpotiglassDesign.spacingM)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Quick access
@@ -120,8 +138,10 @@ struct HomeView: View {
 
     // MARK: - Top tracks
 
+    /// The section title, and in place of the rows a notice while they load, when there are none
+    /// or when they can't be shown.
     @ViewBuilder
-    private var topTracksSection: some View {
+    private var topTracksHeader: some View {
         VStack(alignment: .leading, spacing: SpotiglassDesign.Layout.sectionTitleSpacing) {
             HomeSectionHeader(title: SpotiglassL10n.string("home.section.topTracks"))
             switch viewModel.homeTopTracks {
@@ -133,8 +153,6 @@ struct HomeView: View {
                         icon: "music.note",
                         text: SpotiglassL10n.string("home.topTracks.empty")
                     ))
-                } else {
-                    topTracksList(tracks)
                 }
             case .unavailable:
                 HomeSectionNotice(style: .message(
@@ -147,67 +165,48 @@ struct HomeView: View {
         }
     }
 
-    private func topTracksList(_ tracks: [TrackRowViewModel]) -> some View {
-        let playableURIs = tracks.compactMap(\.playableURI)
-        let marks = TrackRowPlaybackSource(session: playbackViewModel).marks(in: tracks)
-        let order = tracks.map(\.id)
-        // Lazy: a plain stack laid out all 20 rows, mostly below the window, on every size the
-        // window took, about half of each resize step on Home (#473).
-        return LazyVStack(spacing: 0) {
-            ForEach(tracks) { track in
-                marks.row(for: track) { mark in
-                    TrackListRow(
-                        trackNumber: track.listPosition,
-                        track: track,
-                        playURI: { uri in
-                            Task {
-                                await playbackViewModel.playFromPlaylist(
-                                    clickedURI: uri,
-                                    playableURIs: playableURIs,
-                                    playlistID: nil
-                                )
-                            }
-                        },
-                        togglePlayPause: {
-                            playbackViewModel.requestTogglePlayPause()
-                        },
-                        isCurrent: mark.isCurrent,
-                        isPlaying: mark.isPlaying,
-                        openArtist: { artist in
-                            Task { await viewModel.selectArtist(id: artist.id, origin: .extend, displayName: artist.name) }
-                        },
-                        isSelected: trackSelection.contains(track.id),
-                        trackOpsMenuItems: {
-                            AnyView(TrackOpsMenuItems(
-                                targets: trackSelection.menuTargets(for: track, in: tracks),
-                                browserViewModel: viewModel,
-                                sourcePlaylistID: nil,
-                                onRequestCreatePlaylist: onRequestCreatePlaylist,
-                                onRequestLibraryContinuation: onRequestLibraryContinuation,
-                                openArtist: { target in
-                                    if let id = target.id {
-                                        Task { await viewModel.selectArtist(id: id, origin: .extend, displayName: target.name) }
-                                    }
-                                },
-                                addToQueue: { uri in
-                                    await queueViewModel.addToQueue(uri: uri)
-                                },
-                                hasPlaybackDevice: hasPlaybackDevice,
-                                copyableURI: track.playableURI
-                            ))
+    private func topTrackRow(_ track: TrackRowViewModel, mark: TrackRowPlaybackMark, in tracks: [TrackRowViewModel]) -> TrackListRow {
+        TrackListRow(
+            trackNumber: track.listPosition,
+            track: track,
+            playURI: { uri in play(uri, in: tracks) },
+            togglePlayPause: {
+                playbackViewModel.requestTogglePlayPause()
+            },
+            isCurrent: mark.isCurrent,
+            isPlaying: mark.isPlaying,
+            openArtist: openArtist,
+            isSelected: viewModel.selectedDetailTrackIDs.contains(track.id),
+            // The table draws the selection and the hover, and takes the keyboard focus.
+            drawsRowHighlights: false,
+            isKeyboardFocusable: false,
+            trackOpsMenuItems: {
+                AnyView(TrackOpsMenuItems(
+                    targets: viewModel.effectiveTrackTargets(forRowID: track.id),
+                    browserViewModel: viewModel,
+                    sourcePlaylistID: nil,
+                    onRequestCreatePlaylist: onRequestCreatePlaylist,
+                    onRequestLibraryContinuation: onRequestLibraryContinuation,
+                    openArtist: { target in
+                        if let id = target.id {
+                            Task { await viewModel.selectArtist(id: id, origin: .extend, displayName: target.name) }
                         }
-                    )
-                    .trackStackSelectable(track.id, in: order, selection: $trackSelection)
-                }
+                    },
+                    addToQueue: { uri in
+                        await queueViewModel.addToQueue(uri: uri)
+                    },
+                    hasPlaybackDevice: hasPlaybackDevice,
+                    copyableURI: track.playableURI
+                ))
             }
+        )
+    }
+
+    private func play(_ uri: String, in tracks: [TrackRowViewModel]) {
+        let playableURIs = tracks.compactMap(\.playableURI)
+        Task {
+            await playbackViewModel.playFromPlaylist(clickedURI: uri, playableURIs: playableURIs, playlistID: nil)
         }
-        .trackStackKeyboard(order: order, selection: $trackSelection) { id in
-            guard let uri = tracks.first(where: { $0.id == id })?.playableURI else { return }
-            Task {
-                await playbackViewModel.playFromPlaylist(clickedURI: uri, playableURIs: playableURIs, playlistID: nil)
-            }
-        }
-        .onChange(of: order) { trackSelection.keep(only: order) }
     }
 
     // MARK: - Navigation

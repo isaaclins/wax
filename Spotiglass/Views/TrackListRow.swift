@@ -123,9 +123,8 @@ struct TrackListRow: View {
     var drawsRowHighlights: Bool = true
     /// Whether the row takes keyboard focus itself. Inside the playlist table the
     /// `List` owns focus and arrow-key traversal, so it passes `false`. The
-    /// surfaces that stack rows in a plain `VStack` (Home, Artist, Search) have
-    /// no selection model at all, so the row has to be focusable or those rows
-    /// cannot be reached without a mouse (#121).
+    /// surface that stacks rows in a plain stack (search results) keeps it on, or
+    /// those rows cannot be reached without a mouse (#121).
     var isKeyboardFocusable: Bool = true
     /// Spotify-side track-ops menu items appended after the existing menu.
     /// Built lazily so closures don't fire until the menu opens.
