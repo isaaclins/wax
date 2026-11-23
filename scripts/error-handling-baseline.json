@@ -1,0 +1,1480 @@
+[
+  {
+    "file": "Spotiglass/App/SpotiglassApp.swift",
+    "rule": "try-reason",
+    "code": "if let diskCache = try? SpotifyLocalCache() {"
+  },
+  {
+    "file": "Spotiglass/Auth/AuthViewModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch is AuthTransitionInvalidatedError { … return"
+  },
+  {
+    "file": "Spotiglass/Auth/AuthViewModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard generation == authTransitionGeneration else { return }",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Auth/AuthViewModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return"
+  },
+  {
+    "file": "Spotiglass/Auth/AuthViewModel.swift",
+    "rule": "try-reason",
+    "code": "let replacesSavedSignIn = isReconnect || (try? refreshTokenStore.loadRefreshToken()) != nil"
+  },
+  {
+    "file": "Spotiglass/Auth/SpotifyTokenClient.swift",
+    "rule": "try-reason",
+    "code": "let error = try? JSONDecoder().decode(SpotifyTokenErrorResponse.self, from: data)"
+  },
+  {
+    "file": "Spotiglass/Browsing/CatalogSearchViewModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard generation == searchGeneration, !Task.isCancelled else { return }",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/MusicServiceErrors.swift",
+    "rule": "localized-text",
+    "code": "message: editError.localizedDescription,"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserTapTargetNavigation.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserTapTargetNavigation.swift",
+    "rule": "try-reason",
+    "code": "guard let resolvedID = try? await resolveArtistID(target.name) else { return }"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+AdjacentPlaylistNavigation.swift",
+    "rule": "try-reason",
+    "code": "try? await clock.sleep(until: deadline, tolerance: nil)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+ArtistAlbumsPagination.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard ownsArtistPagination(session: session, artistID: artistID) else { return }"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+ArtistSelection.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard session == detailSession else { return }"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+ArtistTrackFallback.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch {"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+ArtistTrackFallback.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … lastFailure = error"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+ErrorMapping.swift",
+    "rule": "localized-text",
+    "code": "message: unsupported.localizedDescription,"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+Home.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard generation == homeFeedGeneration else { return }",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … continue"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return []",
+    "count": 4
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return stale?.playlists.first(where: { $0.id == summary.id })?.tracks ?? []"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return stale?.savedTracks ?? []"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "(try? cache.loadTracksIgnoringAge("
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "guard let library = try? await collectLibraryContinuation(seed: seed, generation: generation) else {"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "if let cached = try? cache.loadLibraryContinuationIndex("
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "if let cached = try? cache.loadPlaylistsBundle(now: now()), !cached.playlists.isEmpty {"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "if let cached = try? cache.loadTracksIgnoringAge(",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "let stale = try? cache.loadLibraryContinuationIndexIgnoringAge()"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "try? cache.invalidateLibraryContinuationIndex()"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "try? cache.saveLibraryContinuationIndex(collected, cachedAt: now())",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "try? cache.savePlaylists(fetched, cachedAt: now())"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
+    "rule": "try-reason",
+    "code": "try? cache.saveTracks(",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryEdits.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch let partial as MusicPlaylistReorderPartialFailure { … reorderGenerationByPlaylistID[playlistID, default: 0] += 1"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryEdits.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch {"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryEdits.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … await putBack(shown, replacing: reordered, playlistID: playlistID)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryEdits.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … savedAlbumStates[albumID] = isSaved"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryEdits.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … trackMutationToastText = Self.failureText(error, operation: .deletePlaylist)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryEdits.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … trackMutationToastText = Self.failureText(error, operation: .removeFromPlaylist)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryEdits.swift",
+    "rule": "localized-text",
+    "code": "(error as? MusicPlaylistChangedElsewhere)?.localizedDescription"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryEdits.swift",
+    "rule": "try-reason",
+    "code": "let items = try? await api.playlistTracks(playlistID: playlistID, limit: 50, maxPages: 200),"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryEdits.swift",
+    "rule": "try-reason",
+    "code": "try? cache.savePlaylists(playlistsInSidebarOrder(), cachedAt: now())",
+    "count": 3
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch let urlError as URLError where urlError.code == .cancelled { … return"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard session == detailSession,"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
+    "rule": "try-reason",
+    "code": "let cachedTracks = try? cache.loadTracks(playlistID: virtualID, snapshotID: snapshotID, now: now(), maxAge: maxCacheAge) {"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
+    "rule": "try-reason",
+    "code": "let full = try? await read.value"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
+    "rule": "try-reason",
+    "code": "let profile = try? await api.currentUserProfile()",
+    "count": 3
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
+    "rule": "try-reason",
+    "code": "let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: virtualID, snapshotID: snapshotID) {"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
+    "rule": "try-reason",
+    "code": "try? cache.saveTracks("
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+MainSurfaceRefresh.swift",
+    "rule": "try-reason",
+    "code": "try? cache.invalidateTracks(playlistID: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+MainSurfaceRefresh.swift",
+    "rule": "try-reason",
+    "code": "try? cache.invalidateTracks(playlistID: playlistID)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistLibrary.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … let displayError = Self.displayError(for: error)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistLibrary.swift",
+    "rule": "try-reason",
+    "code": "guard let profile = try? await api.currentUserProfile(), !profile.id.isEmpty else { return }"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistLibrary.swift",
+    "rule": "try-reason",
+    "code": "if let bundle = try? cache.loadPlaylistsBundle(now: now()),"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistLibrary.swift",
+    "rule": "try-reason",
+    "code": "let cachedPlaylists = try? validatedPlaylistSummaries(bundle.playlists),"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistLibrary.swift",
+    "rule": "try-reason",
+    "code": "try? cache.savePlaylists(playlists, cachedAt: now())"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch let urlError as URLError where urlError.code == .cancelled { … return"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard session == detailSession else { return }"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
+    "rule": "try-reason",
+    "code": "let cachedTracks = try? cache.loadTracks(playlistID: playlist.id, snapshotID: playlist.snapshotID, now: now(), maxAge: maxCacheAge) {"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
+    "rule": "try-reason",
+    "code": "let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: playlist.id, snapshotID: playlist.snapshotID) {"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(for: Self.firstScreenDrawTime)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
+    "rule": "try-reason",
+    "code": "try? cache.saveTracks(tracks, playlistID: playlist.id, snapshotID: playlist.snapshotID, cachedAt: now())"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch let apiError as SpotifyAPIError { … if case let .rateLimited(retryAfter) = apiError, retryRemaining > 0 {",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch let urlError as URLError where urlError.code == .cancelled { … return .cancelled",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return .cancelled",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return .failed",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
+    "rule": "try-reason",
+    "code": "if let fresh = try? cache.loadTracks("
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(nanoseconds: Self.prefetchAllPlaylistsTerminalLingerSeconds * 1_000_000_000)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
+    "rule": "try-reason",
+    "code": "try? cache.saveTracks("
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
+    "rule": "try-reason",
+    "code": "try? cache.saveTracks(tracks, playlistID: summary.id, snapshotID: summary.snapshotID, cachedAt: now())"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+SidebarAndAlbumSelection.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard session == detailSession else { return }"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+SidebarAndAlbumSelection.swift",
+    "rule": "try-reason",
+    "code": "let profile = try? await api.currentUserProfile()"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch {"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … applyPlaylistName((playlistsByID[id] ?? previous).renamed(previous.nameAsSent))"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … invalidateTracksCache(playlistID: sourcePlaylistID)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … trackMutationToastText = Self.failureText(error, operation: .addToLikedSongs)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … trackMutationToastText = Self.failureText(error, operation: .addToPlaylist)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … trackMutationToastText = Self.failureText(error, operation: .createPlaylist)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … trackMutationToastText = Self.failureText(error, operation: .moveBetweenPlaylists)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … trackMutationToastText = Self.failureText(error, operation: .removeFromLikedSongs)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "localized-text",
+    "code": "return apiError.localizedDescription"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "try-reason",
+    "code": "try? cache.invalidateTracks(playlistID: playlistID)"
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+TrackMutations.swift",
+    "rule": "try-reason",
+    "code": "try? cache.savePlaylists(playlistsInSidebarOrder(), cachedAt: now())",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel.swift",
+    "rule": "try-reason",
+    "code": "let cache: MusicBrowsingCache = (try? SpotifyLocalCache()) ?? DisabledBrowsingCache()"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymap.swift",
+    "rule": "try-reason",
+    "code": "self = .array((try? container.decode([JSONValue].self)) ?? [])"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymap.swift",
+    "rule": "try-reason",
+    "code": "} else if let value = try? container.decode(Bool.self) {"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymap.swift",
+    "rule": "try-reason",
+    "code": "} else if let value = try? container.decode(Double.self) {"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymap.swift",
+    "rule": "try-reason",
+    "code": "} else if let value = try? container.decode(String.self) {"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymap.swift",
+    "rule": "try-reason",
+    "code": "} else if let value = try? container.decode([String: JSONValue].self) {"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymapStore.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch where kept.contains(binding) { … continue"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymapStore.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … lastErrorText = CommandPaletteKeymapErrorPresenter.text("
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymapStore.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … let source = fileURL.path"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymapStore.swift",
+    "rule": "try-reason",
+    "code": ".flatMap { try? CommandShortcut(keystroke: $0) }"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymapStore.swift",
+    "rule": "try-reason",
+    "code": "binding.keystrokes.contains { (try? CommandShortcut(keystroke: $0)) == shortcut }"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymapStore.swift",
+    "rule": "try-reason",
+    "code": "guard let data = try? encoder.encode(CommandPaletteKeymapFile(bindings: bindings)),"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteKeymapStore.swift",
+    "rule": "try-reason",
+    "code": "guard let list = try? decodedBindingsFromEditor() else { return nil }"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteReservedShortcuts.swift",
+    "rule": "try-reason",
+    "code": "guard let reserved = try? CommandShortcut(keystroke: reservation.keystroke) else { continue }"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteSettingsView.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … let source = keymapStore.fileURL.path"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteSidebarShortcut.swift",
+    "rule": "try-reason",
+    "code": "let shortcut = try? CommandShortcut(keystroke: systemKeystroke)"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteViewModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch let error as SpotifyAPIError { … switch error {"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandPaletteViewModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … lastSuccessfulSongSearchQuery = nil"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/CommandShortcutMenuKeyEquivalent.swift",
+    "rule": "try-reason",
+    "code": "((try? lhs.canonicalToken()) ?? \"\") < ((try? rhs.canonicalToken()) ?? \"\")"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/HotkeyRecorderField.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch let conflict as KeymapConflictError { … switch conflict {"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/HotkeyRecorderField.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … let source = parent.keymapStore.fileURL.path"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/HotkeyRecorderField.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … view.finishRecordingAndResign()"
+  },
+  {
+    "file": "Spotiglass/CommandPalette/HotkeyRecorderField.swift",
+    "rule": "try-reason",
+    "code": "(try? shortcut.canonicalToken()) != nil"
+  },
+  {
+    "file": "Spotiglass/Infrastructure/AppBundleMigration.swift",
+    "rule": "blocking-wait",
+    "code": "if answered.wait(timeout: .now() + timeout) == .timedOut, answer.take() {"
+  },
+  {
+    "file": "Spotiglass/Infrastructure/AppBundleMigration.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … log( error )"
+  },
+  {
+    "file": "Spotiglass/Infrastructure/ScreenshotMode.swift",
+    "rule": "try-reason",
+    "code": "load: (URL) -> Data? = { try? Data(contentsOf: $0) }"
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassL10n.swift",
+    "rule": "try-reason",
+    "code": "let data = try? Data(contentsOf: URL(fileURLWithPath: path)),",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassL10n.swift",
+    "rule": "try-reason",
+    "code": "let propertyList = try? PropertyListSerialization.propertyList("
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassL10n.swift",
+    "rule": "try-reason",
+    "code": "let table = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)"
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … diagnostics.error( String(describing: error), privacy: .public )",
+    "count": 3
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … diagnostics.error( url.path, privacy: .public String(describing: error), privacy: .public )"
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "try-reason",
+    "code": "_ = try? stopped.seekToEnd()"
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "try-reason",
+    "code": "guard let names = try? FileManager.default.contentsOfDirectory(atPath: parent.path) else { return }"
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "try-reason",
+    "code": "if let stopped = try? FileHandle(forWritingTo: url) {"
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "try-reason",
+    "code": "try? FileManager.default.removeItem(at: parent.appendingPathComponent(name)) // Test leftovers only."
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "try-reason",
+    "code": "try? handle?.close() // The file is moved next; a failed close only leaks a descriptor."
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "try-reason",
+    "code": "try? handle?.synchronize() // Lines are already in the kernel; this only adds fsync."
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "try-reason",
+    "code": "try? stopped.close() // Best effort: the line only explains the end of the file."
+  },
+  {
+    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
+    "rule": "try-reason",
+    "code": "try? stopped.write(contentsOf: Data(\"=== Log file full at \\(stamp) and could not be moved aside; the rest of this session is in Console only ===\\n\".utf8))"
+  },
+  {
+    "file": "Spotiglass/Persistence/LyricsDiskCache.swift",
+    "rule": "try-reason",
+    "code": "DiskCacheTrim.write { _ = try? fileManager.setAttributes([.modificationDate: Date()], ofItemAtPath: path) }"
+  },
+  {
+    "file": "Spotiglass/Persistence/LyricsDiskCache.swift",
+    "rule": "try-reason",
+    "code": "_ = try? fileManager.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)"
+  },
+  {
+    "file": "Spotiglass/Persistence/LyricsDiskCache.swift",
+    "rule": "try-reason",
+    "code": "guard let data = try? Data(contentsOf: backoffMetadataFileURL) else { return nil }"
+  },
+  {
+    "file": "Spotiglass/Persistence/LyricsDiskCache.swift",
+    "rule": "try-reason",
+    "code": "guard let data = try? Data(contentsOf: missCooldownFileURL) else { return nil }"
+  },
+  {
+    "file": "Spotiglass/Persistence/LyricsDiskCache.swift",
+    "rule": "try-reason",
+    "code": "guard let data = try? Data(contentsOf: url) else { return nil }"
+  },
+  {
+    "file": "Spotiglass/Persistence/LyricsDiskCache.swift",
+    "rule": "try-reason",
+    "code": "return try? JSONDecoder().decode(FetchedLyrics.self, from: data)"
+  },
+  {
+    "file": "Spotiglass/Persistence/LyricsDiskCache.swift",
+    "rule": "try-reason",
+    "code": "return try? JSONDecoder().decode([String: Date].self, from: data)"
+  },
+  {
+    "file": "Spotiglass/Persistence/LyricsDiskCache.swift",
+    "rule": "try-reason",
+    "code": "return try? JSONDecoder().decode([String: TrackBackoffMetadata].self, from: data)"
+  },
+  {
+    "file": "Spotiglass/Persistence/UnreadableFileBackup.swift",
+    "rule": "localized-text",
+    "code": "line += \" (\\((underlying as NSError).localizedDescription))\""
+  },
+  {
+    "file": "Spotiglass/Persistence/UnreadableFileBackup.swift",
+    "rule": "try-reason",
+    "code": "guard let names = try? fileManager.contentsOfDirectory(atPath: directory.path) else { return [] }"
+  },
+  {
+    "file": "Spotiglass/Persistence/UnreadableFileBackup.swift",
+    "rule": "try-reason",
+    "code": "if let newest = existing.last, (try? Data(contentsOf: newest)) == data {"
+  },
+  {
+    "file": "Spotiglass/Persistence/UnreadableFileBackup.swift",
+    "rule": "try-reason",
+    "code": "try? fileManager.removeItem(at: old)"
+  },
+  {
+    "file": "Spotiglass/Pinning/PinnedItemsStore.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … loaded = []"
+  },
+  {
+    "file": "Spotiglass/Playback/AppleMusicPlaybackProvider.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(for: limit)"
+  },
+  {
+    "file": "Spotiglass/Playback/AudioEqualizerEngine.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … putPersistedSwitchBack(in: settingsStore)",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Playback/AudioEqualizerEngine.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … turnOffAfterRouteFailure(error)",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Playback/AudioEqualizerEngine.swift",
+    "rule": "localized-text",
+    "code": "LocalizedText(error.localizedDescription)"
+  },
+  {
+    "file": "Spotiglass/Playback/EQCoefficientPublisher.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch {"
+  },
+  {
+    "file": "Spotiglass/Playback/EQCoefficientPublisher.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return nil"
+  },
+  {
+    "file": "Spotiglass/Playback/EQCoefficientPublisher.swift",
+    "rule": "try-reason",
+    "code": "try? fileHandle?.close()"
+  },
+  {
+    "file": "Spotiglass/Playback/EQCoefficientPublisher.swift",
+    "rule": "try-reason",
+    "code": "try? openOrCreate()"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "blocking-wait",
+    "code": "Thread.sleep(forTimeInterval: min(0.025, max(0, deadline.timeIntervalSinceNow)))"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "blocking-wait",
+    "code": "Thread.sleep(forTimeInterval: min(0.05, max(0, deadline.timeIntervalSinceNow)))"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "localized-text",
+    "code": "diagnostic: error.localizedDescription"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "(try? currentDefaultOutputDeviceID()) == virtualDeviceID",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "guard let contents = try? String(contentsOf: url, encoding: .utf8) else { return nil }"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "guard let data = try? Data(contentsOf: infoURL),"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "guard let data = try? String("
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "let contents = try? String(contentsOf: url, encoding: .utf8)"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "let propertyList = try? PropertyListSerialization.propertyList("
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "return (try? currentDefaultOutputDeviceID()) == virtualDeviceID"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "try? (uid + \"\\n\").write(to: url, atomically: true, encoding: .utf8)"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "try? FileManager.default.removeItem(at: forwardingTargetURL)"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
+    "rule": "try-reason",
+    "code": "try? fileManager.removeItem(at: routerStatusURL)"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerPrivilegedHelperClient.swift",
+    "rule": "blocking-wait",
+    "code": "Thread.sleep(forTimeInterval: 0.1)"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerPrivilegedHelperClient.swift",
+    "rule": "blocking-wait",
+    "code": "let waitResult = completion.wait(timeout: .now() + 30)"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerPrivilegedHelperClient.swift",
+    "rule": "localized-text",
+    "code": "replyBox.store(.failure(ReplyTransportError(message: error.localizedDescription)))"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerPrivilegedHelperClient.swift",
+    "rule": "try-reason",
+    "code": "defer { try? fileManager.removeItem(at: temporaryURL) }"
+  },
+  {
+    "file": "Spotiglass/Playback/EqualizerPrivilegedHelperClient.swift",
+    "rule": "try-reason",
+    "code": "let marker = try? String("
+  },
+  {
+    "file": "Spotiglass/Playback/MusicKitApplicationPlayer.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … refusal = error",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Playback/MusicKitApplicationPlayer.swift",
+    "rule": "localized-text",
+    "code": "return MusicPlaybackError(service: .appleMusic, reason: .network(error.localizedDescription), detail: String(describing: error))"
+  },
+  {
+    "file": "Spotiglass/Playback/MusicKitApplicationPlayer.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(for: .milliseconds(20))"
+  },
+  {
+    "file": "Spotiglass/Playback/PlaybackControlsView.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch {"
+  },
+  {
+    "file": "Spotiglass/Playback/QueueAutoplay.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard !Task.isCancelled else { return }"
+  },
+  {
+    "file": "Spotiglass/Playback/QueueAutoplay.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard !Task.isCancelled, !(error is CancellationError) else { return }"
+  },
+  {
+    "file": "Spotiglass/Playback/QueueAutoplay.swift",
+    "rule": "try-reason",
+    "code": "if let queuedNow = try? await player.autoplayUpcomingTracks() {"
+  },
+  {
+    "file": "Spotiglass/Playback/QueueViewModel+Enqueue.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … _ = await MainActor.run { self?.enqueueRetryTasks.removeValue(forKey: key) }"
+  },
+  {
+    "file": "Spotiglass/Playback/QueueViewModel+Enqueue.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … if case let .rateLimited(retryAfter) = MusicPlaybackError.from(error)?.reason {"
+  },
+  {
+    "file": "Spotiglass/Playback/QueueViewModel+Fetch.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … break"
+  },
+  {
+    "file": "Spotiglass/Playback/QueueViewModel+Remove.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … lastError = Self.displayError(for: error, service: provider.service)",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+DeviceTransfer.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+DeviceTransfer.swift",
+    "rule": "try-reason",
+    "code": "_ = try? await inflight.value"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+PlayCommands.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+Seek.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard intent.owner == seekOwnershipKey else { return false }"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+Seek.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SessionLifecycle.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch {"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SessionLifecycle.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SessionLifecycle.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SessionLifecycle.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return false"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SessionLifecycle.swift",
+    "rule": "try-reason",
+    "code": "try? await provider.connectPlayer(generation: generation)",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SessionLifecycle.swift",
+    "rule": "try-reason",
+    "code": "try? await provider.disconnectPlayer(generation: generation)"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SessionLifecycle.swift",
+    "rule": "try-reason",
+    "code": "try? await self.provider.connectPlayer(generation: generation)"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+ShuffleRepeat.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch {"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+ShuffleRepeat.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … if desiredRepeatMode == targetMode {"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+ShuffleRepeat.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … inFlightShuffleTarget = nil"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+ShuffleRepeat.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SkipAndPlayPause.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … finishInAppCommand()"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SkipAndPlayPause.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … refusePlayPause(request, error: error)"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SkipAndPlayPause.swift",
+    "rule": "try-reason",
+    "code": "try? await clock.sleep(until: deadline, tolerance: nil)",
+    "count": 3
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SkipAndPlayPause.swift",
+    "rule": "try-reason",
+    "code": "try? await self.clock.sleep("
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SkipAndPlayPause.swift",
+    "rule": "try-reason",
+    "code": "try? await self?.provider.setInAppPlayerPlaying(!later.shouldPause, commandID: later.serial)"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SkipAndPlayPause.swift",
+    "rule": "try-reason",
+    "code": "try? await sendReadPlayerCommand(later, deviceID: deviceID)"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SpotifyTransportRead.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }",
+    "count": 3
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+Timers.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … break"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+WebPlaybackEvents.swift",
+    "rule": "try-reason",
+    "code": "try? await provider.setVolume(volume, generation: generation)"
+  },
+  {
+    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel.swift",
+    "rule": "try-reason",
+    "code": "try? await clock.sleep(until: deadline, tolerance: nil)"
+  },
+  {
+    "file": "Spotiglass/Playback/SpotifyPlaybackAPI.swift",
+    "rule": "try-reason",
+    "code": "let message = try? JSONDecoder().decode(SpotifyAPIErrorResponse.self, from: data).error.message"
+  },
+  {
+    "file": "Spotiglass/Playback/SpotifyPlaybackBridge.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch let paused as SpotifySignInPausedError { … return [ : paused.pause.message]"
+  },
+  {
+    "file": "Spotiglass/Playback/SpotifyPlaybackBridge.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return (nil, error.localizedDescription)"
+  },
+  {
+    "file": "Spotiglass/Playback/SpotifyPlaybackBridge.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return .playbackError( error.localizedDescription )"
+  },
+  {
+    "file": "Spotiglass/Playback/SpotifyPlaybackBridge.swift",
+    "rule": "localized-text",
+    "code": "return (nil, error.localizedDescription)"
+  },
+  {
+    "file": "Spotiglass/Playback/SpotifyPlaybackBridge.swift",
+    "rule": "localized-text",
+    "code": "return .playbackError(\"Invalid playback bridge message: \\(error.localizedDescription)\")"
+  },
+  {
+    "file": "Spotiglass/Playback/SpotifyPlaybackBridge.swift",
+    "rule": "try-reason",
+    "code": "let data = try? Data(contentsOf: url),"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider+LibraryEdits.swift",
+    "rule": "try-reason",
+    "code": "let existing = (try? await libraryPlaylists(limit: 100)) ?? []"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider+LibraryEdits.swift",
+    "rule": "try-reason",
+    "code": "let shown = (try? await playlistTracks(playlistID: playlistID, limit: 100, maxPages: 100)) ?? []",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return (index, album)"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
+    "rule": "try-reason",
+    "code": "guard let ratings = try? await source.catalogAlbumRatings(catalogIDs: batch) else { return }"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
+    "rule": "try-reason",
+    "code": "if let library = try? await source.libraryPlaylistTracks(playlistIDs: unedited) {"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
+    "rule": "try-reason",
+    "code": "let catalogItems = (try? catalog.get()) ?? AppleMusicSearchItems()"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
+    "rule": "try-reason",
+    "code": "let country = try? await source.storefrontCountryCode()"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
+    "rule": "try-reason",
+    "code": "let libraryItems = (try? library.get()) ?? AppleMusicSearchItems()"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
+    "rule": "try-reason",
+    "code": "let tracks = try? await playlistItems(playlistID: id, limit: 100, maxPages: 100, lookingUpRatings: false)"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
+    "rule": "try-reason",
+    "code": "let version = (try? await source.libraryPlaylist(id: playlistID))?.lastModifiedDate"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
+    "rule": "try-reason",
+    "code": "var ratingsDeadline: @Sendable () async -> Void = { try? await Task.sleep(for: AppleMusicBrowsingProvider.ratingsWait) }"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicCloudLibrary.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch AppleMusicLibraryEditError.requestFailed where pages == 0 { … return []"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicCloudLibrary.swift",
+    "rule": "try-reason",
+    "code": "request.httpBody = try? JSONSerialization.data(withJSONObject: json, options: [.sortedKeys])"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicContentRatings.swift",
+    "rule": "try-reason",
+    "code": "guard let ratings = try? await lookup(batch) else { return }"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicContentRatings.swift",
+    "rule": "try-reason",
+    "code": "guard let songs = try? await page(min(libraryPageSize, limit - offset), offset) else { return false }"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicContentRatings.swift",
+    "rule": "try-reason",
+    "code": "let data = try? JSONEncoder().encode(parameters),"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicContentRatings.swift",
+    "rule": "try-reason",
+    "code": "let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicItemMapping.swift",
+    "rule": "try-reason",
+    "code": "let data = try? JSONEncoder().encode(parameters),"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicItemMapping.swift",
+    "rule": "try-reason",
+    "code": "let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",
+    "rule": "try-reason",
+    "code": "_ = try? await cloudPlaylistID(for: playlistID)"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",
+    "rule": "try-reason",
+    "code": "for track in ((try? await lookup.catalogAlbumTracks(albumIDs: catalogIDs)) ?? []).reversed() {"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",
+    "rule": "try-reason",
+    "code": "let tracks = (try? await lookup.catalogTracks(ids: catalogIDs)) ?? []"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",
+    "rule": "try-reason",
+    "code": "let tracks = catalogIDs.isEmpty ? [] : ((try? await lookup.catalogTracks(ids: catalogIDs)) ?? [])"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",
+    "rule": "try-reason",
+    "code": "references.append((try? await withLibraryIDs(reference)) ?? reference)"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",
+    "rule": "try-reason",
+    "code": "try? await rate(reference, .love)"
+  },
+  {
+    "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",
+    "rule": "try-reason",
+    "code": "try? await rate(reference, nil)"
+  },
+  {
+    "file": "Spotiglass/Services/LyricsTimingStore.swift",
+    "rule": "try-reason",
+    "code": "if let data = try? JSONEncoder().encode(next) {"
+  },
+  {
+    "file": "Spotiglass/Services/LyricsTimingStore.swift",
+    "rule": "try-reason",
+    "code": "let decoded = try? JSONDecoder().decode([String: Entry].self, from: data) {"
+  },
+  {
+    "file": "Spotiglass/Services/MusicKitLibraryLookup.swift",
+    "rule": "try-reason",
+    "code": "guard let data = try? JSONEncoder().encode(item) else {"
+  },
+  {
+    "file": "Spotiglass/Services/MusicKitLibraryLookup.swift",
+    "rule": "try-reason",
+    "code": "guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {"
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyAPIClient+Library.swift",
+    "rule": "try-reason",
+    "code": "if let response = try? decoder.decode(SpotifyPlaylistMutationResponse.self, from: responseData),"
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyAPIClient+Library.swift",
+    "rule": "try-reason",
+    "code": "let response = try? decoder.decode(SpotifyPlaylistMutationResponse.self, from: responseData)"
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyAPIClient.swift",
+    "rule": "localized-text",
+    "code": "return error.localizedDescription",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyAPIClient.swift",
+    "rule": "try-reason",
+    "code": ".flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?[\"public\"] as? Bool"
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyAPIClient.swift",
+    "rule": "try-reason",
+    "code": "let cachedValue = try? decoder.decode(Response.self, from: cacheHit.data) {"
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyAPIClient.swift",
+    "rule": "try-reason",
+    "code": "let cachedValue = try? decoder.decode(Response.self, from: cachedData) {"
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyAPIClient.swift",
+    "rule": "try-reason",
+    "code": "let message = try? decoder.decode(SpotifyAPIErrorResponse.self, from: data).error.message"
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyDTOs+UserPlaylist.swift",
+    "rule": "try-reason",
+    "code": "collaborative = (try? container.decodeIfPresent(Bool.self, forKey: .collaborative)) ?? false"
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyGETResponseCache.swift",
+    "rule": "try-reason",
+    "code": "guard let hit = try? diskCache.loadGETResponseRecord("
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyGETResponseCache.swift",
+    "rule": "try-reason",
+    "code": "let disk = try? SpotifyLocalCache()"
+  },
+  {
+    "file": "Spotiglass/Services/SpotifyGETResponseCache.swift",
+    "rule": "try-reason",
+    "code": "try? diskCache.saveGETResponse(digest: Self.digest(for: key), body: body, ttl: ttl)"
+  },
+  {
+    "file": "Spotiglass/Settings/AppearanceSettingsView.swift",
+    "rule": "try-reason",
+    "code": "try? settingsStore.persistStagedSettings()"
+  },
+  {
+    "file": "Spotiglass/Settings/EqualizerSettingsView.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … saveSheetError = error.localizedDescription"
+  },
+  {
+    "file": "Spotiglass/Settings/EqualizerSettingsView.swift",
+    "rule": "localized-text",
+    "code": "saveSheetError = error.localizedDescription"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … tracker?.noteRepair(at: codingPath + [key, SettingsRowKey(index)], index UnreadableFileBackup.describe(error) )"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … tracker?.noteRepair(at: codingPath + [key], error: error)",
+    "count": 4
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsModel.swift",
+    "rule": "try-reason",
+    "code": "&& (try? container.decodeNil(forKey: .seededKeybindCommands)) != true"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsModel.swift",
+    "rule": "try-reason",
+    "code": "guard contains(key), (try? decodeNil(forKey: key)) != true else {",
+    "count": 3
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch {"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … lastError = error.localizedDescription"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return SettingsDiskSnapshot(data: data, decoded: nil, problems: [UnreadableFileBackup.describe(error)])"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "localized-text",
+    "code": "lastError = error.localizedDescription",
+    "count": 3
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "try-reason",
+    "code": "binding.keystrokes.contains { (try? CommandShortcut(keystroke: $0)) == shortcut }"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "try-reason",
+    "code": "guard let shortcut = try? CommandShortcut(keystroke: keystroke) else { return true }"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "try-reason",
+    "code": "if let destination = try? fileManager.destinationOfSymbolicLink(atPath: legacyURL.path) {"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "try-reason",
+    "code": "let base = (try? fileManager.url("
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "try-reason",
+    "code": "let currentData = try? Data(contentsOf: fileURL)"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "try-reason",
+    "code": "let parsed = try? JSONDecoder().decode(CommandPaletteKeymapFile.self, from: data)"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "try-reason",
+    "code": "try? mutate(change)"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "try-reason",
+    "code": "try? persist(Self.bootstrapDefaults())"
+  },
+  {
+    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
+    "rule": "try-reason",
+    "code": "try? persist(settings)"
+  },
+  {
+    "file": "Spotiglass/Utilities/ArtworkImageStore.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … return nil"
+  },
+  {
+    "file": "Spotiglass/Utilities/ArtworkImageStore.swift",
+    "rule": "try-reason",
+    "code": "DiskCacheTrim.write { try? data.write(to: fileURL, options: [.atomic]) }"
+  },
+  {
+    "file": "Spotiglass/Utilities/ArtworkImageStore.swift",
+    "rule": "try-reason",
+    "code": "guard let data = try? Data(contentsOf: fileURL) else { return nil }"
+  },
+  {
+    "file": "Spotiglass/Utilities/ArtworkImageStore.swift",
+    "rule": "try-reason",
+    "code": "if let data = try? Data(contentsOf: fileURL),"
+  },
+  {
+    "file": "Spotiglass/Utilities/ArtworkImageStore.swift",
+    "rule": "try-reason",
+    "code": "try? FileManager.default.createDirectory(at: diskDirectory, withIntermediateDirectories: true)",
+    "count": 2
+  },
+  {
+    "file": "Spotiglass/Utilities/ArtworkImageStore.swift",
+    "rule": "try-reason",
+    "code": "try? FileManager.default.createDirectory(at: urlCacheDir, withIntermediateDirectories: true)"
+  },
+  {
+    "file": "Spotiglass/Utilities/ArtworkImageStore.swift",
+    "rule": "try-reason",
+    "code": "try? FileManager.default.removeItem(at: diskDirectory)"
+  },
+  {
+    "file": "Spotiglass/Utilities/DiskCacheTrim.swift",
+    "rule": "try-reason",
+    "code": "guard let current = (try? fileManager.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date,"
+  },
+  {
+    "file": "Spotiglass/Utilities/DiskCacheTrim.swift",
+    "rule": "try-reason",
+    "code": "guard let files = try? fileManager.contentsOfDirectory("
+  },
+  {
+    "file": "Spotiglass/Utilities/DiskCacheTrim.swift",
+    "rule": "try-reason",
+    "code": "guard let values = try? url.resourceValues(forKeys: Set(keys)),"
+  },
+  {
+    "file": "Spotiglass/Utilities/DiskCacheTrim.swift",
+    "rule": "try-reason",
+    "code": "return (try? fileManager.removeItem(at: url)) != nil"
+  },
+  {
+    "file": "Spotiglass/Views/ArtistDetailView.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(nanoseconds: delayNanoseconds)"
+  },
+  {
+    "file": "Spotiglass/Views/ImmersiveLyrics/ImmersiveLyricsScrollViews.swift",
+    "rule": "try-reason",
+    "code": "try? await clock.sleep(until: deadline, tolerance: nil)"
+  },
+  {
+    "file": "Spotiglass/Views/ImmersiveLyrics/LyricsTimingHold.swift",
+    "rule": "try-reason",
+    "code": "try? await clock.sleep(until: deadline, tolerance: nil)"
+  },
+  {
+    "file": "Spotiglass/Views/ImmersiveLyricsView.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(for: .milliseconds(delay))"
+  },
+  {
+    "file": "Spotiglass/Views/ImmersiveLyricsViewModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch let failure as LrcLibClient.Failure { … guard isCurrentLoad(generation) else { return }"
+  },
+  {
+    "file": "Spotiglass/Views/ImmersiveLyricsViewModel.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … guard isCurrentLoad(generation) else { return }"
+  },
+  {
+    "file": "Spotiglass/Views/ImmersiveLyricsViewModel.swift",
+    "rule": "try-reason",
+    "code": "let disk = try? LyricsDiskCache()"
+  },
+  {
+    "file": "Spotiglass/Views/PlaylistBrowser/PlaylistBrowserDetailColumn.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(nanoseconds: 2_400_000_000)"
+  },
+  {
+    "file": "Spotiglass/Views/PlaylistBrowser/PlaylistBrowserView+SidebarSelection.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(for: .seconds(Self.pinnedBindingRetryDelaySeconds))"
+  },
+  {
+    "file": "Spotiglass/Views/PlaylistBrowserView.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(nanoseconds: UInt64(waitMs) * 1_000_000)"
+  },
+  {
+    "file": "Spotiglass/Views/QueuePanelView.swift",
+    "rule": "try-reason",
+    "code": "try? await Task.sleep(for: Self.visibleDuration)"
+  },
+  {
+    "file": "SpotiglassEQDriver/SpotiglassEQPlugin.cpp",
+    "rule": "ignored-status",
+    "code": "(void)AudioObjectSetPropertyData("
+  },
+  {
+    "file": "SpotiglassEQPrivilegedHelper/main.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … helperLog.error( temporaryURL.path, privacy: .public String(describing: error), privacy: .public )"
+  },
+  {
+    "file": "SpotiglassEQPrivilegedHelper/main.swift",
+    "rule": "catch-drops-error",
+    "code": "} catch { … let status: Int32 = error is HelperOperationError && isRejected(error) ? 64 : 74"
+  }
+]

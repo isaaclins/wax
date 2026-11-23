@@ -14,9 +14,9 @@
 //
 // **Output-scope only.** The router NEVER opens an input IOProc, NEVER reads
 // from any input stream, and NEVER touches the microphone. Audio Recording
-// permission is unreachable from this code path by construction; see the
-// `scripts/eq-mic-permission-audit.sh` allowlist which whitelists this file
-// and grep-asserts for the absence of banned APIs.
+// permission is unreachable from this code path by construction;
+// `scripts/eq-mic-permission-audit.sh` scans this directory and fails on any
+// banned API.
 
 #include "EQRouter.h"
 

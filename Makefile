@@ -4,7 +4,7 @@
 #        make release         — unsigned Release bundle (matches CI layout)
 #        make test            — unit tests on macOS
 
-.PHONY: all build run release test test-make-targets coverage coverage-check format lint scan clean sign-out list help audit-eq-permission build-driver embed-driver sign-driver install-driver
+.PHONY: all build run release test test-make-targets coverage coverage-check format lint scan clean sign-out list help audit-eq-permission audit-error-handling build-driver embed-driver sign-driver install-driver
 
 # Prefer a standalone install, then fall back to the copy inside the active
 # Xcode toolchain so `make lint` works without `brew install swift-format`.
@@ -113,6 +113,12 @@ release:
 audit-eq-permission:
 	./scripts/eq-mic-permission-audit.sh
 
+# Fails on new silent failures: an unexplained try?, a catch that drops the
+# error, print logging, blocking waits, localizedDescription on screen, ignored
+# Core Audio statuses (#607). Always runs before `make test`.
+audit-error-handling:
+	./scripts/audit-error-handling.sh
+
 # Builds SpotiglassEQDriver.driver as a universal Mach-O bundle (no Xcode
 # target needed). Output: build/SpotiglassEQDriver.driver
 #
@@ -182,7 +188,7 @@ install-driver: build-driver sign-driver
 		echo "WARNING: coreaudiod did not pick up the driver. Check system logs for the failure reason."; \
 	fi
 
-test: audit-eq-permission test-make-targets
+test: audit-eq-permission audit-error-handling test-make-targets
 	# Per-test timeouts match CI. A wedged test once burned 40 minutes here
 	# and reported nothing about which test it was; with timeouts on, the run
 	# fails fast and names it. The slowest legitimate test takes about a
