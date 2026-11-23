@@ -57,6 +57,20 @@ jobs:
       - name: Microphone / process-tap audit
         run: ./scripts/eq-mic-permission-audit.sh
 
+      - name: Error-handling audit
+        # New code may not drop an error silently (#607). Sites that existed
+        # when the audit went in are in scripts/error-handling-baseline.json,
+        # which may only shrink: on a pull request it is compared with the
+        # base branch's copy.
+        run: |
+          set -euo pipefail
+          if [ -n "${GITHUB_BASE_REF:-}" ]; then
+            git fetch --no-tags --depth=1 origin "$GITHUB_BASE_REF"
+            ./scripts/audit-error-handling.sh --no-growth-from FETCH_HEAD
+          else
+            ./scripts/audit-error-handling.sh
+          fi
+
       - name: Localization audit
         # Four checks: English leaks, catalog completeness, referenced keys
         # that are missing, and catalog keys nothing references (#75).

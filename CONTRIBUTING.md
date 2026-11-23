@@ -38,6 +38,11 @@ make format         # requires swift-format (see docs/building-and-testing.md)
 
 Avoid drive-by reformatting of unrelated files in the same change.
 
+## Errors
+
+Errors are never dropped silently: a `catch` logs with `SpotiglassLog` or rethrows, and a `try?` explains itself on the same line or the line above with `// try?: <why losing the error is fine>`.
+`scripts/audit-error-handling.sh` (run by `make test` and CI) checks this plus print logging, blocking waits, `localizedDescription` on screen and ignored Core Audio statuses; when you fix a site it lists, `--update-baseline` removes it from `scripts/error-handling-baseline.json`.
+
 ## Adding a new test file
 
 The Xcode project uses explicit file references. After adding
