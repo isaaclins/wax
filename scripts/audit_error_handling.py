@@ -239,7 +239,8 @@ HANDS_ON = re.compile(
 )
 
 
-def rule_catch(code):
+def catch_blocks(code):
+    """Yield (match, pattern, brace, end) for each `catch ... { ... }`."""
     for m in CATCH.finditer(code):
         brace = code.find('{', m.end())
         if brace == -1:
@@ -248,13 +249,28 @@ def rule_catch(code):
         # A pattern may wrap (`catch let e as NSError\n where e.code == 7 {`), but
         # it never holds a statement or a closing brace; those mean this `catch`
         # isn't followed by its own block.
-        if ';' in pattern or '}' in pattern or pattern.count('\n') > 3:
+        if ';' in pattern or '}' in pattern:
             continue
+        yield m, pattern, brace, matching(code, brace, '{', '}')
+
+
+def without_nested_catches(body):
+    """The body with the blocks of catches inside it blanked out: logging the
+    error of a nested cleanup doesn't account for the outer error."""
+    out = list(body)
+    for _, _, brace, end in catch_blocks(body):
+        for k in range(brace, end + 1):
+            if out[k] != '\n':
+                out[k] = ' '
+    return ''.join(out)
+
+
+def rule_catch(code):
+    for m, pattern, brace, end in catch_blocks(code):
         if re.fullmatch(r'\s*(is|let\s+\w+\s+as)\s+CancellationError\s*', pattern):
             continue
-        end = matching(code, brace, '{', '}')
         body = code[brace + 1:end]
-        if body.strip() == '' or not HANDS_ON.search(body):
+        if body.strip() == '' or not HANDS_ON.search(without_nested_catches(body)):
             # Keyed by the catch line plus the first line of its body, so a
             # file's many `} catch {` lines stay apart in the baseline.
             first = next((l.strip() for l in body.split('\n') if l.strip()), '')
@@ -278,27 +294,28 @@ def rule_print_swift(code):
 
 def rule_print_c(code):
     depth_stack = []  # True for a SPOTIGLASS_EQ_DEBUG block
+    debug_lines = set()
     for idx, line in enumerate(code.split('\n')):
         s = line.strip()
         if re.match(r'#\s*if', s):
             depth_stack.append(bool(DEBUG_IF.match(line)))
-            continue
-        if re.match(r'#\s*endif', s):
+        elif re.match(r'#\s*endif', s):
             if depth_stack:
                 depth_stack.pop()
-            continue
-        if re.match(r'#\s*(else|elif)', s) and depth_stack:
+        elif re.match(r'#\s*(else|elif)', s) and depth_stack:
             depth_stack[-1] = False
-            continue
-        if any(depth_stack):
-            continue
-        if C_PRINT.search(line):
-            yield idx + 1
+        elif any(depth_stack):
+            debug_lines.add(idx + 1)
+    # Across lines: `fprintf(\n    stderr, ...)` is still printing.
+    for m in C_PRINT.finditer(code):
+        ln = line_of(code, m.start())
+        if ln not in debug_lines:
+            yield ln
 
 
 BLOCKING = re.compile(
     r'\bThread\.sleep\b'
-    r'|(?<![\w.])usleep\s*\('
+    r'|(?:(?<![\w.])|(?<=\bDarwin\.)|(?<=\bFoundation\.))usleep\s*\('
     r'|\.wait\s*\(\s*(\)|timeout\s*:|wallTimeout\s*:)'
 )
 
@@ -323,16 +340,40 @@ def rule_localized(code):
             yield line_of(code, m.start())
 
 
-C_STATUS_VOID = re.compile(
-    r'\(\s*void\s*\)\s*(?:[\w.>\-]*(?:->|\.))?'
-    r'(Audio(?:Object|Hardware|Device|Converter|Unit|Queue|File|Component)\w*|PropertiesChanged|RequestDeviceConfigurationChange|WriteMix|\w+Status)\s*\('
-)
-SWIFT_STATUS_DROP = re.compile(r'(?<![\w.])_\s*=\s*(?:try\s+)?(Audio(?:Object|Hardware|Device|Converter|Unit|Queue|File|Component)\w*)\s*\(')
+AUDIO_API = r'Audio(?:Object|Hardware|Device|Converter|Unit|Queue|File|Component)\w*'
+C_STATUS_CALL = (r'(?:[\w.>\-]*(?:->|\.))?'
+                 r'(?:' + AUDIO_API + r'|PropertiesChanged|RequestDeviceConfigurationChange|WriteMix|\w+Status)\s*\(')
+C_STATUS_VOID = re.compile(r'\(\s*void\s*\)\s*' + C_STATUS_CALL)
+# A call that is a whole statement: nothing looks at what it returns. Only the
+# Core Audio API and the host's callbacks here; the driver's own `...Status`
+# helpers return void.
+C_STATUS_STATEMENT = re.compile(
+    r'^[ \t]*(?:[\w.>\-]*(?:->|\.))?(?:' + AUDIO_API +
+    r'|PropertiesChanged|RequestDeviceConfigurationChange|WriteMix)\s*\(', re.M)
+SWIFT_STATUS_DROP = re.compile(r'(?<![\w.])_\s*=\s*(?:try\s+)?(?:\w+\.)?(' + AUDIO_API + r')\s*\(')
+
+
+def starts_statement(code, start):
+    """True when the code before `start` ends a statement or opens a block."""
+    before = code[:start].rstrip()
+    if not before:
+        return True
+    if before[-1] in ';{}:':
+        return True
+    if before[-1] == ')':
+        # `if (...) Call(...)`: a statement after a condition, not a continued
+        # argument list like `foo(a,\n b)` (that line ends in `,`).
+        return True
+    return bool(re.search(r'\belse$', before))
 
 
 def rule_status_c(code):
     for m in C_STATUS_VOID.finditer(code):
         yield line_of(code, m.start())
+    for m in C_STATUS_STATEMENT.finditer(code):
+        at = m.start() + len(m.group(0)) - len(m.group(0).lstrip())
+        if starts_statement(code, at):
+            yield line_of(code, at)
 
 
 def rule_status_swift(code):

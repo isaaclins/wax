@@ -1447,8 +1447,29 @@
     "code": "try? await Task.sleep(for: Self.visibleDuration)"
   },
   {
+    "file": "SpotiglassEQDriver/EQRouter.cpp",
+    "rule": "ignored-status",
+    "code": "AudioDeviceDestroyIOProcID(device, router->ioProc);"
+  },
+  {
+    "file": "SpotiglassEQDriver/EQRouter.cpp",
+    "rule": "ignored-status",
+    "code": "AudioDeviceDestroyIOProcID(router->device, router->ioProc);"
+  },
+  {
+    "file": "SpotiglassEQDriver/EQRouter.cpp",
+    "rule": "ignored-status",
+    "code": "AudioDeviceStop(router->device, router->ioProc);"
+  },
+  {
     "file": "SpotiglassEQDriver/SpotiglassEQPlugin.cpp",
     "rule": "ignored-status",
     "code": "(void)AudioObjectSetPropertyData("
+  },
+  {
+    "file": "SpotiglassEQDriver/SpotiglassEQPlugin.cpp",
+    "rule": "ignored-status",
+    "code": "gPlugin.host->PropertiesChanged(",
+    "count": 2
   }
 ]

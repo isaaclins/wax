@@ -210,6 +210,78 @@ class RulesFailOnNewCode(Fixture):
             ''')
         self.assertClean()
 
+    def test_driver_print_wrapped_over_lines(self):
+        self.write('SpotiglassEQDriver/Plugin.cpp', '''\
+            static void f() {
+                fprintf(
+                    stderr, "StartIO\\n");
+            }
+            ''')
+        self.assertFinding('SpotiglassEQDriver/Plugin.cpp', 2, 'print-logging')
+
+    def test_module_qualified_sleep_and_status_drop(self):
+        self.write('Spotiglass/Playback/Eq.swift', '''\
+            func settle() {
+                Darwin.usleep(50_000)
+                _ = CoreAudio.AudioObjectSetPropertyData(id, &address, 0, nil, size, &value)
+            }
+            ''')
+        code, out = self.audit()
+        self.assertEqual(code, 1, out)
+        self.assertIn('Spotiglass/Playback/Eq.swift:2: [blocking-wait]', out)
+        self.assertIn('Spotiglass/Playback/Eq.swift:3: [ignored-status]', out)
+
+    def test_catch_pattern_wrapped_over_many_lines(self):
+        self.write('Spotiglass/Services/Client.swift', '''\
+            func a() {
+                do { try x() } catch let error as NSError
+                    where error.domain == NSCocoaErrorDomain
+                        && error.code == 7
+                        && retries > 0
+                        && !cancelled {
+                    return
+                }
+            }
+            ''')
+        self.assertFinding('Spotiglass/Services/Client.swift', 2, 'catch-drops-error')
+
+    def test_logging_a_nested_cleanup_error_does_not_cover_the_outer_one(self):
+        self.write('Spotiglass/Persistence/Store.swift', '''\
+            func save() {
+                do { try write() } catch {
+                    do { try removeTemporaryFile() } catch {
+                        SpotiglassLog.error(.persistence, "cleanup failed: \\(SpotiglassLog.describe(error))")
+                    }
+                }
+            }
+            ''')
+        code, out = self.audit()
+        self.assertEqual(code, 1, out)
+        self.assertIn('Spotiglass/Persistence/Store.swift:2: [catch-drops-error]', out)
+        self.assertNotIn('Store.swift:3:', out)
+
+    def test_core_audio_call_as_a_whole_statement_drops_its_status(self):
+        # Deleting the (void) from the driver's AudioObjectSetPropertyData must not
+        # count as fixing it.
+        self.write('SpotiglassEQDriver/EQRouter.cpp', '''\
+            static void stop(Router* router) {
+                if (router->started)
+                    AudioDeviceStop(router->device, router->ioProc);
+                AudioObjectSetPropertyData(
+                    target, &addr, 0, nullptr, sizeof(want), &want);
+                OSStatus status =
+                    AudioDeviceStart(router->device, router->ioProc);
+                if (AudioDeviceStop(router->device, router->ioProc) != noErr) { log(); }
+                WriteRouterStatus("ready", uid, 0);
+            }
+            ''')
+        code, out = self.audit()
+        self.assertEqual(code, 1, out)
+        self.assertIn('SpotiglassEQDriver/EQRouter.cpp:3: [ignored-status]', out)
+        self.assertIn('SpotiglassEQDriver/EQRouter.cpp:4: [ignored-status]', out)
+        for line in (7, 8, 9):
+            self.assertNotIn('EQRouter.cpp:%d:' % line, out)
+
     def test_formatting_the_error_is_not_logging_it(self):
         # SpotiglassLog.describe(error) only builds a string; a catch that puts it
         # on screen still drops the error.
