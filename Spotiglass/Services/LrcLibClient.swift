@@ -143,14 +143,23 @@ struct LrcLibClient: Sendable {
 
     /// The exact lookups missed: search LRCLIB by title and artist and take the closest
     /// result that is the same song (#657). Nothing close enough is still "no lyrics".
+    /// The search is a second chance: when it fails (other than a rate limit or a cancel), the
+    /// answer stays what both exact lookups said, "No lyrics found", as before the search existed.
     private func searchBestMatch(for track: PlaybackNowPlaying) async throws -> FetchedLyrics {
-        let results: [LrcLibSearchResultDTO]? = try await request(
-            endpoint: "search",
-            queryItems: [
-                URLQueryItem(name: "track_name", value: LrcLibMatch.searchTitle(track.name)),
-                URLQueryItem(name: "artist_name", value: track.lrcLibArtistQuery)
-            ]
-        )
+        let results: [LrcLibSearchResultDTO]?
+        do {
+            results = try await request(
+                endpoint: "search",
+                queryItems: [
+                    URLQueryItem(name: "track_name", value: LrcLibMatch.searchTitle(track.name)),
+                    URLQueryItem(name: "artist_name", value: track.lrcLibArtistQuery)
+                ]
+            )
+        } catch {
+            if error is CancellationError || (error as? URLError)?.code == .cancelled { throw error }
+            if case Failure.rateLimited = error { throw error }
+            throw Failure.noLyrics
+        }
         let candidates = (results ?? []).compactMap { result -> LrcLibMatch.Candidate? in
             guard let lyrics = mapResponse(result.response) else { return nil }
             return LrcLibMatch.Candidate(
@@ -329,7 +338,7 @@ enum LrcLibMatch {
     ) -> Candidate? {
         guard durationMilliseconds > 0 else { return nil }
         let wantedTitle = normalizedTitle(title)
-        let wantedArtists = artistSet(artists)
+        let wantedArtists = artistSet(artists + featuredArtists(in: title))
         guard !wantedTitle.isEmpty, !wantedArtists.isEmpty else { return nil }
         let wantedSeconds = Double(durationMilliseconds) / 1_000
 
@@ -339,7 +348,7 @@ enum LrcLibMatch {
             let gap = abs(seconds - wantedSeconds)
             guard gap <= durationToleranceSeconds else { return nil }
             guard normalizedTitle(candidate.title) == wantedTitle else { return nil }
-            let theirArtists = artistSet([candidate.artist])
+            let theirArtists = artistSet([candidate.artist] + featuredArtists(in: candidate.title))
             guard !theirArtists.isEmpty,
                   theirArtists.isSubset(of: wantedArtists) || wantedArtists.isSubset(of: theirArtists) else { return nil }
             return (candidate, kindRank(candidate.lyrics), theirArtists == wantedArtists, gap)
@@ -351,10 +360,25 @@ enum LrcLibMatch {
         }?.candidate
     }
 
-    /// The title sent to the search: without a "(feat. ...)" part, which LRCLIB often leaves out.
+    /// The title sent to the search: without a "(feat. ...)" or trailing "feat. ..." part, which
+    /// LRCLIB often leaves out. The names in it still count as the song's artists, so "Song (feat. B)"
+    /// never takes the lyrics of "Song (feat. C)".
     static func searchTitle(_ title: String) -> String {
-        title.replacingOccurrences(of: featuringPattern, with: "", options: [.regularExpression, .caseInsensitive])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        featuringPatterns.reduce(title) { text, pattern in
+            text.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+        }
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The artists a title credits in its "(feat. ...)" or trailing "feat. ..." part.
+    static func featuredArtists(in title: String) -> [String] {
+        featuringPatterns.flatMap { pattern -> [String] in
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return [] }
+            let range = NSRange(title.startIndex..., in: title)
+            return regex.matches(in: title, range: range).compactMap { match in
+                Range(match.range(at: 2), in: title).map { String(title[$0]) }
+            }
+        }
     }
 
     static func normalizedTitle(_ title: String) -> String {
@@ -379,7 +403,12 @@ enum LrcLibMatch {
         return result
     }
 
-    private static let featuringPattern = #"\s*[\(\[](feat\.?|ft\.?|featuring|with)\s[^\)\]]*[\)\]]"#
+    /// "(feat. B)" / "[with B]" anywhere, and an unbracketed "feat. B" at the end ("with" only in
+    /// brackets: "Dance With Me" is a title). Group 2 is the credited names.
+    private static let featuringPatterns = [
+        #"\s*[\(\[](feat\.?|ft\.?|featuring|with)\s+([^\)\]]*)[\)\]]"#,
+        #"\s+(feat\.?|ft\.?|featuring)\s+(.+)$"#
+    ]
     private static let artistSeparatorPattern = #"\s*(,|&|\+|•|·|;|/)\s*|\s+(feat\.?|ft\.?|featuring|with|and|y|e|et)\s+"#
 
     private static func kindRank(_ lyrics: FetchedLyrics) -> Int {

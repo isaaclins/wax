@@ -64,6 +64,7 @@ private final class LRCLIBReplayURLProtocol: URLProtocol {
     static var requestedEndpoints: [String] = []
     static var stored: [Stored] = []
     static var searchBody = "[]"
+    static var searchStatus = 200
 
     override class func canInit(with request: URLRequest) -> Bool {
         request.url?.host == "127.0.0.1" && (request.url?.path.contains("/api/") == true)
@@ -90,7 +91,7 @@ private final class LRCLIBReplayURLProtocol: URLProtocol {
                 body = hit.body
             }
         case "search":
-            status = 200
+            status = Self.searchStatus
             body = Self.searchBody
         default:
             break
@@ -112,6 +113,7 @@ final class LrcLibClientTests: XCTestCase {
         LRCLIBReplayURLProtocol.requestedEndpoints = []
         LRCLIBReplayURLProtocol.stored = []
         LRCLIBReplayURLProtocol.searchBody = "[]"
+        LRCLIBReplayURLProtocol.searchStatus = 200
         super.tearDown()
     }
 
@@ -409,10 +411,12 @@ final class LrcLibClientTests: XCTestCase {
      {"id":35200874,"trackName":"Happy Birthday","artistName":"Tempo et El Alfa","albumName":"Happy Birthday","duration":156.0,"instrumental":false,"plainLyrics":"Yo lo que ando e'","syncedLyrics":"[00:00.73] Yo lo que ando e'"}]
     """#
 
-    private func makeReplayClient() -> LrcLibClient {
+    private func makeReplayClient(fetchMode: LrcLibClient.FetchMode = .sequentialCachedFirst) -> LrcLibClient {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [LRCLIBReplayURLProtocol.self] + (config.protocolClasses ?? [])
-        return LrcLibClient(session: URLSession(configuration: config), baseURL: URL(string: "http://127.0.0.1:1")!)
+        return LrcLibClient(
+            session: URLSession(configuration: config), baseURL: URL(string: "http://127.0.0.1:1")!, fetchMode: fetchMode
+        )
     }
 
     private func appleMusicTrack(_ name: String, artist: String, album: String, durationMilliseconds: Int) -> PlaybackNowPlaying {
@@ -494,6 +498,78 @@ final class LrcLibClientTests: XCTestCase {
             LrcLibMatch.best(among: [plain], title: "Song", artists: ["C"], durationMilliseconds: 180_000),
             "Another artist's song never matches"
         )
+    }
+
+    func testTheParallelModeAlsoSearchesWhenBothExactLookupsMiss() async throws {
+        LRCLIBReplayURLProtocol.searchBody = Self.happyBirthdaySearch
+        let track = appleMusicTrack(
+            "Happy Birthday", artist: "Tempo & El Alfa", album: "Happy Birthday - Single", durationMilliseconds: 156_480
+        )
+
+        let lyrics = try await makeReplayClient(fetchMode: .parallel).fetchLyrics(for: track)
+
+        guard case let .synced(lines) = lyrics else { return XCTFail("expected synced lyrics, got \(lyrics)") }
+        XCTAssertEqual(lines.first?.words, "Yo lo que ando es")
+        XCTAssertEqual(LRCLIBReplayURLProtocol.requestedEndpoints.last, "search")
+    }
+
+    func testAFailedSearchStillSaysNoLyricsLikeBeforeTheSearchExisted() async {
+        let track = appleMusicTrack("Las +593", artist: "Machaka", album: "Las +593 - Single", durationMilliseconds: 164_000)
+        for status in [500, 503] {
+            LRCLIBReplayURLProtocol.searchStatus = status
+            do {
+                _ = try await makeReplayClient().fetchLyrics(for: track)
+                XCTFail("search answered \(status) and still gave lyrics")
+            } catch let failure as LrcLibClient.Failure {
+                XCTAssertEqual(failure, .noLyrics, "search answered \(status)")
+            } catch {
+                XCTFail("Unexpected error: \(error)")
+            }
+        }
+        LRCLIBReplayURLProtocol.searchBody = "not json"
+        LRCLIBReplayURLProtocol.searchStatus = 200
+        do {
+            _ = try await makeReplayClient().fetchLyrics(for: track)
+            XCTFail("an unreadable search answer gave lyrics")
+        } catch let failure as LrcLibClient.Failure {
+            XCTAssertEqual(failure, .noLyrics)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testARateLimitedSearchStillReportsTheRateLimit() async {
+        LRCLIBReplayURLProtocol.searchStatus = 429
+        let track = appleMusicTrack("Las +593", artist: "Machaka", album: "Las +593 - Single", durationMilliseconds: 164_000)
+        do {
+            _ = try await makeReplayClient().fetchLyrics(for: track)
+            XCTFail("a rate-limited search gave lyrics")
+        } catch let failure as LrcLibClient.Failure {
+            guard case .rateLimited = failure else { return XCTFail("expected rateLimited, got \(failure)") }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testAnotherFeaturedVersionOfTheSameSongNeverMatches() {
+        // Apple Music often names only the main artist and puts the featured one in the title.
+        func candidate(_ title: String, _ artist: String) -> LrcLibMatch.Candidate {
+            LrcLibMatch.Candidate(
+                title: title, artist: artist, durationSeconds: 180,
+                lyrics: .synced([SyncedLyricLine(id: 0, startTimeMs: 0, words: title + " by " + artist)])
+            )
+        }
+        func best(_ candidates: [LrcLibMatch.Candidate]) -> LrcLibMatch.Candidate? {
+            LrcLibMatch.best(among: candidates, title: "Song (feat. B)", artists: ["A"], durationMilliseconds: 180_000)
+        }
+        XCTAssertNil(best([candidate("Song (feat. C)", "A")]), "B's version must not take C's version's lyrics")
+        XCTAssertNil(best([candidate("Song", "A, C")]), "B's version must not take C's version's lyrics")
+        XCTAssertEqual(best([candidate("Song", "A & B")])?.artist, "A & B")
+        XCTAssertEqual(best([candidate("Song feat. B", "A")])?.title, "Song feat. B")
+        XCTAssertEqual(best([candidate("Song", "A")])?.artist, "A", "LRCLIB may leave the featured artist out")
+        XCTAssertEqual(LrcLibMatch.searchTitle("Song feat. B"), "Song")
+        XCTAssertEqual(LrcLibMatch.searchTitle("Dance With Me"), "Dance With Me", "\"with\" only counts in brackets")
+        XCTAssertEqual(LrcLibMatch.featuredArtists(in: "Song (feat. B & C)"), ["B & C"])
     }
 
     private func makeClient() -> LrcLibClient {
