@@ -357,7 +357,7 @@ final class CommandPalettePanelTests: XCTestCase {
                 .environment(\.colorScheme, .light))
             host.frame = NSRect(origin: .zero, size: size)
             host.layoutSubtreeIfNeeded()
-            AppKitTestSupport.pumpRunLoop(for: 0.2)
+            AppKitTestSupport.settle()
             host.layoutSubtreeIfNeeded()
             let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
             host.cacheDisplay(in: host.bounds, to: bitmap)
@@ -394,7 +394,7 @@ final class CommandPalettePanelTests: XCTestCase {
                 .environment(\.colorScheme, .light))
             host.frame = NSRect(origin: .zero, size: size)
             host.layoutSubtreeIfNeeded()
-            AppKitTestSupport.pumpRunLoop(for: 0.2)
+            AppKitTestSupport.settle()
             host.layoutSubtreeIfNeeded()
             let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
             host.cacheDisplay(in: host.bounds, to: bitmap)
@@ -518,12 +518,16 @@ final class CommandPalettePanelTests: XCTestCase {
         XCTAssertNotEqual(last, viewModel.searchCategoryFilter)
 
         viewModel.selectCategory(last)
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
 
+        // The row scrolls the chip in with an animation: wait until it is in view, however late
+        // a busy machine gets there, instead of for the animation's length.
         let host = controller.view
-        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-        host.cacheDisplay(in: host.bounds, to: bitmap)
-        XCTAssertGreaterThan(Self.accentPixelCount(in: try XCTUnwrap(bitmap.cgImage)), 40, "selected chip is out of view")
+        func accentPixels() -> Int {
+            guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return 0 }
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            return bitmap.cgImage.map(Self.accentPixelCount) ?? 0
+        }
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { accentPixels() > 40 }), "selected chip is out of view")
     }
 
     /// Pixels that are clearly the blue accent fill.

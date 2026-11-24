@@ -102,11 +102,14 @@ final class DetailSurfaceRegressionTests: XCTestCase {
         )
         .environmentObject(pinnedStore())
         let controller = ViewTestHost.host(view, size: CGSize(width: 700, height: 300))
-        AppKitTestSupport.pumpRunLoop(for: 0.2)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { (Self.firstTableView(in: controller.view)?.numberOfRows ?? 0) > 0 }),
+            "the track list never showed its row"
+        )
         let table = try XCTUnwrap(Self.firstTableView(in: controller.view))
         table.selectRowIndexes(IndexSet(integer: 0), byExtendingSelection: false)
         table.displayIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 0.2)
+        AppKitTestSupport.settle()
 
         XCTAssertEqual(selection, [track.id])
     }

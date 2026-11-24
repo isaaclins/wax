@@ -448,12 +448,18 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
         ))
         host.frame = NSRect(x: 0, y: 0, width: 360, height: 280)
         host.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        // The cover can fade in: wait until it shows, however late a busy machine draws it (#567).
+        _ = AppKitTestSupport.pumpRunLoop(until: { ((try? self.centerPixel(of: host))?.redComponent ?? 0) > 0.5 })
         XCTAssertGreaterThan(try centerPixel(of: host).redComponent, 0.5, "the catalog cover should show first")
 
         host.rootView = AnyView(ImmersiveBlurredArtwork(url: unknown, registry: registry))
         host.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        // Wait for the backdrop to go dark rather than for a fixed time; a cover that stays
+        // runs into the deadline and fails below.
+        _ = AppKitTestSupport.pumpRunLoop(until: {
+            guard let center = try? self.centerPixel(of: host) else { return false }
+            return center.redComponent + center.greenComponent + center.blueComponent < 0.05
+        })
         let center = try centerPixel(of: host)
         XCTAssertLessThan(
             center.redComponent + center.greenComponent + center.blueComponent,

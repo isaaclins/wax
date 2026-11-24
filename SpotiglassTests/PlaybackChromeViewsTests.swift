@@ -291,7 +291,12 @@ final class PlaybackChromeViewsTests: XCTestCase {
         let window = try XCTUnwrap(controller.view.window)
         window.title = "AXTestTransport"
         window.makeKeyAndOrderFront(nil)
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        // Where the test host has no accessibility tree at all, skip at once instead of waiting
+        // out the must-happen limit; where it has one, wait for the scrubber to be in it.
+        AppKitTestSupport.settle()
+        if realizedAccessibilityTreeIfAvailable(in: window) != nil {
+            _ = waitForAccessibilityTree(in: window)
+        }
 
         guard let elements = realizedAccessibilityTreeIfAvailable(in: window) else {
             throw XCTSkip(
@@ -364,7 +369,7 @@ final class PlaybackChromeViewsTests: XCTestCase {
         window.orderFrontRegardless()
         window.makeKey()
         defer { AppKitTestSupport.closeWindowSafely(window) }
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        XCTAssertTrue(waitForAccessibilityTree(in: window), "the scrubber never reached the accessibility tree")
 
         // AX frames are in screen points from the top of the main screen.
         let screenHeight = try XCTUnwrap(NSScreen.screens.first).frame.height
@@ -392,21 +397,24 @@ final class PlaybackChromeViewsTests: XCTestCase {
                 pressure: type == .leftMouseDown ? 1 : 0
             )!)
         }
+        // Each change lands in full before the next, so the press really lives through every one.
         send(.leftMouseDown)
-        AppKitTestSupport.pumpRunLoop(for: 0.15)
+        AppKitTestSupport.settle()
         playback.handle(.stateChanged(Self.midnightCity(positionMilliseconds: 32_000), isPaused: false, nextTracks: []))
-        AppKitTestSupport.pumpRunLoop(for: 0.2)
+        AppKitTestSupport.settle()
         window.setContentSize(stackedSize)
-        AppKitTestSupport.pumpRunLoop(for: 0.2)
+        AppKitTestSupport.settle()
         window.setContentSize(rowSize)
-        AppKitTestSupport.pumpRunLoop(for: 0.2)
+        AppKitTestSupport.settle()
         // Where the pointer now sits on the bar, should the window not have
         // got its size back exactly.
         let barAtRelease = try scrubberFrameOnScreen()
         let pointer = window.convertPoint(toScreen: location)
         let fraction = min(max((pointer.x - barAtRelease.minX) / barAtRelease.width, 0), 1)
         send(.leftMouseUp)
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { !sentSeeks.values.isEmpty }), "the release never seeked")
+        // Whatever else the release started has run too, so a second seek would be counted.
+        AppKitTestSupport.settle()
 
         let seeks = sentSeeks.values
         XCTAssertEqual(seeks.count, 1, "the click must seek once; window \(window.frame), bar \(bar) then \(barAtRelease)")
@@ -439,7 +447,11 @@ final class PlaybackChromeViewsTests: XCTestCase {
             window.setContentSize(NSSize(width: width, height: 140))
             window.orderFrontRegardless()
             defer { AppKitTestSupport.closeWindowSafely(window) }
-            AppKitTestSupport.pumpRunLoop(for: 0.4)
+            AppKitTestSupport.settle()
+            XCTAssertTrue(
+                AppKitTestSupport.pumpRunLoop(until: { (try? voiceOverOrder(in: window))?.contains("Playback progress") == true }),
+                "the scrubber never reached the accessibility tree at \(width)"
+            )
 
             let order = try voiceOverOrder(in: window)
             let scrubber = try XCTUnwrap(order.firstIndex(of: "Playback progress"), "\(order)")
@@ -533,7 +545,11 @@ final class PlaybackChromeViewsTests: XCTestCase {
         defer { AppKitTestSupport.closeWindowSafely(window) }
         window.title = "AXTestPlayerBar-\(state)-\(appearance.rawValue)-\(Int(width))"
         window.orderFrontRegardless()
-        AppKitTestSupport.pumpRunLoop(for: 0.2)
+        // Every state shows at least one button (the transport, Reconnect or Retry).
+        XCTAssertTrue(
+            waitForAccessibilityTree(in: window, until: { $0.contains { $0.role == "AXButton" } }),
+            "the bar in state \(state) never reached the accessibility tree"
+        )
         try check(try realizedAccessibilityTree(in: window), window)
     }
 
@@ -558,7 +574,7 @@ final class PlaybackChromeViewsTests: XCTestCase {
         defer { AppKitTestSupport.closeWindowSafely(window) }
         window.title = "AXTestScrubberRow"
         window.orderFrontRegardless()
-        AppKitTestSupport.pumpRunLoop(for: 0.2)
+        XCTAssertTrue(waitForAccessibilityTree(in: window), "the scrubber never reached the accessibility tree")
         let progressLabel = SpotiglassL10n.string("playback.scrubber.progress")
         let scrubber = try XCTUnwrap(try realizedAccessibilityTree(in: window).first { $0.axDescription == progressLabel })
         return (height, rowWidth - scrubber.size.width)
@@ -893,7 +909,7 @@ final class PlaybackChromeViewsTests: XCTestCase {
             window.title = "AXTestLayout\(Int(size.width))"
             controller.view.frame = window.contentView?.bounds ?? NSRect(origin: .zero, size: size)
             window.makeKeyAndOrderFront(nil)
-            AppKitTestSupport.pumpRunLoop(for: 0.25)
+            XCTAssertTrue(waitForAccessibilityTree(in: window), "the scrubber never reached the accessibility tree at \(size)")
 
             let elements = try realizedAccessibilityTree(in: window)
             let scrubber = try XCTUnwrap(
@@ -1370,6 +1386,21 @@ final class PlaybackChromeViewsTests: XCTestCase {
             "Could not find AX window \(window.title); got \(windows.map { axString($0, attribute: kAXTitleAttribute) })"
         )
         return axDescendants(of: windowElement)
+    }
+
+    /// Lays the windows out, then waits until `window`'s realised accessibility tree holds what
+    /// the test reads (by default the scrubber): SwiftUI publishes it on a later turn of the run
+    /// loop, however late that is on a busy machine, instead of after a fixed time (#567).
+    private func waitForAccessibilityTree(
+        in window: NSWindow,
+        until done: @escaping ([RealizedAccessibilityElement]) -> Bool = { elements in
+            elements.contains { $0.axDescription == SpotiglassL10n.string("playback.scrubber.progress") }
+        }
+    ) -> Bool {
+        AppKitTestSupport.settle()
+        return AppKitTestSupport.pumpRunLoop(until: {
+            self.realizedAccessibilityTreeIfAvailable(in: window).map(done) ?? false
+        })
     }
 
     private func realizedAccessibilityTreeIfAvailable(in window: NSWindow) -> [RealizedAccessibilityElement]? {

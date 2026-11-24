@@ -139,8 +139,9 @@ final class WindowResizeCostTests: XCTestCase {
         window.setContentSize(NSSize(width: width, height: height))
         window.layoutIfNeeded()
         ViewTestHost.appStorageDefaults.set(window.frameDescriptor, forKey: Self.frameKey)
-        // About the pace of Hammerspoon's 0.2 s animation in 12 steps.
-        AppKitTestSupport.pumpRunLoop(for: 0.02)
+        // As in a window manager's animated resize, the run loop turns between steps, so every
+        // update this step started lands before the next one.
+        AppKitTestSupport.settle()
     }
 
     func testAnAnimatedResizeFromCodeDoesNotReRenderABigPlaylist() async throws {
@@ -183,7 +184,7 @@ final class WindowResizeCostTests: XCTestCase {
         for step in 0..<12 {
             resize(window, toWidth: 1_450 - CGFloat(step) * 30, height: 900 - CGFloat(step) * 10)
         }
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        AppKitTestSupport.settle()
         XCTAssertEqual(offScreen(), [], "a resize built a row or card far outside the window")
 
         // Back to full size: the table already has its rows, so the far row and the far card
@@ -191,7 +192,7 @@ final class WindowResizeCostTests: XCTestCase {
         for step in (0..<12).reversed() {
             resize(window, toWidth: 1_450 - CGFloat(step) * 30, height: 900 - CGFloat(step) * 10)
         }
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        AppKitTestSupport.settle()
         XCTAssertEqual(offScreen(), [], "growing the window built a row or card far outside it")
     }
 
@@ -260,13 +261,13 @@ final class WindowResizeCostTests: XCTestCase {
             AppKitTestSupport.pumpRunLoop(until: { ViewBodyTally.counts?[second] != nil }),
             "the results never came on screen", file: file, line: line
         )
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        AppKitTestSupport.settle()
         XCTAssertNil(ViewBodyTally.counts?[farOff], "Search built \(farOff) far outside the window", file: file, line: line)
 
         for step in 0..<12 {
             resize(window, toWidth: 900 - CGFloat(step) * 20, height: 600 - CGFloat(step) * 10)
         }
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        AppKitTestSupport.settle()
         XCTAssertNil(ViewBodyTally.counts?[farOff], "a resize built \(farOff) far outside the window", file: file, line: line)
     }
 
@@ -306,7 +307,7 @@ final class WindowResizeCostTests: XCTestCase {
                 countsWhileShrinking = ViewBodyTally.counts ?? [:]
             }
         }
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        AppKitTestSupport.settle()
         let counts = ViewBodyTally.counts ?? [:]
 
         for container in [
@@ -339,15 +340,16 @@ final class WindowResizeCostTests: XCTestCase {
         }
     }
 
-    /// Waits until a whole 0.1 s passes with no counted body running, so a load or player update
-    /// that lands late on a busy Mac can't be taken for a re-render the resize caused. A browser
-    /// that never stops re-rendering fails at ``mustHappenTimeout``: a synchronous loop on the main
-    /// thread would keep the per-test limit from stopping it (#535).
+    /// Waits until letting every pending update run renders no counted body, so a load or player
+    /// update that lands late on a busy Mac can't be taken for a re-render the resize caused. It
+    /// ends when the work is done, not after a quiet time (#567). A browser that never stops
+    /// re-rendering fails at ``mustHappenTimeout``: a synchronous loop on the main thread would
+    /// keep the per-test limit from stopping it (#535).
     private func waitUntilNothingRenders() {
         let deadline = Date().addingTimeInterval(mustHappenTimeout)
         while Date() < deadline {
             ViewBodyTally.counts = [:]
-            AppKitTestSupport.pumpRunLoop(for: 0.1)
+            AppKitTestSupport.settle()
             if ViewBodyTally.counts?.isEmpty ?? true { return }
         }
         XCTFail("the browser kept re-rendering before the resize: \(ViewBodyTally.counts ?? [:])")

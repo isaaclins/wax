@@ -234,7 +234,7 @@ final class ScrubberViewTests: XCTestCase {
         let host = NSHostingView(rootView: view)
         host.frame = NSRect(origin: .zero, size: host.fittingSize)
         host.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        AppKitTestSupport.settle()
 
         let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: bitmap)
@@ -274,7 +274,7 @@ final class ScrubberViewTests: XCTestCase {
             host.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
             host.frame = NSRect(x: 0, y: 0, width: width, height: height)
             host.layoutSubtreeIfNeeded()
-            AppKitTestSupport.pumpRunLoop(for: 0.1)
+            AppKitTestSupport.settle()
 
             let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
             host.cacheDisplay(in: host.bounds, to: bitmap)
@@ -337,7 +337,7 @@ final class ScrubberViewTests: XCTestCase {
         hostedWindows.append(window)
         window.orderFrontRegardless()
         window.makeKey()
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        AppKitTestSupport.settle()
         return window
     }
 
@@ -362,8 +362,9 @@ final class ScrubberViewTests: XCTestCase {
             )!
             window.sendEvent(event)
             // A playing row redraws between press and release, as it does when
-            // a person clicks; that redraw is what dropped the gesture.
-            AppKitTestSupport.pumpRunLoop(for: 0.15)
+            // a person clicks; that redraw is what dropped the gesture. The press
+            // itself causes it, so let every update it started land first.
+            AppKitTestSupport.settle()
         }
     }
 }

@@ -136,7 +136,7 @@ final class CommandPaletteEventMonitorTests: XCTestCase {
 
         AppKitTestSupport.activateAppIfNeeded()
         window.makeKeyAndOrderFront(nil)
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertTrue(window.makeFirstResponder(recorder))
         XCTAssertTrue(window.firstResponder === recorder)
 
@@ -156,7 +156,7 @@ final class CommandPaletteEventMonitorTests: XCTestCase {
             )
         )
         NSApp.sendEvent(space)
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
 
         XCTAssertTrue(recorder.isRecording)
         XCTAssertTrue(manager.isRecordingHotkey)

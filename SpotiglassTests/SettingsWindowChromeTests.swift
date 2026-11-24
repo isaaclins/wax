@@ -69,7 +69,7 @@ final class SettingsWindowChromeTests: XCTestCase {
         window.contentView?.addSubview(probe)
         probe.removeFromSuperview()
 
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
 
         XCTAssertNil(probe.window)
         AppKitTestSupport.closeWindowSafely(window)
@@ -80,7 +80,7 @@ final class SettingsWindowChromeTests: XCTestCase {
             SettingsWindowChrome().frame(width: 0, height: 0),
             size: CGSize(width: 320, height: 240)
         )
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
 
         let window = try XCTUnwrap(controller.view.window)
         XCTAssertEqual(window.toolbar?.identifier, UnifiedTitlebarProbeView.toolbarIdentifier)

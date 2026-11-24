@@ -232,7 +232,7 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
         }
         window.orderFrontRegardless()
         windows.append(window)
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
     }
 
     /// Pixels of the drawn pill that match `matches`, in its upper or lower half when `half` is
@@ -359,7 +359,7 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
         XCTAssertNotNil(DragPreviewArtwork.initialImage(artworkURL: old, requestURL: nil, artworkKey: nil))
 
         shown.url = new
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertNotNil(DragPreviewArtwork.initialImage(artworkURL: new, requestURL: nil, artworkKey: nil))
         XCTAssertNil(DragPreviewArtwork.initialImage(artworkURL: old, requestURL: nil, artworkKey: nil))
     }

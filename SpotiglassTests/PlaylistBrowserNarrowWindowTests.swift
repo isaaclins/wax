@@ -82,7 +82,7 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
             window.styleMask.insert(.resizable)
             controller.sizingOptions = [.minSize]
         }
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        AppKitTestSupport.settle()
         return (controller, window, sampler)
     }
 
@@ -93,8 +93,9 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
         for width in Self.widths {
             window.setContentSize(CGSize(width: width, height: 600))
             controller.view.layoutSubtreeIfNeeded()
-            AppKitTestSupport.pumpRunLoop(for: 0.6)
             Self.waitForCommittedWidth(width, sampler)
+            // The browser decides at the commit; the split view shows it a layout pass later.
+            Self.waitForSidebarToShowDecision(at: width, in: controller, sampler)
 
             let split = try XCTUnwrap(Self.splitView(in: controller.view), "no split view at \(width) pt")
             let columns = split.arrangedSubviews
@@ -127,20 +128,31 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
 
         // Dragging the sidebar wider stops where the detail column still has its minimum: a
         // drag to 620 in an 800 pt window used to push both columns past the window's edges.
-        // The resize ends the way a fast live resize does: the last frame comes one frame after
-        // the one before it, inside the width throttle, and crosses nothing. The drag limit used
-        // to stay at the 850 pt that frame before it committed.
-        for (width, wait) in [(CGFloat(850), 0.016), (800, 0.1)] {
-            window.setContentSize(CGSize(width: width, height: 600))
-            controller.view.layoutSubtreeIfNeeded()
-            AppKitTestSupport.pumpRunLoop(for: wait)
-        }
-        // The 800 pt frame came inside the throttle: it lands by the trailing commit's timer.
+        // The resize ends the way a fast live resize does: the last frame comes inside the width
+        // throttle and crosses nothing. The drag limit used to stay at the 850 pt that frame
+        // before it committed.
+        window.setContentSize(CGSize(width: 850, height: 600))
+        controller.view.layoutSubtreeIfNeeded()
+        Self.waitForCommittedWidth(850, sampler)
+        // The last commit counts as just now however late the next frame comes, so the 800 pt
+        // frame always lands inside the throttle, as it does in a live resize, not only when the
+        // machine delivers it fast enough.
+        sampler.lastCommitTime = .greatestFiniteMagnitude
+        window.setContentSize(CGSize(width: 800, height: 600))
+        controller.view.layoutSubtreeIfNeeded()
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { abs(sampler.latestWidth - 800) < 0.5 && sampler.trailingCommit != nil }),
+            "the 800 pt frame never waited for a trailing commit"
+        )
+        XCTAssertEqual(sampler.committedWidth, 850, accuracy: 0.5, "the 800 pt frame committed inside the throttle")
+        // The throttle passes: the 800 pt frame lands by the trailing commit's timer.
+        sampler.lastCommitTime = 0
         Self.waitForCommittedWidth(800, sampler)
+        Self.waitForSidebarToShowDecision(at: 800, in: controller, sampler)
         let split = try XCTUnwrap(Self.splitView(in: controller.view))
         split.setPosition(620, ofDividerAt: 0)
         controller.view.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 0.6)
+        AppKitTestSupport.settle()
         let sidebar = try XCTUnwrap(split.arrangedSubviews.first)
         let detail = try XCTUnwrap(split.arrangedSubviews.last)
         let bounds = controller.view.bounds

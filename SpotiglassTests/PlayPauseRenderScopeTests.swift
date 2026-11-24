@@ -17,6 +17,9 @@ final class PlayPauseRenderScopeTests: XCTestCase {
 
     private static let trackIDs = (1...20).map { "t\($0)" }
 
+    /// How long the play/pause icon's swap animates (`PlaybackControlsView`).
+    private static let iconSwap = Duration.milliseconds(180)
+
     private static func nowPlaying(_ trackID: String) -> PlaybackNowPlaying {
         PlaybackNowPlaying(
             name: "Track \(trackID)",
@@ -72,23 +75,31 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         .environmentObject(store)
         .environmentObject(LyricsOverlayController())
         let controller = ViewTestHost.host(view, size: CGSize(width: 1_600, height: 1_400))
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        AppKitTestSupport.settle()
         // The browser starts at a width of zero and collapses the sidebar; a widening brings it
         // back, as it does when a real window opens.
         controller.view.window?.setContentSize(NSSize(width: 1_700, height: 1_400))
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        AppKitTestSupport.settle()
 
         playback.activePlaylistID = "p1"
         playback.setConnectionState(state)
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        AppKitTestSupport.settle()
         return playback
     }
 
-    /// Runs `change` and returns which counted bodies ran because of it.
-    private func bodies(after change: () -> Void) -> [String: Int] {
+    /// Runs `change` and returns which counted bodies ran because of it: it waits until the
+    /// change rendered, however late a busy machine gets to it, then until everything the change
+    /// queued has run, so a body that runs late still counts and one that never runs had its chance.
+    private func bodies(file: StaticString = #filePath, line: UInt = #line, after change: () -> Void) -> [String: Int] {
         ViewBodyTally.counts = [:]
         change()
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { !(ViewBodyTally.counts ?? [:]).isEmpty }),
+            "the change rendered nothing",
+            file: file,
+            line: line
+        )
+        AppKitTestSupport.settle()
         defer { ViewBodyTally.counts = nil }
         return ViewBodyTally.counts ?? [:]
     }
@@ -223,7 +234,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         playback.deviceID = AppleMusicPlaybackProvider.deviceID
         playback.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
         playback.setConnectionState(.playing(nowPlaying))
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        AppKitTestSupport.settle()
         let window = try XCTUnwrap(ViewTestHost.windows.last)
         // The table keeps a few rows ready above and below the window, so allow a margin.
         let rowsThatFit = Int((window.contentLayoutRect.height / TrackListRow.listRowHeight).rounded(.up))
@@ -248,8 +259,11 @@ final class PlayPauseRenderScopeTests: XCTestCase {
                 "press \(press) reached \(rowsReached) of \(rowCount) rows, though about \(rowsThatFit) fit in the window"
             )
             ViewBodyTally.counts = nil
-            // Presses as far apart as a person makes them: the icon's 0.18 s swap is over.
-            AppKitTestSupport.pumpRunLoop(for: 0.4)
+            // The next press comes once this press's icon swap is over, as a person's would: the
+            // swap is a 0.18 s animation on the wall clock (`PlaybackControlsView`), so its end is
+            // that time after the press, and its last frame has drawn once the window settled.
+            XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { pressedAt.duration(to: .now) >= Self.iconSwap }))
+            AppKitTestSupport.settle()
         }
     }
 }

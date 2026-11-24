@@ -194,7 +194,7 @@ final class SpotiglassFoundationTests: XCTestCase {
                 .frame(width: 560))
                 host.frame = NSRect(origin: .zero, size: host.fittingSize)
                 host.layoutSubtreeIfNeeded()
-                AppKitTestSupport.pumpRunLoop(for: 0.05)
+                AppKitTestSupport.settle()
                 let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
                 host.cacheDisplay(in: host.bounds, to: bitmap)
                 XCTAssertGreaterThan(host.bounds.height, 100)
