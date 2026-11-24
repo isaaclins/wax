@@ -373,6 +373,7 @@ enum LrcLibMatch {
     /// The artists a title credits in its "(feat. ...)" or trailing "feat. ..." part.
     static func featuredArtists(in title: String) -> [String] {
         featuringPatterns.flatMap { pattern -> [String] in
+            // try?: the patterns are fixed literals the tests run, so they always compile.
             guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return [] }
             let range = NSRange(title.startIndex..., in: title)
             return regex.matches(in: title, range: range).compactMap { match in
