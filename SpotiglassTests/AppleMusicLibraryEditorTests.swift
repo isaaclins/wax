@@ -1432,7 +1432,17 @@ final class EditTestContentSource: AppleMusicContentSource, @unchecked Sendable 
         await libraryTracksGate?.wait()
         return read
     }
-    func playlistTracks(playlistID: String, limit: Int) async throws -> [Track]? { tracksByPlaylistID[playlistID] }
+    /// Holds a playlist read after it read its rows, with `onPlaylistTracks` run then.
+    var playlistTracksGate: LibraryEditsGate?
+    var onPlaylistTracks: (@Sendable () -> Void)?
+
+    func playlistTracks(playlistID: String, limit: Int) async throws -> [Track]? {
+        let read = tracksByPlaylistID[playlistID]
+        let gate = playlistTracksGate
+        onPlaylistTracks?()
+        await gate?.wait()
+        return read
+    }
     func libraryPlaylist(id: String) async throws -> Playlist? { playlists.first { $0.id.rawValue == id } }
     func librarySongs(limit: Int, offset: Int) async throws -> [Song] { offset == 0 ? songs : [] }
     func isInLibrary(_ song: Song) -> Bool { true }
@@ -2573,6 +2583,8 @@ private final class RegistryBackedLookup: AppleMusicLibraryLookup, @unchecked Se
 /// while the library on this Mac lags: every read shows the copies the edits leave, in order.
 final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
     private var lookup: MockLibraryLookup!
+    private var editor: AppleMusicLibraryEditor!
+    private var pending: AppleMusicPendingLibraryEdits!
     private var source: EditTestContentSource!
     private var provider: AppleMusicBrowsingProvider!
     private var musicApp: MockMusicApp!
@@ -2589,8 +2601,9 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         let cloud = MockCloudLibrary()
         cloud.playlists = [AppleMusicCloudPlaylist(id: "p.test", name: "Spotiglass test")]
         musicApp = MockMusicApp()
-        let editor = AppleMusicLibraryEditor(
-            lookup: lookup, cloud: cloud, musicApp: musicApp, pending: AppleMusicPendingLibraryEdits(now: { [clock] in clock.now }),
+        pending = AppleMusicPendingLibraryEdits(now: { [clock] in clock.now })
+        editor = AppleMusicLibraryEditor(
+            lookup: lookup, cloud: cloud, musicApp: musicApp, pending: pending,
             songReferences: AppleMusicSongReferenceRegistry()
         )
         lookup.playlistsByID[playlistID] = AppleMusicPlaylistReference(name: "Spotiglass test", musicAppPersistentID: "FE82FB07F4D3B511")
@@ -3090,5 +3103,122 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
             call.hasSuffix("@[2]])"),
             "the Music app was told \(call): on its [C, B, C, A] the copy I picked is row 2"
         )
+    }
+
+    // MARK: - #570
+
+    /// Starts a read of the playlist that reads its rows now and finishes only when the returned
+    /// gate opens.
+    private func heldRead() async -> (read: Task<[String], Error>, release: LibraryEditsGate) {
+        let gate = LibraryEditsGate()
+        let started = LibraryEditsGate()
+        source.playlistTracksGate = gate
+        source.onPlaylistTracks = { started.open() }
+        let provider = provider!
+        let playlistID = playlistID
+        let read = Task {
+            try await provider.playlistTracks(playlistID: playlistID, limit: 100, maxPages: 1).compactMap { item -> String? in
+                guard case let .track(track) = item.content else { return nil }
+                return track.name
+            }
+        }
+        await started.wait()
+        source.playlistTracksGate = nil
+        source.onPlaylistTracks = nil
+        return (read, gate)
+    }
+
+    /// A 10,001-row playlist starts with C; every other row is B. I add C through the Music app,
+    /// which appends it at row 10,001. A read stops at 10,000 rows, so Spotiglass can't know where
+    /// that row is: removing the C I added is refused, and the Music app is told nothing (it would
+    /// fall back to the C at the top).
+    func testRemovingAMusicAppAddAfterAReadCutAtItsLimitIsRefused() async throws {
+        knowSongCOnlyByItsPersistentID()
+        let c = AppleMusicLibraryEditorTests.track(id: songC, name: "C", artist: "Santigold")
+        let b = AppleMusicLibraryEditorTests.track(id: songB, name: "B", artist: "Santigold")
+        let listed = [c] + Array(repeating: b, count: 9_999)
+        let row = { (track: MusicTrack) in (track: track, keys: Set([track.id, AppleMusicPendingLibraryEdits.metadataKey(track)])) }
+        pending.recordPlaylistAdditions(
+            [(c, try XCTUnwrap(lookup.songsByID[songC]))], route: .musicApp, playlistID: playlistID, shown: listed
+        )
+        // The read before the removal stops at its limit, before the row Music added.
+        let shown = pending.applied(toPlaylistTracks: listed.map(row), playlistID: playlistID, isComplete: false)
+        XCTAssertEqual(shown.count, 10_001)
+
+        do {
+            try await editor.removeFromPlaylist(playlistID: playlistID, removals: [(songID: songC, positions: [10_000])], shownTracks: shown)
+            XCTFail("the removal went through")
+        } catch {
+            XCTAssertEqual(error as? AppleMusicLibraryEditError, .notInMusicYet)
+        }
+        XCTAssertEqual(musicApp.calls, [], "the Music app is told nothing")
+    }
+
+    /// [B]: I add A through the API (on its way). A read of [B] starts and finishes late.
+    /// Meanwhile I add C through the Music app, the library reads [B, C], E is added on another
+    /// device and a read shows [B, C, E, A]. I remove B, which moves the record onto that read.
+    /// The late read of [B] has neither of my adds: it shows [C, A].
+    func testALateReadAfterTheRecordMovedOntoANewerOneKeepsMyAdds() async throws {
+        knowSongB()
+        knowSongCOnlyByItsPersistentID()
+        try library("B")
+        try await add(songA)
+        let late = await heldRead()
+        try await add(songC)
+        try library("B", "C")
+        try await expectShown(["B", "C", "A"])
+        try libraryRows(["B", "C", "E", "A"])
+        try await expectShown(["B", "C", "E", "A"])
+
+        try await remove(songB, at: 0)
+        late.release.open()
+
+        let shown = try await late.read.value
+        XCTAssertEqual(shown, ["C", "A"], "my adds of C and A, which the late read doesn't have yet")
+        try await expectShown(["C", "E", "A"], "a fresh read")
+    }
+
+    /// [A, B]: a read of [A, B] starts and finishes late. I remove A; E is added on another
+    /// device and a read shows [B, E]. I remove B, which moves the record onto that read. The
+    /// late read still lists A and B, both of which I removed: it shows neither.
+    func testALateReadAfterTheRecordMovedOntoANewerOneKeepsMyRemovals() async throws {
+        knowSongB()
+        try library("A", "B")
+        let late = await heldRead()
+        try await remove(songA, at: 0)
+        try libraryRows(["B", "E"])
+        try await expectShown(["B", "E"])
+
+        try await remove(songB, at: 0)
+        late.release.open()
+
+        let shown = try await late.read.value
+        XCTAssertEqual(shown, [], "the late read has both songs I removed")
+        try await expectShown(["E"], "a fresh read")
+    }
+
+    /// [A, B, C]: I remove A and B in one go. The Music app deletes them one at a time, so a read
+    /// in between lists [A, C]. A newer read [C] finishes first; then the one from in between
+    /// finishes. A doesn't come back.
+    func testALateReadFromPartwayThroughAMultiRowRemovalKeepsTheRemovedSongOut() async throws {
+        knowSongB()
+        try library("A", "B", "C")
+        try await provider.removeTracksFromPlaylist(
+            playlistID: playlistID,
+            items: [
+                MusicPlaylistTrackRemoval(uri: "applemusic:song:\(songA)", positions: [0]),
+                MusicPlaylistTrackRemoval(uri: "applemusic:song:\(songB)", positions: [1]),
+            ],
+            snapshotID: nil
+        )
+        try library("A", "C")
+        let between = await heldRead()
+        try library("C")
+        try await expectShown(["C"], "the newer read")
+
+        between.release.open()
+
+        let shown = try await between.read.value
+        XCTAssertEqual(shown, ["C"], "the read from partway through the removal")
     }
 }
