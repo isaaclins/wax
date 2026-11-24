@@ -3,18 +3,45 @@ import MusicKit
 import os
 
 /// The catalog copy of a saved artist or album, once found, by the ID the page was opened with.
-/// Memory only and bounded: a page opened again doesn't look it up again.
+/// Memory only and bounded: a page opened again doesn't look it up again, and the page's header,
+/// releases and top songs, which ask at the same time, share one lookup.
 final class AppleMusicCatalogMatches: @unchecked Sendable {
     static let maxEntries = 500
     private let lock = NSLock()
     private var matches = LRUDictionary<String, String>(capacity: AppleMusicCatalogMatches.maxEntries)
+    private var lookups: [String: Task<String?, Error>] = [:]
 
     func catalogID(for id: String) -> String? {
         lock.withLock { matches.value(forKey: id) }
     }
 
-    func remember(_ catalogID: String, for id: String) {
-        lock.withLock { matches.setValue(catalogID, forKey: id) }
+    /// The remembered match, else the one `find` gives, which a lookup already running for `id`
+    /// gives every caller. A miss isn't remembered, so a later open looks again.
+    func catalogID(for id: String, find: @escaping @Sendable () async throws -> String?) async throws -> String? {
+        if let known = catalogID(for: id) { return known }
+        let lookup: Task<String?, Error> = lock.withLock {
+            if let running = lookups[id] { return running }
+            let started = Task { try await find() }
+            lookups[id] = started
+            return started
+        }
+        let found: String?
+        do {
+            found = try await lookup.value
+        } catch {
+            finish(lookup, for: id, found: nil)
+            throw error
+        }
+        finish(lookup, for: id, found: found)
+        try Task.checkCancellation()
+        return found
+    }
+
+    private func finish(_ lookup: Task<String?, Error>, for id: String, found: String?) {
+        lock.withLock {
+            if lookups[id] == lookup { lookups[id] = nil }
+            if let found { matches.setValue(found, forKey: id) }
+        }
     }
 }
 
@@ -49,6 +76,10 @@ extension AppleMusicBrowsingProvider {
             if let saved = try await source.libraryArtist(id: id) { return saved }
             throw AppleMusicBrowsingError.notFound
         }
+        if let known = catalogMatches.catalogID(for: id),
+           let catalog = try await catalogItem({ try await source.artist(id: known) }) ?? nil {
+            return catalog
+        }
         guard let saved = try await source.artist(id: id) else { throw AppleMusicBrowsingError.notFound }
         if let catalogID = try await catalogArtistID(of: saved, pageID: id),
            let catalog = try await catalogItem({ try await source.artist(id: catalogID) }) ?? nil {
@@ -67,10 +98,7 @@ extension AppleMusicBrowsingProvider {
     }
 
     private func catalogArtistID(of saved: Artist, pageID: String) async throws -> String? {
-        if let known = catalogMatches.catalogID(for: pageID) { return known }
-        let found = try await catalogArtistID(of: saved)
-        if let found { catalogMatches.remember(found, for: pageID) }
-        return found
+        try await catalogMatches.catalogID(for: pageID) { try await catalogArtistID(of: saved) }
     }
 
     private func catalogArtistID(of saved: Artist) async throws -> String? {
@@ -99,11 +127,17 @@ extension AppleMusicBrowsingProvider {
         return found?.artists.first(where: { Self.sameName($0.name, saved.name) })?.id.rawValue
     }
 
+    /// Never `nil` here: the page keeps Apple Music's newest-first release order also when a
+    /// part can't be read, which then stays empty.
     func artistPageExtras(id: String) async throws -> MusicArtistPageExtras? {
-        async let topTracks = artistPageTopTracks(id: id)
-        async let library = artistLibrarySection(id: id)
-        let (top, (tracks, albums)) = try await (topTracks, library)
-        return MusicArtistPageExtras(topTracks: top, libraryTracks: tracks, libraryAlbums: albums)
+        async let topTracks = catalogItem { try await artistPageTopTracks(id: id) }
+        async let library = catalogItem { try await artistLibrarySection(id: id) }
+        let (top, saved) = try await (topTracks, library)
+        return MusicArtistPageExtras(
+            topTracks: top ?? [],
+            libraryTracks: saved?.0 ?? [],
+            libraryAlbums: saved?.1 ?? []
+        )
     }
 
     /// Apple Music's top songs of the artist, the page's Songs.
@@ -155,13 +189,23 @@ extension AppleMusicBrowsingProvider {
     /// The album a page shows, the catalog's when Apple Music has it, and the catalog IDs of its
     /// songs that are saved, for their mark.
     func pageAlbum(id: String) async throws -> (album: Album, savedSongIDs: Set<String>) {
-        let saved: Album? = MusicKitLibraryLookup.isCatalogID(id)
-            ? try await catalogItem({ try await source.libraryAlbum(id: id) }) ?? nil
-            : try await source.album(id: id)
-        let catalogID: String? = MusicKitLibraryLookup.isCatalogID(id)
-            ? id
-            : try await saved.asyncFlatMap { try await catalogAlbumID(of: $0, pageID: id) }
-        if let catalogID, let catalog = try await catalogItem({ try await source.album(id: catalogID) }) ?? nil {
+        let saved: Album?
+        let catalog: Album?
+        if MusicKitLibraryLookup.isCatalogID(id) {
+            // Both at once: every album opened from Home or search asks for its saved copy too.
+            async let savedRead = catalogItem { try await source.libraryAlbum(id: id) }
+            async let catalogRead = catalogItem { try await source.album(id: id) }
+            let (savedResult, catalogResult) = try await (savedRead, catalogRead)
+            saved = savedResult ?? nil
+            catalog = catalogResult ?? nil
+        } else {
+            saved = try await source.album(id: id)
+            let catalogID = try await saved.asyncFlatMap { try await catalogAlbumID(of: $0, pageID: id) }
+            catalog = try await catalogID.asyncFlatMap { catalogID in
+                try await catalogItem { try await source.album(id: catalogID) } ?? nil
+            }
+        }
+        if let catalog {
             let savedTracks = try await saved.asyncMap { try await source.tracks(of: $0, limit: Self.maxLibraryAlbumTracks) } ?? []
             editor.songReferences.remember(savedTracks)
             return (catalog, Set(Self.songCatalogIDs(savedTracks)))
@@ -171,10 +215,7 @@ extension AppleMusicBrowsingProvider {
     }
 
     private func catalogAlbumID(of saved: Album, pageID: String) async throws -> String? {
-        if let known = catalogMatches.catalogID(for: pageID) { return known }
-        let found = try await findCatalogAlbumID(of: saved)
-        if let found { catalogMatches.remember(found, for: pageID) }
-        return found
+        try await catalogMatches.catalogID(for: pageID) { try await findCatalogAlbumID(of: saved) }
     }
 
     private func findCatalogAlbumID(of saved: Album) async throws -> String? {

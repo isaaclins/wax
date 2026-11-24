@@ -2729,19 +2729,25 @@ private final class MockAppleMusicSource: AppleMusicContentSource, @unchecked Se
     var libraryAlbumsByID: [String: Album] = [:]
     var libraryArtistsByID: [String: Artist] = [:]
     var catalogSongsByID: [String: Song] = [:]
+    var libraryAlbumGate: TrackCountGate?
+    var libraryArtistError: Error?
+    var catalogSongsGate: TrackCountGate?
 
     func libraryAlbum(id: String) async throws -> Album? {
         record("libraryAlbum(\(id))")
+        await libraryAlbumGate?.wait()
         return libraryAlbumsByID[id]
     }
 
     func libraryArtist(id: String) async throws -> Artist? {
         record("libraryArtist(\(id))")
+        if let libraryArtistError { throw libraryArtistError }
         return libraryArtistsByID[id]
     }
 
     func catalogSongs(ids: [String]) async throws -> [Song] {
         record("catalogSongs(\(ids.joined(separator: ",")))")
+        await catalogSongsGate?.wait()
         return ids.compactMap { catalogSongsByID[$0] }
     }
 
@@ -3826,6 +3832,67 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
 
         XCTAssertEqual(artist.name, "Tainy")
         XCTAssertEqual(albums.map(\.id), [Self.savedAlbumID])
+    }
+
+    /// The page asks for its header, its releases and its top songs at once; finding the saved
+    /// artist's catalog copy is the slow part, and it runs once for all three.
+    @MainActor
+    func testAnArtistPageOpenedThroughASavedSongLooksUpItsCatalogCopyOnce() async throws {
+        let source = try tainy()
+        let gate = TrackCountGate()
+        source.catalogSongsGate = gate
+        let provider = provider(source)
+
+        async let header = provider.artist(id: Self.savedArtistID, cacheMode: .bypassCache)
+        async let releases = albums(provider, artistID: Self.savedArtistID)
+        async let extras = provider.artistPageExtras(id: Self.savedArtistID)
+        await waitUntil("all three reads reached the saved artist", changes: source.changes) {
+            source.calls.filter { $0 == "artist(\(Self.savedArtistID))" }.count >= 3
+                && source.calls.contains { $0.hasPrefix("catalogSongs(") }
+        }
+        // Room for a second lookup to start, if the reads didn't share one.
+        for _ in 0..<50 { await Task.yield() }
+        gate.open()
+        let (artist, albums, read) = try await (header, releases, extras)
+
+        XCTAssertEqual(source.calls.filter { $0.hasPrefix("catalogSongs(") }.count, 1)
+        XCTAssertEqual(artist.name, "Tainy")
+        XCTAssertEqual(albums.map(\.name), ["Newer", "DATA", "Older"])
+        XCTAssertEqual(read?.topTracks.count, 3)
+    }
+
+    /// An album opened from Home or search doesn't wait for its saved copy before the catalog.
+    @MainActor
+    func testAnAlbumOpenedFromTheCatalogAsksForItsSavedCopyAndTheCatalogAtOnce() async throws {
+        let source = try tainy(savedUnderCatalogIDs: true)
+        let gate = TrackCountGate()
+        source.libraryAlbumGate = gate
+        let provider = provider(source)
+
+        let opening = Task { try await provider.albumTracks(albumID: Self.catalogAlbumID, market: nil, limit: 50) }
+        await waitUntil("the catalog album asked for while the saved copy is still reading", changes: source.changes) {
+            source.calls.contains("album(\(Self.catalogAlbumID))")
+        }
+        gate.open()
+        let tracks = try await opening.value
+
+        XCTAssertEqual(tracks.count, 14)
+        XCTAssertEqual(tracks.filter(\.isInLibrary).map(\.id), Self.savedSongCatalogIDs)
+    }
+
+    /// The saved part failing (the library can't be read) leaves the page Apple Music's: its top
+    /// songs, and its releases newest first rather than A to Z.
+    func testAnArtistPageWhoseSavedPartCantBeReadKeepsTheCatalogPage() async throws {
+        let source = try tainy(savedUnderCatalogIDs: true)
+        source.libraryArtistError = AppleMusicBrowsingError.notFound
+        let provider = provider(source)
+
+        let read = try await provider.artistPageExtras(id: Self.catalogArtistID)
+        let extras = try XCTUnwrap(read, "Apple Music's page keeps its order")
+
+        XCTAssertEqual(extras.topTracks.count, 3)
+        XCTAssertTrue(extras.libraryTracks.isEmpty)
+        XCTAssertTrue(extras.libraryAlbums.isEmpty)
     }
 
     func testTheArtistPageKeepsTheServiceOrderAndTheLibrarySectionOnlyWithExtras() {
