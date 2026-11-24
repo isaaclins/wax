@@ -572,6 +572,38 @@ final class LrcLibClientTests: XCTestCase {
         XCTAssertEqual(LrcLibMatch.featuredArtists(in: "Song (feat. B & C)"), ["B & C"])
     }
 
+    func testAVersionLabelAfterAFeatureCreditStaysPartOfTheTitle() {
+        let original = LrcLibMatch.Candidate(
+            title: "Song", artist: "A", durationSeconds: 200,
+            lyrics: .synced([SyncedLyricLine(id: 0, startTimeMs: 0, words: "original")])
+        )
+        XCTAssertEqual(LrcLibMatch.searchTitle("Song feat. B - Remix"), "Song - Remix")
+        XCTAssertEqual(LrcLibMatch.featuredArtists(in: "Song feat. B - Remix"), ["B"])
+        XCTAssertEqual(LrcLibMatch.searchTitle("Song feat. B (Live)"), "Song (Live)")
+        XCTAssertNil(
+            LrcLibMatch.best(among: [original], title: "Song feat. B - Remix", artists: ["A"], durationMilliseconds: 200_000),
+            "The remix must not take the original's lyrics"
+        )
+    }
+
+    func testPartOfABandNameIsNeverAnotherArtist() {
+        func song(by artist: String) -> LrcLibMatch.Candidate {
+            LrcLibMatch.Candidate(
+                title: "Song", artist: artist, durationSeconds: 200,
+                lyrics: .synced([SyncedLyricLine(id: 0, startTimeMs: 0, words: artist)])
+            )
+        }
+        func best(_ candidate: LrcLibMatch.Candidate, playing artist: String) -> LrcLibMatch.Candidate? {
+            LrcLibMatch.best(among: [candidate], title: "Song", artists: [artist], durationMilliseconds: 200_000)
+        }
+        XCTAssertNil(best(song(by: "AC/DC"), playing: "DC"))
+        XCTAssertNil(best(song(by: "DC"), playing: "AC/DC"))
+        XCTAssertNil(best(song(by: "Earth, Wind & Fire"), playing: "Fire"))
+        XCTAssertNil(best(song(by: "Fire"), playing: "Earth, Wind & Fire"))
+        XCTAssertNotNil(best(song(by: "AC/DC"), playing: "AC/DC"))
+        XCTAssertNotNil(best(song(by: "Earth, Wind and Fire"), playing: "Earth, Wind & Fire"))
+    }
+
     private func makeClient() -> LrcLibClient {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [LRCLIBStubURLProtocol.self] + (config.protocolClasses ?? [])

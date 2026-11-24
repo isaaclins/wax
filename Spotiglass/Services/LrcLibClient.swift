@@ -338,8 +338,9 @@ enum LrcLibMatch {
     ) -> Candidate? {
         guard durationMilliseconds > 0 else { return nil }
         let wantedTitle = normalizedTitle(title)
-        let wantedArtists = artistSet(artists + featuredArtists(in: title))
-        guard !wantedTitle.isEmpty, !wantedArtists.isEmpty else { return nil }
+        let wantedList = artistList(artists + featuredArtists(in: title))
+        let wantedArtists = Set(wantedList)
+        guard !wantedTitle.isEmpty, let wantedLead = wantedList.first else { return nil }
         let wantedSeconds = Double(durationMilliseconds) / 1_000
 
         typealias Scored = (candidate: Candidate, kind: Int, exactArtists: Bool, gap: Double)
@@ -348,10 +349,15 @@ enum LrcLibMatch {
             let gap = abs(seconds - wantedSeconds)
             guard gap <= durationToleranceSeconds else { return nil }
             guard normalizedTitle(candidate.title) == wantedTitle else { return nil }
-            let theirArtists = artistSet([candidate.artist] + featuredArtists(in: candidate.title))
-            guard !theirArtists.isEmpty,
-                  theirArtists.isSubset(of: wantedArtists) || wantedArtists.isSubset(of: theirArtists) else { return nil }
-            return (candidate, kindRank(candidate.lyrics), theirArtists == wantedArtists, gap)
+            let theirList = artistList([candidate.artist] + featuredArtists(in: candidate.title))
+            let theirArtists = Set(theirList)
+            let sameArtists = theirArtists == wantedArtists
+            // One side may name fewer (no featured artist), but never another lead: a split band
+            // name ("Earth, Wind & Fire") must not let "Fire" through.
+            let fewerArtists = theirList.first == wantedLead
+                && (theirArtists.isSubset(of: wantedArtists) || wantedArtists.isSubset(of: theirArtists))
+            guard sameArtists || fewerArtists else { return nil }
+            return (candidate, kindRank(candidate.lyrics), sameArtists, gap)
         }
         return scored.min { lhs, rhs in
             if lhs.kind != rhs.kind { return lhs.kind < rhs.kind }
@@ -386,10 +392,11 @@ enum LrcLibMatch {
         fold(searchTitle(title))
     }
 
-    /// Each artist once, however the names are joined ("Tempo & El Alfa", "Tempo, El Alfa",
-    /// "Tempo feat. El Alfa" and ["Tempo", "El Alfa"] are the same two artists).
-    static func artistSet(_ names: [String]) -> Set<String> {
-        var result = Set<String>()
+    /// The artists in credit order, each once, the first being the lead, however the names are
+    /// joined ("Tempo & El Alfa", "Tempo, El Alfa", "Tempo feat. El Alfa" and ["Tempo", "El Alfa"]
+    /// are the same two artists).
+    static func artistList(_ names: [String]) -> [String] {
+        var result: [String] = []
         for name in names {
             let parts = fold(name).replacingOccurrences(
                 of: artistSeparatorPattern,
@@ -398,19 +405,21 @@ enum LrcLibMatch {
             )
             for part in parts.split(separator: "\u{1F}") {
                 let artist = part.trimmingCharacters(in: .whitespaces)
-                if !artist.isEmpty { result.insert(artist) }
+                if !artist.isEmpty, !result.contains(artist) { result.append(artist) }
             }
         }
         return result
     }
 
-    /// "(feat. B)" / "[with B]" anywhere, and an unbracketed "feat. B" at the end ("with" only in
-    /// brackets: "Dance With Me" is a title). Group 2 is the credited names.
+    /// "(feat. B)" / "[with B]" anywhere, and an unbracketed "feat. B" up to a " - " or a bracket,
+    /// so "Song feat. B - Remix" keeps " - Remix" in its title ("with" only in brackets: "Dance
+    /// With Me" is a title). Group 2 is the credited names.
     private static let featuringPatterns = [
         #"\s*[\(\[](feat\.?|ft\.?|featuring|with)\s+([^\)\]]*)[\)\]]"#,
-        #"\s+(feat\.?|ft\.?|featuring)\s+(.+)$"#
+        #"\s+(feat\.?|ft\.?|featuring)\s+([^\(\)\[\]]+?)(?=\s+-\s|\s*[\(\[]|$)"#
     ]
-    private static let artistSeparatorPattern = #"\s*(,|&|\+|•|·|;|/)\s*|\s+(feat\.?|ft\.?|featuring|with|and|y|e|et)\s+"#
+    /// No "/": it belongs to names like "AC/DC" more often than it joins two artists.
+    private static let artistSeparatorPattern = #"\s*(,|&|\+|•|·|;)\s*|\s+(feat\.?|ft\.?|featuring|with|and|y|e|et)\s+"#
 
     private static func kindRank(_ lyrics: FetchedLyrics) -> Int {
         switch lyrics {
