@@ -6,7 +6,8 @@ biggest playlist has 13 songs, so a Release build could only be timed on small p
 `scripts/screenshots.sh start --release --long-playlist 1000` the stand-in serves a playlist
 "Long Mix" of 1000 songs. These tests start the stand-in on a two-song library (from a filled
 cache, so nothing goes to the network) and read the playlist the way the app does: from the
-playlist list, then page by page.
+playlist list, then page by page through each page's `next` link (while `next` was always empty,
+the app loaded only the first 50 songs).
 
 Run from the repository root:  python3 -m unittest discover -s scripts/tests
 """
@@ -89,12 +90,20 @@ class LongPlaylistTests(unittest.TestCase):
         self.assertEqual(playlist["tracks"]["total"], 1000)
         self.assertEqual(playlist["items"]["total"], 1000)
 
-        ids = []
-        for offset in range(0, 1000, 100):
-            page = server.get(f"/v1/playlists/{playlist['id']}/items?limit=100&offset={offset}")
+        # The app asks for the first page and then follows `next` until there is none
+        # (SpotifyAPIClient.collectPaged); it never counts offsets itself.
+        ids, pages = [], 0
+        page = server.get(f"/v1/playlists/{playlist['id']}/items?limit=50")
+        while True:
+            pages += 1
             self.assertEqual(page["total"], 1000)
             ids += [item["track"]["id"] for item in page["items"]]
-        self.assertEqual(len(ids), 1000)
+            if page["next"] is None:
+                break
+            self.assertTrue(page["next"].startswith(server.base + "/"), page["next"])
+            page = server.get(page["next"][len(server.base):])
+        self.assertEqual(pages, 20)
+        self.assertEqual(len(ids), 1000, "the app would load only the songs on pages that `next` reaches")
         self.assertEqual(len(set(ids)), 1000, "each song in the long playlist needs its own id, like a real playlist")
         self.assertEqual(playlist["images"][0]["url"], "https://example.invalid/a.jpg")
 

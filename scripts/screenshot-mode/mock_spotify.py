@@ -178,11 +178,16 @@ def public(playlist):
     return {k: v for k, v in playlist.items() if not k.startswith("_")}
 
 
-def page(items, query, base):
+def page(items, query, base, path=None):
+    """One page of `items`. With `path`, a page that isn't the last links the next one, as Spotify does:
+    the app follows `next` to load the rest (a playlist longer than one page, #473)."""
     limit = int(query.get("limit", ["50"])[0])
     offset = int(query.get("offset", ["0"])[0])
+    following = None
+    if path and offset + limit < len(items):
+        following = f"{base}{path}?" + urllib.parse.urlencode({"limit": limit, "offset": offset + limit})
     return {"items": items[offset:offset + limit], "total": len(items), "limit": limit, "offset": offset,
-            "next": None, "previous": None, "href": base}
+            "next": following, "previous": None, "href": base}
 
 
 # ---------- stand-in Web Playback SDK ----------
@@ -291,10 +296,10 @@ def make_handler(lib):
                                        "product": "premium", "images": [], "uri": "spotify:user:sample",
                                        "type": "user"})
             if path == "/v1/me/playlists":
-                return self.send(200, page([public(p) for p in lib.playlists], q, base))
+                return self.send(200, page([public(p) for p in lib.playlists], q, base, path))
             if path == "/v1/me/tracks":
                 saved = [{"added_at": f"2026-09-{1 + i % 28:02d}T10:00:00Z", "track": t} for i, t in enumerate(tracks)]
-                return self.send(200, page(saved, q, base))
+                return self.send(200, page(saved, q, base, path))
             if path == "/v1/me/tracks/contains":
                 return self.send(200, [True for _ in q.get("ids", [""])[0].split(",")])
             if path == "/v1/me/library/contains":
@@ -303,9 +308,10 @@ def make_handler(lib):
                 playlist = next((p for p in lib.playlists if p["id"] == parts[3]), lib.playlists[0])
                 items = [{"added_at": "2026-09-12T10:00:00Z", "is_local": False, "track": t, "item": t}
                          for t in playlist["_tracks"]]
+                items_path = f"/v1/playlists/{playlist['id']}/items"
                 if len(parts) > 4:
-                    return self.send(200, page(items, q, base))
-                return self.send(200, dict(public(playlist), tracks=page(items, q, base)))
+                    return self.send(200, page(items, q, base, items_path))
+                return self.send(200, dict(public(playlist), tracks=page(items, q, base, items_path)))
             if path in ("/v1/me/player", "/v1/me/player/currently-playing"):
                 return self.send(200, lib.player())
             if path == "/v1/me/player/devices":
