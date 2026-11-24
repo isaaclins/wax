@@ -38,6 +38,10 @@ make format         # requires swift-format (see docs/building-and-testing.md)
 
 Avoid drive-by reformatting of unrelated files in the same change.
 
+## Speed
+
+Every interaction responds within 50 ms, and a PR that touches one shows its measured time (`scripts/latency-test.sh`, see [docs/latency.md](docs/latency.md)).
+
 ## Errors
 
 Errors are never dropped silently: a `catch` logs with `SpotiglassLog` or rethrows, and a `try?` explains itself on the same line or the line above with `// try?: <why losing the error is fine>`.

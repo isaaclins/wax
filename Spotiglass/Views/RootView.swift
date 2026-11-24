@@ -79,6 +79,11 @@ final class SpotiglassSceneHost: ObservableObject {
         return created
     }
 
+    /// The browser state for `service` when this scene has shown it, without making one.
+    func existingBrowserViewModel(for service: MusicService) -> PlaylistBrowserViewModel? {
+        browserViewModels[service]
+    }
+
     func discardBrowserViewModel(for service: MusicService) {
         browserViewModels[service] = nil
     }
@@ -510,6 +515,8 @@ struct RootView: View {
                 }
                 sceneRegistry?.register(sceneHost)
                 wireSceneCallbacks()
+                // Only in screenshot mode with scripts/latency-test.sh asking for it (#656).
+                InteractionLatencyProbe.startIfRequested(scene: sceneHost, playbackHosts: playbackHosts)
             }
             .onDisappear {
                 if let sceneRegistry {

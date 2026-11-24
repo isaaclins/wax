@@ -1,0 +1,65 @@
+{
+  "_comment": "Interactions over 50 ms today, each with the issue that fixes it (#656). scripts/latency-test.sh reports them without failing; remove an entry when its fix lands. measuredMs is the checked time when it was added (null: never showed within 3 s).",
+  "known": {
+    "lyrics.toggle": {
+      "issue": 674,
+      "measuredMs": 146
+    },
+    "page.back": {
+      "issue": 677,
+      "measuredMs": null
+    },
+    "page.search": {
+      "issue": 675,
+      "measuredMs": 106
+    },
+    "page.sidebarClick": {
+      "issue": 675,
+      "measuredMs": 89
+    },
+    "palette.close": {
+      "issue": 671,
+      "measuredMs": 71
+    },
+    "palette.open": {
+      "issue": 671,
+      "measuredMs": 104
+    },
+    "palette.type": {
+      "issue": 671,
+      "measuredMs": 76
+    },
+    "playback.repeat": {
+      "issue": 677,
+      "measuredMs": null
+    },
+    "playback.seek": {
+      "issue": 677,
+      "measuredMs": null
+    },
+    "playback.shuffle": {
+      "issue": 677,
+      "measuredMs": null
+    },
+    "playback.toggle.click": {
+      "issue": 678,
+      "measuredMs": 51
+    },
+    "playback.toggle.key": {
+      "issue": 678,
+      "measuredMs": 53
+    },
+    "queue.toggle": {
+      "issue": 673,
+      "measuredMs": 102
+    },
+    "settings.open": {
+      "issue": 676,
+      "measuredMs": 120
+    },
+    "sidebar.toggle": {
+      "issue": 672,
+      "measuredMs": 102
+    }
+  }
+}
