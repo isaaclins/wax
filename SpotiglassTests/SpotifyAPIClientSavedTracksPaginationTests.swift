@@ -108,7 +108,7 @@ final class SpotifyAPIClientSavedTracksPaginationTests: XCTestCase {
         )
     }
 
-    func testCurrentUserSavedTracksStopsWhenNextOffsetRepeats() async throws {
+    func testCurrentUserSavedTracksFailsWhenNextOffsetRepeats() async throws {
         let loopingPage = """
             {
               "href": "https://api.spotify.com/v1/me/tracks?limit=50&offset=0",
@@ -141,9 +141,13 @@ final class SpotifyAPIClientSavedTracksPaginationTests: XCTestCase {
         ])
         let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
 
-        let result = try await client.currentUserSavedTracks(limit: 50, maxPages: 20)
-
-        XCTAssertEqual(result.tracks.count, 1)
+        // The list read so far is incomplete: it fails instead of passing as all of Liked Songs (#595).
+        do {
+            _ = try await client.currentUserSavedTracks(limit: 50, maxPages: 20)
+            XCTFail("a repeated next offset returned a partial list as a success")
+        } catch let error as SpotifyAPIError {
+            guard case .decoding = error else { return XCTFail("unexpected error \(error)") }
+        }
         XCTAssertEqual(httpClient.requests.count, 1, "A repeated next offset should break pagination before re-fetching page 1.")
     }
 }

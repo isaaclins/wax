@@ -113,6 +113,8 @@ final class CommandPaletteViewModelSearchRefreshTests: XCTestCase {
         viewModel.refresh()
         await viewModel.waitForSearchCompletion()
         XCTAssertEqual(callCount, 1, "Palette should honor cooldown and not dispatch another search immediately")
+        // The skipped search must still say why: a cleared line read as "No results" (#595).
+        XCTAssertEqual(viewModel.errorText, SpotifyAPIError.rateLimited(retryAfter: 3).userMessage)
     }
 
     func testLegacyAtPrefixSongSearchCallsProviderOnceForNormalizedQuery() async {

@@ -103,7 +103,7 @@ final class SpotifyAPIClientPlaylistListPaginationTests: XCTestCase {
         XCTAssertEqual(httpClient.requests.count, 21)
     }
 
-    func testPlaylistPaginationBreaksWhenNextURLRepeats() async throws {
+    func testPlaylistPaginationFailsWhenNextURLRepeats() async throws {
         let repeated = "https://api.spotify.com/v1/me/playlists?offset=1&limit=1"
         let httpClient = QueueHTTPClient([
             .json("""
@@ -149,9 +149,13 @@ final class SpotifyAPIClientPlaylistListPaginationTests: XCTestCase {
         ])
         let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
 
-        let playlists = try await client.currentUserPlaylists(limit: 1)
-
-        XCTAssertEqual(playlists.map(\.id), ["playlist-1", "playlist-2"])
+        // Two of three playlists is not the list: it fails instead of passing as complete (#595).
+        do {
+            _ = try await client.currentUserPlaylists(limit: 1)
+            XCTFail("a repeated next URL returned a partial list as a success")
+        } catch let error as SpotifyAPIError {
+            guard case .decoding = error else { return XCTFail("unexpected error \(error)") }
+        }
         XCTAssertEqual(httpClient.requests.count, 2)
     }
 }

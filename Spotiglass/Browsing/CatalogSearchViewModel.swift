@@ -318,10 +318,19 @@ final class CatalogSearchViewModel: ObservableObject {
             var hasMoreByCategory: [CatalogSearchCategory: Bool] = [:]
             var nextOffsets: [CatalogSearchCategory: Int] = [:]
             var pagesFetched = 0
+            var partialFailure: MusicSearchPartialFailure?
 
             for pageIndex in 0 ..< max(1, pages) {
                 let offset = pageIndex * Self.pageSize
-                let results = try await searchProvider(trimmed, offset, cacheMode)
+                let results: MusicSearchResults
+                do {
+                    results = try await searchProvider(trimmed, offset, cacheMode)
+                } catch let partial as MusicSearchPartialFailure {
+                    // The provider logged what failed; its other half shows under a note.
+                    SpotiglassLog.debug(.browsing, "Search shows part of its results")
+                    results = partial.results
+                    partialFailure = partial
+                }
                 try Task.checkCancellation()
                 pagesFetched = pageIndex + 1
                 appendUniqueTracks(from: results, to: &tracks)
@@ -339,12 +348,20 @@ final class CatalogSearchViewModel: ObservableObject {
                     && results.artists.isEmpty
                     && results.albums.isEmpty
                     && results.playlists.isEmpty
-                if pageIsEmpty || (category != .all && hasMoreByCategory[category] == false) {
+                if pageIsEmpty || partialFailure != nil || (category != .all && hasMoreByCategory[category] == false) {
                     break
                 }
             }
             guard generation == searchGeneration, !Task.isCancelled else { return }
             merged.tracks = TrackRowViewModel.numberedTopTracks(tracks)
+
+            if let partialFailure {
+                // Half the search answered (#595): its rows show under a note with Retry. Not
+                // cached, so a pill switch or the same query again asks the service once more.
+                resetCache()
+                state = .staleCache(merged, BrowsingDisplayError.partialSearch(partialFailure))
+                return
+            }
 
             cachedQuery = trimmed
             cachedPageCount = pagesFetched

@@ -131,7 +131,7 @@ private extension SpotifyAPIClient {
             if let nextURL {
                 let key = nextURL.absoluteString
                 if seenNextURLs.contains(key) {
-                    break
+                    throw Self.repeatedPageError(path: "/v1/albums/\(albumID)/tracks")
                 }
                 seenNextURLs.insert(key)
             }

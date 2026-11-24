@@ -169,6 +169,29 @@
         }
       }
     },
+    "browser.tapTarget.openFailed": {
+      "comment": "Toast when an artist or album name was tapped and looking it up failed. %@ is the name.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't open “%@”. Check your connection and try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir «%@». Revisa tu conexión e inténtalo de nuevo."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ konnte nicht geöffnet werden. Prüfe deine Verbindung und versuche es erneut."
+          }
+        }
+      }
+    },
     "library.continuation.added": {
       "comment": "Toast after all ranked continuation tracks are added to the playback queue.",
       "localizations": {
@@ -211,6 +234,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Es gibt nicht genug abspielbare Titel in deiner Bibliothek, um diese Warteschlange fortzusetzen."
+          }
+        }
+      }
+    },
+    "library.continuation.loadFailed": {
+      "comment": "Toast when the library continuation found nothing because the library failed to load (not because it is small).",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your library didn't load, so nothing was added to the queue. Try again in a moment."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu biblioteca no se cargó, así que no se añadió nada a la cola. Vuelve a intentarlo en un momento."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Bibliothek wurde nicht geladen, daher wurde nichts zur Warteschlange hinzugefügt. Versuche es gleich noch einmal."
           }
         }
       }
@@ -303,6 +349,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nur %lld Titel aus deiner Bibliothek passten zu diesem Titel, daher ist die Warteschlange kurz."
+          }
+        }
+      }
+    },
+    "library.continuation.shortLoadFailed": {
+      "comment": "Toast when the continuation is short because part of the library failed to load. %lld is the number of tracks added.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only %lld tracks were added: part of your library didn't load. Try again in a moment for more."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solo se añadieron %lld canciones: parte de tu biblioteca no se cargó. Vuelve a intentarlo en un momento para más."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur %lld Titel wurden hinzugefügt: Ein Teil deiner Bibliothek wurde nicht geladen. Versuche es gleich noch einmal für mehr."
           }
         }
       }
@@ -13086,6 +13155,75 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cargando más resultados…"
+          }
+        }
+      }
+    },
+    "search.partial.catalogMissing": {
+      "comment": "Note over search results when the service's catalog failed and only library matches are shown. %@ is the service name.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ didn't answer, so only matches from your library are shown."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ no respondió, así que solo se muestran coincidencias de tu biblioteca."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ hat nicht geantwortet, daher werden nur Treffer aus deiner Bibliothek angezeigt."
+          }
+        }
+      }
+    },
+    "search.partial.libraryMissing": {
+      "comment": "Note over search results when the library search failed and only catalog results are shown. %@ is the service name.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your library didn't load, so only results from %@ are shown."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu biblioteca no se cargó, así que solo se muestran resultados de %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Bibliothek wurde nicht geladen, daher werden nur Ergebnisse von %@ angezeigt."
+          }
+        }
+      }
+    },
+    "search.partial.title": {
+      "comment": "Title of the note over search results when part of the search failed.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some results didn't load"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algunos resultados no se cargaron"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige Ergebnisse wurden nicht geladen"
           }
         }
       }

@@ -1048,9 +1048,18 @@ final class AppleMusicCloudRequestsTests: XCTestCase {
     }
 
     func testANewEmptyPlaylistReadsAsNoTracks() async throws {
-        let library = MusicDataRequestCloudLibrary { _ in throw AppleMusicLibraryEditError.requestFailed }
+        // Apple Music answers 404 for the tracks of a playlist that has none.
+        let library = MusicDataRequestCloudLibrary { _ in throw AppleMusicLibraryEditError.notFound }
         let tracks = try await library.playlistTracks(cloudPlaylistID: "p.new")
         XCTAssertEqual(tracks.count, 0)
+    }
+
+    /// A timeout, 401 or 5xx on the first page used to read as a new, empty playlist (#595).
+    func testAFailedFirstTrackReadIsAFailureNotAnEmptyPlaylist() async {
+        let library = MusicDataRequestCloudLibrary { _ in throw AppleMusicLibraryEditError.requestFailed }
+        await XCTAssertThrowsEditError(.requestFailed) {
+            _ = try await library.playlistTracks(cloudPlaylistID: "p.mine")
+        }
     }
 }
 

@@ -154,7 +154,8 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
                     try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: name) { query, _ in
                         Self.catalogSearch(query)
                     }
-                }
+                },
+                showFailure: { XCTFail("unexpected failure \($0.string)") }
             )
         }
         XCTAssertEqual(opened, "bad-bunny")

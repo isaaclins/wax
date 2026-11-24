@@ -661,6 +661,18 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         var page = try searchPage(
             catalog: firstCatalog, library: library, limit: limit, pageLimit: pageLimit, offset: offset
         )
+        // The first page combines two searches. When one of them failed, what the other found is
+        // shown with a note, never as the whole answer: offline, the library still answers, and
+        // anything not saved read as "No results" (#595).
+        if offset == 0, let missing = Self.missingPart(catalog: firstCatalog, library: library) {
+            if missing.error is CancellationError { throw missing.error }
+            SpotiglassLog.error(
+                .api,
+                "Apple Music search: the \(missing.part == .catalog ? "catalog" : "library") half failed, showing the other half with a note: \(SpotiglassLog.describe(missing.error))"
+            )
+            guard !page.isEmptyPage else { throw missing.error }
+            throw MusicSearchPartialFailure(results: page, missing: missing.part, underlying: missing.error)
+        }
         // A later page can come out empty only because every catalog item on it is a copy of a
         // library item. The Search view stops at an empty page, which would make everything
         // after it unreachable, so such a page is skipped while the catalog reports more.
@@ -678,6 +690,19 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
             )
         }
         return page
+    }
+
+    /// The half of a first search page that failed while the other answered; nil when both
+    /// answered (when both failed, ``searchPage`` already threw).
+    private static func missingPart(
+        catalog: Result<AppleMusicSearchItems, Error>,
+        library: Result<AppleMusicSearchItems, Error>
+    ) -> (part: MusicSearchPartialFailure.MissingPart, error: Error)? {
+        switch (catalog, library) {
+        case let (.failure(error), .success): (.catalog, error)
+        case let (.success, .failure(error)): (.library, error)
+        default: nil
+        }
     }
 
     /// One search page from one catalog page and the library matches.

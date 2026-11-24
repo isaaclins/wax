@@ -380,6 +380,13 @@ struct CommandPaletteItem: Identifiable {
     }
 }
 
+/// A palette search that answered only in part: `results` are the rows built from what loaded,
+/// `missing` what didn't (#595).
+struct CommandPalettePartialSearchFailure: Error, @unchecked Sendable {
+    let results: CommandPaletteSearchResults
+    let missing: MusicSearchPartialFailure
+}
+
 struct CommandPaletteSearchResults {
     var tracks: [CommandPaletteItem] = []
     var artists: [CommandPaletteItem] = []

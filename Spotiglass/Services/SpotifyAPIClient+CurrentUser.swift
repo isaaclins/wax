@@ -57,13 +57,13 @@ extension SpotifyAPIClient {
             if let nextURL {
                 if let nextOffset = Self.offset(from: nextURL) {
                     if seenOffsets.contains(nextOffset) {
-                        break
+                        throw Self.repeatedPageError(path: "/v1/me/tracks")
                     }
                     seenOffsets.insert(nextOffset)
                 }
                 let key = nextURL.absoluteString
                 if seenNextURLs.contains(key) {
-                    break
+                    throw Self.repeatedPageError(path: "/v1/me/tracks")
                 }
                 seenNextURLs.insert(key)
             }

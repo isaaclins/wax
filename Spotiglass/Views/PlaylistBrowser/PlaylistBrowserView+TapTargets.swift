@@ -15,7 +15,8 @@ extension PlaylistBrowserView {
                 },
                 resolveArtistID: { name in
                     try await resolveArtistID(forName: name)
-                }
+                },
+                showFailure: { viewModel.trackMutationToastText = $0 }
             )
         }
     }
@@ -44,7 +45,8 @@ extension PlaylistBrowserView {
                 },
                 resolveAlbumID: { name, hint in
                     try await resolveAlbumID(name: name, artistHint: hint)
-                }
+                },
+                showFailure: { viewModel.trackMutationToastText = $0 }
             )
         }
     }

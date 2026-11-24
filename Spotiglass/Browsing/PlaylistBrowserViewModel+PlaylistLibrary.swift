@@ -223,7 +223,7 @@ extension PlaylistBrowserViewModel {
     private func fetchPlaylistsForRefresh(trigger: PlaylistRefreshTrigger) async throws -> [MusicPlaylistSummary] {
         if let inFlightPlaylistListRefreshTask {
             let (playlists, profile) = try await inFlightPlaylistListRefreshTask.value
-            currentUserID = profile.id
+            if let profile { currentUserID = profile.id }
             return playlists
         }
 
@@ -241,15 +241,17 @@ extension PlaylistBrowserViewModel {
 
         playlistListRefreshGeneration += 1
         let generation = playlistListRefreshGeneration
-        let task = Task { [api] in
-            async let playlists = api.currentUserPlaylists(limit: 50)
-            async let profile = api.currentUserProfile()
-            return try await (playlists, profile)
+        let task = Task { [api] () async throws -> ([MusicPlaylistSummary], MusicUserProfile?) in
+            // The profile only decides the owner line and the rename item: when it fails, the
+            // playlists that loaded still show (#595), and the ID stays what it was.
+            async let profile = Self.optionalProfile(api)
+            let playlists = try await api.currentUserPlaylists(limit: 50)
+            return (playlists, await profile)
         }
         inFlightPlaylistListRefreshTask = task
         do {
             let (playlists, profile) = try await task.value
-            currentUserID = profile.id
+            if let profile { currentUserID = profile.id }
             if generation == playlistListRefreshGeneration {
                 inFlightPlaylistListRefreshTask = nil
             }
@@ -259,6 +261,17 @@ extension PlaylistBrowserViewModel {
                 inFlightPlaylistListRefreshTask = nil
             }
             throw error
+        }
+    }
+
+    private nonisolated static func optionalProfile(_ api: any MusicBrowsingProvider) async -> MusicUserProfile? {
+        do {
+            return try await api.currentUserProfile()
+        } catch {
+            if !(error is CancellationError) {
+                SpotiglassLog.error(.browsing, "Profile didn't load with the playlists: \(SpotiglassLog.describe(error))")
+            }
+            return nil
         }
     }
 
