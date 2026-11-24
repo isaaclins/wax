@@ -241,6 +241,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
 
         for press in 1...6 {
             ViewBodyTally.counts = [:]
+            let pressedAt = ContinuousClock.now
             playback.requestTogglePlayPause()
             XCTAssertEqual(PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: playback.connectionState), press.isMultiple(of: 2))
             let drawn = AppKitTestSupport.pumpRunLoop(until: {
