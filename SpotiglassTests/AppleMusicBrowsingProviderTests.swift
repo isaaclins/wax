@@ -3740,10 +3740,32 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         return source
     }
 
-    private func provider(_ source: MockAppleMusicSource) -> AppleMusicBrowsingProvider {
-        var provider = AppleMusicBrowsingProvider(source: source)
+    /// Every song of a saved album is in the library unless `playlistOnly` names it (#401).
+    private func provider(_ source: MockAppleMusicSource, playlistOnly: Set<String> = []) -> AppleMusicBrowsingProvider {
+        let registry = AppleMusicSongReferenceRegistry(addedDate: { song in
+            playlistOnly.contains(song.id.rawValue) ? nil : Date(timeIntervalSince1970: 1_700_000_000)
+        })
+        var provider = AppleMusicBrowsingProvider(
+            source: source,
+            editor: AppleMusicLibraryEditor(pending: AppleMusicPendingLibraryEdits(), songReferences: registry)
+        )
         provider.ratingsDeadline = {}
         return provider
+    }
+
+    /// The library as MusicKit really lists a saved album's songs: under persistent IDs, with no
+    /// catalog ID, only their titles and places on the album (seen on Tainy's DATA).
+    private func dataSavedWithoutCatalogIDs() throws -> MockAppleMusicSource {
+        let source = try tainy(savedUnderCatalogIDs: true)
+        // The saved album itself does name its catalog album.
+        let savedAlbum = try AppleMusicFixtures.album(id: Self.savedAlbumID, title: "DATA", trackCount: 14, catalogID: Self.catalogAlbumID)
+        source.albumsByID[Self.savedAlbumID] = savedAlbum
+        source.libraryAlbumsByID[Self.savedAlbumID] = savedAlbum
+        source.libraryAlbumsByID[Self.catalogAlbumID] = savedAlbum
+        source.extraTracksByAlbumID[Self.savedAlbumID] = try [(4, "Track 4", "-7716356195492915039"), (12, "Track 12", "-5458252454165740238")].map {
+            Track.song(try AppleMusicFixtures.song(id: $0.2, title: $0.1, artist: "Tainy", album: "DATA"))
+        }
+        return source
     }
 
     private func albums(_ provider: AppleMusicBrowsingProvider, artistID: String) async throws -> [MusicArtistAlbum] {
@@ -3820,6 +3842,29 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
 
         XCTAssertEqual(tracks.count, 14)
         XCTAssertEqual(tracks.filter(\.isInLibrary).map(\.id), Self.savedSongCatalogIDs)
+    }
+
+    func testAnAlbumMarksItsSavedSongsWhenTheLibraryNamesNoCatalogIDForThem() async throws {
+        for albumID in [Self.catalogAlbumID, Self.savedAlbumID] {
+            let provider = provider(try dataSavedWithoutCatalogIDs())
+
+            let tracks = try await provider.albumTracks(albumID: albumID, market: nil, limit: 50)
+
+            XCTAssertEqual(tracks.count, 14, albumID)
+            XCTAssertEqual(tracks.filter(\.isInLibrary).map(\.name), ["Track 4", "Track 12"], albumID)
+            // The song menu knows at once that they're saved, so it offers Remove.
+            XCTAssertEqual(provider.knownSavedTrackStatus(id: "1650000004"), true, albumID)
+            XCTAssertEqual(provider.knownSavedTrackStatus(id: "1650000012"), true, albumID)
+        }
+    }
+
+    func testAnAlbumDoesntMarkASongOfTheSavedAlbumThatIsOnlyInAPlaylist() async throws {
+        let provider = provider(try dataSavedWithoutCatalogIDs(), playlistOnly: ["-5458252454165740238"])
+
+        let tracks = try await provider.albumTracks(albumID: Self.catalogAlbumID, market: nil, limit: 50)
+
+        XCTAssertEqual(tracks.filter(\.isInLibrary).map(\.name), ["Track 4"])
+        XCTAssertEqual(provider.knownSavedTrackStatus(id: "1650000012"), false)
     }
 
     func testASavedArtistApplesCatalogDoesntHaveKeepsTheSavedPage() async throws {

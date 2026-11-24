@@ -405,14 +405,16 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
 
     private func albumTracks(albumID: String, upTo cap: Int) async throws -> [MusicTrack] {
         // The catalog's album, all its songs, whichever ID opened it (#658).
-        let (album, savedSongIDs) = try await pageAlbum(id: albumID)
+        let (album, saved) = try await pageAlbum(id: albumID)
         // An album opened from Home is known only by its catalog ID until here: its header's pin
         // state needs its key to find a pinned saved copy (#487).
         AppleMusicItemMapping.registerAlbumPin(album)
+        async let savedRead = savedSongs(of: saved)
         let tracks = try await source.tracks(of: album, limit: cap)
         // A library album lists its songs under persistent IDs; edits on those rows need the
         // song's other details (#395).
         editor.songReferences.remember(tracks)
+        let savedSongIDs = savedCatalogSongIDs(Array(tracks), saved: try await savedRead)
         await lookUpRatings(tracks.prefix(cap))
         return tracks.prefix(cap).map {
             var track = AppleMusicItemMapping.track($0, album: album)

@@ -186,9 +186,10 @@ extension AppleMusicBrowsingProvider {
 
     // MARK: - Albums
 
-    /// The album a page shows, the catalog's when Apple Music has it, and the catalog IDs of its
-    /// songs that are saved, for their mark.
-    func pageAlbum(id: String) async throws -> (album: Album, savedSongIDs: Set<String>) {
+    /// The album a page shows, the catalog's when Apple Music has it, and the saved copy of it
+    /// when there is one, for the marks on its saved songs. `saved` is `nil` when the page shows
+    /// the saved copy itself.
+    func pageAlbum(id: String) async throws -> (album: Album, saved: Album?) {
         let saved: Album?
         let catalog: Album?
         if MusicKitLibraryLookup.isCatalogID(id) {
@@ -205,13 +206,45 @@ extension AppleMusicBrowsingProvider {
                 try await catalogItem { try await source.album(id: catalogID) } ?? nil
             }
         }
-        if let catalog {
-            let savedTracks = try await saved.asyncMap { try await source.tracks(of: $0, limit: Self.maxLibraryAlbumTracks) } ?? []
-            editor.songReferences.remember(savedTracks)
-            return (catalog, Set(Self.songCatalogIDs(savedTracks)))
-        }
-        if let saved { return (saved, []) }
+        if let catalog { return (catalog, saved) }
+        if let saved { return (saved, nil) }
         throw AppleMusicBrowsingError.notFound
+    }
+
+    /// The songs of a saved album, for the marks on the catalog album's page; none when it
+    /// can't be read, which only leaves the marks off.
+    func savedSongs(of saved: Album?) async throws -> [Track] {
+        guard let saved else { return [] }
+        return try await catalogItem { try await source.tracks(of: saved, limit: Self.maxLibraryAlbumTracks) } ?? []
+    }
+
+    /// The catalog album's songs that are saved, by their catalog ID. Each one's saved row is
+    /// remembered under that ID too, so the song's menu offers Remove at once and the removal
+    /// finds the saved copy. A song of the saved album that is only in a playlist isn't in the
+    /// library (#401) and gets no mark.
+    func savedCatalogSongIDs(_ catalogTracks: [Track], saved savedTracks: [Track]) -> Set<String> {
+        editor.songReferences.remember(savedTracks)
+        var ids: Set<String> = []
+        for case let .song(savedSong) in savedTracks {
+            guard let match = Self.catalogTrack(matching: savedSong, in: catalogTracks) else { continue }
+            let reference = editor.songReferences.reference(for: savedSong.id.rawValue)
+            if let reference { editor.songReferences.remember(reference.listed(as: match.id.rawValue)) }
+            if reference?.isInLibrary ?? true { ids.insert(match.id.rawValue) }
+        }
+        return ids
+    }
+
+    /// A saved album's song read through the album names no catalog ID (only its persistent ID),
+    /// so it matches its catalog song by title, and by disc and track number when the album has
+    /// several songs of that title.
+    static func catalogTrack(matching saved: Song, in catalogTracks: [Track]) -> Track? {
+        if let catalogID = songCatalogIDs([.song(saved)]).first,
+           let match = catalogTracks.first(where: { $0.id.rawValue == catalogID }) {
+            return match
+        }
+        let sameTitle = catalogTracks.filter { sameName($0.title, saved.title) }
+        guard sameTitle.count > 1 else { return sameTitle.first }
+        return sameTitle.first { $0.discNumber == saved.discNumber && $0.trackNumber == saved.trackNumber }
     }
 
     private func catalogAlbumID(of saved: Album, pageID: String) async throws -> String? {
@@ -284,11 +317,6 @@ extension AppleMusicBrowsingProvider {
 }
 
 private extension Optional {
-    func asyncMap<T>(_ transform: (Wrapped) async throws -> T) async rethrows -> T? {
-        guard let self else { return nil }
-        return try await transform(self)
-    }
-
     func asyncFlatMap<T>(_ transform: (Wrapped) async throws -> T?) async rethrows -> T? {
         guard let self else { return nil }
         return try await transform(self)
