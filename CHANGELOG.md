@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.63] - 2026-11-24
+
+### Fixed
+
+- Screenshot mode now resizes its time window correctly on Spotify playlists with 1000 songs.
+
 ## [0.8.62] - 2026-11-24
 
 ### Fixed
