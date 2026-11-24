@@ -487,9 +487,17 @@ final class LrcLibClientTests: XCTestCase {
             lyrics: .synced([SyncedLyricLine(id: 0, startTimeMs: 0, words: "same")])
         )
         let best = LrcLibMatch.best(
-            among: [plain, syncedFewerArtists, syncedSameArtists], title: "Song", artists: ["A", "B"], durationMilliseconds: 180_000
+            among: [plain, syncedFewerArtists, syncedSameArtists], title: "Song (feat. B)", artists: ["A"],
+            durationMilliseconds: 180_000
         )
         XCTAssertEqual(best, syncedSameArtists)
+        XCTAssertEqual(
+            LrcLibMatch.best(
+                among: [syncedFewerArtists], title: "Song (feat. B)", artists: ["A"], durationMilliseconds: 180_000
+            ),
+            syncedFewerArtists,
+            "LRCLIB may leave the featured artist out"
+        )
         XCTAssertEqual(
             LrcLibMatch.best(among: [plain], title: "Song", artists: ["A", "B"], durationMilliseconds: 180_000), plain,
             "Plain lyrics still count when nothing synced matches"
@@ -600,6 +608,8 @@ final class LrcLibClientTests: XCTestCase {
         XCTAssertNil(best(song(by: "DC"), playing: "AC/DC"))
         XCTAssertNil(best(song(by: "Earth, Wind & Fire"), playing: "Fire"))
         XCTAssertNil(best(song(by: "Fire"), playing: "Earth, Wind & Fire"))
+        XCTAssertNil(best(song(by: "Earth, Wind & Fire"), playing: "Earth"))
+        XCTAssertNil(best(song(by: "Earth"), playing: "Earth, Wind & Fire"))
         XCTAssertNotNil(best(song(by: "AC/DC"), playing: "AC/DC"))
         XCTAssertNotNil(best(song(by: "Earth, Wind and Fire"), playing: "Earth, Wind & Fire"))
     }

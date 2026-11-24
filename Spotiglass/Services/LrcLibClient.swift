@@ -318,8 +318,8 @@ struct LrcLibClient: Sendable {
 }
 
 /// Decides whether an LRCLIB search result is the song that is playing (#657). A result counts
-/// only with the same title, the same artists (one list may name fewer, e.g. without the
-/// featured artist) and a length within two seconds; synced lyrics win over plain ones.
+/// only with the same title, the same artists (one side may leave out a "(feat. ...)" credit,
+/// nothing else) and a length within two seconds; synced lyrics win over plain ones.
 enum LrcLibMatch {
     struct Candidate: Equatable {
         let title: String
@@ -338,9 +338,9 @@ enum LrcLibMatch {
     ) -> Candidate? {
         guard durationMilliseconds > 0 else { return nil }
         let wantedTitle = normalizedTitle(title)
-        let wantedList = artistList(artists + featuredArtists(in: title))
-        let wantedArtists = Set(wantedList)
-        guard !wantedTitle.isEmpty, let wantedLead = wantedList.first else { return nil }
+        let wantedMain = Set(artistList(artists))
+        let wantedFeatured = Set(artistList(featuredArtists(in: title)))
+        guard !wantedTitle.isEmpty, !wantedMain.isEmpty else { return nil }
         let wantedSeconds = Double(durationMilliseconds) / 1_000
 
         typealias Scored = (candidate: Candidate, kind: Int, exactArtists: Bool, gap: Double)
@@ -349,14 +349,13 @@ enum LrcLibMatch {
             let gap = abs(seconds - wantedSeconds)
             guard gap <= durationToleranceSeconds else { return nil }
             guard normalizedTitle(candidate.title) == wantedTitle else { return nil }
-            let theirList = artistList([candidate.artist] + featuredArtists(in: candidate.title))
-            let theirArtists = Set(theirList)
-            let sameArtists = theirArtists == wantedArtists
-            // One side may name fewer (no featured artist), but never another lead: a split band
-            // name ("Earth, Wind & Fire") must not let "Fire" through.
-            let fewerArtists = theirList.first == wantedLead
-                && (theirArtists.isSubset(of: wantedArtists) || wantedArtists.isSubset(of: theirArtists))
-            guard sameArtists || fewerArtists else { return nil }
+            let theirMain = Set(artistList([candidate.artist]))
+            let theirFeatured = Set(artistList(featuredArtists(in: candidate.title)))
+            let sameArtists = theirMain.union(theirFeatured) == wantedMain.union(wantedFeatured)
+            // The only credit one side may leave out is a "(feat. ...)" in its title; the artists
+            // themselves match in full, so "Earth" is never "Earth, Wind & Fire".
+            let withoutFeature = theirMain == wantedMain && (theirFeatured.isEmpty || wantedFeatured.isEmpty)
+            guard sameArtists || withoutFeature else { return nil }
             return (candidate, kindRank(candidate.lyrics), sameArtists, gap)
         }
         return scored.min { lhs, rhs in
