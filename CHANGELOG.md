@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.62] - 2026-11-24
+
+### Fixed
+
+- Pause and play now show right away when you use the media keys or in long lists, instead of still saying "playing" for 20+ seconds.
+
 ## [0.8.61] - 2026-11-23
 
 ### Fixed
