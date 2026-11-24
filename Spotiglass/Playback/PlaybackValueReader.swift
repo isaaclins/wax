@@ -121,7 +121,12 @@ final class TrackListPlaybackMarks {
     }
 
     private func mark(of track: TrackRowViewModel, connectionState: PlaybackConnectionState) -> TrackRowPlaybackMark {
-        TrackRowPlaybackMark.resolve(
+        #if DEBUG
+        // Each row the list built listens to the player, so this runs once per such row and
+        // change: a test can tell whether a press reached every song or only those on screen (#662).
+        ViewBodyTally.record("TrackListPlaybackMarks.rowMark")
+        #endif
+        return TrackRowPlaybackMark.resolve(
             track: track,
             markedURI: markedURI(connectionState: connectionState),
             connectionState: connectionState
