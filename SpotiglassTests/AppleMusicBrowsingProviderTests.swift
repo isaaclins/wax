@@ -175,7 +175,7 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
 
     func testArtistDetailAndSearchCardsMap() throws {
         let artist = try AppleMusicFixtures.artist(id: "5201", name: "Bonobo", genres: ["Electronic"])
-        let detail = AppleMusicItemMapping.artistDetail(artist)
+        let detail = AppleMusicItemMapping.artistDetail(artist, pageID: artist.id.rawValue)
         XCTAssertEqual(detail.genres, ["Electronic"])
         XCTAssertNil(detail.followersTotal)
         XCTAssertEqual(detail.uri, "applemusic:artist:5201")
@@ -1059,17 +1059,18 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         var allowed = AppleMusicBrowsingProvider(source: source)
         allowed.explicitMusicBlocked = { false }
         let albums = try await allowed.artistAlbumsCached(id: "159260351", includeGroups: [], limit: 50, cacheMode: .allowStale).value
-        XCTAssertEqual(albums.map(\.id), ["1524801260", "1528112358", "1540314609"])
-        XCTAssertEqual(albums.map(\.isExplicit), [true, true, false])
-        XCTAssertEqual(ArtistAlbumRowViewModel(albums[0]).isExplicit, true, "the tile carries the Explicit label")
+        // Newest first, as Apple Music lists them (#658).
+        XCTAssertEqual(albums.map(\.id), ["1540314609", "1528112358", "1524801260"])
+        XCTAssertEqual(albums.map(\.isExplicit), [false, true, true])
+        XCTAssertEqual(ArtistAlbumRowViewModel(albums[2]).isExplicit, true, "the tile carries the Explicit label")
 
         var cleanOnly = AppleMusicBrowsingProvider(source: source)
         cleanOnly.explicitMusicBlocked = { true }
         let clean = try await cleanOnly.artistAlbumsPage(
             id: "159260351", includeGroups: [.album], limit: 50, offset: 0, nextURL: nil, cacheMode: .bypassCache
         ).items
-        XCTAssertEqual(clean.map(\.id), ["1524793738", "1528112358", "1540314609"])
-        XCTAssertEqual(clean.first?.isExplicit, false)
+        XCTAssertEqual(clean.map(\.id), ["1540314609", "1528112358", "1524793738"])
+        XCTAssertEqual(clean.last?.isExplicit, false)
     }
 
     /// Apple can list an edition more than once under other IDs. Every edition of the other
@@ -1114,8 +1115,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         provider.explicitMusicBlocked = { false }
         provider.ratingsDeadline = Self.neverEndingDeadline
         let albums = try await provider.artistAlbumsCached(id: "-42", includeGroups: [], limit: 50, cacheMode: .allowStale).value
-        XCTAssertEqual(albums.map(\.id), ["-6046431734389870002", "-6046431734389870003"])
-        XCTAssertEqual(albums.map(\.isExplicit), [true, false], "the saved explicit edition carries the label")
+        XCTAssertEqual(albums.map(\.id), ["-6046431734389870003", "-6046431734389870002"])
+        XCTAssertEqual(albums.map(\.isExplicit), [false, true], "the saved explicit edition carries the label")
         XCTAssertEqual(source.albumRatingLookups, [["1524793738", "1524801260"]], "one lookup, only for albums naming a release")
     }
 
@@ -1276,7 +1277,9 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let source = MockAppleMusicSource()
         source.artistsByID["-42"] = try AppleMusicFixtures.artist(id: "-42", name: "Taylor Swift")
         func album(_ number: Int) throws -> Album {
-            try AppleMusicFixtures.album(id: "-60464317343898\(80000 + number)", title: "Album \(number)")
+            // Released the same day as folklore, so the page's newest-first order keeps
+            // folklore between them (#658).
+            try AppleMusicFixtures.album(id: "-60464317343898\(80000 + number)", title: "Album \(number)", releaseDate: "2020-07-24")
         }
         source.extraAlbumsByArtistID["-42"] = try (1...before).map(album) + [
             try AppleMusicFixtures.album(
@@ -2721,6 +2724,27 @@ private final class MockAppleMusicSource: AppleMusicContentSource, @unchecked Se
         return artistsByID[id]
     }
 
+    /// Saved copies, under every ID MusicKit's library request finds them by: their library ID
+    /// and their catalog ID (#658).
+    var libraryAlbumsByID: [String: Album] = [:]
+    var libraryArtistsByID: [String: Artist] = [:]
+    var catalogSongsByID: [String: Song] = [:]
+
+    func libraryAlbum(id: String) async throws -> Album? {
+        record("libraryAlbum(\(id))")
+        return libraryAlbumsByID[id]
+    }
+
+    func libraryArtist(id: String) async throws -> Artist? {
+        record("libraryArtist(\(id))")
+        return libraryArtistsByID[id]
+    }
+
+    func catalogSongs(ids: [String]) async throws -> [Song] {
+        record("catalogSongs(\(ids.joined(separator: ",")))")
+        return ids.compactMap { catalogSongsByID[$0] }
+    }
+
     /// MusicKit's later relationship batches, which a decoded fixture can't carry.
     var extraTracksByAlbumID: [String: [Track]] = [:]
     var extraAlbumsByArtistID: [String: [Album]] = [:]
@@ -3269,7 +3293,8 @@ enum AppleMusicFixtures {
         clean: Bool = false,
         catalogID: String? = nil,
         persistentID: String? = nil,
-        identifierSetCatalogID: String? = nil
+        identifierSetCatalogID: String? = nil,
+        albumRefs: [(String, String)] = []
     ) throws -> Song {
         var attributes: [String: Any] = ["name": title, "durationInMillis": durationMs]
         if let artist { attributes["artistName"] = artist }
@@ -3298,11 +3323,19 @@ enum AppleMusicFixtures {
             if let persistentID { identifiers["deviceLocalID"] = ["databaseID": "785BA2D7E82AE547", "value": persistentID] }
             resource["meta"] = ["musicKit_identifierSet": identifiers]
         }
+        var relationships: [String: Any] = [:]
         if !artistRefs.isEmpty {
-            resource["relationships"] = ["artists": ["data": artistRefs.map {
+            relationships["artists"] = ["data": artistRefs.map {
                 ["id": $0.0, "type": "artists", "attributes": ["name": $0.1]]
-            }]]
+            }]
         }
+        // A catalog song names the albums it is on (#658).
+        if !albumRefs.isEmpty {
+            relationships["albums"] = ["data": albumRefs.map {
+                ["id": $0.0, "type": "albums", "attributes": ["name": $0.1, "artistName": artist ?? ""]] as [String: Any]
+            }]
+        }
+        if !relationships.isEmpty { resource["relationships"] = relationships }
         return try decode(Song.self, try json(resource))
     }
 
@@ -3629,5 +3662,190 @@ final class AppleMusicCatalogPagesTests: XCTestCase {
         } catch let error as URLError {
             XCTAssertEqual(error.code, .timedOut)
         }
+    }
+}
+
+// MARK: - Artist and album pages show the catalog, whichever way they open (#658)
+
+/// Tainy's page, opened from one of the two Tainy songs in the library, listed those two songs
+/// and "DATA" with 2 tracks: the page read the library's copy of the artist, which holds only
+/// what was saved. These replay that library, as MusicKit gives it.
+final class AppleMusicCatalogFirstPageTests: XCTestCase {
+    private static let savedArtistID = "-4521234567890123456"
+    private static let catalogArtistID = "1172852034"
+    private static let savedAlbumID = "-1111111111111111111"
+    private static let catalogAlbumID = "1650000000"
+    private static let savedSongCatalogIDs = ["1650000003", "1650000007"]
+
+    /// Isaac's library: two Tainy songs from DATA, saved. Apple Music: Tainy with top songs, DATA
+    /// with 14 songs, an older album and a newer single.
+    private func tainy(savedUnderCatalogIDs: Bool = false) throws -> MockAppleMusicSource {
+        let source = MockAppleMusicSource()
+        let savedArtist = try AppleMusicFixtures.artist(id: Self.savedArtistID, name: "Tainy")
+        let savedSongs = try Self.savedSongCatalogIDs.enumerated().map { index, catalogID in
+            Track.song(try AppleMusicFixtures.song(
+                id: "-90000000000000000\(index)",
+                title: "Saved \(index)",
+                artist: "Tainy",
+                album: "DATA",
+                catalogID: catalogID
+            ))
+        }
+        let savedAlbum = try AppleMusicFixtures.album(id: Self.savedAlbumID, title: "DATA", trackCount: 14)
+        source.artistsByID[Self.savedArtistID] = savedArtist
+        source.libraryArtistsByID[Self.savedArtistID] = savedArtist
+        source.extraAlbumsByArtistID[Self.savedArtistID] = [savedAlbum]
+        source.albumsByID[Self.savedAlbumID] = savedAlbum
+        source.libraryAlbumsByID[Self.savedAlbumID] = savedAlbum
+        source.extraTracksByAlbumID[Self.savedAlbumID] = savedSongs
+        if savedUnderCatalogIDs {
+            // MusicKit's library request finds a saved item under its catalog ID too.
+            source.libraryArtistsByID[Self.catalogArtistID] = savedArtist
+            source.libraryAlbumsByID[Self.catalogAlbumID] = savedAlbum
+        }
+
+        for catalogID in Self.savedSongCatalogIDs {
+            source.catalogSongsByID[catalogID] = try AppleMusicFixtures.song(
+                id: catalogID,
+                title: "Song \(catalogID)",
+                artist: "Tainy",
+                artistRefs: [(Self.catalogArtistID, "Tainy")],
+                albumRefs: [(Self.catalogAlbumID, "DATA")]
+            )
+        }
+        source.artistsByID[Self.catalogArtistID] = try AppleMusicFixtures.artist(id: Self.catalogArtistID, name: "Tainy")
+        source.extraAlbumsByArtistID[Self.catalogArtistID] = [
+            try AppleMusicFixtures.album(id: "1400000000", title: "Older", trackCount: 9, releaseDate: "2019-05-01"),
+            try AppleMusicFixtures.album(
+                id: Self.catalogAlbumID,
+                title: "DATA",
+                trackCount: 14,
+                tracks: (0..<14).map { ("16500000\(String(format: "%02d", $0))", "Track \($0)") },
+                releaseDate: "2023-06-29"
+            ),
+            try AppleMusicFixtures.album(id: "1700000000", title: "Newer", trackCount: 1, isSingle: true, releaseDate: "2024-11-01"),
+        ]
+        for album in source.extraAlbumsByArtistID[Self.catalogArtistID] ?? [] {
+            source.albumsByID[album.id.rawValue] = album
+        }
+        source.topSongsByArtistID[Self.catalogArtistID] = try (0..<3).map {
+            try AppleMusicFixtures.song(id: "180000000\($0)", title: "Top \($0)", artist: "Tainy")
+        }
+        return source
+    }
+
+    private func provider(_ source: MockAppleMusicSource) -> AppleMusicBrowsingProvider {
+        var provider = AppleMusicBrowsingProvider(source: source)
+        provider.ratingsDeadline = {}
+        return provider
+    }
+
+    private func albums(_ provider: AppleMusicBrowsingProvider, artistID: String) async throws -> [MusicArtistAlbum] {
+        try await provider.artistAlbumsPage(
+            id: artistID,
+            includeGroups: [.album, .single, .compilation],
+            limit: 50,
+            offset: 0,
+            nextURL: nil,
+            cacheMode: .bypassCache
+        ).items
+    }
+
+    func testAnArtistOpenedThroughASavedSongShowsTheirCatalogSongsAndAlbums() async throws {
+        let provider = provider(try tainy())
+
+        let artist = try await provider.artist(id: Self.savedArtistID, cacheMode: .bypassCache)
+        let albums = try await albums(provider, artistID: Self.savedArtistID)
+        let read = try await provider.artistPageExtras(id: Self.savedArtistID)
+        let extras = try XCTUnwrap(read)
+
+        XCTAssertEqual(artist.name, "Tainy")
+        // The page keeps the ID it was opened with, so its paging and pin go by it.
+        XCTAssertEqual(artist.id, Self.savedArtistID)
+        // Every release, newest first, and DATA with all 14 tracks.
+        XCTAssertEqual(albums.map(\.name), ["Newer", "DATA", "Older"])
+        XCTAssertEqual(albums.first { $0.name == "DATA" }?.totalTracks, 14)
+        XCTAssertEqual(extras.topTracks.map(\.name), ["Top 0", "Top 1", "Top 2"])
+        // What was saved has its own section and doesn't replace the catalog's.
+        XCTAssertEqual(extras.libraryTracks.map(\.name), ["Saved 0", "Saved 1"])
+        XCTAssertEqual(extras.libraryAlbums.map(\.id), [Self.savedAlbumID])
+    }
+
+    func testAnArtistOpenedFromSearchShowsTheCatalogAndWhatIsSaved() async throws {
+        let source = try tainy(savedUnderCatalogIDs: true)
+        let provider = provider(source)
+
+        let albums = try await albums(provider, artistID: Self.catalogArtistID)
+        let read = try await provider.artistPageExtras(id: Self.catalogArtistID)
+        let extras = try XCTUnwrap(read)
+
+        XCTAssertEqual(albums.map(\.name), ["Newer", "DATA", "Older"])
+        XCTAssertEqual(extras.topTracks.count, 3)
+        XCTAssertEqual(extras.libraryTracks.map(\.name), ["Saved 0", "Saved 1"])
+    }
+
+    func testAnArtistWithNothingSavedHasNoLibrarySection() async throws {
+        let source = try tainy()
+        source.extraAlbumsByArtistID[Self.savedArtistID] = nil
+        source.libraryArtistsByID = [:]
+        let provider = provider(source)
+
+        let read = try await provider.artistPageExtras(id: Self.catalogArtistID)
+        let extras = try XCTUnwrap(read)
+
+        XCTAssertEqual(extras.topTracks.count, 3)
+        XCTAssertTrue(extras.libraryTracks.isEmpty)
+        XCTAssertTrue(extras.libraryAlbums.isEmpty)
+    }
+
+    func testASavedAlbumOpensWithAllItsSongsAndMarksTheSavedOnes() async throws {
+        let provider = provider(try tainy())
+
+        let tracks = try await provider.albumTracks(albumID: Self.savedAlbumID, market: nil, limit: 50)
+
+        XCTAssertEqual(tracks.count, 14)
+        XCTAssertEqual(tracks.filter(\.isInLibrary).map(\.id), Self.savedSongCatalogIDs)
+    }
+
+    func testAnAlbumOpenedFromTheCatalogShowsAllItsSongsWhenPartIsSaved() async throws {
+        let provider = provider(try tainy(savedUnderCatalogIDs: true))
+
+        let tracks = try await provider.albumTracks(albumID: Self.catalogAlbumID, market: nil, limit: 50)
+
+        XCTAssertEqual(tracks.count, 14)
+        XCTAssertEqual(tracks.filter(\.isInLibrary).map(\.id), Self.savedSongCatalogIDs)
+    }
+
+    func testASavedArtistApplesCatalogDoesntHaveKeepsTheSavedPage() async throws {
+        let source = try tainy()
+        source.catalogSongsByID = [:]
+        let provider = provider(source)
+
+        let artist = try await provider.artist(id: Self.savedArtistID, cacheMode: .bypassCache)
+        let albums = try await albums(provider, artistID: Self.savedArtistID)
+
+        XCTAssertEqual(artist.name, "Tainy")
+        XCTAssertEqual(albums.map(\.id), [Self.savedAlbumID])
+    }
+
+    func testTheArtistPageKeepsTheServiceOrderAndTheLibrarySectionOnlyWithExtras() {
+        let artist = MusicArtistDetail(id: "a", name: "A", imageURL: nil, followersTotal: nil, genres: [], uri: "applemusic:artist:a")
+        let albums = ["Zebra", "Apple"].map {
+            MusicArtistAlbum(id: $0, name: $0, imageURL: nil, releaseYear: nil, totalTracks: 1, group: .album, uri: "x:\($0)")
+        }
+        let saved = MusicTrack(id: "s", name: "Saved", artists: ["A"], albumArtworkURL: nil, durationMilliseconds: 1,
+                               isExplicit: false, isPlayable: true, linkedFromID: nil, uri: "applemusic:song:s")
+
+        let spotify = ArtistDetailViewModel(artist: artist, tracks: [], albums: albums)
+        let appleMusic = ArtistDetailViewModel(
+            artist: artist, tracks: [], albums: albums,
+            extras: MusicArtistPageExtras(libraryTracks: [saved])
+        )
+
+        XCTAssertEqual(spotify.albums.map(\.title), ["Apple", "Zebra"])
+        XCTAssertFalse(spotify.hasLibrarySection)
+        XCTAssertEqual(appleMusic.albums.map(\.title), ["Zebra", "Apple"])
+        XCTAssertEqual(appleMusic.libraryTracks.map(\.title), ["Saved"])
+        XCTAssertTrue(appleMusic.hasLibrarySection)
     }
 }

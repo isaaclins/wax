@@ -1459,6 +1459,9 @@ final class EditTestContentSource: AppleMusicContentSource, @unchecked Sendable 
     func recommendedPlaylists() async throws -> [Playlist] { [] }
     func album(id: String) async throws -> Album? { nil }
     func artist(id: String) async throws -> Artist? { nil }
+    func libraryAlbum(id: String) async throws -> Album? { nil }
+    func libraryArtist(id: String) async throws -> Artist? { nil }
+    func catalogSongs(ids: [String]) async throws -> [Song] { [] }
     func tracks(of album: Album, limit: Int) async throws -> [Track] { [] }
     func albums(of artist: Artist, limit: Int) async throws -> [Album] { [] }
     func artistTopSongs(artistID: String) async throws -> [Song] { [] }

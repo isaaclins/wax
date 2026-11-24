@@ -279,7 +279,9 @@ struct PlaylistBrowserMainDetailColumn: View {
             detail: detail,
             browserViewModel: viewModel,
             playTrack: { uri in
-                let playableURIs = detail.tracks.compactMap(\.playableURI)
+                // A song from "In your library" plays on through the saved songs (#658).
+                let list = detail.tracks.contains { $0.playableURI == uri } ? detail.tracks : detail.libraryTracks
+                let playableURIs = list.compactMap(\.playableURI)
                 Task {
                     await playbackViewModel.playFromPlaylist(
                         clickedURI: uri,

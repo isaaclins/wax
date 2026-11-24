@@ -35,13 +35,19 @@ extension PlaylistBrowserViewModel {
     /// Track IDs the menu actions should apply to: the active table selection,
     /// or just the row the menu was opened on when no selection exists.
     func effectiveTrackTargets(forRowID rowID: String) -> [TrackRowViewModel] {
-        guard let tracks = selectableDetailTracks, !tracks.isEmpty else { return [] }
+        guard let tracks = selectableDetailTracks else { return [] }
         let selection = selectedDetailTrackIDs
         if selection.contains(rowID), selection.count > 1 {
             // Preserve list order so batched calls keep playlist sequence sane.
             return tracks.filter { selection.contains($0.id) }
         }
-        return tracks.first(where: { $0.id == rowID }).map { [$0] } ?? []
+        if let row = tracks.first(where: { $0.id == rowID }) { return [row] }
+        // A song of an artist page's "In your library" section (#658).
+        if case let .artist(detail)? = detailState.currentValue,
+           let row = detail.libraryTracks.first(where: { $0.id == rowID }) {
+            return [row]
+        }
+        return []
     }
 
     /// Rows for the current table selection, in list order.

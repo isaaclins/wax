@@ -27,7 +27,8 @@ extension PlaylistBrowserViewModel {
                 tracks: paging.tracks,
                 albums: paging.albums,
                 canLoadMoreAlbums: true,
-                isLoadingMoreAlbums: true
+                isLoadingMoreAlbums: true,
+                extras: detail.extras
             )
         ))
 
@@ -61,7 +62,8 @@ extension PlaylistBrowserViewModel {
                 tracks: paging.tracks,
                 albums: paging.albums,
                 canLoadMoreAlbums: paging.nextURL != nil,
-                isLoadingMoreAlbums: false
+                isLoadingMoreAlbums: false,
+                extras: detail.extras
             )
             cachedArtistSnapshots[artistID] = CachedArtistSnapshot(
                 snapshot: ArtistDetailSnapshot(
@@ -69,7 +71,8 @@ extension PlaylistBrowserViewModel {
                     albums: paging.albums,
                     tracks: paging.tracks,
                     usedStaleCache: false,
-                    paging: paging
+                    paging: paging,
+                    extras: detail.extras
                 ),
                 fetchedAt: now()
             )

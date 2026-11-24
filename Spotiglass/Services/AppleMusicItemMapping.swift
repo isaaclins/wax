@@ -226,15 +226,17 @@ enum AppleMusicItemMapping {
         )
     }
 
-    static func artistDetail(_ artist: Artist) -> MusicArtistDetail {
+    /// `pageID` is the ID the page was opened with, which may be a saved copy's (#658).
+    static func artistDetail(_ artist: Artist, pageID: String) -> MusicArtistDetail {
         registerPinAlias(.artist, artist)
+        let id = MusicItemID(pageID)
         return MusicArtistDetail(
-            id: artist.id.rawValue,
+            id: id.rawValue,
             name: artist.name,
-            imageURL: artworkURL(artist.artwork, size: ArtworkSize.cover, pinKind: .artist, itemID: artist.id),
+            imageURL: artworkURL(artist.artwork, size: ArtworkSize.cover, pinKind: .artist, itemID: id),
             followersTotal: nil,
             genres: artist.genreNames ?? [],
-            uri: uri(kind: "artist", id: artist.id)
+            uri: uri(kind: "artist", id: id)
         )
     }
 

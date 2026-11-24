@@ -120,7 +120,7 @@ extension PlaylistBrowserViewModel {
                 guard track.albumArtworkURL == nil, let artworkURL else {
                     return track
                 }
-                return MusicTrack(
+                var withArtwork = MusicTrack(
                     id: track.id,
                     name: track.name,
                     artists: track.artists,
@@ -134,6 +134,8 @@ extension PlaylistBrowserViewModel {
                     linkedFromID: track.linkedFromID,
                     uri: track.uri
                 )
+                withArtwork.isInLibrary = track.isInLibrary
+                return withArtwork
             }
             guard session == detailSession else { return }
             let header = PlaylistRowViewModel(

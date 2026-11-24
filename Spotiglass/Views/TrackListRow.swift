@@ -191,6 +191,9 @@ struct TrackListRow: View {
         if let badge = track.badgeText, !badge.isEmpty {
             suffix += ", \(badge)"
         }
+        if track.isInLibrary {
+            suffix += ", \(SpotiglassL10n.string("browser.inYourLibrary"))"
+        }
         return suffix
     }
 
@@ -222,6 +225,14 @@ struct TrackListRow: View {
                             .font(.caption2.weight(.medium))
                             .padding(SpotiglassDesign.Layout.badgeInsets)
                             .background(.secondary.opacity(0.15), in: Capsule())
+                    }
+
+                    if track.isInLibrary {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.spotiglassAccent)
+                            .help(SpotiglassL10n.string("browser.inYourLibrary"))
+                            .accessibilityHidden(true)
                     }
                 }
 

@@ -65,10 +65,18 @@ protocol AppleMusicContentSource: Sendable {
     func recentlyPlayedSongs(limit: Int) async throws -> [Song]
     /// Playlists from the user's personal recommendations, in Apple's order.
     func recommendedPlaylists() async throws -> [Playlist]
-    /// One album with its tracks loaded.
+    /// One album with its tracks loaded: the catalog's for a catalog ID, the library's for a
+    /// library ID. A library request finds a saved album under its catalog ID too, so asking the
+    /// library first gave a catalog ID the saved part of the album only (#658).
     func album(id: String) async throws -> Album?
-    /// One artist with its albums loaded.
+    /// One artist with its albums loaded, from the catalog or the library as `album(id:)`.
     func artist(id: String) async throws -> Artist?
+    /// The saved copy of an album, with its tracks: under its library ID or its catalog ID.
+    func libraryAlbum(id: String) async throws -> Album?
+    /// The saved copy of an artist, with their albums: under its library ID or its catalog ID.
+    func libraryArtist(id: String) async throws -> Artist?
+    /// Catalog songs with their artists and albums, to find a saved item's catalog copy.
+    func catalogSongs(ids: [String]) async throws -> [Song]
     /// Every track of an album from `album(id:)`, following MusicKit's batches up to `limit`.
     func tracks(of album: Album, limit: Int) async throws -> [Track]
     /// Every album of an artist from `artist(id:)`, following MusicKit's batches up to `limit`.
@@ -258,13 +266,8 @@ struct MusicKitContentSource: AppleMusicContentSource {
 
     func album(id: String) async throws -> Album? {
         try await Self.logged("album read") { () async throws -> Album? in
-            let itemID = MusicItemID(id)
-            var libraryRequest = MusicLibraryRequest<Album>()
-            libraryRequest.filter(matching: \.id, equalTo: itemID)
-            if let album = try await libraryRequest.response().items.first {
-                return try await album.with([.tracks])
-            }
-            let catalog = try await MusicCatalogResourceRequest<Album>(matching: \.id, equalTo: itemID)
+            guard MusicKitLibraryLookup.isCatalogID(id) else { return try await libraryAlbum(id: id) }
+            let catalog = try await MusicCatalogResourceRequest<Album>(matching: \.id, equalTo: MusicItemID(id))
                 .response().items.first
             return try await catalog?.with([.tracks])
         }
@@ -272,15 +275,35 @@ struct MusicKitContentSource: AppleMusicContentSource {
 
     func artist(id: String) async throws -> Artist? {
         try await Self.logged("artist read") { () async throws -> Artist? in
-            let itemID = MusicItemID(id)
-            var libraryRequest = MusicLibraryRequest<Artist>()
-            libraryRequest.filter(matching: \.id, equalTo: itemID)
-            if let artist = try await libraryRequest.response().items.first {
-                return try await artist.with([.albums])
-            }
-            let catalog = try await MusicCatalogResourceRequest<Artist>(matching: \.id, equalTo: itemID)
+            guard MusicKitLibraryLookup.isCatalogID(id) else { return try await libraryArtist(id: id) }
+            let catalog = try await MusicCatalogResourceRequest<Artist>(matching: \.id, equalTo: MusicItemID(id))
                 .response().items.first
             return try await catalog?.with([.albums])
+        }
+    }
+
+    func libraryAlbum(id: String) async throws -> Album? {
+        try await Self.logged("library album read") { () async throws -> Album? in
+            var request = MusicLibraryRequest<Album>()
+            request.filter(matching: \.id, equalTo: MusicItemID(id))
+            return try await request.response().items.first?.with([.tracks])
+        }
+    }
+
+    func libraryArtist(id: String) async throws -> Artist? {
+        try await Self.logged("library artist read") { () async throws -> Artist? in
+            var request = MusicLibraryRequest<Artist>()
+            request.filter(matching: \.id, equalTo: MusicItemID(id))
+            return try await request.response().items.first?.with([.albums])
+        }
+    }
+
+    func catalogSongs(ids: [String]) async throws -> [Song] {
+        try await Self.logged("catalog songs read (\(ids.count) songs)") { () async throws -> [Song] in
+            guard !ids.isEmpty else { return [] }
+            var request = MusicCatalogResourceRequest<Song>(matching: \.id, memberOf: ids.map { MusicItemID($0) })
+            request.properties = [.artists, .albums]
+            return Array(try await request.response().items)
         }
     }
 
@@ -288,7 +311,7 @@ struct MusicKitContentSource: AppleMusicContentSource {
     /// its kind of album allows (see `collectCatalog`).
     func tracks(of album: Album, limit: Int) async throws -> [Track] {
         try await Self.logged("album tracks read") { () async throws -> [Track] in
-            guard Self.needsMore(album.tracks, limit: limit), !(try await isLibraryAlbum(album.id)) else {
+            guard Self.needsMore(album.tracks, limit: limit), MusicKitLibraryLookup.isCatalogID(album.id.rawValue) else {
                 return try await Self.collect(album.tracks, limit: limit)
             }
             return try await collectCatalog(
@@ -302,7 +325,7 @@ struct MusicKitContentSource: AppleMusicContentSource {
     /// Like album tracks, an artist's albums arrive one batch at a time.
     func albums(of artist: Artist, limit: Int) async throws -> [Album] {
         try await Self.logged("artist albums read") { () async throws -> [Album] in
-            guard Self.needsMore(artist.albums, limit: limit), !(try await isLibraryArtist(artist.id)) else {
+            guard Self.needsMore(artist.albums, limit: limit), MusicKitLibraryLookup.isCatalogID(artist.id.rawValue) else {
                 return try await Self.collect(artist.albums, limit: limit)
             }
             return try await collectCatalog(
@@ -317,20 +340,6 @@ struct MusicKitContentSource: AppleMusicContentSource {
     private static func needsMore<Item>(_ collection: MusicItemCollection<Item>?, limit: Int) -> Bool {
         guard let collection else { return false }
         return collection.hasNextBatch && collection.count < limit
-    }
-
-    /// Whether this item came from the library: `album(id:)` and `artist(id:)` look there first,
-    /// under the same ID.
-    private func isLibraryAlbum(_ id: MusicItemID) async throws -> Bool {
-        var request = MusicLibraryRequest<Album>()
-        request.filter(matching: \.id, equalTo: id)
-        return try await !request.response().items.isEmpty
-    }
-
-    private func isLibraryArtist(_ id: MusicItemID) async throws -> Bool {
-        var request = MusicLibraryRequest<Artist>()
-        request.filter(matching: \.id, equalTo: id)
-        return try await !request.response().items.isEmpty
     }
 
     private func collectCatalog<Item: MusicItem & Decodable>(

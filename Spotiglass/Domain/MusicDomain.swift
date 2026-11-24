@@ -241,6 +241,9 @@ struct MusicTrack: Equatable, Identifiable {
     let isPlayable: Bool?
     let linkedFromID: String?
     let uri: String
+    /// Saved in the library, for the mark on an album page's songs (#658). Only Apple Music
+    /// sets it; everywhere else it stays `false`.
+    var isInLibrary = false
 
     init(
         id: String,
@@ -372,6 +375,14 @@ enum MusicTopItemsTimeRange: String, Equatable {
     case mediumTerm = "medium_term"
     /// Several years.
     case longTerm = "long_term"
+}
+
+/// An artist page's songs and saved items when the service has them (#658): Apple Music's top
+/// songs, and the songs and albums saved from the artist.
+struct MusicArtistPageExtras: Equatable {
+    var topTracks: [MusicTrack] = []
+    var libraryTracks: [MusicTrack] = []
+    var libraryAlbums: [MusicArtistAlbum] = []
 }
 
 struct MusicArtistAlbum: Codable, Equatable, Identifiable {
