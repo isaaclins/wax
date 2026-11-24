@@ -100,7 +100,7 @@ start() {
     # Another checkout's mock on the same port would answer the mock's health check, and the app
     # would show that library instead (without --long-playlist, say).
     if curl -sf "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
-        echo "screenshots: port $PORT is taken by another run; set SPOTIGLASS_MOCK_PORT" >&2; exit 1
+        echo "screenshots: port $PORT is taken (another checkout's run, or a stand-in left over here: run stop); set SPOTIGLASS_MOCK_PORT for another port" >&2; exit 1
     fi
     if [ "$apple_music" = 1 ]; then
         # Refuse before the build. The backups are claimed only once the copy is staged, so a run

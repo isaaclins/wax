@@ -81,8 +81,9 @@ scripts/screenshots.sh stop             # also removes resize_timing
 ```
 
 Time Finder in the same minute, as above, since other work on the Mac slows both. On a Mac mini
-M4 (#473) Finder takes 13 to 17 ms a step, and Wax 2 to 4 ms on Home and on playlist pages, in
-Spotify mode and Apple Music mode. The terminal needs the Accessibility permission.
+M4 (#473) Finder takes 13 to 17 ms a step, and Wax 2 to 4 ms on Home, on a 50-song Spotify
+playlist and on a 956-song Apple Music one. A 1000-song Spotify playlist still takes about 20. The
+terminal needs the Accessibility permission.
 
 The sample library's playlists are short. `start --long-playlist 1000` adds a playlist "Long Mix"
 of 1000 songs to time a big page: open it in the sidebar, then run `resize`.
