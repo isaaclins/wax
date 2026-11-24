@@ -112,7 +112,14 @@ extension PlaylistBrowserViewModel {
             guard generation == homeFeedGeneration else { return }
             homeTopTrackData = tracks
             invalidateLibraryContinuationCache()
-            homeTopTracks = .loaded(TrackRowViewModel.numberedTopTracks(tracks))
+            let rows = TrackRowViewModel.numberedTopTracks(tracks)
+            homeTopTracks = .loaded(rows)
+            // A refresh can drop selected songs. Keeping their ids left Add to Queue enabled in
+            // the menu bar with nothing left to add (#173).
+            if case .home = detailState.currentValue {
+                let shown = Set(rows.map(\.id))
+                if !selectedDetailTrackIDs.isSubset(of: shown) { selectedDetailTrackIDs.formIntersection(shown) }
+            }
         } catch is CancellationError {
             return
         } catch {

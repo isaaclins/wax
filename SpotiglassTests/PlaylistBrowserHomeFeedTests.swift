@@ -101,10 +101,10 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         XCTAssertEqual(api.topTracksCallCount, 2)
     }
 
-    /// Selected top tracks on Home are what the menu bar's Add to Queue, Pin and Like act on, as
-    /// in every other track list. Home kept its own selection, so with two top tracks selected
-    /// those commands stayed greyed out and the right-click menu only saw its own row (#173).
-    func testSelectedHomeTopTracksAreWhatTheMenuBarActsOn() async {
+    /// Selected top tracks on Home are what the menu bar's Add to Queue and Pin act on, as in every
+    /// other track list. Home kept its own selection, so with two top tracks selected those
+    /// commands stayed greyed out and the right-click menu only saw its own row (#173).
+    func testSelectedHomeTopTracksAreWhatTheMenuBarActsOn() async throws {
         let api = MockBrowsingAPI(playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])], trackResults: [:])
         api.topTracksHandler = { _, _ in
             ["t1", "t2", "t3"].map { self.recentlyPlayedTrack(id: $0, albumID: "al-\($0)", albumName: "Album \($0)") }
@@ -112,20 +112,44 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await vm.load()
         await vm.selectSidebar(.home)
-        let rows = try? XCTUnwrap(vm.homeTopTracks.value)
-        XCTAssertEqual(rows?.count, 3)
+        let rows = try XCTUnwrap(vm.homeTopTracks.value)
+        XCTAssertEqual(rows.map(\.title), ["Track t1", "Track t2", "Track t3"])
 
-        // As the track table writes it when the listener clicks the third row, then shift-clicks the first.
-        vm.selectedDetailTrackIDs = Set(["t3", "t1"].compactMap { id in rows?.first { $0.title == "Track \(id)" }?.id })
+        // As the track table writes it when the listener clicks the third row, then ⌘-clicks the first.
+        vm.selectedDetailTrackIDs = [rows[2].id, rows[0].id]
 
         XCTAssertEqual(vm.selectedTrackRows.map(\.title), ["Track t1", "Track t3"])
         XCTAssertTrue(PlaylistBrowserView.canEnqueueTrackSelection(rows: vm.selectedTrackRows, hasPlaybackDevice: true))
-        let clickedID = try? XCTUnwrap(rows?.first { $0.title == "Track t3" }?.id)
-        XCTAssertEqual(vm.effectiveTrackTargets(forRowID: clickedID ?? "").map(\.title), ["Track t1", "Track t3"])
+        XCTAssertEqual(vm.effectiveTrackTargets(forRowID: rows[2].id).map(\.title), ["Track t1", "Track t3"])
 
         // Leaving Home drops the selection, like leaving any other list.
         await vm.selectSidebar(.playlist("one"))
-        XCTAssertTrue(vm.selectedTrackRows.isEmpty)
+        XCTAssertTrue(vm.selectedDetailTrackIDs.isEmpty)
+    }
+
+    /// A Home refresh that drops a selected song takes it out of the selection, so the menu bar
+    /// doesn't offer Add to Queue for a song that is no longer listed (#173).
+    func testRefreshingHomeDropsSelectedTopTracksThatAreGone() async throws {
+        var refreshed = false
+        let api = MockBrowsingAPI(
+            playlistResults: [.success([]), .success([])],
+            trackResults: [:]
+        )
+        api.topTracksHandler = { _, _ in
+            (refreshed ? ["t2", "t3"] : ["t1", "t2"]).map { self.recentlyPlayedTrack(id: $0, albumID: "al-\($0)", albumName: "Album \($0)") }
+        }
+        let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        await vm.load()
+        await vm.selectSidebar(.home)
+        let rows = try XCTUnwrap(vm.homeTopTracks.value)
+        vm.selectedDetailTrackIDs = Set(rows.map(\.id))
+
+        refreshed = true
+        await vm.reloadHomeSections(forceRefresh: true)
+
+        let kept = try XCTUnwrap(vm.homeTopTracks.value).filter { vm.selectedDetailTrackIDs.contains($0.id) }
+        XCTAssertEqual(kept.map(\.title), ["Track t2"])
+        XCTAssertEqual(vm.selectedDetailTrackIDs.count, 1, "the dropped song's id stayed selected")
     }
 
     func testManualHomeRefreshFetchesChangedSectionsOutsideFreshCache() async {

@@ -158,7 +158,7 @@ extension PlaylistBrowserViewModel {
 
     /// The rows `selectedDetailTrackIDs` picks from: the playlist or artist tracks, or Home's top
     /// tracks. Home kept its own selection beside a hand-built stack of rows, so the menu bar's
-    /// Add to Queue, Pin and Like never saw a top track that was selected (#173).
+    /// Add to Queue and Pin never saw a top track that was selected (#173).
     var selectableDetailTracks: [TrackRowViewModel]? {
         if case .home = detailState.currentValue { return homeTopTracks.value }
         return loadedContextTracksForPalette

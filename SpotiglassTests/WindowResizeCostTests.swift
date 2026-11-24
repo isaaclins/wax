@@ -150,8 +150,8 @@ final class WindowResizeCostTests: XCTestCase {
 
     func testAnAnimatedResizeFromCodeDoesNotReRenderHome() async throws {
         let window = try await hostBrowser(on: .home)
-        // Growing back brings rows and cards into Home's lazy stacks again, which builds them;
-        // while the window only shrinks nothing new comes into view, so nothing may run.
+        // Growing back brings shelf cards into view again, which builds them; while the window
+        // only shrinks nothing new comes into view, so nothing may run.
         assertAnAnimatedResizeReRendersNothing(in: window, extraViews: ["HomeView"], rowsMayReturnWhileGrowing: true)
     }
 
