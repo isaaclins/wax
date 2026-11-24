@@ -195,6 +195,7 @@ private struct AppleMusicAccountSection: View {
         switch session.state {
         case .authorized: return SpotiglassL10n.string("settings.account.appleMusic.status.allowed")
         case .denied: return SpotiglassL10n.string("settings.account.appleMusic.status.denied")
+        case .signedOut: return SpotiglassL10n.string("settings.account.appleMusic.status.signedOut")
         case .needsPermission, .checking: return SpotiglassL10n.string("settings.account.appleMusic.status.checking")
         }
     }
@@ -247,7 +248,8 @@ private struct AppleMusicAccountSection: View {
         if session.state == .needsPermission {
             await session.requestAccess()
         }
-        guard session.state == .authorized else { return }
+        // Signed out of Music still counts: access is allowed, and the window says to sign in.
+        guard session.state == .authorized || session.state == .signedOut else { return }
         store.completeAddition(of: .appleMusic)
     }
 }

@@ -149,6 +149,13 @@ final class PlaylistBrowserViewModel: ObservableObject {
     var pendingAdjacentPlaylistOffset: Int = 0
     /// The ⌘↑/⌘↓ debounce waits on this clock (a test steps it).
     let adjacentPlaylistClock: any PlaybackClock
+    /// The reads while the library is still arriving wait on this clock (a test steps it).
+    let libraryArrivalClock: any PlaybackClock
+    /// The next read of a library that is still arriving (#654).
+    var libraryArrivalTask: Task<Void, Never>?
+    /// Reads made since the library was first seen still arriving; bounded by
+    /// ``maxLibraryArrivalReads``.
+    var libraryArrivalReads = 0
     var lastTracksRevalidationByID: [String: (snapshotID: String, at: Date)] = [:]
     var inFlightPlaylistListRefreshTask: Task<([MusicPlaylistSummary], MusicUserProfile), Error>?
     var playlistListRefreshGeneration = 0
@@ -243,10 +250,12 @@ final class PlaylistBrowserViewModel: ObservableObject {
         manualPlaylistRefreshCooldown: TimeInterval = 2,
         artistDetailCacheTTL: TimeInterval = 90,
         initialArtistAlbumPageCount: Int = 2,
-        adjacentPlaylistClock: any PlaybackClock = ContinuousClock()
+        adjacentPlaylistClock: any PlaybackClock = ContinuousClock(),
+        libraryArrivalClock: any PlaybackClock = ContinuousClock()
     ) {
         self.api = api
         self.adjacentPlaylistClock = adjacentPlaylistClock
+        self.libraryArrivalClock = libraryArrivalClock
         self.cache = cache
         self.editPermissions = editPermissions
         self.now = now
@@ -275,6 +284,9 @@ final class PlaylistBrowserViewModel: ObservableObject {
     }
 
     func clearForSignOut() {
+        libraryArrivalTask?.cancel()
+        libraryArrivalTask = nil
+        libraryArrivalReads = 0
         playlistTrackCountTask?.cancel()
         playlistTrackCountTask = nil
         playlistTrackCountStandIns = []

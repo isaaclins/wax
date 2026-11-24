@@ -82,6 +82,13 @@ protocol AppleMusicContentSource: Sendable {
     func librarySearch(term: String, limit: Int) async throws -> AppleMusicSearchItems
     /// Two-letter storefront country code, e.g. `ch`.
     func storefrontCountryCode() async throws -> String
+    /// Whether the user's iCloud Music Library on Apple's servers holds any item of this part.
+    /// Right after a sign-in it does well before the library on this Mac does (#654).
+    func cloudLibraryHasItems(_ part: MusicLibraryPart) async throws -> Bool
+}
+
+extension AppleMusicContentSource {
+    func cloudLibraryHasItems(_ part: MusicLibraryPart) async throws -> Bool { false }
 }
 
 /// Live MusicKit requests. Library reads use `MusicLibraryRequest` (read-only on macOS),
@@ -421,6 +428,30 @@ struct MusicKitContentSource: AppleMusicContentSource {
         }
     }
 
+    func cloudLibraryHasItems(_ part: MusicLibraryPart) async throws -> Bool {
+        try await Self.logged("cloud library check") { () async throws -> Bool in
+            let request = AppleMusicCloudRequests.get(Self.cloudLibraryProbePath(part))
+            let data = try await MusicDataRequest(urlRequest: request).response().data
+            return try Self.cloudLibraryPageHasItems(data)
+        }
+    }
+
+    /// One item is enough to tell an empty library from one still on its way.
+    static func cloudLibraryProbePath(_ part: MusicLibraryPart) -> String {
+        switch part {
+        case .playlists: "/v1/me/library/playlists?limit=1"
+        case .songs: "/v1/me/library/songs?limit=1"
+        }
+    }
+
+    static func cloudLibraryPageHasItems(_ data: Data) throws -> Bool {
+        struct Page: Decodable {
+            struct Item: Decodable { let id: String }
+            let data: [Item]
+        }
+        return try !JSONDecoder().decode(Page.self, from: data).data.isEmpty
+    }
+
     /// Follows MusicKit batches until `limit` items are collected or the collection ends.
     /// The most tracks a playlist is counted to: what opening it reads (100 pages of 100).
     static let maxCountedPlaylistTracks = 10_000
@@ -545,6 +576,50 @@ struct SystemAppleMusicAuthorization: AppleMusicAuthorizing {
             return subscription.canPlayCatalogContent
         }
         return nil
+    }
+
+    /// Asks MusicKit for a fresh user token: with no Apple Account signed in to Music it fails
+    /// with `userNotSignedIn`. Any other failure (offline, Apple's servers) says nothing about
+    /// the account.
+    func isSignedInToMusic() async -> Bool? {
+        let provider = DefaultMusicTokenProvider()
+        do {
+            let developerToken = try await provider.developerToken(options: [])
+            _ = try await provider.userToken(for: developerToken, options: .ignoreCache)
+            return true
+        } catch let error as MusicTokenRequestError {
+            SpotiglassLog.info(.api, "Apple Music sign-in check: \(MusicKitContentSource.describe(error))")
+            return Self.signedIn(after: error)
+        } catch {
+            SpotiglassLog.info(.api, "Apple Music sign-in check failed, account unknown: \(MusicKitContentSource.describe(error))")
+            return nil
+        }
+    }
+
+    static func signedIn(after error: MusicTokenRequestError) -> Bool? {
+        switch error {
+        case .userNotSignedIn: false
+        default: nil
+        }
+    }
+
+    /// Every change of the account's subscription status, sign-in and sign-out included. The
+    /// stream's first value is the current status, which is not a change, so it is skipped.
+    func accountChanges() -> AsyncStream<Void> {
+        AsyncStream { continuation in
+            let task = Task {
+                var isFirst = true
+                for await _ in MusicSubscription.subscriptionUpdates {
+                    if isFirst {
+                        isFirst = false
+                        continue
+                    }
+                    continuation.yield()
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 }
 

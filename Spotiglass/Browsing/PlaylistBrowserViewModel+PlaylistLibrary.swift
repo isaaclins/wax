@@ -56,6 +56,13 @@ extension PlaylistBrowserViewModel {
             )
             try? cache.savePlaylists(playlists, cachedAt: now())
             invalidateLibraryContinuationCache()
+            if playlists.isEmpty, await isStillArriving(.playlists) {
+                // Not "No playlists" for a library that is still on its way (#654).
+                playlistsByID = [:]
+                playlistState = .loading
+                waitForLibraryToArrive()
+                return
+            }
             if playlists.isEmpty {
                 playlistsByID = [:]
                 playlistState = .empty(LocalizedText.noPlaylists(on: MusicServiceSelection.current))
@@ -105,6 +112,45 @@ extension PlaylistBrowserViewModel {
                 playlistState = .error(displayError)
             }
             await selectHomeIfNoDetailIsShown()
+        }
+    }
+
+    /// Reads between two looks at a library that is still arriving, and how many looks at most:
+    /// Apple took about a minute in #654, so five minutes leave room for a big library. After
+    /// that, an empty read is shown as empty.
+    static let libraryArrivalInterval: Duration = .seconds(5)
+    static let maxLibraryArrivalReads = 60
+
+    /// Whether an empty read of this part is the library still arriving, as long as the bound
+    /// on looking again allows.
+    func isStillArriving(_ part: MusicLibraryPart) async -> Bool {
+        guard libraryArrivalReads < Self.maxLibraryArrivalReads else { return false }
+        return await api.libraryIsStillArriving(part)
+    }
+
+    /// Reads the playlists and the open list again after a short wait, while the library comes
+    /// in. Each read fills in the playlists and covers that arrived since; a read that still
+    /// finds something missing calls this again.
+    func waitForLibraryToArrive() {
+        guard libraryArrivalTask == nil else { return }
+        let clock = libraryArrivalClock
+        libraryArrivalTask = Task { [weak self] in
+            // try?: the wait only fails when cancelled (sign-out), which is checked right below.
+            try? await clock.sleep(until: clock.now.advanced(by: Self.libraryArrivalInterval), tolerance: nil)
+            guard let self, !Task.isCancelled else { return }
+            self.libraryArrivalTask = nil
+            self.libraryArrivalReads += 1
+            await self.refreshPlaylists(trigger: .automatic)
+            // Only a library list on screen is read again: an album or artist page opened from
+            // Home keeps Home selected, and must not be replaced by it.
+            switch (self.currentNavigationTarget, self.sidebarSelection) {
+            case (.artist, _), (.album, _):
+                break
+            case (_, .likedSongs), (_, .playlist):
+                await self.refreshSelectedPlaylist()
+            default:
+                break
+            }
         }
     }
 

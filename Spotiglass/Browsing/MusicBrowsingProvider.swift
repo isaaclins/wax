@@ -64,6 +64,12 @@ struct MusicArtistAlbumsPage {
 /// `MusicPersonalRecommendationsRequest`); requirements a service cannot serve
 /// keep their default implementation: empty results for feeds, which the
 /// browser shows as an empty section, or an "unsupported" error for edits.
+/// The parts of a library that can read empty while it is still arriving (#654).
+enum MusicLibraryPart: Sendable {
+    case playlists
+    case songs
+}
+
 protocol MusicBrowsingProvider {
     func currentUserPlaylists(limit: Int) async throws -> [MusicPlaylistSummary]
     /// Track counts for library playlists listed without one, keyed by playlist ID. The browser
@@ -74,6 +80,11 @@ protocol MusicBrowsingProvider {
     /// True when the playlist listing comes without track counts and the browser asks
     /// `playlistTrackCounts` for them (Apple Music). Spotify lists them, so nothing changes there.
     var listsPlaylistsWithoutTrackCounts: Bool { get }
+    /// True when this part of the library read empty only because the service is still bringing
+    /// the library to this Mac, e.g. right after signing in to Music (#654): the browser then
+    /// shows it loading and reads it again instead of calling it empty. Spotify reads its
+    /// library from the server, so its default is `false`.
+    func libraryIsStillArriving(_ part: MusicLibraryPart) async -> Bool
     func playlistTracks(playlistID: String, limit: Int, maxPages: Int) async throws -> [MusicPlaylistTrackItem]
     /// A playlist's tracks as the provider last read them, possibly out of date, to show while
     /// `playlistTracks` reads the current ones; `nil` when it has none (#442). The default has none.
@@ -237,6 +248,7 @@ extension MusicBrowsingProvider {
 
     func playlistTrackCounts(playlistIDs: [String]) async -> [String: Int] { [:] }
     var listsPlaylistsWithoutTrackCounts: Bool { false }
+    func libraryIsStillArriving(_ part: MusicLibraryPart) async -> Bool { false }
 
     var supportedLibraryEdits: MusicLibraryEdits { [] }
     func deletePlaylist(playlistID: String) async throws {
