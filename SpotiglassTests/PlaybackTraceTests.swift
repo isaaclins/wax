@@ -41,6 +41,36 @@ final class PlaybackTraceTests: XCTestCase {
         XCTAssertTrue(lines[10].hasSuffix("(2 of 2 asked for)"), lines[10])
     }
 
+    /// #645: the log says how long the bar took to show a press, or a change the player made by
+    /// itself (a media key), so a report of a slow bar can be read from the log alone.
+    func testTheLogSaysHowLongTheBarTookToShowAPressOrTheMediaKey() {
+        var drawn: [@MainActor () -> Void] = []
+        let trace = PlaybackTrace(
+            now: { [unowned self] in time },
+            write: { [unowned self] in lines.append($0) },
+            afterDrawing: { drawn.append($0) }
+        )
+        trace.playPausePressed()
+        time += .microseconds(3_000)
+        trace.barShows("paused")
+        XCTAssertTrue(lines.isEmpty, "written before the window's update was done")
+        // Layout and the commit of the frame take their time too.
+        time += .microseconds(1_800)
+        drawn.removeFirst()()
+        XCTAssertEqual(lines.last, "bar updated to paused 4.8 ms after the press")
+
+        trace.playerReported("status paused -> playing at 0:02.0")
+        time += .milliseconds(3)
+        trace.barShows("playing")
+        drawn.removeFirst()()
+        XCTAssertEqual(lines.last, "bar updated to playing 3.0 ms after the player reported it")
+
+        // A change nothing announced (Spotify's page, a read) says only what the bar shows.
+        trace.barShows("paused")
+        drawn.removeFirst()()
+        XCTAssertEqual(lines.last, "bar updated to paused")
+    }
+
     func testACommandSentAgainWithinASecondIsMarkedAsARepeat() {
         let trace = makeTrace()
         trace.request("play/pause (appleMusic)", file: "Spotiglass/PlaybackControlsView.swift", line: 625)

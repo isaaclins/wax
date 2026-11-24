@@ -41,7 +41,8 @@ final class PlayPauseRenderScopeTests: XCTestCase {
     /// The real browser window with playlist "p1" of `tracks` open and active, playing `state`.
     private func hostBrowser(
         tracks: [MusicPlaylistTrackItem],
-        playing state: PlaybackConnectionState
+        playing state: PlaybackConnectionState,
+        provider: (any MusicPlaybackProvider)? = nil
     ) async throws -> PlaybackSessionViewModel {
         let api = MockBrowsingAPI(
             playlistResults: [.success([
@@ -59,7 +60,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         store.bind(userID: "u1")
         let tokens = RenderScopeTokenProvider()
-        let playbackHost = SpotiglassPlaybackHost(tokenProvider: tokens)
+        let playbackHost = provider.map { SpotiglassPlaybackHost(provider: $0) } ?? SpotiglassPlaybackHost(tokenProvider: tokens)
         let playback = playbackHost.playbackViewModel
         let view = PlaylistBrowserView(
             viewModel: browserVM,
@@ -148,7 +149,9 @@ final class PlayPauseRenderScopeTests: XCTestCase {
     /// each row, one pause on a list of 1000 songs held the main thread for 0.3 to 0.5 s.
     func testAPauseLooksForTheAppleMusicPlayingRowOncePerList() async throws {
         let rowCount = 300
-        let matched = rowCount - 1
+        // On screen: a row the table hasn't drawn has nothing to redraw (#645). Looking for it
+        // still goes through every row first, for a row with the catalog id.
+        let matched = 4
         func song(_ index: Int) -> MusicPlaylistTrackItem {
             MusicPlaylistTrackItem(id: "r\(index)", content: .track(MusicTrack(
                 id: "r\(index)",
@@ -184,6 +187,70 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             XCTAssertEqual(counts["TrackListPlaybackMarks.markedURI"], 1, "searches for the playing row")
             XCTAssertEqual(trackRows(in: counts), ["r\(matched)"], "the row found by title shows the change")
         }
+    }
+
+    /// #645: the bar and the playing row must show a press within 50 ms. The real browser window
+    /// in Apple Music mode with a list as long as my Liked Songs (2,543 songs, #413) open and its
+    /// playing song found by title, as for a song started from Search: the press goes through the
+    /// bar's own call, and the time runs until the bar and the row have drawn the new state.
+    /// Both the time from the press until the frame is drawn and the main thread's own work for
+    /// it must stay under 50 ms.
+    func testAPressShowsOnTheBarAndTheRowWithinFiftyMilliseconds() async throws {
+        let rowCount = 2_543
+        // On screen, as the song you just pressed play on is.
+        let matched = 5
+        func song(_ index: Int) -> MusicPlaylistTrackItem {
+            MusicPlaylistTrackItem(id: "r\(index)", content: .track(MusicTrack(
+                id: "r\(index)", name: "Song \(index)", artists: ["Artist"], albumArtworkURL: nil, albumName: nil,
+                durationMilliseconds: 180_000, isExplicit: false, isPlayable: true, linkedFromID: nil,
+                uri: "applemusic:song:\(index)"
+            )))
+        }
+        let nowPlaying = PlaybackNowPlaying(
+            name: "Song \(matched)", artists: ["Artist"], albumName: "Album", albumID: nil, albumArtURL: nil,
+            durationMilliseconds: 180_000, positionMilliseconds: 10_000, uri: "applemusic:song:i.fromSearch"
+        )
+        // The bar shows Play before a song starts, as the app's does, then the song plays.
+        let playback = try await hostBrowser(
+            tracks: (0..<rowCount).map(song),
+            playing: .paused(nowPlaying),
+            provider: AppleMusicPlaybackProvider(player: ScriptedAppleMusicPlayer())
+        )
+        playback.deviceID = AppleMusicPlaybackProvider.deviceID
+        playback.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
+        playback.setConnectionState(.playing(nowPlaying))
+        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        let window = try XCTUnwrap(ViewTestHost.windows.last)
+
+        var costs: [Duration] = []
+        var elapsed: [Duration] = []
+        for press in 1...6 {
+            ViewBodyTally.counts = [:]
+            let started = MainThreadTime.now()
+            let pressedAt = ContinuousClock.now
+            playback.requestTogglePlayPause()
+            XCTAssertEqual(PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: playback.connectionState), press.isMultiple(of: 2))
+            let drawn = AppKitTestSupport.pumpRunLoop(until: {
+                (ViewBodyTally.counts?["PlaybackControlsView"] ?? 0) > 0
+                    && (ViewBodyTally.counts?["TrackListRow:r\(matched)"] ?? 0) > 0
+            })
+            window.displayIfNeeded()
+            costs.append(MainThreadTime.now() - started)
+            elapsed.append(pressedAt.duration(to: .now))
+            XCTAssertTrue(drawn, "press \(press): the bar and the playing row didn't redraw")
+            ViewBodyTally.counts = nil
+            // Presses as far apart as a person makes them: the icon's 0.18 s swap is over.
+            AppKitTestSupport.pumpRunLoop(for: 0.4)
+        }
+        XCTAssertLessThanOrEqual(elapsed.max() ?? .zero, .milliseconds(50), "a press took \(elapsed) to reach the screen")
+        XCTAssertLessThanOrEqual(costs.max() ?? .zero, .milliseconds(50), "a press cost \(costs) of main-thread time")
+    }
+}
+
+/// The CPU time the calling thread has used.
+enum MainThreadTime {
+    static func now() -> Duration {
+        .nanoseconds(Int64(clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)))
     }
 }
 

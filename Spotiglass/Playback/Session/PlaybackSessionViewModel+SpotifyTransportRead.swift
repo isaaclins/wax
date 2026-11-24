@@ -196,7 +196,9 @@ extension PlaybackSessionViewModel {
             if readURI != nil { self.skipLeftItemURI = nil }
         }
         guard let localCommandExpectsPlaying else { return true }
-        return snapshot.isPlaying == localCommandExpectsPlaying
+        let agrees = snapshot.isPlaying == localCommandExpectsPlaying
+        if agrees, skipLeftItemURI == nil { localCommandConfirmedByRead = true }
+        return agrees
     }
 
     /// For a player whose state is only read, an empty read means nothing is
@@ -393,6 +395,9 @@ extension PlaybackSessionViewModel {
     ) {
         localMutationSettleTicksRemaining = max(localMutationSettleTicksRemaining, 2)
         transportRateLimitedUntil = nil
+        // A new command (a skip, a seek, a press) waits for a read of its own before the player's
+        // announcements count as new (#645).
+        localCommandConfirmedByRead = false
         switch playExpectation {
         case .unchanged: break
         case .playing: localCommandExpectsPlaying = true

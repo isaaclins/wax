@@ -96,7 +96,7 @@ class OffscreenTestPanel: NSPanel {
 /// Hosts SwiftUI views for ViewInspector tests on macOS.
 @MainActor
 enum ViewTestHost {
-    private static var windows: [NSWindow] = []
+    private(set) static var windows: [NSWindow] = []
     private static let hostLock = NSLock()
 
     static let appStorageSuiteName = "SpotiglassTests-AppStorage"

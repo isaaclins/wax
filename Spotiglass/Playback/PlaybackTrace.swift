@@ -13,6 +13,11 @@ final class PlaybackTrace {
 
     private let now: () -> ContinuousClock.Instant
     private let write: (String) -> Void
+    /// Runs its block on the next turn of the main queue, once the window's update for the change
+    /// is done. That usually comes after the run loop's layout and Core Animation commit, but
+    /// nothing guarantees the order, and the screen shows the frame a refresh later: the line
+    /// times Wax's own work for a change, not when the display shows it.
+    private let afterDrawing: (@escaping @MainActor () -> Void) -> Void
 
     /// The last thing the app was asked to do, when, and how many sends of one command it asked
     /// for (adding 30 songs is 30 adds, not a loop).
@@ -27,10 +32,14 @@ final class PlaybackTrace {
 
     init(
         now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now },
-        write: @escaping (String) -> Void = { SpotiglassLog.info(.playback, $0) }
+        write: @escaping (String) -> Void = { SpotiglassLog.info(.playback, $0) },
+        afterDrawing: @escaping (@escaping @MainActor () -> Void) -> Void = { block in
+            DispatchQueue.main.async { MainActor.assumeIsolated(block) }
+        }
     ) {
         self.now = now
         self.write = write
+        self.afterDrawing = afterDrawing
     }
 
     /// Someone asked the app for `what` (a button, a shortcut, a row, the palette). `file` and
@@ -93,9 +102,43 @@ final class PlaybackTrace {
         write(line)
     }
 
+    /// When the last play / pause press was made and the player last reported something, for the
+    /// line that says how long the bar took to show it (#645).
+    private var lastPressAt: ContinuousClock.Instant?
+    private var lastReportAt: ContinuousClock.Instant?
+
+    /// A play / pause press: the bar's next change of play state is timed from here.
+    func playPausePressed() {
+        lastPressAt = now()
+    }
+
+    /// The bar changes to `what` ("playing", "paused"): once the window's update for it is done, how
+    /// long after the press, or after the player reported it when no press asked for it (a media
+    /// key, the end of a song).
+    func barShows(_ what: String) {
+        let since: (Duration) -> String
+        let start: ContinuousClock.Instant?
+        if let lastPressAt {
+            start = lastPressAt
+            since = { " \(Self.milliseconds($0)) after the press" }
+        } else if let lastReportAt {
+            start = lastReportAt
+            since = { " \(Self.milliseconds($0)) after the player reported it" }
+        } else {
+            start = nil
+            since = { _ in "" }
+        }
+        lastPressAt = nil
+        lastReportAt = nil
+        afterDrawing { [self] in
+            write("bar updated to \(what)" + (start.map { since($0.duration(to: now())) } ?? ""))
+        }
+    }
+
     /// The player reports something the app didn't just ask for or did: a new status, rate, song.
     func playerReported(_ what: String) {
         let at = now()
+        lastReportAt = at
         var line = "player \(what)"
         if let lastCommandAt {
             line += " (\(Self.seconds(lastCommandAt.duration(to: at))) after the last command)"
@@ -108,6 +151,10 @@ final class PlaybackTrace {
     /// A line about the sound path (output device, sample rate, equalizer route).
     func audio(_ what: String) {
         write("audio \(what)")
+    }
+
+    nonisolated static func milliseconds(_ duration: Duration) -> String {
+        String(format: "%.1f ms", Double(duration / .microseconds(1)) / 1000)
     }
 
     nonisolated static func seconds(_ duration: Duration) -> String {

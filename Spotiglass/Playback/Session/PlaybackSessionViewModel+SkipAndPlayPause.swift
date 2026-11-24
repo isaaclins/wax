@@ -115,6 +115,7 @@ extension PlaybackSessionViewModel {
             onWillStartPlayback?()
         }
         playPauseRequestSerial &+= 1
+        PlaybackTrace.shared.playPausePressed()
         let stateBefore = connectionState
         let sendsRequestedState = !usesInAppPlayer || Self.isShowingAnItem(connectionState)
         if !usesInAppPlayer, playPauseRequestsInFlight == 0 {

@@ -370,6 +370,10 @@ final class PlaybackSessionViewModel: ObservableObject {
     /// to report: `true` playing, `false` paused, `nil` no such command in the
     /// current settle window. Reads during the window are checked against it.
     var localCommandExpectsPlaying: Bool?
+    /// A read already showed the player with the last local command applied. After that, a
+    /// change the player announces by itself is a new one (a media key), not its state trailing
+    /// the command (#645).
+    var localCommandConfirmedByRead = false
     /// The item a skip just left, on a player without pushed state. MusicKit's player keeps
     /// reporting the old item (at position 0) for up to about 0.3 s after a skip returns, so
     /// during the settle window a read of this item is stale, not a restart. Cleared by the

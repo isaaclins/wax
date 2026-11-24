@@ -196,7 +196,7 @@ implements `MusicPlaybackProvider` on MusicKit's `ApplicationMusicPlayer`
 | Play with nothing loaded | Off: MusicKit's player keeps no last song to resume (after a launch, or once a queue ran out), so the bar says "Choose a track to play." until a row, a list or Play in a header starts something. |
 | Add to queue | After the current song and after the songs added before it, like Spotify's queue. |
 | Queue panel | The entries after the current one. |
-| Player state | Read, not pushed: the session polls it (every second after a command, while the app is in the background too). |
+| Player state | Read: the session polls it (every second after a command, while the app is in the background too), and reads it at once when MusicKit says its player changed, so a media key, Control Center or AirPods show on the bar right away (#645). |
 | Volume | MusicKit has no volume for the app's player, so the volume control is hidden and the Mac's volume applies. |
 | Now Playing, Control Center, media keys | Apple's player publishes Now Playing and answers the remote commands itself; Wax writes nothing there. |
 | Lyrics | LRCLIB, by title, artist, album and duration, cached under `applemusic-song-<id>`. |
