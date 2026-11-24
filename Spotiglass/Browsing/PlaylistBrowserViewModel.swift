@@ -156,6 +156,9 @@ final class PlaylistBrowserViewModel: ObservableObject {
     /// Reads made since the library was first seen still arriving; bounded by
     /// ``maxLibraryArrivalReads``.
     var libraryArrivalReads = 0
+    /// The parts of the library that read empty while still arriving, read again by
+    /// ``libraryArrivalTask``.
+    var libraryPartsArriving: Set<MusicLibraryPart> = []
     var lastTracksRevalidationByID: [String: (snapshotID: String, at: Date)] = [:]
     var inFlightPlaylistListRefreshTask: Task<([MusicPlaylistSummary], MusicUserProfile), Error>?
     var playlistListRefreshGeneration = 0
@@ -287,6 +290,7 @@ final class PlaylistBrowserViewModel: ObservableObject {
         libraryArrivalTask?.cancel()
         libraryArrivalTask = nil
         libraryArrivalReads = 0
+        libraryPartsArriving = []
         playlistTrackCountTask?.cancel()
         playlistTrackCountTask = nil
         playlistTrackCountStandIns = []

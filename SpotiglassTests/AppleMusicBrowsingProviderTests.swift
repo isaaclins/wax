@@ -2017,6 +2017,46 @@ final class AppleMusicSelectionAndSessionTests: XCTestCase {
         XCTAssertEqual(authorization.signInChecks, 0)
     }
 
+    /// The sign-in check asks Apple's servers. On a slow network that can take as long as the
+    /// request's timeout, so the window shows the library after the grace period instead of a
+    /// spinner, and switches to the sign-in screen if the answer turns out "signed out".
+    @MainActor
+    func testASlowSignInCheckDoesNotHoldTheWindow() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.signedIn = false
+        authorization.holdsSignInCheck = true
+        let clock = ManualPlaybackClock()
+        let session = AppleMusicSession(authorization: authorization, clock: clock)
+        let refreshing = Task { await session.refresh() }
+
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed, "the grace period runs")
+        XCTAssertEqual(session.state, .checking)
+        clock.advance(by: AppleMusicSession.signInCheckGrace)
+        await waitUntil("the library shows meanwhile", changes: session.$state) { session.state == .authorized }
+
+        authorization.answerSignInCheck()
+        await refreshing.value
+        XCTAssertEqual(session.state, .signedOut)
+    }
+
+    /// A check that answers within the grace period goes straight to its screen, with no
+    /// library in between.
+    @MainActor
+    func testAQuickSignInCheckGoesStraightToTheSignInScreen() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.signedIn = false
+        let clock = ManualPlaybackClock()
+        let session = AppleMusicSession(authorization: authorization, clock: clock)
+        var shown: [AppleMusicSession.State] = []
+        let watch = session.$state.sink { shown.append($0) }
+        defer { watch.cancel() }
+
+        await session.refresh()
+        XCTAssertEqual(shown, [.checking, .signedOut])
+        XCTAssertEqual(clock.sleeperCount, 0, "the grace period ends with the answer")
+    }
+
     /// Offline the sign-in can't be told: the library stays, as before.
     @MainActor
     func testAnUnknownSignInKeepsTheLibrary() async {
@@ -2141,6 +2181,69 @@ final class AppleMusicLibraryArrivalTests: XCTestCase {
         }
     }
 
+    /// The report's screen: Liked Songs with its songs on screen while the playlists are still
+    /// on their way. Looking for the playlists leaves the songs alone, never a spinner in their
+    /// place; once the playlists are there, Liked Songs is read once more, quietly, for covers.
+    @MainActor
+    func testLikedSongsOnScreenStayWhileThePlaylistsArrive() async throws {
+        let source = MockAppleMusicSource()
+        source.librarySongCount = 3
+        source.cloudLibraryParts = [.playlists, .songs]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+        await viewModel.refreshPlaylists()
+        await viewModel.selectSidebar(.likedSongs)
+        await waitUntil("Liked Songs shows its songs", changes: viewModel.$detailState) {
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count == 3
+        }
+        func likedSongsReads() -> Int { source.calls.filter { $0.hasPrefix("librarySongs(") && $0.hasSuffix(",0)") }.count }
+        let readsBefore = likedSongsReads()
+        var shownStates: [BrowsingLoadState<BrowsingDetailContent>] = []
+        let watch = viewModel.$detailState.sink { shownStates.append($0) }
+        defer { watch.cancel() }
+
+        // A look while the playlists are still missing.
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed)
+        clock.advance(by: PlaylistBrowserViewModel.libraryArrivalInterval)
+        await waitUntil("looked again", changes: source.changes) {
+            source.calls.filter { $0.hasPrefix("libraryPlaylists") }.count >= 2
+        }
+        let armedAgain = await clock.waitForSleepers(1)
+        XCTAssertTrue(armedAgain)
+        XCTAssertEqual(likedSongsReads(), readsBefore, "the songs on screen are not read again for the playlists")
+
+        // The playlists arrive.
+        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Road")]
+        clock.advance(by: PlaylistBrowserViewModel.libraryArrivalInterval)
+        await waitUntil("the playlists show", changes: viewModel.$playlistState) {
+            viewModel.playlistState.currentValue?.map(\.id) == ["p.1"]
+        }
+        await waitUntil("Liked Songs read once more for its covers", changes: source.changes) {
+            likedSongsReads() == readsBefore + 1
+        }
+        await waitUntil("its songs still show", changes: viewModel.$detailState) {
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count == 3
+        }
+        XCTAssertFalse(shownStates.contains(.loading), "never a spinner in place of the songs: \(shownStates)")
+        XCTAssertNil(viewModel.libraryArrivalTask, "nothing left to wait for")
+        XCTAssertEqual(clock.sleeperCount, 0)
+    }
+
+    /// Nothing selected yet while the playlists are on their way: Home shows meanwhile, as it
+    /// did for an empty library, instead of a blank page.
+    @MainActor
+    func testHomeShowsWhileThePlaylistsArrive() async {
+        let source = MockAppleMusicSource()
+        source.cloudLibraryParts = [.playlists]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+
+        await viewModel.refreshPlaylists()
+        XCTAssertEqual(viewModel.playlistState, .loading)
+        XCTAssertEqual(viewModel.sidebarSelection, .home)
+    }
+
     /// A library that really has no playlists says so at once, without waiting.
     @MainActor
     func testAnEmptyLibrarySaysSoAtOnce() async {
@@ -2223,10 +2326,19 @@ private final class MockAppleMusicAuthorization: AppleMusicAuthorizing, @uncheck
 
     func canPlayCatalogContent() async -> Bool? { canPlay }
 
+    /// Holds the sign-in check until `answerSignInCheck()`, like a slow network.
+    var holdsSignInCheck = false
+    private let signInAnswers = AsyncStream<Void>.makeStream()
+
     func isSignedInToMusic() async -> Bool? {
         signInChecks += 1
+        if holdsSignInCheck {
+            for await _ in signInAnswers.stream { break }
+        }
         return signedIn
     }
+
+    func answerSignInCheck() { signInAnswers.continuation.yield() }
 
     func accountChanges() -> AsyncStream<Void> { changes.stream }
 

@@ -60,7 +60,8 @@ extension PlaylistBrowserViewModel {
                 // Not "No playlists" for a library that is still on its way (#654).
                 playlistsByID = [:]
                 playlistState = .loading
-                waitForLibraryToArrive()
+                waitForLibraryToArrive(.playlists)
+                await selectHomeIfNoDetailIsShown()
                 return
             }
             if playlists.isEmpty {
@@ -128,10 +129,13 @@ extension PlaylistBrowserViewModel {
         return await api.libraryIsStillArriving(part)
     }
 
-    /// Reads the playlists and the open list again after a short wait, while the library comes
-    /// in. Each read fills in the playlists and covers that arrived since; a read that still
-    /// finds something missing calls this again.
-    func waitForLibraryToArrive() {
+    /// Reads the parts still arriving again after a short wait. Each read fills in what arrived
+    /// since; a read that still finds the part missing calls this again. Only what is waiting is
+    /// read: a list already on screen is not replaced by a spinner every few seconds. Once
+    /// nothing waits any more, the open Liked Songs is read once more, quietly, for the covers
+    /// that came with the rest.
+    func waitForLibraryToArrive(_ part: MusicLibraryPart) {
+        libraryPartsArriving.insert(part)
         guard libraryArrivalTask == nil else { return }
         let clock = libraryArrivalClock
         libraryArrivalTask = Task { [weak self] in
@@ -140,16 +144,22 @@ extension PlaylistBrowserViewModel {
             guard let self, !Task.isCancelled else { return }
             self.libraryArrivalTask = nil
             self.libraryArrivalReads += 1
-            await self.refreshPlaylists(trigger: .automatic)
-            // Only a library list on screen is read again: an album or artist page opened from
-            // Home keeps Home selected, and must not be replaced by it.
-            switch (self.currentNavigationTarget, self.sidebarSelection) {
-            case (.artist, _), (.album, _):
-                break
-            case (_, .likedSongs), (_, .playlist):
+            let waiting = self.libraryPartsArriving
+            self.libraryPartsArriving = []
+            if waiting.contains(.playlists) {
+                await self.refreshPlaylists(trigger: .automatic)
+            }
+            // Only Liked Songs on screen is read again: an album or artist page opened from it
+            // keeps it selected, and must not be replaced by it.
+            switch self.currentNavigationTarget {
+            case .artist, .album: return
+            case .sidebar, nil: break
+            }
+            guard !Task.isCancelled, self.sidebarSelection == .likedSongs else { return }
+            if waiting.contains(.songs) {
                 await self.refreshSelectedPlaylist()
-            default:
-                break
+            } else if self.libraryPartsArriving.isEmpty, self.detailState.currentValue != nil {
+                await self.revalidateLikedSongs(session: self.detailSession)
             }
         }
     }

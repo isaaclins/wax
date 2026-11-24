@@ -127,7 +127,7 @@ extension PlaylistBrowserViewModel {
         guard session == detailSession else { return }
         if arriving {
             detailState = .loading
-            waitForLibraryToArrive()
+            waitForLibraryToArrive(.songs)
         } else {
             detailState = .empty(LocalizedText(SpotiglassL10n.string("browser.empty.noLikedSongs")))
         }
