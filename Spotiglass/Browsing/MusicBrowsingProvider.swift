@@ -52,6 +52,12 @@ struct MusicArtistAlbumsPage {
     let next: URL?
 }
 
+/// The parts of a library that can read empty while it is still arriving (#654).
+enum MusicLibraryPart: Sendable {
+    case playlists
+    case songs
+}
+
 /// Everything the browser reads from (and writes to) a music service's
 /// catalog and the signed-in user's library: home feed, library playlists,
 /// playlist / album / artist detail, liked tracks and search.
@@ -64,12 +70,6 @@ struct MusicArtistAlbumsPage {
 /// `MusicPersonalRecommendationsRequest`); requirements a service cannot serve
 /// keep their default implementation: empty results for feeds, which the
 /// browser shows as an empty section, or an "unsupported" error for edits.
-/// The parts of a library that can read empty while it is still arriving (#654).
-enum MusicLibraryPart: Sendable {
-    case playlists
-    case songs
-}
-
 protocol MusicBrowsingProvider {
     func currentUserPlaylists(limit: Int) async throws -> [MusicPlaylistSummary]
     /// Track counts for library playlists listed without one, keyed by playlist ID. The browser

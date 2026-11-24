@@ -42,8 +42,11 @@ final class AppleMusicSession: ObservableObject {
     @Published private(set) var canPlayCatalogContent: Bool?
 
     private let authorization: any AppleMusicAuthorizing
-    /// The sign-in check's grace period waits on this clock (a test steps it).
+    /// The sign-in check's grace period and the signed-out recheck wait on this clock (a test
+    /// steps it).
     private let clock: any PlaybackClock
+    /// Bumped by every refresh, so an answer that a newer refresh overtook is dropped.
+    private var applyGeneration = 0
 
     init(
         authorization: any AppleMusicAuthorizing = SystemAppleMusicAuthorization(),
@@ -74,6 +77,21 @@ final class AppleMusicSession: ObservableObject {
         await apply(await authorization.requestAuthorization())
     }
 
+    /// While Music is signed out, looks again every few seconds until it isn't or the calling
+    /// task is cancelled: Music doesn't always announce a sign-in, and the sign-in screen should
+    /// go away by itself.
+    func recheckWhileSignedOut() async {
+        while state == .signedOut, !Task.isCancelled {
+            // try?: the wait only fails when cancelled, checked on the next line.
+            try? await clock.sleep(until: clock.now.advanced(by: Self.signedOutRecheckInterval), tolerance: nil)
+            guard !Task.isCancelled else { return }
+            await refresh()
+        }
+    }
+
+    /// How often the sign-in screen looks whether Music was signed in meanwhile.
+    static let signedOutRecheckInterval: Duration = .seconds(3)
+
     /// Refreshes on every account change until the calling task is cancelled, so signing in or
     /// out of Music while Spotiglass is open shows without a relaunch (#654).
     func followAccountChanges() async {
@@ -84,6 +102,10 @@ final class AppleMusicSession: ObservableObject {
     }
 
     private func apply(_ status: MusicAuthorization.Status) async {
+        // Account updates, coming back to the front and the signed-out recheck can each start
+        // a refresh while another one still waits for Apple; only the newest one's answer counts.
+        applyGeneration += 1
+        let generation = applyGeneration
         switch status {
         case .authorized:
             let check = Task { [authorization] () -> (canPlay: Bool?, signedIn: Bool?) in
@@ -97,6 +119,7 @@ final class AppleMusicSession: ObservableObject {
             let grace = Self.showsLibraryOrSignIn(state) ? nil : showLibraryAfterGrace()
             let (canPlay, signedIn) = await check.value
             grace?.cancel()
+            guard generation == applyGeneration else { return }
             canPlayCatalogContent = canPlay
             state = signedIn == false ? .signedOut : .authorized
         case .notDetermined:
@@ -108,7 +131,6 @@ final class AppleMusicSession: ObservableObject {
         }
     }
 
-    /// Privacy & Security > Media & Apple Music.
     private static func showsLibraryOrSignIn(_ state: State) -> Bool {
         state == .authorized || state == .signedOut
     }
@@ -123,6 +145,7 @@ final class AppleMusicSession: ObservableObject {
         }
     }
 
+    /// Privacy & Security > Media & Apple Music.
     static let privacySettingsURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Media"
     )!

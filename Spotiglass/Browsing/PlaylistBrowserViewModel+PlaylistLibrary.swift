@@ -131,11 +131,13 @@ extension PlaylistBrowserViewModel {
 
     /// Reads the parts still arriving again after a short wait. Each read fills in what arrived
     /// since; a read that still finds the part missing calls this again. Only what is waiting is
-    /// read: a list already on screen is not replaced by a spinner every few seconds. Once
-    /// nothing waits any more, the open Liked Songs is read once more, quietly, for the covers
-    /// that came with the rest.
+    /// read: a list already on screen is not replaced by a spinner every few seconds.
     func waitForLibraryToArrive(_ part: MusicLibraryPart) {
         libraryPartsArriving.insert(part)
+        scheduleLibraryArrivalLook()
+    }
+
+    private func scheduleLibraryArrivalLook() {
         guard libraryArrivalTask == nil else { return }
         let clock = libraryArrivalClock
         libraryArrivalTask = Task { [weak self] in
@@ -143,25 +145,54 @@ extension PlaylistBrowserViewModel {
             try? await clock.sleep(until: clock.now.advanced(by: Self.libraryArrivalInterval), tolerance: nil)
             guard let self, !Task.isCancelled else { return }
             self.libraryArrivalTask = nil
-            self.libraryArrivalReads += 1
-            let waiting = self.libraryPartsArriving
-            self.libraryPartsArriving = []
-            if waiting.contains(.playlists) {
-                await self.refreshPlaylists(trigger: .automatic)
-            }
-            // Only Liked Songs on screen is read again: an album or artist page opened from it
-            // keeps it selected, and must not be replaced by it.
-            switch self.currentNavigationTarget {
-            case .artist, .album: return
-            case .sidebar, nil: break
-            }
-            guard !Task.isCancelled, self.sidebarSelection == .likedSongs else { return }
+            await self.lookAtArrivingLibrary()
+        }
+    }
+
+    /// One look while the library arrives. Once every part is there, the covers can still be on
+    /// their way (#654: playlists and covers came about a minute after the songs), so the
+    /// playlists and the open Liked Songs are read again, quietly with their rows on screen, for
+    /// as long as a look finds more covers than the one before.
+    private func lookAtArrivingLibrary() async {
+        libraryArrivalReads += 1
+        let waiting = libraryPartsArriving
+        libraryPartsArriving = []
+        let coversBefore = libraryCoversSeen
+        libraryCoversSeen = nil
+        if waiting.contains(.playlists) || coversBefore != nil {
+            await refreshPlaylists(trigger: .automatic)
+        }
+        guard !Task.isCancelled else { return }
+        if showsLikedSongs {
             if waiting.contains(.songs) {
-                await self.refreshSelectedPlaylist()
-            } else if self.libraryPartsArriving.isEmpty, self.detailState.currentValue != nil {
-                await self.revalidateLikedSongs(session: self.detailSession)
+                await refreshSelectedPlaylist()
+            } else if libraryPartsArriving.isEmpty, detailState.currentValue != nil {
+                await revalidateLikedSongs(session: detailSession)
             }
         }
+        // A part still arriving has already set up the next look.
+        guard !Task.isCancelled, libraryPartsArriving.isEmpty,
+              libraryArrivalReads < Self.maxLibraryArrivalReads else { return }
+        let covers = coversOnScreen
+        if let coversBefore, covers <= coversBefore { return }
+        libraryCoversSeen = covers
+        scheduleLibraryArrivalLook()
+    }
+
+    /// Liked Songs is what the window shows: not an album or artist page opened from it, which
+    /// keeps it selected and must not be replaced by it.
+    private var showsLikedSongs: Bool {
+        switch currentNavigationTarget {
+        case .artist, .album: return false
+        case .sidebar, nil: return sidebarSelection == .likedSongs
+        }
+    }
+
+    /// The covers of the library on screen: the sidebar's playlists and the open Liked Songs.
+    private var coversOnScreen: Int {
+        let playlistCovers = playlistsByID.values.filter { $0.imageURL != nil }.count
+        guard showsLikedSongs, case let .playlist(detail)? = detailState.currentValue else { return playlistCovers }
+        return playlistCovers + detail.tracks.filter { $0.artworkURL != nil }.count
     }
 
     /// A fresh playlist cache skips the `me/playlists` refresh, which is also where the current

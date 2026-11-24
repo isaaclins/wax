@@ -81,14 +81,7 @@ struct AppleMusicBrowserRoot: View {
             await session.followAccountChanges()
         }
         .task(id: session.state == .signedOut) {
-            // Music doesn't always announce a sign-in; while the sign-in screen is up, look again
-            // every few seconds so it goes away by itself.
-            while session.state == .signedOut, !Task.isCancelled {
-                // try?: the wait only fails when cancelled, checked on the next line.
-                try? await Task.sleep(for: Self.signedOutRecheckInterval)
-                guard !Task.isCancelled else { return }
-                await session.refresh()
-            }
+            await session.recheckWhileSignedOut()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             // Access is changed in System Settings, the sign-in in Music; pick it up when the user
@@ -105,17 +98,11 @@ struct AppleMusicBrowserRoot: View {
             case .granted: rewireScene()
             case .lost:
                 prepareForReset()
-                // What was read belongs to the account that left: the next one is read afresh
-                // once the browser is back (#654).
-                viewModel.clearForSignOut()
-                viewModel.hasLoaded = false
+                viewModel.forgetAccount()
             case .unchanged: break
             }
         }
     }
-
-    /// How often the sign-in screen looks whether Music was signed in meanwhile.
-    static let signedOutRecheckInterval: Duration = .seconds(3)
 
     private var browser: some View {
         PlaylistBrowserView(

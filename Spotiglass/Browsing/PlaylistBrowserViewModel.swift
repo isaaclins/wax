@@ -159,6 +159,8 @@ final class PlaylistBrowserViewModel: ObservableObject {
     /// The parts of the library that read empty while still arriving, read again by
     /// ``libraryArrivalTask``.
     var libraryPartsArriving: Set<MusicLibraryPart> = []
+    /// While the covers settle after the library arrived: how many the last look found.
+    var libraryCoversSeen: Int?
     var lastTracksRevalidationByID: [String: (snapshotID: String, at: Date)] = [:]
     var inFlightPlaylistListRefreshTask: Task<([MusicPlaylistSummary], MusicUserProfile), Error>?
     var playlistListRefreshGeneration = 0
@@ -286,11 +288,22 @@ final class PlaylistBrowserViewModel: ObservableObject {
         )
     }
 
+    /// The Apple Account left (signed out of Music, or access taken away): what was read
+    /// belongs to it, so the next account is read afresh once the browser is back (#654). Liked
+    /// Songs is the one list kept under the same ID for every account, so its kept rows go too.
+    func forgetAccount() {
+        clearForSignOut()
+        hasLoaded = false
+        // try?: the memory cache never throws; a stale row would only show until the next read.
+        try? cache.invalidateTracks(playlistID: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID)
+    }
+
     func clearForSignOut() {
         libraryArrivalTask?.cancel()
         libraryArrivalTask = nil
         libraryArrivalReads = 0
         libraryPartsArriving = []
+        libraryCoversSeen = nil
         playlistTrackCountTask?.cancel()
         playlistTrackCountTask = nil
         playlistTrackCountStandIns = []
