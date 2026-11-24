@@ -39,31 +39,32 @@ with the issue that fixes each one. They're reported but don't fail the job. Any
 
 ## Every interaction
 
-Measured on 2026-11-24, Release build of 0.8.62, Mac mini M4, 60 Hz. Median and checked time
-in ms. "Before" is main when the probe went in; it changes no behaviour, so there's no "after"
-yet. Each fix fills in its own column.
+Measured on 2026-11-25, Release build of 0.8.64, Mac mini M4, 60 Hz. Median and checked time
+in ms. These are the "before": the probe changes no behaviour. Each fix adds its "after" here.
 
 | Interaction | What you do | Median | Checked | Issue |
 |---|---|---|---|---|
-| `playback.toggle.key` | Space pauses or resumes | 40 | 53 | #678 |
-| `playback.toggle.click` | Click the play/pause button | 44 | 51 | #678 |
-| `playback.next` | ⇧⌘→ skips to the next song | 26 | 31 | |
-| `playback.previous` | ⇧⌘← goes back a song | 25 | 25 | |
+| `playback.toggle.key` | Space pauses or resumes | 40 | 40 | |
+| `playback.toggle.click` | Click the play/pause button | 37 | 41 | |
+| `playback.next` | ⇧⌘→ skips to the next song | 23 | 23 | |
+| `playback.previous` | ⇧⌘← goes back a song | 23 | 24 | |
 | `playback.seek` | ⌘→ jumps ahead in the song | never | never | #677 |
 | `playback.shuffle` | ⌥⌘S turns shuffle on or off | never | never | #677 |
 | `playback.repeat` | ⌥⌘R changes repeat | never | never | #677 |
-| `palette.open` | ⌘K opens the command palette | 100 | 104 | #671 |
-| `palette.type` | Typing a letter in the palette | 71 | 76 | #671 |
-| `palette.close` | Esc closes the palette | 67 | 71 | #671 |
-| `sidebar.toggle` | ⌘S hides or shows the sidebar | 92 | 102 | #672 |
-| `queue.toggle` | ⌥⌘Q opens or closes the queue | 84 | 102 | #673 |
-| `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 137 | 146 | #674 |
-| `page.search` | ⌘F opens Search | 105 | 106 | #675 |
+| `palette.open` | ⌘K opens the command palette | 79 | 88 | #671 |
+| `palette.type` | Typing a letter in the palette | 71* | never | #671 |
+| `palette.close` | Esc closes the palette | 72 | 78 | #671 |
+| `sidebar.toggle` | ⌘S hides or shows the sidebar | 81 | 83 | #672 |
+| `queue.toggle` | ⌥⌘Q opens or closes the queue | 72 | 77 | #673 |
+| `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 114 | 123 | #674 |
+| `page.search` | ⌘F opens Search | 86 | 89 | #675 |
 | `page.back` | ⌘[ goes back a page | never | never | #677 |
-| `page.sidebarClick` | Click a playlist in the sidebar | 78 | 89 | #675 |
-| `list.scroll` | Scrolling a 1000-song playlist | 31 | 39 | |
-| `settings.open` | ⌘, opens Settings | 113 | 120 | #676 |
+| `page.sidebarClick` | Click a playlist in the sidebar | 60 | 66 | #675 |
+| `list.scroll` | Scrolling a 1000-song playlist | 30 | 37 | |
+| `settings.open` | ⌘, opens Settings | 99 | 113 | #676 |
 
+\* Run on its own; after the palette has been opened and closed 8 times, the letters never reach
+the field (#671).
 "never" means nothing changed on screen within 3 s in any try (#677).
 
 ## What isn't measured yet

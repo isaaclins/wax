@@ -3,7 +3,7 @@
   "known": {
     "lyrics.toggle": {
       "issue": 674,
-      "measuredMs": 146
+      "measuredMs": 123
     },
     "page.back": {
       "issue": 677,
@@ -11,23 +11,23 @@
     },
     "page.search": {
       "issue": 675,
-      "measuredMs": 106
+      "measuredMs": 89
     },
     "page.sidebarClick": {
       "issue": 675,
-      "measuredMs": 89
+      "measuredMs": 66
     },
     "palette.close": {
       "issue": 671,
-      "measuredMs": 71
+      "measuredMs": 78
     },
     "palette.open": {
       "issue": 671,
-      "measuredMs": 104
+      "measuredMs": 88
     },
     "palette.type": {
       "issue": 671,
-      "measuredMs": 76
+      "measuredMs": null
     },
     "playback.repeat": {
       "issue": 677,
@@ -41,25 +41,17 @@
       "issue": 677,
       "measuredMs": null
     },
-    "playback.toggle.click": {
-      "issue": 678,
-      "measuredMs": 51
-    },
-    "playback.toggle.key": {
-      "issue": 678,
-      "measuredMs": 53
-    },
     "queue.toggle": {
       "issue": 673,
-      "measuredMs": 102
+      "measuredMs": 77
     },
     "settings.open": {
       "issue": 676,
-      "measuredMs": 120
+      "measuredMs": 113
     },
     "sidebar.toggle": {
       "issue": 672,
-      "measuredMs": 102
+      "measuredMs": 83
     }
   }
 }
