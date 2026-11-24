@@ -493,6 +493,11 @@ struct PlaylistBrowserView: View {
         .onChange(of: viewModel.selectedDetailTrackIDs) { _, _ in
             syncTrackSelectionMenuState()
         }
+        // On Home the selection is read against the top tracks, which go away while a refresh
+        // loads and when it fails; the menu bar must stop offering them then (#173).
+        .onChange(of: viewModel.homeTopTracks) { _, _ in
+            syncTrackSelectionMenuState()
+        }
         // `$deviceID` announces the new id before storing it: keep the value it delivers.
         .onReceive(playbackViewModel.$deviceID) { deviceID in
             if playbackDeviceID != deviceID { playbackDeviceID = deviceID }
