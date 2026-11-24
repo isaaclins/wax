@@ -150,15 +150,15 @@ final class WindowResizeCostTests: XCTestCase {
 
     func testAnAnimatedResizeFromCodeDoesNotReRenderHome() async throws {
         let window = try await hostBrowser(on: .home)
-        // Growing back brings rows and cards into Home's lazy stacks again, which builds them;
-        // while the window only shrinks nothing new comes into view, so nothing may run.
+        // Growing back brings shelf cards into view again, which builds them; while the window
+        // only shrinks nothing new comes into view, so nothing may run.
         assertAnAnimatedResizeReRendersNothing(in: window, extraViews: ["HomeView"], rowsMayReturnWhileGrowing: true)
     }
 
     /// Home's top tracks and its recently played shelf were plain stacks, which build and lay out
     /// every row and card on every size the window takes, on screen or not, so a full Home cost
-    /// each resize step about twice what its content costs now (#473). Only what can be seen may
-    /// be built, before and during a resize.
+    /// each resize step about twice what its content costs now (#473). A resize may build no far
+    /// row or card, and the shelf's far card is never built.
     func testHomeBuildsOnlyTheRowsAndCardsOnScreen() async throws {
         let window = try await hostBrowser(on: .home)
         // Home's sections load after it appears; wait for the first top track as well.
@@ -172,7 +172,12 @@ final class WindowResizeCostTests: XCTestCase {
                     || $0 == "HomeMediaCardView:recent-album-\(Self.recentAlbumCount - 1)"
             }.sorted()
         }
-        XCTAssertEqual(offScreen(), [], "Home built a row or card far outside the window")
+        // The top tracks are rows of the native track table now (#173). The table prepares the rows
+        // within its look-ahead when Home opens, which on Home's 20 rows is all of them, once; it
+        // reuses them after that, so a resize must build none of them. The shelf's far card is
+        // never built.
+        let farCard = "HomeMediaCardView:recent-album-\(Self.recentAlbumCount - 1)"
+        XCTAssertNil(ViewBodyTally.counts?[farCard], "Home built \(farCard) far outside the window")
 
         ViewBodyTally.counts = [:]
         for step in 0..<12 {
@@ -181,15 +186,13 @@ final class WindowResizeCostTests: XCTestCase {
         AppKitTestSupport.pumpRunLoop(for: 0.3)
         XCTAssertEqual(offScreen(), [], "a resize built a row or card far outside the window")
 
-        // Back to full size. A window growing taller makes the lazy stack place the rows within
-        // about a window's height below the visible ones, which on Home reaches all 20 top
-        // tracks, so only the shelf's far card can be held to "never built" here.
+        // Back to full size: the table already has its rows, so the far row and the far card
+        // stay unbuilt while the window grows too.
         for step in (0..<12).reversed() {
             resize(window, toWidth: 1_450 - CGFloat(step) * 30, height: 900 - CGFloat(step) * 10)
         }
         AppKitTestSupport.pumpRunLoop(for: 0.3)
-        let farCard = "HomeMediaCardView:recent-album-\(Self.recentAlbumCount - 1)"
-        XCTAssertNil(ViewBodyTally.counts?[farCard], "growing the window built \(farCard) far outside it")
+        XCTAssertEqual(offScreen(), [], "growing the window built a row or card far outside it")
     }
 
     /// Search's track list and its card rows were plain stacks too, so a page of results built

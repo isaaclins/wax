@@ -35,7 +35,7 @@ extension PlaylistBrowserViewModel {
     /// Track IDs the menu actions should apply to: the active table selection,
     /// or just the row the menu was opened on when no selection exists.
     func effectiveTrackTargets(forRowID rowID: String) -> [TrackRowViewModel] {
-        guard let tracks = loadedContextTracksForPalette, !tracks.isEmpty else { return [] }
+        guard let tracks = selectableDetailTracks, !tracks.isEmpty else { return [] }
         let selection = selectedDetailTrackIDs
         if selection.contains(rowID), selection.count > 1 {
             // Preserve list order so batched calls keep playlist sequence sane.
@@ -52,7 +52,7 @@ extension PlaylistBrowserViewModel {
     var selectedTrackRows: [TrackRowViewModel] {
         let selection = selectedDetailTrackIDs
         guard !selection.isEmpty,
-              let tracks = loadedContextTracksForPalette,
+              let tracks = selectableDetailTracks,
               !tracks.isEmpty else { return [] }
         return tracks.filter { selection.contains($0.id) }
     }
@@ -155,6 +155,14 @@ extension PlaylistBrowserViewModel {
     }
 
     // MARK: - Selection
+
+    /// The rows `selectedDetailTrackIDs` picks from: the playlist or artist tracks, or Home's top
+    /// tracks. Home kept its own selection beside a hand-built stack of rows, so the menu bar's
+    /// Add to Queue and Pin never saw a top track that was selected (#173).
+    var selectableDetailTracks: [TrackRowViewModel]? {
+        if case .home = detailState.currentValue { return homeTopTracks.value }
+        return loadedContextTracksForPalette
+    }
 
     /// Called when the detail surface changes. The `List` binding owns every
     /// other write to the selection.

@@ -101,6 +101,132 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         XCTAssertEqual(api.topTracksCallCount, 2)
     }
 
+    /// Selected top tracks on Home are what the menu bar's Add to Queue and Pin act on, as in every
+    /// other track list. Home kept its own selection, so with two top tracks selected those
+    /// commands stayed greyed out and the right-click menu only saw its own row (#173).
+    func testSelectedHomeTopTracksAreWhatTheMenuBarActsOn() async throws {
+        let api = MockBrowsingAPI(playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])], trackResults: [:])
+        api.topTracksHandler = { _, _ in
+            ["t1", "t2", "t3"].map { self.recentlyPlayedTrack(id: $0, albumID: "al-\($0)", albumName: "Album \($0)") }
+        }
+        let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        await vm.load()
+        await vm.selectSidebar(.home)
+        let rows = try XCTUnwrap(vm.homeTopTracks.value)
+        XCTAssertEqual(rows.map(\.title), ["Track t1", "Track t2", "Track t3"])
+
+        // As the track table writes it when the listener clicks the third row, then ⌘-clicks the first.
+        vm.selectedDetailTrackIDs = [rows[2].id, rows[0].id]
+
+        XCTAssertEqual(vm.selectedTrackRows.map(\.title), ["Track t1", "Track t3"])
+        XCTAssertTrue(PlaylistBrowserView.canEnqueueTrackSelection(rows: vm.selectedTrackRows, hasPlaybackDevice: true))
+        XCTAssertEqual(vm.effectiveTrackTargets(forRowID: rows[2].id).map(\.title), ["Track t1", "Track t3"])
+
+        // Leaving Home drops the selection, like leaving any other list.
+        await vm.selectSidebar(.playlist("one"))
+        XCTAssertTrue(vm.selectedDetailTrackIDs.isEmpty)
+    }
+
+    /// A Home refresh that drops a selected song takes it out of the selection, so the menu bar
+    /// doesn't offer Add to Queue for a song that is no longer listed (#173).
+    func testRefreshingHomeDropsSelectedTopTracksThatAreGone() async throws {
+        var refreshed = false
+        let api = MockBrowsingAPI(
+            playlistResults: [.success([]), .success([])],
+            trackResults: [:]
+        )
+        api.topTracksHandler = { _, _ in
+            (refreshed ? ["t2", "t3"] : ["t1", "t2"]).map { self.recentlyPlayedTrack(id: $0, albumID: "al-\($0)", albumName: "Album \($0)") }
+        }
+        let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        await vm.load()
+        await vm.selectSidebar(.home)
+        let rows = try XCTUnwrap(vm.homeTopTracks.value)
+        vm.selectedDetailTrackIDs = Set(rows.map(\.id))
+
+        refreshed = true
+        await vm.reloadHomeSections(forceRefresh: true)
+
+        let kept = try XCTUnwrap(vm.homeTopTracks.value).filter { vm.selectedDetailTrackIDs.contains($0.id) }
+        XCTAssertEqual(kept.map(\.title), ["Track t2"])
+        XCTAssertEqual(vm.selectedDetailTrackIDs.count, 1, "the dropped song's id stayed selected")
+    }
+
+    /// The menu bar's Add to Queue follows the top tracks through the real browser: on with a
+    /// selected top track, off while a refresh reloads them and after a refresh fails, when there
+    /// is nothing left to add (#173).
+    func testMenuBarAddToQueueFollowsHomeTopTracksThroughARefresh() async throws {
+        ViewBodyTally.counts = [:]
+        defer {
+            ViewBodyTally.counts = nil
+            ViewTestHost.tearDownAll()
+        }
+        var refresh: CheckedContinuation<Void, Never>?
+        var failRefresh = false
+        let api = MockBrowsingAPI(playlistResults: [.success([]), .success([])], trackResults: [:])
+        api.topTracksHandler = { _, _ in
+            if failRefresh {
+                await withCheckedContinuation { refresh = $0 }
+                throw URLError(.notConnectedToInternet)
+            }
+            return ["t1", "t2"].map { self.recentlyPlayedTrack(id: $0, albumID: "al-\($0)", albumName: "Album \($0)") }
+        }
+        let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        await browserVM.loadIfNeeded()
+        await browserVM.selectSidebar(.home)
+        let rows = try XCTUnwrap(browserVM.homeTopTracks.value)
+
+        let playbackHost = SpotiglassPlaybackHost(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander())
+        )
+        let playback = playbackHost.playbackViewModel
+        playback.deviceID = "device-1"
+        playback.hasTransferredPlaybackToCurrentDevice = true
+        playback.setTransportStateKnown(true)
+        playback.setConnectionState(.paused(PlaybackNowPlaying(
+            name: "Midnight City", artists: ["M83"], albumName: "Hurry Up, We're Dreaming", albumID: nil,
+            albumArtURL: nil, durationMilliseconds: 243_000, positionMilliseconds: 60_000, uri: "spotify:track:t9"
+        )))
+        let palette = CommandPaletteManager()
+        let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
+        store.bind(userID: "u1")
+        _ = ViewTestHost.host(
+            PlaylistBrowserView(
+                viewModel: browserVM,
+                playbackHost: playbackHost,
+                catalogProvider: api,
+                commandPaletteManager: palette,
+                signOut: {}
+            )
+            .environmentObject(store)
+            .environmentObject(LyricsOverlayController()),
+            size: CGSize(width: 1_200, height: 800)
+        )
+
+        // As the app does once the browser is up: its own load runs, then a row is clicked.
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { ViewBodyTally.counts?["TrackListRow:\(rows[0].id)"] != nil }), "Home's rows never came on screen")
+        browserVM.selectedDetailTrackIDs = [rows[0].id]
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { palette.canEnqueueTrackSelection }),
+            "Add to Queue stayed off for a selected top track: selection \(browserVM.selectedDetailTrackIDs), rows \(browserVM.selectedTrackRows.count), page \(String(describing: browserVM.detailState.currentValue))"
+        )
+
+        failRefresh = true
+        let reload = Task { await browserVM.reloadHomeSections(forceRefresh: true) }
+        // The reload runs on the main actor, which this test holds while it pumps the run loop, so
+        // it gets its turn by awaiting.
+        let asked = Date().addingTimeInterval(mustHappenTimeout)
+        while refresh == nil, Date() < asked { await Task.yield() }
+        XCTAssertNotNil(refresh, "the refresh never asked for top tracks")
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { !palette.canEnqueueTrackSelection }), "Add to Queue stayed on while the top tracks reloaded")
+
+        refresh?.resume()
+        await reload.value
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { browserVM.homeTopTracks.value == nil }))
+        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        XCTAssertFalse(palette.canEnqueueTrackSelection, "Add to Queue came back on after the refresh failed")
+    }
+
     func testManualHomeRefreshFetchesChangedSectionsOutsideFreshCache() async {
         let firstRecentlyPlayed = recentlyPlayedTrack(id: "recent-1", albumID: "album-1", albumName: "Album 1")
         let secondRecentlyPlayed = recentlyPlayedTrack(id: "recent-2", albumID: "album-2", albumName: "Album 2")
