@@ -161,6 +161,9 @@ final class PlaylistBrowserViewModel: ObservableObject {
     var libraryPartsArriving: Set<MusicLibraryPart> = []
     /// While the covers settle after the library arrived: how many the last look found.
     var libraryCoversSeen: Int?
+    /// Bumped when the account is forgotten, so a look that was already reading stops there and
+    /// sets up no further looks for the account that left.
+    var libraryArrivalGeneration = 0
     var lastTracksRevalidationByID: [String: (snapshotID: String, at: Date)] = [:]
     var inFlightPlaylistListRefreshTask: Task<([MusicPlaylistSummary], MusicUserProfile), Error>?
     var playlistListRefreshGeneration = 0
@@ -304,6 +307,7 @@ final class PlaylistBrowserViewModel: ObservableObject {
         libraryArrivalReads = 0
         libraryPartsArriving = []
         libraryCoversSeen = nil
+        libraryArrivalGeneration += 1
         playlistTrackCountTask?.cancel()
         playlistTrackCountTask = nil
         playlistTrackCountStandIns = []

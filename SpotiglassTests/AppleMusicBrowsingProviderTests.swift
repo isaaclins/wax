@@ -2110,6 +2110,29 @@ final class AppleMusicSelectionAndSessionTests: XCTestCase {
         XCTAssertEqual(clock.sleeperCount, 0, "signed in, it stops looking")
     }
 
+    /// Access taken away while a slow sign-in check still waits: the older check's grace period
+    /// must not put the library back on screen.
+    @MainActor
+    func testANewerRefreshCancelsTheOlderGracePeriod() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.holdsSignInCheck = true
+        let clock = ManualPlaybackClock()
+        let session = AppleMusicSession(authorization: authorization, clock: clock)
+        let slow = Task { await session.refresh() }
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed, "the grace period runs")
+
+        authorization.status = .denied
+        await session.refresh()
+        XCTAssertEqual(session.state, .denied)
+        XCTAssertEqual(clock.sleeperCount, 0, "the older grace period is cancelled")
+
+        clock.advance(by: AppleMusicSession.signInCheckGrace)
+        authorization.answerSignInCheck()
+        await slow.value
+        XCTAssertEqual(session.state, .denied)
+    }
+
     /// Offline the sign-in can't be told: the library stays, as before.
     @MainActor
     func testAnUnknownSignInKeepsTheLibrary() async {
@@ -2418,6 +2441,32 @@ final class AppleMusicLibraryArrivalTests: XCTestCase {
         XCTAssertNil(viewModel.libraryArrivalTask)
     }
 
+    /// Signing out while a look is already reading: that look stops, and sets up no further
+    /// looks for the account that left.
+    @MainActor
+    func testSigningOutDuringALookStartsNoMoreLooks() async {
+        let source = MockAppleMusicSource()
+        source.cloudLibraryParts = [.playlists]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+        await viewModel.refreshPlaylists()
+        XCTAssertEqual(viewModel.playlistState, .loading)
+
+        source.holdsCloudCheck = true
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed)
+        let look = viewModel.libraryArrivalTask
+        clock.advance(by: PlaylistBrowserViewModel.libraryArrivalInterval)
+        var held = source.heldCloudChecks.stream.makeAsyncIterator()
+        _ = await held.next()
+
+        viewModel.forgetAccount()
+        source.answerCloudCheck()
+        await look?.value
+        XCTAssertNil(viewModel.libraryArrivalTask)
+        XCTAssertEqual(clock.sleeperCount, 0, "no look for the account that left")
+    }
+
     /// Signing out drops the pending look, so it can't fill the next account's browser.
     @MainActor
     func testSigningOutStopsWaiting() async {
@@ -2444,7 +2493,7 @@ final class AppleMusicLibraryArrivalTests: XCTestCase {
 // MARK: - Test doubles
 
 private final class MockAppleMusicAuthorization: AppleMusicAuthorizing, @unchecked Sendable {
-    private var status: MusicAuthorization.Status
+    var status: MusicAuthorization.Status
     private let afterRequest: MusicAuthorization.Status
     var canPlay: Bool?
     /// What MusicKit says about the account signed in to Music; `nil` when it can't tell.
@@ -2670,10 +2719,22 @@ private final class MockAppleMusicSource: AppleMusicContentSource, @unchecked Se
     /// What the iCloud Music Library on Apple's servers holds, by part.
     var cloudLibraryParts: Set<MusicLibraryPart> = []
 
+    /// Holds the iCloud check until `answerCloudCheck()`, and yields on `heldCloudChecks` as it
+    /// starts waiting.
+    var holdsCloudCheck = false
+    let heldCloudChecks = AsyncStream<Void>.makeStream()
+    private let cloudAnswers = AsyncStream<Void>.makeStream()
+
     func cloudLibraryHasItems(_ part: MusicLibraryPart) async throws -> Bool {
         record("cloudLibraryHasItems(\(part))")
+        if holdsCloudCheck {
+            heldCloudChecks.continuation.yield()
+            for await _ in cloudAnswers.stream { break }
+        }
         return cloudLibraryParts.contains(part)
     }
+
+    func answerCloudCheck() { cloudAnswers.continuation.yield() }
 
     /// The catalog's ratings, `true` for explicit, by catalog song ID.
     var catalogRatings: [String: Bool] = [:]

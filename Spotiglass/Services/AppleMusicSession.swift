@@ -47,6 +47,9 @@ final class AppleMusicSession: ObservableObject {
     private let clock: any PlaybackClock
     /// Bumped by every refresh, so an answer that a newer refresh overtook is dropped.
     private var applyGeneration = 0
+    /// Shows the library once the sign-in check takes longer than ``signInCheckGrace``; a newer
+    /// refresh cancels it, since its own answer decides then.
+    private var graceTask: Task<Void, Never>?
 
     init(
         authorization: any AppleMusicAuthorizing = SystemAppleMusicAuthorization(),
@@ -106,6 +109,8 @@ final class AppleMusicSession: ObservableObject {
         // a refresh while another one still waits for Apple; only the newest one's answer counts.
         applyGeneration += 1
         let generation = applyGeneration
+        graceTask?.cancel()
+        graceTask = nil
         switch status {
         case .authorized:
             let check = Task { [authorization] () -> (canPlay: Bool?, signedIn: Bool?) in
@@ -116,10 +121,13 @@ final class AppleMusicSession: ObservableObject {
             }
             // Nothing on screen yet: hold the spinner for the answer, but not for longer than
             // the grace period.
-            let grace = Self.showsLibraryOrSignIn(state) ? nil : showLibraryAfterGrace()
+            if !Self.showsLibraryOrSignIn(state) {
+                graceTask = showLibraryAfterGrace(generation: generation)
+            }
             let (canPlay, signedIn) = await check.value
-            grace?.cancel()
             guard generation == applyGeneration else { return }
+            graceTask?.cancel()
+            graceTask = nil
             canPlayCatalogContent = canPlay
             state = signedIn == false ? .signedOut : .authorized
         case .notDetermined:
@@ -135,12 +143,13 @@ final class AppleMusicSession: ObservableObject {
         state == .authorized || state == .signedOut
     }
 
-    private func showLibraryAfterGrace() -> Task<Void, Never> {
+    private func showLibraryAfterGrace(generation: Int) -> Task<Void, Never> {
         let clock = clock
         return Task { [weak self] in
-            // try?: the wait only fails when cancelled (the check answered), checked below.
+            // try?: the wait only fails when cancelled (answered, or a newer refresh), checked below.
             try? await clock.sleep(until: clock.now.advanced(by: Self.signInCheckGrace), tolerance: nil)
-            guard let self, !Task.isCancelled, !Self.showsLibraryOrSignIn(self.state) else { return }
+            guard let self, !Task.isCancelled, generation == self.applyGeneration,
+                  !Self.showsLibraryOrSignIn(self.state) else { return }
             self.state = .authorized
         }
     }

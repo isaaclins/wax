@@ -126,7 +126,10 @@ extension PlaylistBrowserViewModel {
     /// on looking again allows.
     func isStillArriving(_ part: MusicLibraryPart) async -> Bool {
         guard libraryArrivalReads < Self.maxLibraryArrivalReads else { return false }
-        return await api.libraryIsStillArriving(part)
+        let generation = libraryArrivalGeneration
+        let arriving = await api.libraryIsStillArriving(part)
+        // An answer about an account that left meanwhile starts no looks.
+        return arriving && generation == libraryArrivalGeneration
     }
 
     /// Reads the parts still arriving again after a short wait. Each read fills in what arrived
@@ -140,12 +143,13 @@ extension PlaylistBrowserViewModel {
     private func scheduleLibraryArrivalLook() {
         guard libraryArrivalTask == nil else { return }
         let clock = libraryArrivalClock
+        let generation = libraryArrivalGeneration
         libraryArrivalTask = Task { [weak self] in
             // try?: the wait only fails when cancelled (sign-out), which is checked right below.
             try? await clock.sleep(until: clock.now.advanced(by: Self.libraryArrivalInterval), tolerance: nil)
-            guard let self, !Task.isCancelled else { return }
+            guard let self, !Task.isCancelled, generation == self.libraryArrivalGeneration else { return }
             self.libraryArrivalTask = nil
-            await self.lookAtArrivingLibrary()
+            await self.lookAtArrivingLibrary(generation: generation)
         }
     }
 
@@ -153,7 +157,7 @@ extension PlaylistBrowserViewModel {
     /// their way (#654: playlists and covers came about a minute after the songs), so the
     /// playlists and the open Liked Songs are read again, quietly with their rows on screen, for
     /// as long as a look finds more covers than the one before.
-    private func lookAtArrivingLibrary() async {
+    private func lookAtArrivingLibrary(generation: Int) async {
         libraryArrivalReads += 1
         let waiting = libraryPartsArriving
         libraryPartsArriving = []
@@ -162,7 +166,8 @@ extension PlaylistBrowserViewModel {
         if waiting.contains(.playlists) || coversBefore != nil {
             await refreshPlaylists(trigger: .automatic)
         }
-        guard !Task.isCancelled else { return }
+        // The account left while the playlists were read: nothing more for it.
+        guard generation == libraryArrivalGeneration else { return }
         if showsLikedSongs {
             if waiting.contains(.songs) {
                 await refreshSelectedPlaylist()
@@ -171,7 +176,7 @@ extension PlaylistBrowserViewModel {
             }
         }
         // A part still arriving has already set up the next look.
-        guard !Task.isCancelled, libraryPartsArriving.isEmpty,
+        guard generation == libraryArrivalGeneration, libraryPartsArriving.isEmpty,
               libraryArrivalReads < Self.maxLibraryArrivalReads else { return }
         let covers = coversOnScreen
         if let coversBefore, covers <= coversBefore { return }
