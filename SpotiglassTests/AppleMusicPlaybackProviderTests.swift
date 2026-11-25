@@ -1437,10 +1437,15 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
     /// lookup returns, and goes back once the song plays, or once the play fails.
     func testTheBarShowsAStartingSongAtOnceUntilItPlaysOrFails() async throws {
         let (player, session) = try await Self.playingSession()
+        var logged: [String] = []
+        let trace = PlaybackTrace(write: { logged.append($0) }, afterDrawing: { drawn in MainActor.assumeIsolated { drawn() } })
         let controller = ViewTestHost.host(
-            PlaybackControlsView(viewModel: session, isLyricsPresented: .constant(false), openArtist: { _ in }),
+            PlaybackControlsView(viewModel: session, isLyricsPresented: .constant(false), openArtist: { _ in }, trace: trace),
             size: CGSize(width: 900, height: 120)
         )
+        func barLines() -> [String] {
+            logged.filter { $0.hasPrefix("bar updated to") }.map { $0.components(separatedBy: " ").prefix(4).joined(separator: " ") }
+        }
         defer { ViewTestHost.tearDownAll() }
         func playButtonLabels() -> [String] {
             func buttons(_ view: NSView) -> [NSButton] {
@@ -1466,6 +1471,12 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertTrue(
             AppKitTestSupport.pumpRunLoop(until: { playButtonLabels() == [SpotiglassL10n.string("playback.pause")] }),
             "the bar kept showing the song starting: \(playButtonLabels())"
+        )
+        // The log says when the bar showed each: the spinner, and Pause again once it plays
+        // (the icon that comes back after the spinner is a new view, #645's line went missing).
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { barLines() == ["bar updated to starting", "bar updated to playing"] }),
+            "the log's bar lines: \(barLines())"
         )
 
         // A play MusicKit refuses doesn't leave the bar saying it is starting.
