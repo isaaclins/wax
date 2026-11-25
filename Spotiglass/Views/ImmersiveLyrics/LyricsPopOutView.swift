@@ -8,11 +8,14 @@ struct LyricsPositionReader<Content: View>: View {
     /// The song's lyric timing shift, in milliseconds.
     let offsetMs: Int
     @ViewBuilder let content: (_ positionMs: Int) -> Content
+    /// Closed lyrics stay built (#674) but stop following the song: a frame each 1/60 s for
+    /// nobody to see.
+    @Environment(\.lyricsAreShowing) private var isShowing
 
     var body: some View {
         PlaybackProgressReader(progress: playbackViewModel.progress) { anchor in
             if let anchor, anchor.isAdvancing {
-                TimelineView(.animation) { context in
+                TimelineView(.animation(minimumInterval: nil, paused: !isShowing)) { context in
                     content(
                         LrcLineParser.effectivePositionMs(
                             positionMs: anchor.interpolatedPositionMs(at: context.date),

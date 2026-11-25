@@ -298,17 +298,31 @@ final class WindowResizeCostTests: XCTestCase {
                 [item.label] + ((item as? NSToolbarItemGroup)?.subitems.map(\.label) ?? [])
             }
         }
-        // The lyrics' view in the window: built once, kept, hidden while they are closed.
-        let lyricsContainers = { () -> [NSView] in
+        let views = { (typeName: String) -> [NSView] in
             var found: [NSView] = []
             var queue = [window.contentView].compactMap { $0 }
             while let view = queue.popLast() {
-                if String(describing: type(of: view)).hasPrefix("LyricsOverlayFocusContainerView") { found.append(view) }
+                if String(describing: type(of: view)).hasPrefix(typeName) { found.append(view) }
                 queue.append(contentsOf: view.subviews)
             }
             return found
         }
+        // The lyrics' view in the window: built once, kept, hidden while they are closed.
+        let lyricsContainers = { views("LyricsOverlayFocusContainerView") }
+        // A view inside the lyrics themselves: the same one on every open means the lyrics were
+        // kept, not built again. Building them was most of opening's first frame.
+        let lyricsHoldSurfaces = { views("LyricsTimingHoldView") }
+        // They are built shortly after the window shows, so even the first open only shows them.
+        let builtBeforeOpening = await AppKitTestSupport.settle(
+            until: { lyricsContainers().count == 1 && lyricsHoldSurfaces().count == 1 },
+            timeout: 10
+        )
+        XCTAssertTrue(
+            builtBeforeOpening,
+            "the lyrics were not built before they first opened: \(lyricsContainers().count) containers, \(lyricsHoldSurfaces().count) of their own views"
+        )
         var container: NSView?
+        var holdSurface: NSView?
         for (round, presented) in [true, false, true, false].enumerated() {
             waitUntilNothingRenders()
             ViewBodyTally.counts = [:]
@@ -347,6 +361,12 @@ final class WindowResizeCostTests: XCTestCase {
                     AppKitTestSupport.pumpRunLoop(until: { current.isHidden == !presented }),
                     "\(action) the lyrics left their view \(current.isHidden ? "hidden" : "showing")"
                 )
+            }
+            let surfaces = lyricsHoldSurfaces()
+            XCTAssertEqual(surfaces.count, 1, "\(action) the lyrics left \(surfaces.count) of their own views in the window")
+            if let current = surfaces.first {
+                XCTAssertTrue(holdSurface == nil || current === holdSurface, "\(action) the lyrics were built again")
+                holdSurface = current
             }
         }
     }

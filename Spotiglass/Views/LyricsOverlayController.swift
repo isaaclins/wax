@@ -461,8 +461,9 @@ struct LyricsOverlayLayer: View {
     let keymapStore: CommandPaletteKeymapStore
     @EnvironmentObject private var settingsStore: SpotiglassSettingsStore
     @State private var keyboardFocus = LyricsKeyboardFocusProbe()
-    /// Set the first time the lyrics open; from then on their view stays built.
-    @State private var hasOpened = false
+    /// Set a moment after the window shows (or when the lyrics first open, if sooner); from
+    /// then on the lyrics stay built, so even the first ⌥⌘L only shows them (#674).
+    @State private var isBuilt = false
     /// How much of the column's bottom the player bar covers. The lyrics run behind the bar
     /// (#474), and the column doesn't get the bar's safe area (the split view hosts it), so
     /// the browser measures the bar and hands its height in.
@@ -475,6 +476,8 @@ struct LyricsOverlayLayer: View {
         self.playerBarInset = playerBarInset
     }
 
+    private static let buildDelay = Duration.seconds(1)
+
     /// Avoid blocking the column when `isPresented` is true before the browser has called `attach` (nil models).
     private var immersiveLyricsReady: Bool {
         presentation.isPresented && lyricsOverlay.lyricsModel != nil
@@ -482,11 +485,11 @@ struct LyricsOverlayLayer: View {
 
     var body: some View {
         ZStack {
-            // The container and its hosting view are built the first time the lyrics open, and
-            // stay: building them on every ⌥⌘L (a new view graph and a view added to the window)
-            // held back the lyrics' first frame (#674). Closed, it holds nothing and is hidden,
-            // so it takes no clicks, keys or VoiceOver.
-            if hasOpened || presentation.isPresented,
+            // The container, its hosting view and the lyrics in it are built once, closed, and
+            // stay: building them on ⌥⌘L held back the lyrics' first frame (#674). Closed, the
+            // lyrics are paused and the container is hidden, so it takes no clicks, keys or
+            // VoiceOver.
+            if isBuilt || presentation.isPresented,
                 let playback = lyricsOverlay.playbackViewModel,
                 let queue = lyricsOverlay.queueViewModel,
                 let lyrics = lyricsOverlay.lyricsModel,
@@ -523,14 +526,23 @@ struct LyricsOverlayLayer: View {
         .ignoresSafeArea(.container, edges: .top)
         .allowsHitTesting(immersiveLyricsReady)
         .onChange(of: presentation.isPresented) { _, presented in
-            if presented, !hasOpened { hasOpened = true }
+            if presented, !isBuilt { isBuilt = true }
+        }
+        // Built a moment after the window shows rather than with it, so the window's own first
+        // frame doesn't wait for lyrics nobody asked for yet.
+        .task {
+            // try?: it only throws when cancelled, because the layer left the window.
+            try? await Task.sleep(for: Self.buildDelay)
+            if !Task.isCancelled, !isBuilt { isBuilt = true }
         }
     }
 }
 
-/// What the lyrics' hosting view shows: the lyrics while they are open, fading in and out, and
-/// nothing while they are closed. The hosting view has its own view graph, so the fade is set
-/// here rather than taken from the change that opened them.
+/// What the lyrics' hosting view shows. Once built, the lyrics stay built: closed, they are
+/// invisible and paused (``EnvironmentValues/lyricsAreShowing``), and opening only shows them
+/// again. Building them, every line, their text and the views inside, was most of the lyrics'
+/// first frame, 50-70 ms where the budget is 50 (#674). The hosting view has its own view
+/// graph, so the fade is set here rather than taken from the change that opened them.
 struct LyricsOverlayContent: View {
     let isShowing: Bool
     let onScreenPlayer: PlaybackSessionViewModel
@@ -541,21 +553,23 @@ struct LyricsOverlayContent: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        ZStack {
-            if isShowing {
-                LyricsOverlayPlayerResolver(
-                    onScreenPlayer: onScreenPlayer,
-                    queueViewModel: queueViewModel,
-                    lyricsModel: lyricsModel,
-                    navigateToArtist: navigateToArtist,
-                    navigateToAlbum: navigateToAlbum,
-                    onDismiss: onDismiss
-                )
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
-            }
+        LyricsOverlayPlayerResolver(
+            onScreenPlayer: onScreenPlayer,
+            queueViewModel: queueViewModel,
+            lyricsModel: lyricsModel,
+            navigateToArtist: navigateToArtist,
+            navigateToAlbum: navigateToAlbum,
+            onDismiss: onDismiss
+        )
+        .environment(\.lyricsAreShowing, isShowing)
+        .allowsHitTesting(isShowing)
+        .accessibilityHidden(!isShowing)
+        .animation(.easeOut(duration: 0.22)) { lyrics in
+            lyrics
+                .opacity(isShowing ? 1 : 0)
+                .scaleEffect(isShowing ? 1 : 0.98)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeOut(duration: 0.22), value: isShowing)
     }
 }
 

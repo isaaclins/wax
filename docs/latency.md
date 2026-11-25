@@ -78,7 +78,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `palette.close` | Esc closes the palette | 72 → 37 | 78 → 46 | #671 |
 | `sidebar.toggle` | ⌘S hides or shows the sidebar | 81 → 43 | 83 → 43 | #672 |
 | `queue.toggle` | ⌥⌘Q opens or closes the queue | 72 | 77 | #673 |
-| `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 46 | 50-52 | fixed in #674 (was 114 / 123)† |
+| `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 34-38 | 36-48 | fixed in #674 (was 114 / 123)† |
 | `page.search` | ⌘F opens Search | 86 | 89 | #675 |
 | `page.back` | ⌘[ goes back a page | 41-62 | 45-63 | #730 (was never) |
 | `page.sidebarClick` | Click a playlist in the sidebar | 60 | 66 | #675 |
@@ -86,9 +86,9 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `list.scroll` | Scrolling a 1000-song playlist | 30 | 37 | |
 | `settings.open` | ⌘, opens Settings (Settings on screen) | 99 → 43-53 | 113 → 46-61 | #676 |
 
-† Measured while other builds ran on the Mac, side by side with the build before the fix, which
-took 150-166 / 183-203 ms there (123 ms checked on a quiet Mac): about 37-40 ms checked on a quiet
-Mac. Opening takes most of it (47-57 ms there), closing 34-45 ms.
+† Three runs at a load average of 5-7. Opening takes 33-52 ms, the first one too: the lyrics are
+built a second after the window shows and kept, hidden and paused, while they are closed. Closing
+takes 28-38 ms.
 \* Run on its own; after the palette had been opened and closed 8 times, the letters never reached
 the field: ⌘K while the panel was still fading out brought that panel back without focusing its
 field. "→" is the time after #671, measured on 2026-11-25 in the same full run.

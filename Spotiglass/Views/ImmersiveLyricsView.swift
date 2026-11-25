@@ -21,6 +21,8 @@ struct ImmersiveLyricsView: View {
     /// the user moved it (``LyricsKeyboardFocusProbe``).
     @State private var hasPlacedInitialFocus = false
     @Environment(\.lyricsKeyboardFocus) private var keyboardFocus
+    /// Closed, the lyrics stay built (#674): they load nothing and leave the keyboard alone.
+    @Environment(\.lyricsAreShowing) private var isShowing
 
     /// Soft fade at scroll top/bottom; off when legibility or calm motion is preferred.
     private var usesLyricsScrollEdgeFade: Bool {
@@ -76,7 +78,14 @@ struct ImmersiveLyricsView: View {
             if !Self.showsLyricsList(phase) { hasPlacedInitialFocus = false }
             placeInitialFocusIfReady()
         }
-        .task(id: isAwaitingSong ? Self.awaitingSongTaskID : currentTrack?.uri) {
+        .onChange(of: isShowing) { _, showing in
+            // Each open puts the keyboard in the lyrics, as when each open built them anew.
+            guard showing else { return }
+            hasPlacedInitialFocus = false
+            placeInitialFocusIfReady()
+        }
+        .task(id: lyricsTaskID) {
+            guard isShowing else { return }
             guard let track = currentTrack else {
                 // Starting music on the on-screen service makes it the one you hear before its
                 // song arrives (#486): the lyrics wait for that song instead of closing. A play
@@ -106,7 +115,7 @@ struct ImmersiveLyricsView: View {
     /// lyrics are still being laid out is dropped, so it is repeated for a moment until the
     /// list has the keyboard, unless the user has moved it somewhere else meanwhile.
     private func placeInitialFocusIfReady() {
-        guard !hasPlacedInitialFocus, Self.showsLyricsList(lyricsModel.phase) else { return }
+        guard isShowing, !hasPlacedInitialFocus, Self.showsLyricsList(lyricsModel.phase) else { return }
         hasPlacedInitialFocus = true
         let probe = keyboardFocus
         Task { @MainActor in
@@ -152,6 +161,13 @@ struct ImmersiveLyricsView: View {
 
     /// Not a song URI: the lyrics task runs again when the wait for a song starts or ends.
     private static let awaitingSongTaskID = "awaiting-song"
+    /// Not a song URI either: closed, the task does nothing, and opening runs it again.
+    private static let closedTaskID = "closed"
+
+    private var lyricsTaskID: String? {
+        guard isShowing else { return Self.closedTaskID }
+        return isAwaitingSong ? Self.awaitingSongTaskID : currentTrack?.uri
+    }
 
     /// Follows each new position from the player; the session publishes only track and state
     /// changes (#409).
