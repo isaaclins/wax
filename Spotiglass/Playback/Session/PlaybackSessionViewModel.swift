@@ -44,6 +44,11 @@ final class PlaybackSessionViewModel: ObservableObject {
         didSet {
             if connectionState.ignoringPosition != oldValue.ignoringPosition {
                 connectionStateSubject.send(connectionState)
+                if case .playing = connectionState {
+                    ResourceLog.shared.session(self, isPlaying: true)
+                } else {
+                    ResourceLog.shared.session(self, isPlaying: false)
+                }
             }
         }
     }

@@ -59,12 +59,16 @@ actor ArtworkImageStore {
         try? FileManager.default.createDirectory(at: diskDirectory, withIntermediateDirectories: true)
     }
 
+    /// Every cover request goes into the log (#734): where it came from (memory, disk, network),
+    /// its size, how long it took, and why it failed.
     func image(for url: URL) async -> NSImage? {
         let key = url.absoluteString
         if let cached = memoryKeys.object(forKey: key as NSString) {
+            SpotiglassLog.debug(.artwork, "cover \(key) from memory \(Self.pixels(cached))")
             return cached
         }
         if let existing = inFlight[key] {
+            SpotiglassLog.debug(.artwork, "cover \(key) already loading, waiting for it")
             return await existing.value
         }
         let generation = cacheGeneration
@@ -108,30 +112,48 @@ actor ArtworkImageStore {
 
     private func loadThroughDiskAndNetwork(url: URL, key: String, generation: UInt64) async -> NSImage? {
         guard generation == cacheGeneration else { return nil }
+        let start = ProcessInfo.processInfo.systemUptime
+        let took = { CallLog.milliseconds(ProcessInfo.processInfo.systemUptime - start) }
         let fileURL = Self.cacheFileURL(for: url, diskDirectory: diskDirectory)
         if let data = try? Data(contentsOf: fileURL),
            generation == cacheGeneration,
            let image = NSImage(data: data) {
             memoryKeys.setObject(image, forKey: key as NSString)
+            SpotiglassLog.info(.artwork, "cover \(key) from disk cache in \(took()), \(Self.pixels(image)), \(data.count) bytes")
             return image
         }
 
         do {
-            let (data, response) = try await urlSession.data(from: url)
+            let (data, response) = try await CallLog.http(url, session: urlSession)
             guard generation == cacheGeneration else { return nil }
             guard let http = response as? HTTPURLResponse, (200 ... 299).contains(http.statusCode) else {
+                let status = (response as? HTTPURLResponse).map { "status \($0.statusCode)" } ?? "no HTTP response"
+                SpotiglassLog.error(.artwork, "cover \(key) failed after \(took()): \(status)")
                 return nil
             }
             guard let image = NSImage(data: data) else {
+                SpotiglassLog.error(.artwork, "cover \(key) failed after \(took()): \(data.count) bytes that are not an image")
                 return nil
             }
             memoryKeys.setObject(image, forKey: key as NSString)
+            // URLCache answers a repeat without going out; the log can't tell the two apart.
+            SpotiglassLog.info(.artwork, "cover \(key) loaded (not cached on disk) in \(took()), \(Self.pixels(image)), \(data.count) bytes")
             DiskCacheTrim.write { try? data.write(to: fileURL, options: [.atomic]) }
             await trimDiskCacheIfNeeded()
             return image
         } catch {
+            if !(error is CancellationError) && (error as? URLError)?.code != .cancelled {
+                SpotiglassLog.error(.artwork, "cover \(key) failed after \(took()): \(SpotiglassLog.describe(error))")
+            }
             return nil
         }
+    }
+
+    private nonisolated static func pixels(_ image: NSImage) -> String {
+        let rep = image.representations.first
+        let width = rep?.pixelsWide ?? Int(image.size.width)
+        let height = rep?.pixelsHigh ?? Int(image.size.height)
+        return "\(width)x\(height) px"
     }
 
     private func trimDiskCacheIfNeeded() async {

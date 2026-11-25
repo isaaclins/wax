@@ -365,9 +365,9 @@ final class LrcLibClientTests: XCTestCase {
         )
     }
 
-    /// Offline, `"\(error)"` printed the LRCLIB URL with the song, artist and album, though the
-    /// log says it names the endpoint only (#602, #603).
-    func testAnOfflineFetchLogsTheEndpointAndCodeButNotTheSong() async throws {
+    /// Offline, the fetch leaves a line with the whole request and error (#734: the log holds
+    /// everything Wax does, the song included, since it stays on the user's Mac).
+    func testAnOfflineFetchLogsTheRequestAndTheWholeError() async throws {
         let marker = "Song\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [LRCLIBOfflineURLProtocol.self] + (config.protocolClasses ?? [])
@@ -388,9 +388,14 @@ final class LrcLibClientTests: XCTestCase {
             XCTFail("An offline fetch must fail")
         } catch {}
 
-        XCTAssertEqual(try SpotiglassLogReader.lines(containing: marker), [], "The song reached the log")
+        let failed = try SpotiglassLogReader.lines(containing: marker).filter { $0.contains("[ERROR] [calls]") }
+        XCTAssertFalse(failed.isEmpty, "The failed request must leave a line")
+        XCTAssertTrue(
+            failed.contains { $0.contains("\(NSURLErrorDomain) \(URLError.notConnectedToInternet.rawValue)") },
+            "The line must carry the error's domain and code: \(failed)"
+        )
         XCTAssertFalse(
-            try SpotiglassLogReader.lines(containing: "LRCLIB get-cached failed: URLError \(URLError.notConnectedToInternet.rawValue)").isEmpty,
+            try SpotiglassLogReader.lines(containing: "LRCLIB get-cached failed: \(NSURLErrorDomain) \(URLError.notConnectedToInternet.rawValue)").isEmpty,
             "The endpoint and the URLError code must be in the log"
         )
     }

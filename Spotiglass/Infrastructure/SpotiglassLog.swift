@@ -15,10 +15,15 @@ import os
 /// Under the unit-test host the files go to a temporary folder, so `make test` never
 /// rotates away or fills the log a user would attach to a bug report.
 ///
-/// Never log tokens, refresh credentials, or raw OAuth callbacks.
+/// The log holds everything Wax does (#734): every interaction (`interaction`), every call out
+/// of the app (`calls`), every player change, the sound path, artwork and hangs (`performance`).
+/// It stays on the user's Mac until they send it. Never log tokens, cookies, passwords, refresh
+/// credentials or raw OAuth callbacks: ``redactSecrets(_:)`` takes them out of anything that may
+/// carry one (a URL, an error).
 enum SpotiglassLog {
     enum Category: String, CaseIterable {
         case auth, api, playback, browsing, pinning, settings, persistence
+        case interaction, calls, performance, artwork
     }
 
     // Back-compat aliases so existing `SpotiglassLog.info(SpotiglassLog.playback, ...)` call sites
@@ -118,32 +123,91 @@ enum SpotiglassLog {
         FileLogSink.shared.write(level: "INFO", category: category.rawValue, message: message)
     }
 
-    /// An error as a log line may carry it: the code and kind, never the request behind it.
-    /// `"\(error)"` of a `URLError` prints the failing URL with its query (the song for
-    /// LRCLIB, the search text for a search), which a log someone attaches must not hold (#603).
+    /// An error with everything that explains it (#734): its domain, code and description, the
+    /// URL it failed on, and the errors underneath it, so a failure in the log needs no guessing.
+    /// Secrets (tokens, codes, cookies) are taken out by ``redactSecrets(_:)``.
     static func describe(_ error: Error) -> String {
-        switch error {
-        case let urlError as URLError:
-            return "URLError \(urlError.code.rawValue)"
-        case let decodingError as DecodingError:
-            switch decodingError {
-            case let .typeMismatch(_, context), let .valueNotFound(_, context),
-                 let .keyNotFound(_, context), let .dataCorrupted(context):
-                let path = context.codingPath.map(\.stringValue).joined(separator: ".")
-                return "could not decode the response at \(path.isEmpty ? "the top level" : path)"
-            @unknown default:
-                return "could not decode the response"
-            }
-        default:
-            let nsError = error as NSError
-            // Foundation and system errors print their userInfo, which may hold a URL.
-            if nsError.domain == NSURLErrorDomain || nsError.domain == NSCocoaErrorDomain
-                || nsError.domain == NSPOSIXErrorDomain || nsError.domain == NSOSStatusErrorDomain
-                || nsError.domain == (kCFErrorDomainCFNetwork as String) {
-                return "\(nsError.domain) \(nsError.code)"
-            }
-            return String(describing: error)
+        redactSecrets(describe(error, depth: 0))
+    }
+
+    private static func describe(_ error: Error, depth: Int) -> String {
+        if let decodingError = error as? DecodingError {
+            return describe(decodingError)
         }
+        let nsError = error as NSError
+        var text = "\(nsError.domain) \(nsError.code)"
+        // Foundation's stand-in sentence ("The operation couldn't be completed") says no more
+        // than the domain and code, so only a description the error carries goes in.
+        let description = nsError.userInfo[NSLocalizedDescriptionKey] as? String
+        if let description { text += ": \(description)" }
+        // A Swift error's own description names its case and values; a bridged Foundation
+        // error prints as "Error Domain=...", which repeats the above.
+        let swiftDescription = String(describing: error)
+        if swiftDescription != description, !swiftDescription.hasPrefix("Error Domain=") {
+            text += " (\(swiftDescription))"
+        }
+        if let url = nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String {
+            text += " url=\(url)"
+        } else if let url = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL {
+            text += " url=\(url.absoluteString)"
+        }
+        for key in [NSLocalizedFailureReasonErrorKey, NSDebugDescriptionErrorKey, NSLocalizedRecoverySuggestionErrorKey] {
+            if let extra = nsError.userInfo[key] as? String, !text.contains(extra) {
+                text += " \(key == NSDebugDescriptionErrorKey ? "debug" : "reason")=\(extra)"
+            }
+        }
+        if depth < 4, let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+            text += "; underlying: \(describe(underlying, depth: depth + 1))"
+        }
+        return text
+    }
+
+    private static func describe(_ decodingError: DecodingError) -> String {
+        switch decodingError {
+        case let .typeMismatch(_, context), let .valueNotFound(_, context),
+             let .keyNotFound(_, context), let .dataCorrupted(context):
+            let path = context.codingPath.map(\.stringValue).joined(separator: ".")
+            return "could not decode the response at \(path.isEmpty ? "the top level" : path): \(context.debugDescription)"
+        @unknown default:
+            return "could not decode the response: \(decodingError)"
+        }
+    }
+
+    /// Query items and headers that carry a secret. Their values never reach the log.
+    private static let secretPatterns: [(NSRegularExpression?, String)] = [
+        // A URL's query: `?code=...&state=...`, `access_token=...`.
+        (pattern(#"(?i)\b(access_token|refresh_token|id_token|client_secret|code_verifier|token|password)=[^&\s"',;)]+"#), "$1=<hidden>"),
+        // An OAuth `code=`, but not a bare number: `Code=-1001` in an error's own text is no secret.
+        (pattern(#"(?i)\b(code)=(?!-?\d+(?:[&\s"',;)]|$))[^&\s"',;)]+"#), "$1=<hidden>"),
+        // A header written out, `Authorization: Bearer ...`, `Cookie: ...`, or as a printed
+        // dictionary, `"Music-User-Token": "..."` (MusicKit's request errors print their headers).
+        (pattern(#"(?i)\b(proxy-authorization|authorization|set-cookie|cookie|password|music-user-token|media-user-token|x-apple-[a-z-]*token)("?\s*[:=]\s*"?)[^\n,;"]+"#), "$1$2<hidden>"),
+        (pattern(#"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+"#), "Bearer <hidden>"),
+    ]
+
+    private static func pattern(_ pattern: String) -> NSRegularExpression? {
+        do {
+            return try NSRegularExpression(pattern: pattern)
+        } catch {
+            // Constant patterns; FullLogTests.testSecretsAreHidden fails on a broken one.
+            let diagnostics = Logger(subsystem: subsystem, category: "log-file")
+            diagnostics.fault("Secret pattern does not compile: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    /// `text` with every token, code, cookie and password value replaced by `<hidden>`.
+    static func redactSecrets(_ text: String) -> String {
+        var result = text
+        for (pattern, template) in secretPatterns {
+            guard let pattern else { continue }
+            result = pattern.stringByReplacingMatches(
+                in: result,
+                range: NSRange(result.startIndex..., in: result),
+                withTemplate: template
+            )
+        }
+        return result
     }
 
     /// The folder the log files go to: the real `Logs` folder for the app, a per-run
@@ -171,8 +235,9 @@ enum SpotiglassLog {
 final class FileLogSink {
     static let shared = FileLogSink()
 
-    /// About an hour of detailed playback lines; four files of this size at most.
-    static let defaultMaxBytes: UInt64 = 8 * 1024 * 1024
+    /// A few hours of the full log (#734: every interaction, call and player change); four
+    /// files of this size at most.
+    static let defaultMaxBytes: UInt64 = 32 * 1024 * 1024
 
     static let currentFileName = "spotiglass.log"
     static let earlierFileName = "spotiglass.earlier.log"

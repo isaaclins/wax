@@ -44,6 +44,9 @@ struct SpotiglassApp: App {
             // the updater or playback, because it quits as soon as the renamed copy is running.
             LegacyBundleRelaunch.relaunchFromRenamedBundleIfNeeded()
             AudioOutputTrace.shared.start()
+            // The full log (#734): interactions, hangs. Calls, artwork and the player log themselves.
+            InteractionLog.shared.start()
+            HangWatch.shared.start(followingAppActivity: true)
         }
         // Under the unit-test host, point the store at a throwaway file so running
         // tests never read, write, or migrate the developer's real settings (#27).

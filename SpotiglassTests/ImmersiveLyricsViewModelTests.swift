@@ -552,8 +552,9 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         XCTAssertEqual(vm.phase, .ready(Self.syncedLyrics))
     }
 
-    /// A connection failure's log line names the error, never the request: its URL holds the song (#603).
-    func testConnectionFailureLogNeverCarriesTheRequestURL() {
+    /// A connection failure's log line names the error and the request it failed on (#734 reversed
+    /// #603: the log stays on the user's Mac until they send it).
+    func testConnectionFailureLogCarriesTheWholeError() {
         let url = "https://lrclib.net/api/get?track_name=Cirrus&artist_name=Bonobo"
         let cfNetwork = NSError(
             domain: kCFErrorDomainCFNetwork as String,
@@ -561,7 +562,9 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
             userInfo: [NSURLErrorFailingURLStringErrorKey: url]
         )
         XCTAssertTrue(ImmersiveLyricsViewModel.isConnectionFailure(cfNetwork))
-        XCTAssertEqual(SpotiglassLog.describe(cfNetwork), "\(kCFErrorDomainCFNetwork as String) 2")
+        let line = SpotiglassLog.describe(cfNetwork)
+        XCTAssertTrue(line.hasPrefix("\(kCFErrorDomainCFNetwork as String) 2 "), line)
+        XCTAssertTrue(line.contains("url=\(url)"), line)
     }
 
     func testOfflineFailureIsForgottenAfterARelaunch() async throws {

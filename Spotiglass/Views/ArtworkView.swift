@@ -130,6 +130,18 @@ struct MusicKitArtwork: View {
                 // drag can't copy the previous cover before MusicKit draws the new one.
                 .id(url)
                 .background(OnScreenArtworkMarker(url: url, itemKey: itemKey))
+                .onAppear {
+                    // MusicKit loads these itself and says nothing about how long it took (#734).
+                    SpotiglassLog.debug(.artwork, "cover \(url.absoluteString) drawn by MusicKit at \(Int(width))x\(Int(height)) pt")
+                }
+        } else if let url, AppleMusicArtworkRegistry.needsMusicKit(url) {
+            Color.clear
+                .frame(width: 0, height: 0)
+                .onAppear {
+                    // Info, not error: errors are written before returning, and this runs on the
+                    // main thread for every such cover scrolled into view.
+                    SpotiglassLog.info(.artwork, "cover \(url.absoluteString) unknown to MusicKit (item \(itemKey ?? "none")); the placeholder shows")
+                }
         }
     }
 }

@@ -89,7 +89,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             // The browser's reads, which follow long catalog albums and playlists without
             // MusicKit's batches (#465).
             let source = MusicKitContentSource()
-            guard var album = try await Self.mapped({ try await source.album(id: id) }) else { throw Self.notFound(id) }
+            guard var album = try await Self.mapped("album \(id) for Play", { try await source.album(id: id) }) else { throw Self.notFound(id) }
             // A saved album's page shows its catalog album, so its Play plays that (#658): the
             // one the page matched, else the one the saved album names.
             if let catalogID = AppleMusicCatalogMatches.shared.catalogID(for: id) ?? AppleMusicBrowsingProvider.catalogID(of: album) {
@@ -101,10 +101,10 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
                     SpotiglassLog.info(.playback, "Catalog album read for Play failed (\(MusicKitContentSource.describe(error))); playing the saved album")
                 }
             }
-            resolved = try await Self.entries(for: Self.mapped { try await source.tracks(of: album, limit: Self.contextTrackLimit) })
+            resolved = try await Self.entries(for: Self.mapped("album tracks for Play") { try await source.tracks(of: album, limit: Self.contextTrackLimit) })
         case let .playlist(id):
             let source = MusicKitContentSource()
-            guard let tracks = try await Self.mapped({
+            guard let tracks = try await Self.mapped("playlist tracks for Play", {
                 try await source.playlistTracks(playlistID: id, limit: Self.contextTrackLimit)
             }) else { throw Self.notFound(id) }
             resolved = Self.entries(for: tracks)
@@ -211,7 +211,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
                 PlaybackTrace.shared.command(
                     "addToQueue", "after current (carried into a shuffled queue)", planned: carried.count
                 )
-                try await Self.mapped {
+                try await Self.mapped("player queue.insert after current (carried)") {
                     try await self.player.queue.insert(item.entry, position: .afterCurrentEntry)
                 }
             }
@@ -237,7 +237,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         let requestedAt = PlaybackTrace.shared.recentRequestAt
         let sentAt = ContinuousClock.now
         let before = soundWatch.readNow()
-        try await Self.mapped { try await self.player.play() }
+        try await Self.mapped("player.play (resume)") { try await self.player.play() }
         starts.playerPlays()
         soundWatch.watch("resume", for: .moves, sentAt: sentAt, before: before, requestedAt: requestedAt)
     }
@@ -262,7 +262,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         let requestedAt = PlaybackTrace.shared.recentRequestAt
         let sentAt = ContinuousClock.now
         let before = soundWatch.readNow()
-        try await Self.mapped { try await self.player.skipToNextEntry() }
+        try await Self.mapped("player.skipToNextEntry") { try await self.player.skipToNextEntry() }
         starts.playerPlays()
         soundWatch.watch("skipToNext", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
     }
@@ -272,7 +272,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         let requestedAt = PlaybackTrace.shared.recentRequestAt
         let sentAt = ContinuousClock.now
         let before = soundWatch.readNow()
-        try await Self.mapped { try await self.player.skipToPreviousEntry() }
+        try await Self.mapped("player.skipToPreviousEntry") { try await self.player.skipToPreviousEntry() }
         starts.playerPlays()
         soundWatch.watch("skipToPrevious", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
     }
@@ -374,7 +374,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             let position: MusicPlayer.Queue.EntryInsertionPosition =
                 atEnd && !plan.isAfterCurrent ? .tail : .afterCurrentEntry
             do {
-                try await Self.mapped {
+                try await Self.mapped("player queue.insert at \(position == .tail ? "end" : "after current")") {
                     try await self.player.queue.insert(resolved.entry, position: position)
                 }
             } catch {
@@ -687,8 +687,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         let itemID = MusicItemID(id)
         var request = MusicLibraryRequest<Song>()
         request.filter(matching: \.id, equalTo: itemID)
-        if let song = try await mapped({ try await request.response().items.first }) { return song }
-        return try await mapped {
+        if let song = try await mapped("library song \(id)", { try await request.response().items.first }) { return song }
+        return try await mapped("catalog song \(id)") {
             try await MusicCatalogResourceRequest<Song>(matching: \.id, equalTo: itemID).response().items.first
         }
     }
@@ -698,19 +698,19 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     private static func artistSongs(id: String) async throws -> [Song] {
         let itemID = MusicItemID(id)
         if MusicKitLibraryLookup.isCatalogID(id) {
-            let artist = try await mapped {
+            let artist = try await mapped("catalog artist \(id)") {
                 try await MusicCatalogResourceRequest<Artist>(matching: \.id, equalTo: itemID).response().items.first
             }
-            let topSongs = try await mapped({ try await artist?.with([.topSongs]) })?.topSongs ?? []
+            let topSongs = try await mapped("catalog artist \(id) top songs", { try await artist?.with([.topSongs]) })?.topSongs ?? []
             if !topSongs.isEmpty { return Array(topSongs.prefix(artistSongLimit)) }
         }
         var artistRequest = MusicLibraryRequest<Artist>()
         artistRequest.filter(matching: \.id, equalTo: itemID)
-        guard let artist = try await mapped({ try await artistRequest.response().items.first }) else { return [] }
+        guard let artist = try await mapped("library artist \(id)", { try await artistRequest.response().items.first }) else { return [] }
         var songRequest = MusicLibraryRequest<Song>()
         songRequest.filter(matching: \.artists, contains: artist)
         songRequest.limit = artistSongLimit
-        let songs: MusicLibraryResponse<Song> = try await mapped { try await songRequest.response() }
+        let songs: MusicLibraryResponse<Song> = try await mapped("library songs of artist \(id)") { try await songRequest.response() }
         return Array(songs.items)
     }
 
@@ -780,7 +780,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     // MARK: - Errors
 
     private func requireSubscription() async throws {
-        let subscription = try await Self.mapped { try await MusicSubscription.current }
+        let subscription = try await Self.mapped("subscription read") { try await MusicSubscription.current }
         guard subscription.canPlayCatalogContent else {
             throw MusicPlaybackError(service: .appleMusic, reason: .subscriptionRequired(message: nil), detail: "canPlayCatalogContent is false")
         }
@@ -790,10 +790,10 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         MusicPlaybackError(service: .appleMusic, reason: .notFound, detail: "No Apple Music item for \(id)")
     }
 
-    /// Runs a MusicKit call and turns its failure into a ``MusicPlaybackError``.
-    private static func mapped<T>(_ work: () async throws -> T) async throws -> T {
+    /// Runs the MusicKit call `name`, logs it (#734) and turns its failure into a ``MusicPlaybackError``.
+    private static func mapped<T>(_ name: @autoclosure () -> String, _ work: () async throws -> T) async throws -> T {
         do {
-            return try await work()
+            return try await CallLog.run(.musicKit, name(), describe: MusicKitContentSource.describe, work)
         } catch {
             throw mappedError(error)
         }
@@ -1190,12 +1190,12 @@ final class MusicKitQueueStarter: AppleMusicQueueStarting {
 
     func play() async throws {
         PlaybackTrace.shared.command("play", "(queue start)")
-        try await player.play()
+        try await CallLog.run(.musicKit, "player.play (queue start)", describe: MusicKitContentSource.describe) { try await player.play() }
     }
 
     func prepareToPlay() async throws {
         PlaybackTrace.shared.command("prepareToPlay", "(queue start)")
-        try await player.prepareToPlay()
+        try await CallLog.run(.musicKit, "player.prepareToPlay (queue start)", describe: MusicKitContentSource.describe) { try await player.prepareToPlay() }
     }
 
     func pause() {
@@ -1241,6 +1241,11 @@ enum AppleMusicSongChange {
     struct Seen: Equatable {
         let positionMilliseconds: Int
         let durationMilliseconds: Int?
+        /// When it was read (`systemUptime`) and how fast the song moved then (0 when paused).
+        /// The session stops reading the player while Wax is in the background, so the last read
+        /// can be minutes old when the player moves on: the position is counted on from it (#734).
+        var readAt: TimeInterval = 0
+        var rate: Double = 0
     }
 
     /// A song command this recent is what moved the player.
@@ -1248,18 +1253,25 @@ enum AppleMusicSongChange {
     /// The position is read about once a second, so a song this close to its end ended.
     static let endMargin = 3000
 
-    static func reason(before: Seen?, command: String?) -> String? {
+    static func reason(before: Seen?, command: String?, now: TimeInterval = ProcessInfo.processInfo.systemUptime) -> String? {
         if let command { return "after \(command)" }
         guard let before else { return nil }
-        let at = PlaybackPositionWatch.time(before.positionMilliseconds)
+        // Counted on from the read while the song moved, never past its end. A seek after that
+        // read would make it wrong, so an old read is named.
+        let readAgo = max(0, now - before.readAt)
+        var position = before.positionMilliseconds + Int((readAgo * max(before.rate, 0) * 1000).rounded())
+        if let duration = before.durationMilliseconds { position = min(position, duration) }
+        let counted = before.rate > 0 && readAgo > 1.5
+            ? ", counted on from a read \(PlaybackTrace.seconds(.milliseconds(Int(readAgo * 1000)))) before" : ""
+        let at = PlaybackPositionWatch.time(position)
         guard let duration = before.durationMilliseconds else {
-            return "no song command sent; the song before was last seen at \(at)"
+            return "no song command sent; the song before was last seen at \(at)\(counted)"
         }
         let of = PlaybackPositionWatch.time(duration)
-        if before.positionMilliseconds >= duration - endMargin {
-            return "the song before ended (\(at) of \(of))"
+        if position >= duration - endMargin {
+            return "the song before ended (\(at) of \(of)\(counted))"
         }
-        return "MusicKit moved on by itself, no song command sent: the song before stopped at \(at) of \(of)"
+        return "MusicKit moved on by itself, no song command sent: the song before stopped at \(at) of \(of)\(counted)"
     }
 }
 
@@ -1282,6 +1294,7 @@ final class AppleMusicPlayerStateObserver {
     /// player is on another song when it moves on (#735).
     private var lastSeen: AppleMusicSongChange.Seen?
     private var justChanged = false
+    private var lastAudioVariant: String?
 
     private var queueSubscription: AnyCancellable?
     private var subscribedQueue: ObjectIdentifier?
@@ -1333,6 +1346,13 @@ final class AppleMusicPlayerStateObserver {
             lastRate = rate
             changed = true
         }
+        let variant = player.state.audioVariant.map { "\($0)" } ?? "not reported"
+        if variant != lastAudioVariant {
+            // What MusicKit says it streams: lossless, hi-res, Dolby Atmos, or lossy stereo (#734).
+            PlaybackTrace.shared.playerReported("audio variant \(lastAudioVariant ?? "unknown") -> \(variant)")
+            lastAudioVariant = variant
+            changed = true
+        }
         let current = player.queue.currentEntry
         let entryID = current?.id
         if lastEntryID != .some(entryID) {
@@ -1342,8 +1362,10 @@ final class AppleMusicPlayerStateObserver {
                 before: lastSeen,
                 command: PlaybackTrace.shared.songCommand(within: AppleMusicSongChange.commandWindow)
             )
+            // The song by name, so the log says which song came on (#734).
+            let title = current.map { "\"\($0.title)\"" + ($0.subtitle.map { " by \($0)" } ?? "") } ?? "nothing"
             PlaybackTrace.shared.playerReported(
-                "current entry -> \(entryID ?? "none") (position \(index.map { "\($0 + 1)" } ?? "-") of \(entries.count))"
+                "current entry -> \(entryID ?? "none") \(title) (position \(index.map { "\($0 + 1)" } ?? "-") of \(entries.count))"
                     + (why.map { ": \($0)" } ?? "")
             )
             lastEntryID = .some(entryID)
@@ -1357,7 +1379,12 @@ final class AppleMusicPlayerStateObserver {
             let milliseconds = seconds.isFinite ? Int((seconds * 1000).rounded()) : nil
             // The first read after a change can still carry the song before's time.
             if let milliseconds, !justChanged || milliseconds < 1500 {
-                lastSeen = AppleMusicSongChange.Seen(positionMilliseconds: milliseconds, durationMilliseconds: duration)
+                lastSeen = AppleMusicSongChange.Seen(
+                    positionMilliseconds: milliseconds,
+                    durationMilliseconds: duration,
+                    readAt: ProcessInfo.processInfo.systemUptime,
+                    rate: player.state.playbackStatus == .playing ? Double(max(rate, 0)) : 0
+                )
             }
             justChanged = false
         }

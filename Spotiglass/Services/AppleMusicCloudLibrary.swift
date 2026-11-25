@@ -56,14 +56,12 @@ struct MusicDataRequestCloudLibrary: AppleMusicCloudLibrary {
 
     @Sendable static func musicDataRequest(_ request: URLRequest) async throws -> Data {
         do {
-            return try await MusicDataRequest(urlRequest: request).response().data
+            return try await MusicKitContentSource.logged("API \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "")") {
+                try await MusicDataRequest(urlRequest: request).response().data
+            }
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            SpotiglassLog.error(
-                .api,
-                "Apple Music \(request.httpMethod ?? "GET") \(request.url?.path ?? "") failed: \(error)"
-            )
             if let dataError = error as? MusicDataRequest.Error, dataError.status == 404 {
                 throw AppleMusicLibraryEditError.notFound
             }

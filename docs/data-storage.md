@@ -18,6 +18,7 @@ Wax keeps minimal state on disk. Refresh tokens never leave the Keychain for web
 | Cached Web API GET bodies        | `~/Library/Application Support/Spotiglass/SpotifyCache/get_responses/` (SHA256-named JSON; public search, artist and album-track pages - short TTL) | Public catalog responses survive **Disconnect**. Private `/v1/me` responses are not cached. |
 | Artwork image blobs               | `~/Library/Caches/Spotiglass/Artwork/` (SHA256-named files); HTTP layer also uses `~/Library/Caches/Spotiglass/ArtworkURLCache/`       | Disconnect (cleared with Spotify cache); eviction trims disk blobs when the artwork folder exceeds ~50 MB                           |
 | LRCLIB lyrics (per track id)        | `~/Library/Application Support/Spotiglass/LyricsCache/<trackId>.json` (resolved ``FetchedLyrics`` from LRCLIB)                        | Delete files in that folder, or remove the whole `LyricsCache` directory, to drop on-disk lyrics only (does not affect playlist cache) |
+| App log                           | `~/Library/Application Support/Spotiglass/Logs/spotiglass.log` (this session) and `spotiglass.previous.log` (the one before), each with an `.earlier.log` part once it passes 32 MB, so at most four files and 128 MB. Everything Wax does goes in: every click, key, shortcut, scroll, menu pick and window change; every MusicKit call and HTTP request with its URL, time and whole error; every player change with its reason; the output device, its format and which app uses the microphone; covers; main-thread hangs with a stack sample; memory and CPU once a minute while playing. Tokens, codes, cookies and passwords are taken out. It stays on this Mac until you attach it to a report | Wax rotates the files at every launch; delete the folder any time |
 | Web Playback SDK web data         | Non-persistent `WKWebView` data store (in-memory for that session)                                                                      | Quitting Wax                                                                                 |
 
 ### `settings.json` shape
@@ -61,7 +62,7 @@ Hand-edits to the file are picked up live by Wax via a file-system watcher.
 - Loaded URLs are deduplicated in memory and stored on disk as image bytes (not JSON). Same artwork URL reuses cache across scrolling and restarts until cleared.
 - Does not contain tokens or credentials.
 
-Logs surfaced via playback diagnostics contain SDK status strings only — never tokens.
+The log (see the table above) never contains tokens, authorization codes, cookies or passwords.
 
 ## Troubleshooting Keychain errors
 
