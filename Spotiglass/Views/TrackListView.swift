@@ -450,6 +450,8 @@ private struct TrackListRows<Row: View>: View, Equatable {
     var body: some View {
         #if DEBUG
         let _ = ViewBodyTally.record("TrackListRows")
+        // Per list as well, for a test that hosts several lists one after the other.
+        let _ = rowContentKey.map { ViewBodyTally.record("TrackListRows:\($0.base)") }
         #endif
         ForEach(tracks) { track in
             // One view per song, whatever the row builder returns: a builder's view

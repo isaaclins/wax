@@ -70,6 +70,50 @@ final class DetailSurfaceRegressionTests: XCTestCase {
         )
     }
 
+    /// On an artist page the table handles the double-click and the song menu of its rows, with
+    /// the page's own actions, and the "In your library" songs under the table keep their own
+    /// menu: the table's doesn't reach them (#689, #658).
+    func testTheArtistPageTableAndItsLibrarySongsEachHaveTheirSongMenu() throws {
+        let artist = MusicArtistDetail(
+            id: "artist-1", name: "Artist", imageURL: nil, followersTotal: nil, genres: [], uri: "spotify:artist:artist-1"
+        )
+        let top = PlaylistBrowsingTestFixtures.fallbackTrack(id: "top", name: "Top", artistId: artist.id)
+        let saved = PlaylistBrowsingTestFixtures.fallbackTrack(id: "saved", name: "Saved", artistId: artist.id)
+        let detail = ArtistDetailViewModel(
+            artist: artist, tracks: [top], albums: [], extras: MusicArtistPageExtras(topTracks: [top], libraryTracks: [saved])
+        )
+        let browserViewModel = PlaylistBrowserViewModel(api: MockBrowsingAPI(playlistResults: [], trackResults: [:]), cache: MockBrowsingCache())
+        var played: [String] = []
+        let view = ArtistDetailContent(
+            detail: detail,
+            browserViewModel: browserViewModel,
+            playTrack: { played.append($0) },
+            openAlbum: { _ in },
+            playAlbumContext: { _ in },
+            playback: .nothingPlaying,
+            togglePlayPause: {},
+            hasPlaybackDevice: true,
+            addToQueue: { _ in },
+            openArtist: { _ in },
+            loadMoreAlbums: {}
+        )
+        .environmentObject(pinnedStore())
+        ViewTestHost.host(view, size: CGSize(width: 800, height: 700))
+
+        let table = try view.inspect().find(TrackListView<PlaybackValueReader<TrackRowPlaybackMark, TrackListRow>>.self).actualView()
+        let actions = try XCTUnwrap(table.rowActions, "the artist page's table has no double-click or song menu")
+        let topRow = detail.tracks[0]
+        actions.activate(topRow)
+        XCTAssertEqual(played, [topRow.playableURI].compactMap { $0 }, "a double-click didn't play the artist's song")
+        let tableMenu = try actions.menuItems([topRow]).inspect().find(TrackOpsMenuItems.self).actualView()
+        XCTAssertEqual(tableMenu.targets.map(\.id), [topRow.id], "the table's menu isn't for its row")
+
+        let libraryRow = try view.inspect().find(TrackListRow.self, where: { try $0.actualView().track.id == detail.libraryTracks[0].id }).actualView()
+        XCTAssertTrue(libraryRow.handlesClicks, "a library song lost its own double-click and menu")
+        let libraryMenu = try XCTUnwrap(libraryRow.trackOpsMenuItems, "a library song has no song menu")()
+        XCTAssertEqual(try libraryMenu.inspect().find(TrackOpsMenuItems.self).actualView().targets.map(\.id), [detail.libraryTracks[0].id])
+    }
+
     func testNativeTrackListWritesSelectionBinding() throws {
         let track = TrackRowViewModel.numberedTopTracks([
             PlaylistBrowsingTestFixtures.fallbackTrack(
@@ -452,10 +496,11 @@ final class DetailSurfaceRegressionTests: XCTestCase {
             "the rows the selection changed weren't built again: \(record.builds)"
         )
         await AppKitTestSupport.settle()
-        // The list of rows itself isn't built again: that went through every row of the list. Rows the
-        // selection didn't change aren't counted: something around the list can still draw them again
-        // (it happened once in a full `make test`, every row with its selection unchanged).
-        XCTAssertNil(ViewBodyTally.counts?["TrackListRows"], "a new selection built the list of rows again")
+        // The list of rows itself isn't built again: that went through every row of the list. Counted
+        // for this list only: one an earlier test hosted can still be drawn while this one runs. Rows
+        // the selection didn't change aren't counted either: something around the list can still
+        // draw them again.
+        XCTAssertNil(ViewBodyTally.counts?["TrackListRows:list"], "a new selection built the list of rows again")
         ViewBodyTally.counts = nil
 
         // The keyboard leaves through AppKit, which SwiftUI's own focus state didn't notice: it still

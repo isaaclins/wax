@@ -136,21 +136,7 @@ struct ArtistDetailContent: View {
                     invocation: { TrackListRow.playbackInvocation(of: $0, mark: marks.mark(of: $0)) },
                     playURI: playTrack,
                     togglePlayPause: togglePlayPause,
-                    menuItems: { targets in
-                        AnyView(TrackOpsMenuItems(
-                            targets: targets,
-                            browserViewModel: browserViewModel,
-                            sourcePlaylistID: nil,
-                            onRequestCreatePlaylist: onRequestCreatePlaylist,
-                            onRequestLibraryContinuation: onRequestLibraryContinuation,
-                            openArtist: { target in
-                                if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
-                            },
-                            addToQueue: addToQueue,
-                            hasPlaybackDevice: hasPlaybackDevice,
-                            copyableURI: targets.count == 1 ? targets.first?.playableURI : nil
-                        ))
-                    },
+                    menuItems: trackMenu,
                     prepareMenus: { browserViewModel.prepareTrackMenus(for: $0) }
                 ),
                 headerContent: AnyView(listHeader),
@@ -322,22 +308,25 @@ struct ArtistDetailContent: View {
             isSelected: browserViewModel.selectedDetailTrackIDs.contains(track.id),
             drawsRowHighlights: false,
             isKeyboardFocusable: false,
-            trackOpsMenuItems: {
-                AnyView(TrackOpsMenuItems(
-                    targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
-                    browserViewModel: browserViewModel,
-                    sourcePlaylistID: nil,
-                    onRequestCreatePlaylist: onRequestCreatePlaylist,
-                    onRequestLibraryContinuation: onRequestLibraryContinuation,
-                    openArtist: { target in
-                        if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
-                    },
-                    addToQueue: addToQueue,
-                    hasPlaybackDevice: hasPlaybackDevice,
-                    copyableURI: track.playableURI
-                ))
-            }
+            trackOpsMenuItems: { trackMenu(for: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows)) }
         )
+    }
+
+    /// The song menu for `targets`, after its Play item: the table's rows and the library's.
+    private func trackMenu(for targets: [TrackRowViewModel]) -> AnyView {
+        AnyView(TrackOpsMenuItems(
+            targets: targets,
+            browserViewModel: browserViewModel,
+            sourcePlaylistID: nil,
+            onRequestCreatePlaylist: onRequestCreatePlaylist,
+            onRequestLibraryContinuation: onRequestLibraryContinuation,
+            openArtist: { target in
+                if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
+            },
+            addToQueue: addToQueue,
+            hasPlaybackDevice: hasPlaybackDevice,
+            copyableURI: targets.count == 1 ? targets.first?.playableURI : nil
+        ))
     }
 
     @ViewBuilder
