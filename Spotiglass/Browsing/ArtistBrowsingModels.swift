@@ -41,26 +41,45 @@ struct ArtistDetailViewModel: Equatable {
     let appearsOn: [ArtistAlbumRowViewModel]
     let canLoadMoreAlbums: Bool
     let isLoadingMoreAlbums: Bool
+    /// The "In your library" section: what the listener saved from the artist (#658). Empty
+    /// when nothing is saved, and always on Spotify.
+    let libraryTracks: [TrackRowViewModel]
+    let libraryAlbums: [ArtistAlbumRowViewModel]
+    /// What the page was built from, so a page of more albums keeps the section.
+    let extras: MusicArtistPageExtras?
 
+    /// `extras` come from a service that lists releases in the order to show them (Apple Music,
+    /// newest first), so they keep that order; without them releases go by name, as before.
     init(
         artist: MusicArtistDetail,
         tracks: [MusicTrack],
         albums: [MusicArtistAlbum],
         canLoadMoreAlbums: Bool = false,
-        isLoadingMoreAlbums: Bool = false
+        isLoadingMoreAlbums: Bool = false,
+        extras: MusicArtistPageExtras? = nil
     ) {
         self.artist = artist
         self.tracks = TrackRowViewModel.numberedTopTracks(tracks)
         let grouped = Dictionary(grouping: albums, by: \.group)
-        let sort: (MusicArtistAlbum, MusicArtistAlbum) -> Bool = { lhs, rhs in
-            lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        let ordered: ([MusicArtistAlbum]) -> [ArtistAlbumRowViewModel] = { group in
+            let sorted = extras != nil ? group : group.sorted { lhs, rhs in
+                lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+            return sorted.map(ArtistAlbumRowViewModel.init)
         }
-        self.albums = (grouped[.album] ?? []).sorted(by: sort).map(ArtistAlbumRowViewModel.init)
-        self.singles = (grouped[.single] ?? []).sorted(by: sort).map(ArtistAlbumRowViewModel.init)
-        self.compilations = (grouped[.compilation] ?? []).sorted(by: sort).map(ArtistAlbumRowViewModel.init)
-        self.appearsOn = (grouped[.appearsOn] ?? []).sorted(by: sort).map(ArtistAlbumRowViewModel.init)
+        self.albums = ordered(grouped[.album] ?? [])
+        self.singles = ordered(grouped[.single] ?? [])
+        self.compilations = ordered(grouped[.compilation] ?? [])
+        self.appearsOn = ordered(grouped[.appearsOn] ?? [])
         self.canLoadMoreAlbums = canLoadMoreAlbums
         self.isLoadingMoreAlbums = isLoadingMoreAlbums
+        self.libraryTracks = TrackRowViewModel.numberedTopTracks(extras?.libraryTracks ?? [])
+        self.libraryAlbums = (extras?.libraryAlbums ?? []).map(ArtistAlbumRowViewModel.init)
+        self.extras = extras
+    }
+
+    var hasLibrarySection: Bool {
+        !libraryTracks.isEmpty || !libraryAlbums.isEmpty
     }
 }
 

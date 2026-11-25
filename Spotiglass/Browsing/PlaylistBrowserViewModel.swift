@@ -226,6 +226,8 @@ final class PlaylistBrowserViewModel: ObservableObject {
         let tracks: [MusicTrack]
         let usedStaleCache: Bool
         let paging: ArtistAlbumsPagingState?
+        /// Top songs and saved items, from a service that has them (#658).
+        var extras: MusicArtistPageExtras?
     }
 
     struct CachedArtistSnapshot {

@@ -59,6 +59,7 @@
 		SRC0000000000000000000031 /* AppleMusicItemMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080031 /* AppleMusicItemMapping.swift */; };
 		SRC00000000000000000000B7 /* AppleEventMusicAppScriptRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC00000000000000000800B7 /* AppleEventMusicAppScriptRunner.swift */; };
 		SRC00000000000000000000B5 /* AppleMusicBrowsingProvider+LibraryEdits.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC00000000000000000800B5 /* AppleMusicBrowsingProvider+LibraryEdits.swift */; };
+		F658000000000000000000B1 /* AppleMusicBrowsingProvider+CatalogFirst.swift in Sources */ = {isa = PBXBuildFile; fileRef = F658000000000000000000F1 /* AppleMusicBrowsingProvider+CatalogFirst.swift */; };
 		SRC00000000000000000000B4 /* MusicKitLibraryLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC00000000000000000800B4 /* MusicKitLibraryLookup.swift */; };
 		SRC00000000000000000000B3 /* AppleMusicPendingLibraryEdits.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC00000000000000000800B3 /* AppleMusicPendingLibraryEdits.swift */; };
 		SRC00000000000000000000B2 /* MusicAppLibraryScripting.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC00000000000000000800B2 /* MusicAppLibraryScripting.swift */; };
@@ -564,6 +565,7 @@
 		SRC0000000000000000080031 /* AppleMusicItemMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicItemMapping.swift; sourceTree = "<group>"; };
 		SRC00000000000000000800B7 /* AppleEventMusicAppScriptRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleEventMusicAppScriptRunner.swift; sourceTree = "<group>"; };
 		SRC00000000000000000800B5 /* AppleMusicBrowsingProvider+LibraryEdits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppleMusicBrowsingProvider+LibraryEdits.swift"; sourceTree = "<group>"; };
+		F658000000000000000000F1 /* AppleMusicBrowsingProvider+CatalogFirst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppleMusicBrowsingProvider+CatalogFirst.swift"; sourceTree = "<group>"; };
 		SRC00000000000000000800B4 /* MusicKitLibraryLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicKitLibraryLookup.swift; sourceTree = "<group>"; };
 		SRC00000000000000000800B3 /* AppleMusicPendingLibraryEdits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicPendingLibraryEdits.swift; sourceTree = "<group>"; };
 		SRC00000000000000000800B2 /* MusicAppLibraryScripting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicAppLibraryScripting.swift; sourceTree = "<group>"; };
@@ -1108,6 +1110,7 @@
 				SRC0000000000000000080031 /* AppleMusicItemMapping.swift */,
 				SRC00000000000000000800B7 /* AppleEventMusicAppScriptRunner.swift */,
 				SRC00000000000000000800B5 /* AppleMusicBrowsingProvider+LibraryEdits.swift */,
+				F658000000000000000000F1 /* AppleMusicBrowsingProvider+CatalogFirst.swift */,
 				SRC00000000000000000800B4 /* MusicKitLibraryLookup.swift */,
 				SRC00000000000000000800B3 /* AppleMusicPendingLibraryEdits.swift */,
 				SRC00000000000000000800B2 /* MusicAppLibraryScripting.swift */,
@@ -1866,6 +1869,7 @@
 				SRC0000000000000000000031 /* AppleMusicItemMapping.swift in Sources */,
 				SRC00000000000000000000B7 /* AppleEventMusicAppScriptRunner.swift in Sources */,
 				SRC00000000000000000000B5 /* AppleMusicBrowsingProvider+LibraryEdits.swift in Sources */,
+				F658000000000000000000B1 /* AppleMusicBrowsingProvider+CatalogFirst.swift in Sources */,
 				SRC00000000000000000000B4 /* MusicKitLibraryLookup.swift in Sources */,
 				SRC00000000000000000000B3 /* AppleMusicPendingLibraryEdits.swift in Sources */,
 				SRC00000000000000000000B2 /* MusicAppLibraryScripting.swift in Sources */,

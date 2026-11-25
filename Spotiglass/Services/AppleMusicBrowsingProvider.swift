@@ -128,6 +128,8 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     /// sidebar refresh shows them straight away.
     let trackCountCache: AppleMusicPlaylistTrackCountCache
     let editor: AppleMusicLibraryEditor
+    /// Saved artists and albums matched to their catalog copy (#658).
+    let catalogMatches: AppleMusicCatalogMatches
     /// How long a list waits for its songs' ratings before it shows without them (#518). The
     /// lookups carry on, so the next read of the list has them. Tests replace it.
     var ratingsDeadline: @Sendable () async -> Void = { try? await Task.sleep(for: AppleMusicBrowsingProvider.ratingsWait) }
@@ -142,9 +144,11 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         source: any AppleMusicContentSource = MusicKitContentSource(),
         artistAlbumsCache: AppleMusicArtistAlbumsCache = AppleMusicArtistAlbumsCache(),
         trackCountCache: AppleMusicPlaylistTrackCountCache = AppleMusicPlaylistTrackCountCache(),
-        editor: AppleMusicLibraryEditor = AppleMusicLibraryEditor()
+        editor: AppleMusicLibraryEditor = AppleMusicLibraryEditor(),
+        catalogMatches: AppleMusicCatalogMatches = AppleMusicCatalogMatches()
     ) {
         self.source = source
+        self.catalogMatches = catalogMatches
         self.artistAlbumsCache = artistAlbumsCache
         self.trackCountCache = trackCountCache
         self.editor = editor
@@ -402,22 +406,32 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     }
 
     private func albumTracks(albumID: String, upTo cap: Int) async throws -> [MusicTrack] {
-        guard let album = try await source.album(id: albumID) else {
-            throw AppleMusicBrowsingError.notFound
-        }
+        // The catalog's album, all its songs, whichever ID opened it (#658).
+        let (album, saved) = try await pageAlbum(id: albumID)
         // An album opened from Home is known only by its catalog ID until here: its header's pin
         // state needs its key to find a pinned saved copy (#487).
         AppleMusicItemMapping.registerAlbumPin(album)
+        async let savedRead = savedSongs(of: saved)
         let tracks = try await source.tracks(of: album, limit: cap)
         // A library album lists its songs under persistent IDs; edits on those rows need the
         // song's other details (#395).
         editor.songReferences.remember(tracks)
+        // A page that shows the saved copy itself (an upload) lists only saved songs.
+        let savedSongIDs = MusicKitLibraryLookup.isCatalogID(album.id.rawValue)
+            ? savedCatalogSongIDs(Array(tracks), saved: try await savedRead)
+            : Self.savedSongIDs(Array(tracks), registry: editor.songReferences)
         await lookUpRatings(tracks.prefix(cap))
-        return tracks.prefix(cap).map { AppleMusicItemMapping.track($0, album: album) }
+        return tracks.prefix(cap).map {
+            var track = AppleMusicItemMapping.track($0, album: album)
+            track.isInLibrary = savedSongIDs.contains(track.id)
+            return track
+        }
     }
 
+    /// The page keeps the ID it was opened with, also when it shows the catalog's artist
+    /// (#658): its pages of albums, its cache and its pin all go by that ID.
     func artist(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistDetail {
-        AppleMusicItemMapping.artistDetail(try await loadArtist(id: id))
+        AppleMusicItemMapping.artistDetail(try await loadArtist(id: id), pageID: id)
     }
 
     func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail> {
@@ -469,16 +483,15 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     }
 
     func artistTopTracks(id: String, market: String?, cacheMode: MusicRequestCacheMode) async throws -> [MusicTrack] {
-        let songs = try await source.artistTopSongs(artistID: id)
+        // Top songs exist for catalog artists only (#658).
+        guard let catalogID = try await catalogArtistID(forPageID: id) else { return [] }
+        let songs = try await source.artistTopSongs(artistID: catalogID)
         await lookUpRatings(songs)
         return songs.map(AppleMusicItemMapping.track)
     }
 
     private func loadArtist(id: String) async throws -> Artist {
-        guard let artist = try await source.artist(id: id) else {
-            throw AppleMusicBrowsingError.notFound
-        }
-        return artist
+        try await pageArtist(id: id)
     }
 
     /// MusicKit gives a library album the track count of the whole album, while the library
@@ -566,10 +579,10 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
             let artist = try await loadArtist(id: id)
             let albums = try await source.albums(of: artist, limit: Self.maxArtistAlbums)
             let ratings = await savedAlbumRatings(albums)
-            all = try await Self.libraryCounted(
+            all = Self.newestFirst(try await Self.libraryCounted(
                 albums.map { AppleMusicItemMapping.artistAlbum($0, catalogExplicit: ratings.known[$0.id.rawValue]) },
                 source: source
-            )
+            ), dates: albums)
             explicitBlocked = explicitMusicBlocked()
             await artistAlbumsCache.store(all, forArtistID: id, explicitBlocked: explicitBlocked)
             if let late = ratings.late {
@@ -595,7 +608,7 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     /// ratings the page waits at most ``ratingsDeadline``: `known` holds what came by then, and
     /// `late`, when some batch was still asking, every rating once all have answered. An album
     /// whose rating isn't known stays as MusicKit gives it.
-    private func savedAlbumRatings(
+    func savedAlbumRatings(
         _ albums: [Album]
     ) async -> (known: [String: Bool], late: Task<[String: Bool], Never>?) {
         var releases: [String: String] = [:]

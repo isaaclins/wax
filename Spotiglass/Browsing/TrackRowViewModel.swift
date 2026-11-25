@@ -26,6 +26,8 @@ struct TrackRowViewModel: Equatable, Identifiable {
     let isExplicit: Bool
     let playableURI: String?
     let artistRefs: [MusicArtistRef]
+    /// Shows the "In your library" mark on an album page's saved songs (#658).
+    private(set) var isInLibrary = false
 
     /// The same row at another spot in its list, with the same ``id`` so the list keeps it (#543).
     func at(listPosition: Int) -> TrackRowViewModel {
@@ -127,6 +129,7 @@ struct TrackRowViewModel: Equatable, Identifiable {
         self.isExplicit = track.isExplicit
         self.playableURI = track.isPlayable == false ? nil : track.uri
         self.artistRefs = track.artistRefs
+        self.isInLibrary = track.isInLibrary
     }
 
     /// Projects a queue item into the row shape used by the shared Spotify

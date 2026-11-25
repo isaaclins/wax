@@ -100,6 +100,26 @@ struct AppleMusicSongReference: Equatable, Sendable {
         self.albumTitle = albumTitle
     }
 
+    /// The same song as another row lists it: a catalog album's row of a song saved from that
+    /// album, which the saved copy doesn't name (#658). Its menu then knows the song is saved, and
+    /// a removal finds the saved copy.
+    func listed(as itemID: String) -> AppleMusicSongReference {
+        var listed = AppleMusicSongReference(
+            itemID: itemID,
+            catalogID: catalogID ?? itemID,
+            cloudLibraryID: cloudLibraryID,
+            musicAppPersistentID: musicAppPersistentID,
+            isInLibrary: isInLibrary,
+            title: title,
+            artistName: artistName,
+            albumTitle: albumTitle
+        )
+        listed.sourcePlaylistPersistentID = sourcePlaylistPersistentID
+        listed.shownTrack = shownTrack
+        listed.savedAt = savedAt
+        return listed
+    }
+
     /// Every ID this song may be shown under, for matching it in later library reads.
     var matchKeys: Set<String> {
         Set([itemID, catalogID, cloudLibraryID, musicKitPersistentID].compactMap { $0 })

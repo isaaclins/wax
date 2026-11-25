@@ -28,7 +28,8 @@ extension PlaylistBrowserViewModel {
                 tracks: cached.snapshot.tracks,
                 albums: cached.snapshot.albums,
                 canLoadMoreAlbums: cached.snapshot.paging?.nextURL != nil,
-                isLoadingMoreAlbums: cached.snapshot.paging?.isLoading == true
+                isLoadingMoreAlbums: cached.snapshot.paging?.isLoading == true,
+                extras: cached.snapshot.extras
             )
             ignoreNextNilSidebarSelectionForDetail = true
             sidebarSelection = nil
@@ -60,7 +61,8 @@ extension PlaylistBrowserViewModel {
                     artist: snapshot.artistDetail,
                     tracks: snapshot.tracks,
                     albums: snapshot.albums,
-                    canLoadMoreAlbums: snapshot.paging?.nextURL != nil
+                    canLoadMoreAlbums: snapshot.paging?.nextURL != nil,
+                    extras: snapshot.extras
                 )
                 detailState = .refreshing(.artist(staleVM))
                 artistFetchMetrics.forcedRefreshRuns += 1
@@ -71,7 +73,8 @@ extension PlaylistBrowserViewModel {
                     artist: refreshed.artistDetail,
                     tracks: refreshed.tracks,
                     albums: refreshed.albums,
-                    canLoadMoreAlbums: refreshed.paging?.nextURL != nil
+                    canLoadMoreAlbums: refreshed.paging?.nextURL != nil,
+                    extras: refreshed.extras
                 )
                 cachedArtistSnapshots[id] = CachedArtistSnapshot(snapshot: refreshed, fetchedAt: now())
                 detailState = .loaded(.artist(refreshedVM))
@@ -83,7 +86,8 @@ extension PlaylistBrowserViewModel {
                 artist: snapshot.artistDetail,
                 tracks: snapshot.tracks,
                 albums: snapshot.albums,
-                canLoadMoreAlbums: snapshot.paging?.nextURL != nil
+                canLoadMoreAlbums: snapshot.paging?.nextURL != nil,
+                extras: snapshot.extras
             )
             cachedArtistSnapshots[id] = CachedArtistSnapshot(snapshot: snapshot, fetchedAt: now())
             detailState = .loaded(.artist(vm))

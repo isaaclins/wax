@@ -135,6 +135,10 @@ protocol MusicBrowsingProvider {
     /// `albumTracks` for mocks; the live client uses a true `maxPages: 1` call so each selected
     /// album contributes at most one HTTP request.
     func albumTracksFirstPage(albumID: String, market: String?, limit: Int) async throws -> [MusicTrack]
+    /// What an artist page shows beyond its releases when the service has it: the artist's top
+    /// songs and what the listener saved from them (#658). `nil` (the default, and Spotify) keeps
+    /// the page as it was: songs found through search or the albums, and no library section.
+    func artistPageExtras(id: String) async throws -> MusicArtistPageExtras?
     // MARK: - Library write ops (mutating)
 
     func updatePlaylist(playlistID: String, name: String) async throws
@@ -181,6 +185,8 @@ extension MusicBrowsingProvider {
     func albumTracksFirstPage(albumID: String, market: String?, limit: Int) async throws -> [MusicTrack] {
         try await albumTracks(albumID: albumID, market: market, limit: limit)
     }
+
+    func artistPageExtras(id: String) async throws -> MusicArtistPageExtras? { nil }
 
     // Default empty home-feed implementations so preview/test mocks that don't
     // exercise the home surface compile without overrides. Real providers

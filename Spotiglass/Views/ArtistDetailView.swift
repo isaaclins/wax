@@ -78,6 +78,7 @@ struct ArtistDetailContent: View {
             && detail.appearsOn.isEmpty
             && !detail.canLoadMoreAlbums
             && !detail.isLoadingMoreAlbums
+            && !detail.hasLibrarySection
     }
 
     init(
@@ -157,6 +158,9 @@ struct ArtistDetailContent: View {
                 loadMoreButton
                     .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
             }
+            if detail.hasLibrarySection {
+                librarySection
+            }
             if hasNothingToShow {
                 // Every section above is guarded and albumStrip returns
                 // EmptyView for an empty array, so an artist with no tracks
@@ -169,6 +173,26 @@ struct ArtistDetailContent: View {
             }
         }
         .padding(.vertical, SpotiglassDesign.spacingM)
+    }
+
+    /// What the listener saved from the artist, under the catalog's sections and never in place
+    /// of them (#658).
+    private var librarySection: some View {
+        VStack(alignment: .leading, spacing: SpotiglassDesign.Layout.sectionTitleSpacing) {
+            Text(SpotiglassL10n.string("browser.inYourLibrary"))
+                .font(.title3.weight(.semibold))
+                .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
+            if !detail.libraryTracks.isEmpty {
+                let marks = playback.marks(in: detail.libraryTracks)
+                VStack(spacing: 0) {
+                    ForEach(detail.libraryTracks) { track in
+                        trackRow(for: track, marks: marks)
+                    }
+                }
+                .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
+            }
+            albumStrip(title: nil, albums: detail.libraryAlbums, group: .album)
+        }
     }
 
     private var header: some View {
@@ -265,14 +289,16 @@ struct ArtistDetailContent: View {
     }
 
     @ViewBuilder
-    private func albumStrip(title: String, albums: [ArtistAlbumRowViewModel], group: MusicArtistAlbumGroup) -> some View {
+    private func albumStrip(title: String?, albums: [ArtistAlbumRowViewModel], group: MusicArtistAlbumGroup) -> some View {
         if albums.isEmpty {
             EmptyView()
         } else {
             VStack(alignment: .leading, spacing: SpotiglassDesign.Layout.sectionTitleSpacing) {
-                Text(title)
-                    .font(.title3.weight(.semibold))
-                    .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
+                if let title {
+                    Text(title)
+                        .font(.title3.weight(.semibold))
+                        .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
+                }
 
                 // Keep the shelf discoverable and scroll it like the Home shelf:
                 // a swipe settles on whole release cards (#232), a wheel moves freely (#475).
