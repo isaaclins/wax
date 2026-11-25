@@ -120,11 +120,25 @@ extension PlaylistBrowserViewModel {
         }
     }
 
-    /// Starts looking up whether `rows` are in Liked Songs, for their menus to show (#689).
+    static let menuPreparationSettle: Duration = .milliseconds(250)
+
+    /// Looks up whether `rows`, the rows on screen now, are in Liked Songs, for their menus to
+    /// show (#689). Only once the rows on screen stop changing for a moment: a scroll of any
+    /// kind (trackpad, mouse wheel, arrow keys) brings new rows nearly every frame, and asking
+    /// each time would be a request per frame.
     func prepareTrackMenus(for rows: [TrackRowViewModel]) {
+        menuPreparationTask?.cancel()
         let rows = likedSongsMutationRows(for: rows)
         guard !rows.isEmpty else { return }
-        Task { await loadSavedTrackStates(for: rows) }
+        let clock = menuPreparationClock
+        let deadline = clock.now.advanced(by: Self.menuPreparationSettle)
+        menuPreparationTask = Task { [weak self] in
+            // try?: the wait only fails when it's cancelled, because newer rows came on screen and wait instead.
+            try? await clock.sleep(until: deadline, tolerance: nil)
+            guard let self, !Task.isCancelled else { return }
+            // Its own task: rows that come on screen later don't cancel a lookup on its way.
+            Task { await self.loadSavedTrackStates(for: rows) }
+        }
     }
 
     /// Resolves the missing saved states for a menu's catalog rows. The Liked

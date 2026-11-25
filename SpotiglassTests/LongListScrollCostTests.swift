@@ -53,26 +53,27 @@ final class LongListScrollCostTests: XCTestCase {
         let rowsBuiltByFirstFrame = rowBodies()
         XCTAssertLessThan(rowsBuiltByFirstFrame, 50, "the first frame of a scroll built \(rowsBuiltByFirstFrame) rows")
 
-        // A scroll on the trackpad is a live scroll, its glide included. The rows that come on
-        // screen meanwhile have their menus prepared (whether a song is liked) once it ends: one
-        // lookup for the rows it stopped on, not one per frame (#689). The answer for the rows
-        // shown so far comes in first.
-        await AppKitTestSupport.settle()
+        // The rows on screen have their menus prepared (whether a song is liked) once they stop
+        // changing for a moment (#689). The answer for the rows shown so far comes in first.
+        await prepareMenusOfTheRowsOnScreen(host)
         let lookupsBefore = host.api.savedTrackStatusesCalls.count
         ViewBodyTally.counts = [:]
-        NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: host.scrollView)
         // Flicks through the first 1,000 songs: the whole list in a Debug build on CI comes close
         // to the two minutes a test may take there.
         let flick = scrollToBottom(host, flick: true, stoppingAt: rowHeight * 1_000)
         XCTAssertNil(ViewBodyTally.counts?["TrackListRows"], "scrolling walked all the rows again")
         XCTAssertNil(ViewBodyTally.counts?["PlaylistDetailContent"], "scrolling ran the playlist page again")
-        await AppKitTestSupport.settle()
-        XCTAssertEqual(host.api.savedTrackStatusesCalls.count, lookupsBefore, "a flick looked up liked songs while it scrolled")
-        NotificationCenter.default.post(name: NSScrollView.didEndLiveScrollNotification, object: host.scrollView)
-        let lookedUp = await AppKitTestSupport.settle(until: { host.api.savedTrackStatusesCalls.count > lookupsBefore })
-        XCTAssertTrue(lookedUp, "the end of the flick didn't prepare the menus of the rows it stopped on")
-        XCTAssertEqual(host.api.savedTrackStatusesCalls.count, lookupsBefore + 1, "the end of the flick looked up more than once")
-        XCTAssertLessThan(host.api.savedTrackStatusesCalls.last?.count ?? 0, 50, "the flick's lookup asked for rows that are off screen")
+        // A scroll with the mouse wheel or the arrow keys: new rows come on screen in turn after turn
+        // of the run loop. None of them sends a lookup while the rows keep changing; once they stop,
+        // one lookup asks for the rows on screen.
+        for _ in 0..<30 {
+            _ = scrollFrame(host, by: 40)
+            await AppKitTestSupport.settle(passes: 1)
+        }
+        XCTAssertEqual(host.api.savedTrackStatusesCalls.count, lookupsBefore, "a scroll looked up liked songs while it scrolled")
+        await prepareMenusOfTheRowsOnScreen(host)
+        XCTAssertEqual(host.api.savedTrackStatusesCalls.count, lookupsBefore + 1, "the end of the scroll didn't look up the rows on screen once")
+        XCTAssertLessThan(host.api.savedTrackStatusesCalls.last?.count ?? 0, 50, "the lookup asked for rows that are off screen")
         XCTAssertEqual(table.rect(ofRow: Self.trackCount - 1).maxY, rowHeight * CGFloat(Self.trackCount), accuracy: rowHeight,
                        "the table's height changed while it scrolled")
 
@@ -233,6 +234,20 @@ final class LongListScrollCostTests: XCTestCase {
         let browser: PlaylistBrowserViewModel
         let playback: PlaybackSessionViewModel
         let api: MockBrowsingAPI
+        /// The clock menu preparation waits on for the rows on screen to settle.
+        let menuClock: ManualPlaybackClock
+    }
+
+    /// Lets the rows on screen settle on the menu clock and waits for their lookup.
+    private func prepareMenusOfTheRowsOnScreen(_ host: Host) async {
+        await AppKitTestSupport.settle()
+        let armed = await host.menuClock.waitForSleepers(1)
+        XCTAssertTrue(armed, "the rows on screen never waited to have their menus prepared")
+        let before = host.api.savedTrackStatusesCalls.count
+        host.menuClock.advance(by: PlaylistBrowserViewModel.menuPreparationSettle)
+        let lookedUp = await AppKitTestSupport.settle(until: { host.api.savedTrackStatusesCalls.count > before })
+        XCTAssertTrue(lookedUp, "the rows on screen weren't looked up")
+        await AppKitTestSupport.settle()
     }
 
     /// Covers the size Spotify sends (640 px), each its own picture so none decodes for free.
@@ -303,7 +318,8 @@ final class LongListScrollCostTests: XCTestCase {
             ])],
             trackResults: ["p1": [.success(tracks)]]
         )
-        let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        let menuClock = ManualPlaybackClock()
+        let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache(), menuPreparationClock: menuClock)
         await browserVM.loadIfNeeded()
         await browserVM.selectPlaylist(id: "p1")
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(browserVM.detailState).count, Self.trackCount)
@@ -344,7 +360,7 @@ final class LongListScrollCostTests: XCTestCase {
         let found = try XCTUnwrap(table)
         let scrollView = try XCTUnwrap(found.enclosingScrollView)
         await AppKitTestSupport.settle()
-        return Host(window: window, scrollView: scrollView, table: found, browser: browserVM, playback: playbackHost.playbackViewModel, api: api)
+        return Host(window: window, scrollView: scrollView, table: found, browser: browserVM, playback: playbackHost.playbackViewModel, api: api, menuClock: menuClock)
     }
 
     /// A click on `row`, posted to the app's event queue and handed out from it as the app's own

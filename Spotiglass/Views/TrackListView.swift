@@ -119,7 +119,6 @@ struct TrackListView<Row: View>: View {
         // handed the table both at once: the table waited for a mouse-up that had already come,
         // and the next click only ended that wait instead of selecting its row (#689).
         let _ = tableFocus.onDoubleClick = doubleClickAction
-        let _ = tableFocus.onLiveScrollEnded = preparePendingMenus
         ScrollViewReader { proxy in
             List(selection: liveSelection()) {
                 if let headerContent {
@@ -191,40 +190,29 @@ struct TrackListView<Row: View>: View {
     private func setRowRealized(_ isRealized: Bool, track: TrackRowViewModel) {
         if isRealized {
             realizedRows.trackIDs.insert(track.id)
-            prepareMenu(of: track)
+            prepareMenus()
         } else {
             realizedRows.trackIDs.remove(track.id)
         }
         reportFirstVisibleTrack()
     }
 
-    /// Hands rows that came on screen to ``TrackListRowActions/prepareMenus``: all of one turn of
-    /// the run loop at once, and during a scroll only the ones still on screen when it ends, so a
-    /// flick through a long playlist doesn't send a lookup per frame.
-    private func prepareMenu(of track: TrackRowViewModel) {
-        guard let preparePendingMenus else { return }
+    /// Hands the rows on screen to ``TrackListRowActions/prepareMenus`` when new ones came, once
+    /// per turn of the run loop.
+    private func prepareMenus() {
+        guard let prepare = rowActions?.prepareMenus else { return }
         let realizedRows = realizedRows
-        let tableFocus = tableFocus
-        realizedRows.rowsAwaitingMenus.append(track)
         guard !realizedRows.isPreparingMenus else { return }
         realizedRows.isPreparingMenus = true
+        let tracks = tracks
         DispatchQueue.main.async {
             realizedRows.isPreparingMenus = false
-            tableFocus.followScrolling()
-            // The end of the scroll hands them over (``TrackListTableFocus/onLiveScrollEnded``).
-            guard !tableFocus.isLiveScrolling else { return }
-            preparePendingMenus()
-        }
-    }
-
-    /// Prepares the menus of the rows waiting for it that are still on screen.
-    private var preparePendingMenus: (() -> Void)? {
-        guard let prepare = rowActions?.prepareMenus else { return nil }
-        let realizedRows = realizedRows
-        return {
-            let rows = realizedRows.rowsAwaitingMenus.filter { realizedRows.trackIDs.contains($0.id) }
-            realizedRows.rowsAwaitingMenus = []
-            if !rows.isEmpty { prepare(rows) }
+            let rows = realizedRows.trackIDs
+                .compactMap { id in realizedRows.positionByTrackID[id].map { (id, $0) } }
+                .filter { id, index in tracks.indices.contains(index) && tracks[index].id == id }
+                .sorted { $0.1 < $1.1 }
+                .map { tracks[$0.1] }
+            prepare(rows)
         }
     }
 
@@ -245,11 +233,6 @@ final class TrackListTableFocus {
     /// Runs on a double-click on a selected row.
     var onDoubleClick: (() -> Void)?
     private var monitor: Any?
-    /// Runs when a scroll of the table ends, the glide after the finger included.
-    var onLiveScrollEnded: (() -> Void)?
-    /// Whether the table is being scrolled by a finger or the glide after it.
-    private(set) var isLiveScrolling = false
-    private var scrollObservers: [NSObjectProtocol] = []
     /// The mouse-down last taken for a double-click. AppKit can hand a held-back mouse-down to
     /// the monitor a second time, and a second run would pause what the first one played.
     private var lastDoubleClick: TimeInterval?
@@ -276,28 +259,9 @@ final class TrackListTableFocus {
         }
     }
 
-    /// Follows the table's scrolls from now on, once the table can be found.
-    func followScrolling() {
-        guard scrollObservers.isEmpty, let scroll = currentTable()?.enclosingScrollView else { return }
-        let center = NotificationCenter.default
-        scrollObservers = [
-            center.addObserver(forName: NSScrollView.willStartLiveScrollNotification, object: scroll, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.isLiveScrolling = true }
-            },
-            center.addObserver(forName: NSScrollView.didEndLiveScrollNotification, object: scroll, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.isLiveScrolling = false
-                    self?.onLiveScrollEnded?()
-                }
-            },
-        ]
-    }
-
     func stopWatching() {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
-        scrollObservers.forEach(NotificationCenter.default.removeObserver)
-        scrollObservers = []
     }
 
     /// The list's table in the probe's window, looked up again when the list moved.
@@ -376,8 +340,7 @@ final class TrackListTableFocus {
 @MainActor
 final class TrackListRealizedRows {
     var trackIDs: Set<String> = []
-    /// Rows that came on screen whose menus haven't been prepared yet, handed over together.
-    var rowsAwaitingMenus: [TrackRowViewModel] = []
+    /// Whether the rows on screen are about to be handed to the menu preparation.
     var isPreparingMenus = false
     /// Each row's place in the list, built again when the rows change.
     var positionByTrackID: [String: Int] = [:]
@@ -436,9 +399,9 @@ struct TrackListRowActions {
     /// The rest of the menu, for the rows it acts on in list order: the selection when the
     /// right-click was on a selected row, else that row.
     let menuItems: ([TrackRowViewModel]) -> AnyView
-    /// Fetches what the menu of these rows shows that comes from the network, such as whether
-    /// a song is in Liked Songs. Called as rows come on screen: a menu is built when it opens,
-    /// and an answer that arrives after that doesn't reach the open menu (#689).
+    /// Fetches what the menus of these rows, the ones on screen, show from the network, such as
+    /// whether a song is in Liked Songs. Called as new rows come on screen: a menu is built when
+    /// it opens, and an answer that arrives after that doesn't reach the open menu (#689).
     var prepareMenus: (@MainActor ([TrackRowViewModel]) -> Void)? = nil
 
     func activate(_ track: TrackRowViewModel) {

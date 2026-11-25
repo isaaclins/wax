@@ -39,8 +39,10 @@ final class PlaylistBrowserViewModel: ObservableObject {
     /// The detail table's selection, observed only by the views that show it.
     let detailTrackSelection = DetailTrackSelection()
     /// Saved state keyed by the service's track ID. Context menus fill this lazily from
-    /// `savedTrackStatuses` when a surface needs it.
-    @Published internal(set) var savedTrackStates: [String: Bool] = [:]
+    /// `savedTrackStatuses` when a surface needs it. Not published: only a song menu reads it,
+    /// when it opens, and an answer that arrives while nothing is open would otherwise draw the
+    /// whole browser again, the sidebar included (#689).
+    internal(set) var savedTrackStates: [String: Bool] = [:]
     /// Track IDs a `savedTrackStatuses` lookup is on its way for.
     var savedTrackLookupsInFlight: Set<String> = []
     /// Library state keyed by album ID, for providers that can save albums.
@@ -172,6 +174,10 @@ final class PlaylistBrowserViewModel: ObservableObject {
     let adjacentPlaylistClock: any PlaybackClock
     /// The reads while the library is still arriving wait on this clock (a test steps it).
     let libraryArrivalClock: any PlaybackClock
+    /// Menu preparation waits on this clock for the rows on screen to settle (a test steps it).
+    let menuPreparationClock: any PlaybackClock
+    /// The lookup for the rows on screen, waiting for them to settle (#689).
+    var menuPreparationTask: Task<Void, Never>?
     /// The next read of a library that is still arriving (#654).
     var libraryArrivalTask: Task<Void, Never>?
     /// Reads made since the library was first seen still arriving; bounded by
@@ -285,11 +291,13 @@ final class PlaylistBrowserViewModel: ObservableObject {
         artistDetailCacheTTL: TimeInterval = 90,
         initialArtistAlbumPageCount: Int = 2,
         adjacentPlaylistClock: any PlaybackClock = ContinuousClock(),
-        libraryArrivalClock: any PlaybackClock = ContinuousClock()
+        libraryArrivalClock: any PlaybackClock = ContinuousClock(),
+        menuPreparationClock: any PlaybackClock = ContinuousClock()
     ) {
         self.api = api
         self.adjacentPlaylistClock = adjacentPlaylistClock
         self.libraryArrivalClock = libraryArrivalClock
+        self.menuPreparationClock = menuPreparationClock
         self.cache = cache
         self.editPermissions = editPermissions
         self.now = now
