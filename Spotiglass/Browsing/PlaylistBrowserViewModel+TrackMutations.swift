@@ -120,8 +120,6 @@ extension PlaylistBrowserViewModel {
         }
     }
 
-    /// Resolves the missing saved states for a menu's catalog rows. The Liked
-    /// Songs surface skips this entirely because membership is known locally.
     /// Starts looking up whether `rows` are in Liked Songs, for their menus to show (#689).
     func prepareTrackMenus(for rows: [TrackRowViewModel]) {
         let rows = likedSongsMutationRows(for: rows)
@@ -129,6 +127,9 @@ extension PlaylistBrowserViewModel {
         Task { await loadSavedTrackStates(for: rows) }
     }
 
+    /// Resolves the missing saved states for a menu's catalog rows. The Liked
+    /// Songs surface skips this entirely because membership is known locally.
+    /// IDs a lookup is already on its way for aren't asked for again.
     func loadSavedTrackStates(for rows: [TrackRowViewModel]) async {
         let ids = catalogTrackIDs(for: rows)
         // A cached answer the provider now answers differently is out of date (an album saved
@@ -138,8 +139,10 @@ extension PlaylistBrowserViewModel {
                 savedTrackStates[id] = nil
             }
         }
-        let missing = ids.filter { savedTrackStates[$0] == nil }
+        let missing = ids.filter { savedTrackStates[$0] == nil && !savedTrackLookupsInFlight.contains($0) }
         guard !missing.isEmpty else { return }
+        savedTrackLookupsInFlight.formUnion(missing)
+        defer { savedTrackLookupsInFlight.subtract(missing) }
         do {
             let statuses = try await api.savedTrackStatuses(ids: missing)
             guard !Task.isCancelled, statuses.count == missing.count else { return }

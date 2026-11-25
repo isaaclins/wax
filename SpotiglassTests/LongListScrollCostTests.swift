@@ -53,12 +53,26 @@ final class LongListScrollCostTests: XCTestCase {
         let rowsBuiltByFirstFrame = rowBodies()
         XCTAssertLessThan(rowsBuiltByFirstFrame, 50, "the first frame of a scroll built \(rowsBuiltByFirstFrame) rows")
 
+        // A scroll on the trackpad is a live scroll, its glide included. The rows that come on
+        // screen meanwhile have their menus prepared (whether a song is liked) once it ends: one
+        // lookup for the rows it stopped on, not one per frame (#689). The answer for the rows
+        // shown so far comes in first.
+        await AppKitTestSupport.settle()
+        let lookupsBefore = host.api.savedTrackStatusesCalls.count
         ViewBodyTally.counts = [:]
+        NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: host.scrollView)
         // Flicks through the first 1,000 songs: the whole list in a Debug build on CI comes close
         // to the two minutes a test may take there.
         let flick = scrollToBottom(host, flick: true, stoppingAt: rowHeight * 1_000)
         XCTAssertNil(ViewBodyTally.counts?["TrackListRows"], "scrolling walked all the rows again")
         XCTAssertNil(ViewBodyTally.counts?["PlaylistDetailContent"], "scrolling ran the playlist page again")
+        await AppKitTestSupport.settle()
+        XCTAssertEqual(host.api.savedTrackStatusesCalls.count, lookupsBefore, "a flick looked up liked songs while it scrolled")
+        NotificationCenter.default.post(name: NSScrollView.didEndLiveScrollNotification, object: host.scrollView)
+        let lookedUp = await AppKitTestSupport.settle(until: { host.api.savedTrackStatusesCalls.count > lookupsBefore })
+        XCTAssertTrue(lookedUp, "the end of the flick didn't prepare the menus of the rows it stopped on")
+        XCTAssertEqual(host.api.savedTrackStatusesCalls.count, lookupsBefore + 1, "the end of the flick looked up more than once")
+        XCTAssertLessThan(host.api.savedTrackStatusesCalls.last?.count ?? 0, 50, "the flick's lookup asked for rows that are off screen")
         XCTAssertEqual(table.rect(ofRow: Self.trackCount - 1).maxY, rowHeight * CGFloat(Self.trackCount), accuracy: rowHeight,
                        "the table's height changed while it scrolled")
 
@@ -218,6 +232,7 @@ final class LongListScrollCostTests: XCTestCase {
         let table: NSTableView
         let browser: PlaylistBrowserViewModel
         let playback: PlaybackSessionViewModel
+        let api: MockBrowsingAPI
     }
 
     /// Covers the size Spotify sends (640 px), each its own picture so none decodes for free.
@@ -329,7 +344,7 @@ final class LongListScrollCostTests: XCTestCase {
         let found = try XCTUnwrap(table)
         let scrollView = try XCTUnwrap(found.enclosingScrollView)
         await AppKitTestSupport.settle()
-        return Host(window: window, scrollView: scrollView, table: found, browser: browserVM, playback: playbackHost.playbackViewModel)
+        return Host(window: window, scrollView: scrollView, table: found, browser: browserVM, playback: playbackHost.playbackViewModel, api: api)
     }
 
     /// A click on `row`, posted to the app's event queue and handed out from it as the app's own

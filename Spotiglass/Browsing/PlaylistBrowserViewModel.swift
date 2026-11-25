@@ -41,6 +41,8 @@ final class PlaylistBrowserViewModel: ObservableObject {
     /// Saved state keyed by the service's track ID. Context menus fill this lazily from
     /// `savedTrackStatuses` when a surface needs it.
     @Published internal(set) var savedTrackStates: [String: Bool] = [:]
+    /// Track IDs a `savedTrackStatuses` lookup is on its way for.
+    var savedTrackLookupsInFlight: Set<String> = []
     /// Library state keyed by album ID, for providers that can save albums.
     @Published internal(set) var savedAlbumStates: [String: Bool] = [:]
     /// The playlist whose header should start editing its name when it shows
