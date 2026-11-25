@@ -22,6 +22,9 @@ final class WindowResizeCostTests: XCTestCase {
     private static let frameKey = "NSWindow Frame SpotiglassTests.resize"
 
     private enum Page { case home, bigPlaylist }
+    /// The hosted browser's model and the lyrics controller it hands its queue to.
+    private var hostedBrowser: PlaylistBrowserViewModel?
+    private var hostedLyrics: LyricsOverlayController?
 
     /// Hosts the real browser the way the app shows it: the library loaded once, both playlists
     /// in the sidebar and, for `.bigPlaylist`, a 500-song page with its rows drawn.
@@ -39,6 +42,8 @@ final class WindowResizeCostTests: XCTestCase {
         api.topTracksHandler = { _, _ in Self.homeTracks(prefix: "top", count: Self.topTrackCount) }
         api.recentlyPlayedHandler = { _ in Self.homeTracks(prefix: "recent", count: Self.recentAlbumCount) }
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        hostedBrowser = browserVM
+        hostedLyrics = LyricsOverlayController()
         // As the browser's own `.task` loads it, so the hosted view doesn't load it again.
         await browserVM.loadIfNeeded()
         switch page {
@@ -78,7 +83,7 @@ final class WindowResizeCostTests: XCTestCase {
             signOut: {}
         )
         .environmentObject(store)
-        .environmentObject(LyricsOverlayController())
+        .environmentObject(hostedLyrics ?? LyricsOverlayController())
         ViewBodyTally.counts = [:]
         let controller = ViewTestHost.host(view, size: CGSize(width: 1_400, height: 900))
         let window = try XCTUnwrap(controller.view.window)
@@ -409,6 +414,28 @@ final class WindowResizeCostTests: XCTestCase {
             extraViews: ["HomeView"],
             rowsOnScreen: { $0 == "HomeMediaCardView:recent-album-0" || $0.hasPrefix("TrackListRow:top-") }
         )
+    }
+
+    /// What the browser does when the queue opens or closes runs from the flag's change signal
+    /// now, not from a redraw of the browser (#673): the queue still starts and stops loading, and
+    /// the toolbar's Refresh still knows whether the queue is open.
+    func testOpeningAndClosingTheQueueStillStartsAndStopsLoadingIt() async throws {
+        _ = try await hostBrowser(on: .home)
+        let flag = StoredFlag.queuePanelVisible
+        flag.isOn = false
+        defer { flag.isOn = false }
+        let queue = try XCTUnwrap(hostedLyrics?.queueViewModel, "the browser never handed over its queue")
+        let browser = try XCTUnwrap(hostedBrowser)
+        for visible in [true, false, true, false] {
+            flag.isOn = visible
+            let followed = await AppKitTestSupport.settle(until: {
+                queue.isPanelVisible == visible && browser.refreshRoutingQueuePanelVisible == visible
+            })
+            XCTAssertTrue(
+                followed,
+                "with the queue \(visible ? "open" : "closed"): queue loading \(queue.isPanelVisible), Refresh sees the queue \(browser.refreshRoutingQueuePanelVisible)"
+            )
+        }
     }
 
     /// The window's minimum width watches the queue flag on its own (#673), so the app's scene no
