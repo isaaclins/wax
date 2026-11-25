@@ -6,8 +6,15 @@ extension PlaybackNowPlaying {
         artistText
     }
 
+    /// Apple Music names a single's album "<title> - Single" (or " - EP"); LRCLIB stores it
+    /// without that ending, and its exact lookup misses on the longer name (#657).
     var lrcLibAlbumQuery: String {
-        albumName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let album = albumName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return album.replacingOccurrences(
+            of: #"\s+-\s+(single|ep)$"#,
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
     }
 
     var lrcLibDurationSeconds: Int {
@@ -106,7 +113,7 @@ struct LrcLibClient: Sendable {
         if let fullResponse, let lyrics = mapResponse(fullResponse) {
             return lyrics
         }
-        throw Failure.noLyrics
+        return try await searchBestMatch(for: track)
     }
 
     private func fetchLyricsParallel(for track: PlaybackNowPlaying) async throws -> FetchedLyrics {
@@ -131,7 +138,46 @@ struct LrcLibClient: Sendable {
                 throw error
             }
         }
-        throw Failure.noLyrics
+        return try await searchBestMatch(for: track)
+    }
+
+    /// The exact lookups missed: search LRCLIB by title and artist and take the closest
+    /// result that is the same song (#657). Nothing close enough is still "no lyrics".
+    /// The search is a second chance: when it fails (other than a rate limit or a cancel), the
+    /// answer stays what both exact lookups said, "No lyrics found", as before the search existed.
+    private func searchBestMatch(for track: PlaybackNowPlaying) async throws -> FetchedLyrics {
+        let results: [LrcLibSearchResultDTO]?
+        do {
+            results = try await request(
+                endpoint: "search",
+                queryItems: [
+                    URLQueryItem(name: "track_name", value: LrcLibMatch.searchTitle(track.name)),
+                    URLQueryItem(name: "artist_name", value: track.lrcLibArtistQuery)
+                ]
+            )
+        } catch {
+            if error is CancellationError || (error as? URLError)?.code == .cancelled { throw error }
+            if case Failure.rateLimited = error { throw error }
+            throw Failure.noLyrics
+        }
+        let candidates = (results ?? []).compactMap { result -> LrcLibMatch.Candidate? in
+            guard let lyrics = mapResponse(result.response) else { return nil }
+            return LrcLibMatch.Candidate(
+                title: result.trackName ?? "",
+                artist: result.artistName ?? "",
+                durationSeconds: result.duration,
+                lyrics: lyrics
+            )
+        }
+        guard let best = LrcLibMatch.best(
+            among: candidates,
+            title: track.name,
+            artists: track.artists,
+            durationMilliseconds: track.durationMilliseconds
+        ) else {
+            throw Failure.noLyrics
+        }
+        return best.lyrics
     }
 
     private func getResult(
@@ -151,6 +197,19 @@ struct LrcLibClient: Sendable {
         let instrumental: Bool?
         let syncedLyrics: String?
         let plainLyrics: String?
+    }
+
+    private struct LrcLibSearchResultDTO: Decodable {
+        let trackName: String?
+        let artistName: String?
+        let duration: Double?
+        let instrumental: Bool?
+        let syncedLyrics: String?
+        let plainLyrics: String?
+
+        var response: LrcLibResponseDTO {
+            LrcLibResponseDTO(instrumental: instrumental, syncedLyrics: syncedLyrics, plainLyrics: plainLyrics)
+        }
     }
 
     private func mapResponse(_ dto: LrcLibResponseDTO) -> FetchedLyrics? {
@@ -176,18 +235,25 @@ struct LrcLibClient: Sendable {
     }
 
     private func get(endpoint: String, track: PlaybackNowPlaying) async throws -> LrcLibResponseDTO? {
+        try await request(
+            endpoint: endpoint,
+            queryItems: [
+                URLQueryItem(name: "track_name", value: track.name),
+                URLQueryItem(name: "artist_name", value: track.lrcLibArtistQuery),
+                URLQueryItem(name: "album_name", value: track.lrcLibAlbumQuery),
+                URLQueryItem(name: "duration", value: String(track.lrcLibDurationSeconds))
+            ]
+        )
+    }
+
+    private func request<Response: Decodable>(endpoint: String, queryItems: [URLQueryItem]) async throws -> Response? {
         guard var components = URLComponents(
             url: baseURL.appendingPathComponent("api/\(endpoint)"),
             resolvingAgainstBaseURL: false
         ) else {
             throw Failure.invalidURL
         }
-        components.queryItems = [
-            URLQueryItem(name: "track_name", value: track.name),
-            URLQueryItem(name: "artist_name", value: track.lrcLibArtistQuery),
-            URLQueryItem(name: "album_name", value: track.lrcLibAlbumQuery),
-            URLQueryItem(name: "duration", value: String(track.lrcLibDurationSeconds))
-        ]
+        components.queryItems = queryItems
         guard let url = components.url else {
             throw Failure.invalidURL
         }
@@ -227,7 +293,7 @@ struct LrcLibClient: Sendable {
             throw Failure.http(http.statusCode)
         }
         do {
-            return try JSONDecoder().decode(LrcLibResponseDTO.self, from: data)
+            return try JSONDecoder().decode(Response.self, from: data)
         } catch {
             SpotiglassLog.error(.api, "LRCLIB \(endpoint) -> status=\(http.statusCode), \(SpotiglassLog.describe(error))")
             throw Failure.decoding
@@ -248,5 +314,124 @@ struct LrcLibClient: Sendable {
         formatter.dateFormat = "EEE',' dd MMM yyyy HH':'mm':'ss z"
         guard let date = formatter.date(from: raw) else { return nil }
         return max(0, date.timeIntervalSinceNow)
+    }
+}
+
+/// Decides whether an LRCLIB search result is the song that is playing (#657). A result counts
+/// only with the same title, the same artists (one side may leave out a "(feat. ...)" credit,
+/// nothing else) and a length within two seconds; synced lyrics win over plain ones.
+enum LrcLibMatch {
+    struct Candidate: Equatable {
+        let title: String
+        let artist: String
+        let durationSeconds: Double?
+        let lyrics: FetchedLyrics
+    }
+
+    static let durationToleranceSeconds: Double = 2
+
+    static func best(
+        among candidates: [Candidate],
+        title: String,
+        artists: [String],
+        durationMilliseconds: Int
+    ) -> Candidate? {
+        guard durationMilliseconds > 0 else { return nil }
+        let wantedTitle = normalizedTitle(title)
+        let wantedMain = Set(artistList(artists))
+        let wantedFeatured = Set(artistList(featuredArtists(in: title)))
+        guard !wantedTitle.isEmpty, !wantedMain.isEmpty else { return nil }
+        let wantedSeconds = Double(durationMilliseconds) / 1_000
+
+        typealias Scored = (candidate: Candidate, kind: Int, exactArtists: Bool, gap: Double)
+        let scored: [Scored] = candidates.compactMap { candidate in
+            guard let seconds = candidate.durationSeconds else { return nil }
+            let gap = abs(seconds - wantedSeconds)
+            guard gap <= durationToleranceSeconds else { return nil }
+            guard normalizedTitle(candidate.title) == wantedTitle else { return nil }
+            let theirMain = Set(artistList([candidate.artist]))
+            let theirFeatured = Set(artistList(featuredArtists(in: candidate.title)))
+            let sameArtists = theirMain.union(theirFeatured) == wantedMain.union(wantedFeatured)
+            // The only credit one side may leave out is a "(feat. ...)" in its title; the artists
+            // themselves match in full, so "Earth" is never "Earth, Wind & Fire".
+            let withoutFeature = theirMain == wantedMain && (theirFeatured.isEmpty || wantedFeatured.isEmpty)
+            guard sameArtists || withoutFeature else { return nil }
+            return (candidate, kindRank(candidate.lyrics), sameArtists, gap)
+        }
+        return scored.min { lhs, rhs in
+            if lhs.kind != rhs.kind { return lhs.kind < rhs.kind }
+            if lhs.exactArtists != rhs.exactArtists { return lhs.exactArtists }
+            return lhs.gap < rhs.gap
+        }?.candidate
+    }
+
+    /// The title sent to the search: without a "(feat. ...)" or trailing "feat. ..." part, which
+    /// LRCLIB often leaves out. The names in it still count as the song's artists, so "Song (feat. B)"
+    /// never takes the lyrics of "Song (feat. C)".
+    static func searchTitle(_ title: String) -> String {
+        featuringPatterns.reduce(title) { text, pattern in
+            text.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+        }
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The artists a title credits in its "(feat. ...)" or trailing "feat. ..." part.
+    static func featuredArtists(in title: String) -> [String] {
+        featuringPatterns.flatMap { pattern -> [String] in
+            // try?: the patterns are fixed literals the tests run, so they always compile.
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return [] }
+            let range = NSRange(title.startIndex..., in: title)
+            return regex.matches(in: title, range: range).compactMap { match in
+                Range(match.range(at: 2), in: title).map { String(title[$0]) }
+            }
+        }
+    }
+
+    static func normalizedTitle(_ title: String) -> String {
+        fold(searchTitle(title))
+    }
+
+    /// The artists in credit order, each once, the first being the lead, however the names are
+    /// joined ("Tempo & El Alfa", "Tempo, El Alfa", "Tempo feat. El Alfa" and ["Tempo", "El Alfa"]
+    /// are the same two artists).
+    static func artistList(_ names: [String]) -> [String] {
+        var result: [String] = []
+        for name in names {
+            let parts = fold(name).replacingOccurrences(
+                of: artistSeparatorPattern,
+                with: "\u{1F}",
+                options: [.regularExpression, .caseInsensitive]
+            )
+            for part in parts.split(separator: "\u{1F}") {
+                let artist = part.trimmingCharacters(in: .whitespaces)
+                if !artist.isEmpty, !result.contains(artist) { result.append(artist) }
+            }
+        }
+        return result
+    }
+
+    /// "(feat. B)" / "[with B]" anywhere, and an unbracketed "feat. B" up to a " - " or a bracket,
+    /// so "Song feat. B - Remix" keeps " - Remix" in its title ("with" only in brackets: "Dance
+    /// With Me" is a title). Group 2 is the credited names.
+    private static let featuringPatterns = [
+        #"\s*[\(\[](feat\.?|ft\.?|featuring|with)\s+([^\)\]]*)[\)\]]"#,
+        #"\s+(feat\.?|ft\.?|featuring)\s+([^\(\)\[\]]+?)(?=\s+-\s|\s*[\(\[]|$)"#
+    ]
+    /// No "/": it belongs to names like "AC/DC" more often than it joins two artists.
+    private static let artistSeparatorPattern = #"\s*(,|&|\+|•|·|;)\s*|\s+(feat\.?|ft\.?|featuring|with|and|y|e|et)\s+"#
+
+    private static func kindRank(_ lyrics: FetchedLyrics) -> Int {
+        switch lyrics {
+        case .synced: return 0
+        case .unsyncedPlain: return 1
+        case .instrumental: return 2
+        }
+    }
+
+    private static func fold(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+            .replacingOccurrences(of: "\u{2019}", with: "'")
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
