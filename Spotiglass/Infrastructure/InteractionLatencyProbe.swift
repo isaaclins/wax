@@ -48,6 +48,9 @@ final class InteractionLatencyProbe {
     private let scene: SpotiglassSceneHost
     private let playbackHosts: SpotiglassPlaybackHosts
     private var pending: PendingFrame?
+    /// When the current try's first input event went out. The clock starts there, not before the
+    /// probe looks for what to press, so its own search isn't timed.
+    private var inputSentAt: CFTimeInterval?
     private var nextPendingID = 0
 
     private init(reportURL: URL, scene: SpotiglassSceneHost, playbackHosts: SpotiglassPlaybackHosts) {
@@ -247,6 +250,17 @@ final class InteractionLatencyProbe {
                 }
             ),
             Step(
+                id: "playback.toggle.longList",
+                title: "Space with the 1000-song playlist open",
+                // The page #645 was slow on: every row of a long list redrew on play and pause.
+                prepare: { await $0.showLongPlaylist() },
+                start: { probe in
+                    let wasPlaying = probe.isPlaying
+                    probe.press(.space)
+                    return { probe.isPlaying != wasPlaying }
+                }
+            ),
+            Step(
                 id: "list.scroll",
                 title: "Scrolling a long playlist",
                 prepare: { await $0.showLongPlaylist() },
@@ -363,8 +377,8 @@ final class InteractionLatencyProbe {
                 continue
             }
             try? await Task.sleep(for: .seconds(Self.settleSeconds))  // try?: only cancelled when the app quits
-            let started = CACurrentMediaTime()
-            guard let shown = step.start(self) else {
+            inputSentAt = nil
+            guard let shown = step.start(self), let started = inputSentAt else {
                 problems.append("nothing to press (\(stateDescription))")
                 continue
             }
@@ -521,6 +535,7 @@ final class InteractionLatencyProbe {
         guard let window = NSApp.keyWindow ?? window else { return }
         var flags = modifiers
         if key.isArrow { flags.formUnion([.function, .numericPad]) }
+        inputSentAt = inputSentAt ?? CACurrentMediaTime()
         for type in [NSEvent.EventType.keyDown, .keyUp] {
             guard let event = NSEvent.keyEvent(
                 with: type,
@@ -566,6 +581,7 @@ final class InteractionLatencyProbe {
     /// A click at `point` in the main window's coordinates.
     private func click(at point: NSPoint) {
         guard let window else { return }
+        inputSentAt = inputSentAt ?? CACurrentMediaTime()
         for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
             guard let event = NSEvent.mouseEvent(
                 with: type,
@@ -680,6 +696,7 @@ final class InteractionLatencyProbe {
         // A scroll event made from a CGEvent carries no window, so neither NSApp nor the window
         // can route it: it goes straight to the list's scroll view, where a real one ends up.
         guard let event = NSEvent(cgEvent: cg) else { return nil }
+        inputSentAt = CACurrentMediaTime()
         scroll.scrollWheel(with: event)
         return { scroll.contentView.bounds.origin.y != before }
     }

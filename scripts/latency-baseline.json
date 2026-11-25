@@ -1,5 +1,5 @@
 {
-  "_comment": "known: interactions over 50 ms on a Mac today, each with the issue that fixes it (#656) and its checked time when it was listed (measuredMs, null: never showed within 3 s). scripts/latency-test.sh reports them without failing unless one gets more than twice as slow or stops showing; remove an entry when its fix lands. ci: every interaction's median on GitHub's macOS runner, which is 2-4 times slower than a Mac (null: never shows there); --ci fails when one gets more than twice as slow. Refresh a ci time from the job's report when a change makes one faster.",
+  "_comment": "known: interactions over 50 ms on a Mac today, each with the issue that fixes it (#656) and its checked time when it was listed (measuredMs, null: never showed within 3 s); remove an entry when its fix lands. ci: every interaction's median on GitHub's macOS runner, which is 2-4 times slower than a Mac (null: never shows there); set it from the CI job's report when a change makes one faster. The rules are in scripts/latency_gate.py and docs/latency.md.",
   "known": {
     "lyrics.toggle": {
       "issue": 674,

@@ -19,14 +19,16 @@ The script builds the Release app and starts it in [screenshot mode](screenshots
 library, with a 1000-song playlist added for scrolling. No account and no sound are involved. The app
 then runs its own probe
 ([`InteractionLatencyProbe`](../Spotiglass/Infrastructure/InteractionLatencyProbe.swift)): it
-presses each shortcut and clicks each control 8 times, posting real key, mouse and scroll events to
+presses each shortcut and clicks each control 8 times. Keys and clicks are real events posted to
 its own event queue, so they go through the same key monitors, menu shortcuts and hit testing as a
-press on the keyboard. The window server step before that is left out.
+press on the keyboard; the window server step before that is left out. A scroll goes straight to
+the list's scroll view, where a real one ends up. The clock starts when the first event goes out.
 
 A try ends at the first frame Core Animation commits after the state the screen draws from has
 changed (the player says paused, the palette is open, the list has moved). One display refresh
 (16.7 ms at 60 Hz) is added for that frame to reach the screen. A main thread that is busy after
-the input delays that frame, so it counts in full.
+the input delays that frame, so it counts in full. This rests on SwiftUI updating the views from
+that state before the same commit, which is how it draws; the probe doesn't read pixels back.
 
 The time checked against 50 ms drops the single slowest try, since a busy machine now and then
 stalls for a frame; a try that never showed within 3 s counts as the slowest. The report lands in
@@ -44,9 +46,10 @@ fix lands, its entry goes.
 CI runs `scripts/latency-test.sh --ci` on every pull request (job "Interaction latency (Release)").
 GitHub's macOS runners are 2-4 times slower than a Mac: play/pause takes about 80 ms there and ⌘K
 200-290 ms, so the 50 ms line can't be checked on them. Instead every interaction has its median
-on that runner under `ci` in the baseline file, and the job fails when one gets more than twice as
-slow, stops showing, or is new and has no time there yet. That catches a change like #645 (play/pause
-going from 50 to 610 ms). Whether something is within 50 ms is what the run on a Mac says, and a PR
+on that runner under `ci` in the baseline file, and the job fails when its median gets more than
+twice that, when its checked time is over four times that (a few tries got far slower), when more
+than one try never shows, or when it is new and has no time there yet. That catches a change like
+#645 (play/pause going from 50 to 610 ms with a long playlist open). Whether something is within 50 ms is what the run on a Mac says, and a PR
 that touches an interaction puts that run's times in its description.
 
 When a change makes an interaction faster, set its `ci` time from the job's uploaded report, so it
@@ -75,6 +78,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `page.search` | ⌘F opens Search | 86 | 89 | #675 |
 | `page.back` | ⌘[ goes back a page | never | never | #677 |
 | `page.sidebarClick` | Click a playlist in the sidebar | 60 | 66 | #675 |
+| `playback.toggle.longList` | Space with the 1000-song playlist open | | | |
 | `list.scroll` | Scrolling a 1000-song playlist | 30 | 37 | |
 | `settings.open` | ⌘, opens Settings | 99 | 113 | #676 |
 

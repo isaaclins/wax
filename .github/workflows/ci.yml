@@ -230,9 +230,10 @@ jobs:
     name: Interaction latency (Release)
     # Every interaction shows its result within 50 ms (#656). The Release app runs on the sample
     # library of screenshot mode and presses each shortcut and clicks each control itself. This
-    # runner is 2-4 times slower than a Mac, so the job fails when an interaction gets more than
-    # twice as slow as its time here in scripts/latency-baseline.json, or stops showing; the 50 ms
-    # check itself is the same script run on a Mac. docs/latency.md.
+    # runner is 2-4 times slower than a Mac, so the job fails when an interaction gets clearly
+    # slower than its time here in scripts/latency-baseline.json, or stops showing
+    # (scripts/latency_gate.py); the 50 ms check itself is the same script run on a Mac.
+    # docs/latency.md.
     runs-on: macos-26
     timeout-minutes: 40
     steps:
