@@ -175,7 +175,9 @@ extension PlaybackSessionViewModel {
                     deviceID: commandDeviceID
                 )
             }
-            SpotiglassLog.info(.playback, "playFromPlaylist API ok clickedURI=\(clickedURI) queueCount=\(queue.count)")
+            // The list's length, not what the player took: the Apple Music player logs how many
+            // songs it really holds (#736).
+            SpotiglassLog.info(.playback, "playFromPlaylist API ok clickedURI=\(clickedURI) listCount=\(queue.count)")
             guard ownsPlaybackHostGeneration(generation), !Task.isCancelled,
                   isPlayCommandDispatchCurrent(dispatch) else {
                 SpotiglassLog.info(.playback, "playFromPlaylist superseded after API clickedURI=\(clickedURI)")
