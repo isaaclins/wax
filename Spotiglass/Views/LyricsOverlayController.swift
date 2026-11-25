@@ -341,7 +341,8 @@ final class LyricsPresentationState: ObservableObject {
     @Published fileprivate(set) var isPresented = false
 }
 
-/// Runs `work` once, right after Core Animation commits the frame being built now.
+/// Runs `work` once, right after Core Animation commits the frame being built now, or when the
+/// run loop it was set up in exits first (a menu's tracking loop, say).
 @MainActor
 enum AfterThisFrame {
     static func run(_ work: @escaping @MainActor () -> Void) {

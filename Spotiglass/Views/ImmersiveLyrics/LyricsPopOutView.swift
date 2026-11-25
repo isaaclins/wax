@@ -14,25 +14,18 @@ struct LyricsPositionReader<Content: View>: View {
 
     var body: some View {
         PlaybackProgressReader(progress: playbackViewModel.progress) { anchor in
-            if let anchor, anchor.isAdvancing {
-                TimelineView(.animation(minimumInterval: nil, paused: !isShowing)) { context in
-                    content(
-                        LrcLineParser.effectivePositionMs(
-                            positionMs: anchor.interpolatedPositionMs(at: context.date),
-                            offsetMs: offsetMs
-                        )
-                    )
+            let advancing = anchor?.isAdvancing == true
+            // One timeline, paused while the song is or the lyrics are closed, rather than a
+            // timeline only while the song plays: switching between the two built everything
+            // under it again, every line of the lyrics, on each play and pause, and the closed
+            // lyrics in the main window too (#674).
+            TimelineView(.animation(minimumInterval: nil, paused: !(advancing && isShowing))) { context in
+                let positionMs = if let anchor, advancing {
+                    anchor.interpolatedPositionMs(at: context.date)
+                } else {
+                    Self.staticPositionMs(anchor: anchor, connectionState: playbackViewModel.connectionState)
                 }
-            } else {
-                content(
-                    LrcLineParser.effectivePositionMs(
-                        positionMs: Self.staticPositionMs(
-                            anchor: anchor,
-                            connectionState: playbackViewModel.connectionState
-                        ),
-                        offsetMs: offsetMs
-                    )
-                )
+                content(LrcLineParser.effectivePositionMs(positionMs: positionMs, offsetMs: offsetMs))
             }
         }
     }
