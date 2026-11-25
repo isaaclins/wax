@@ -13,12 +13,14 @@ final class PlayPauseRenderScopeTests: XCTestCase {
     /// The songs of the list this test opened. Only their rows count: a window an earlier test
     /// closed can still draw a row of its own list while this one measures (#683).
     private var hostedTrackIDs: Set<String> = []
+    private var hostedBrowser: PlaylistBrowserViewModel?
 
     override func tearDown() {
         ViewBodyTally.counts = nil
         ViewTestHost.tearDownAll()
         hostedWindow = nil
         hostedTrackIDs = []
+        hostedBrowser = nil
         super.tearDown()
     }
 
@@ -68,6 +70,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         )
         hostedTrackIDs = Set(tracks.map(\.id))
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        hostedBrowser = browserVM
         await browserVM.load()
         await browserVM.selectPlaylist(id: "p1")
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(browserVM.detailState).count, tracks.count)
@@ -166,9 +169,6 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         assertOnlyTheRowsChanged(otherPlaylist, tracks: ["t4", "t5"], playlists: ["p1", "p2"])
     }
 
-    /// An Apple Music song started from another list is found among the rows by title, artists
-    /// and length (#396). One change of the player looks for it once for the whole list: done by
-    /// each row, one pause on a list of 1000 songs held the main thread for 0.3 to 0.5 s.
     /// A row off screen isn't built again on a pause (#655). It shows the pause once it scrolls in.
     func testARowOffScreenShowsAPauseWhenItScrollsIn() async throws {
         let rowCount = 300
@@ -189,6 +189,9 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         XCTAssertNil(ViewBodyTally.counts?["TrackListRowMark:\(last):playing"], "the playing row scrolled in still playing")
     }
 
+    /// An Apple Music song started from another list is found among the rows by title, artists
+    /// and length (#396). One change of the player looks for it once for the whole list: done by
+    /// each row, one pause on a list of 1000 songs held the main thread for 0.3 to 0.5 s.
     func testAPauseLooksForTheAppleMusicPlayingRowOncePerList() async throws {
         let rowCount = 300
         // On screen: a row the table hasn't drawn has nothing to redraw (#645). Looking for it
@@ -225,10 +228,17 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         let playback = try await hostBrowser(tracks: (0..<rowCount).map(song), playing: state(playing: true))
         // The matched row on screen, as when someone looks at it. A row off screen isn't built
         // again on a pause; it shows the player's state when it comes into view (#655, tested
-        // below).
+        // above).
         let table = try XCTUnwrap(AppKitTestSupport.tables(in: hostedWindow?.contentView).first { $0.numberOfRows >= rowCount })
         table.scrollRowToVisible(matched)
         XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { table.rows(in: table.visibleRect).contains(matched) }))
+        await AppKitTestSupport.settle()
+        // Between pauses the page runs again (the browser published something) and a click
+        // builds one row again. The table keeps the other rows, and they all still share one
+        // search: each body handing the rows a new marks left several on screen (#683).
+        hostedBrowser?.objectWillChange.send()
+        await AppKitTestSupport.settle()
+        hostedBrowser?.selectedDetailTrackIDs = ["r\(matched + 1)"]
         await AppKitTestSupport.settle()
 
         for playing in [false, true] {
