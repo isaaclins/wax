@@ -504,7 +504,11 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         store.bind(userID: "u1")
         let settings = try ViewTestHost.makeSettingsStore()
         let tokens = ShellTestTokenProvider()
-        let playbackHost = SpotiglassPlaybackHost(tokenProvider: tokens)
+        // A stand-in player: a real one reads Spotify with this fake token, gets a 401 and the
+        // bar rightly turns into "Sign in again", taking the controls this test measures with it.
+        let playbackHost = SpotiglassPlaybackHost(provider: SpotifyPlaybackProvider(
+            playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()
+        ))
         let view = PlaylistBrowserView(
             viewModel: browserVM,
             playbackHost: playbackHost,
