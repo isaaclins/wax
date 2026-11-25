@@ -11,6 +11,7 @@ final class SettingsWindowControllerTests: XCTestCase {
     private var controllers: [SettingsWindowController] = []
 
     override func tearDown() {
+        ViewTestHost.tearDownAll()
         for controller in controllers {
             controller.window.map(AppKitTestSupport.closeWindowSafely)
         }
@@ -147,6 +148,22 @@ final class SettingsWindowControllerTests: XCTestCase {
         XCTAssertEqual(shownWithMoveToActiveSpace, [true, false, true], "closed: on the Space in use; open: stays where it is")
     }
 
+    /// The player bar's Reconnect and the palette's Open Settings reach Settings through the
+    /// environment: the app's own window, not SwiftUI's `openSettings`, which only opens a
+    /// `Settings` scene the app no longer has.
+    func testAViewsSettingsActionShowsTheAppsWindow() async throws {
+        let controller = makeController()
+        ViewTestHost.host(
+            OpensSettingsOnAppear()
+                .environment(\.openWaxSettings, OpenWaxSettingsAction {
+                    controller.show { Text(verbatim: "Settings") }
+                })
+        )
+
+        let shown = await AppKitTestSupport.settle(until: { controller.window?.isVisible == true })
+        XCTAssertTrue(shown, "the view's Settings action never showed the window")
+    }
+
     func testOnlyItsOwnWindowCountsAsSettings() throws {
         let controller = makeController()
         controller.show { Text(verbatim: "Settings") }
@@ -203,6 +220,15 @@ private struct StateProbe: View {
         Text(verbatim: state.token.uuidString)
             .onAppear { log.tokens.append(state.token) }
             .onDisappear { log.disappearances += 1 }
+    }
+}
+
+/// A view that opens Settings the way the player bar's Reconnect does.
+private struct OpensSettingsOnAppear: View {
+    @Environment(\.openWaxSettings) private var openSettings
+
+    var body: some View {
+        Color.clear.onAppear { openSettings() }
     }
 }
 
