@@ -445,7 +445,7 @@ final class ArtworkFailureLogTests: XCTestCase {
         let spotify = URL(string: "https://i.scdn.co/image/ab67616d0000b273")!
         _ = await store(answering: .error(URLError(.notConnectedToInternet)), lines: lines).image(for: spotify)
         XCTAssertEqual(lines.all.count, 1)
-        XCTAssertTrue(lines.all[0].hasPrefix("Cover failed to load from Spotify (i.scdn.co): URLError -1009 after "), lines.all[0])
+        XCTAssertTrue(lines.all[0].hasPrefix("Cover failed to load from Spotify (i.scdn.co): \(NSURLErrorDomain) -1009 after "), lines.all[0])
     }
 
     func testALoadedCoverLogsNothing() async throws {
