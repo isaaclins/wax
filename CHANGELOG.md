@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.80] - 2026-11-25
+
+### Fixed
+
+- The command palette opens, closes and shows what you type without the lag.
+
 ## [0.8.79] - 2026-11-25
 
 ### Fixed
