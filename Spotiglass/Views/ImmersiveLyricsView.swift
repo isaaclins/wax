@@ -21,7 +21,8 @@ struct ImmersiveLyricsView: View {
     /// the user moved it (``LyricsKeyboardFocusProbe``).
     @State private var hasPlacedInitialFocus = false
     @Environment(\.lyricsKeyboardFocus) private var keyboardFocus
-    /// Closed, the lyrics stay built (#674): they load nothing and leave the keyboard alone.
+    /// Closed, the lyrics stay built (#674): they load no lyrics or queue and leave the keyboard
+    /// alone.
     @Environment(\.lyricsAreShowing) private var isShowing
 
     /// Soft fade at scroll top/bottom; off when legibility or calm motion is preferred.

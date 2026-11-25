@@ -146,8 +146,9 @@ private struct LyricsAreShowingKey: EnvironmentKey {
 
 extension EnvironmentValues {
     /// `false` while the lyrics in the main window are closed. They stay built under the page
-    /// so they open within 50 ms (#674), and meanwhile they follow no playback position, load
-    /// nothing and take no keyboard focus.
+    /// so they open within 50 ms (#674), and meanwhile they follow no playback position, load no
+    /// lyrics or queue, start no timing hold and take no keyboard focus. The backdrop still loads
+    /// each song's artwork, so it is there when they open.
     var lyricsAreShowing: Bool {
         get { self[LyricsAreShowingKey.self] }
         set { self[LyricsAreShowingKey.self] = newValue }

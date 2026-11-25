@@ -555,6 +555,19 @@ final class LyricsTimingHoldTests: XCTestCase {
         XCTAssertTrue(surface.route(down) === down)
     }
 
+    /// Closed lyrics stay built under the page (#674). From the moment they start to close, a
+    /// right click there belongs to the page, while they still fade out too.
+    func testClosingLyricsLeaveARightClickToThePage() throws {
+        let (surface, window, _) = try makeHostedSurface(lyrics: .synced(lines))
+        surface.startsHolds = false
+        let down = mouse(.rightMouseDown, at: CGPoint(x: 200, y: 150), in: window)
+        XCTAssertNil(surface.holdEvent(for: down))
+        XCTAssertTrue(surface.route(down) === down)
+
+        surface.startsHolds = true
+        XCTAssertNil(surface.route(down), "opened again, a right click starts a hold")
+    }
+
     func testPlainLyricsCantBeHeld() throws {
         let (surface, window, _) = try makeHostedSurface(lyrics: .unsyncedPlain(["a", "b"]))
         let down = mouse(.rightMouseDown, at: CGPoint(x: 200, y: 150), in: window)
