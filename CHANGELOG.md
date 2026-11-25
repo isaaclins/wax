@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.75] - 2026-11-25
+
+### Fixed
+
+- Lyrics no longer stay hidden for 15 minutes after a short Wi-Fi drop.
+
 ## [0.8.74] - 2026-11-25
 
 ### Fixed
