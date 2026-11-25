@@ -225,3 +225,40 @@ jobs:
           set -euo pipefail
           COVERAGE_ALLOWLIST=scripts/coverage-allowlist.json \
             ./scripts/check-coverage-per-file.sh "$GITHUB_WORKSPACE/build/ci-cov.xcresult"
+
+  latency:
+    name: Interaction latency (Release)
+    # Every interaction shows its result within 50 ms (#656). The Release app runs on the sample
+    # library of screenshot mode and presses each shortcut and clicks each control itself. This
+    # runner is 2-4 times slower than a Mac, so the job fails when an interaction gets clearly
+    # slower than its time here in scripts/latency-baseline.json, or stops showing
+    # (scripts/latency_gate.py); the 50 ms check itself is the same script run on a Mac.
+    # docs/latency.md.
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Select Xcode 26.6
+        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+        with:
+          xcode-version: '26.6'
+
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -project Spotiglass.xcodeproj -scheme Spotiglass
+
+      - name: Time every interaction
+        run: ./scripts/latency-test.sh --ci
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: latency-report-${{ github.run_id }}
+          path: |
+            build/latency/report.json
+            build/screenshot-mode/build.log
+            build/screenshot-mode/mock.log
+          if-no-files-found: warn
+          retention-days: 14

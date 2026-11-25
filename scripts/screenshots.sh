@@ -164,6 +164,8 @@ JSON
     # permission prompt and your own library) next to the Spotify stand-in.
     open -n --env "SPOTIGLASS_MOCK_BASE=http://127.0.0.1:$PORT" --env "CFFIXED_USER_HOME=$FAKE_HOME" \
         --env "SPOTIGLASS_SCREENSHOT_APPLE_MUSIC=$apple_music" \
+        ${WAX_LATENCY_PROBE:+--env "WAX_LATENCY_PROBE=$WAX_LATENCY_PROBE"} \
+        ${WAX_LATENCY_ONLY:+--env "WAX_LATENCY_ONLY=$WAX_LATENCY_ONLY"} \
         "$APP" --args -spotify.clientID screenshot-mode
     for _ in $(seq 1 60); do
         [ -n "$(app_pid)" ] && windows 2>/dev/null | grep -q . && break
@@ -174,7 +176,7 @@ JSON
         set {x, y, w, h} to {$WINDOW_FRAME}
         set position of window 1 to {x, y}
         set size of window 1 to {w, h}
-    end tell" >/dev/null
+    end tell" >/dev/null || echo "screenshots: could not place the window (no Accessibility access?); it keeps its size" >&2
     sleep 4   # let the library, artwork and player bar settle
     echo "running. capture with: $0 shot <name>"
 }

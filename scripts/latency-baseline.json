@@ -1,0 +1,86 @@
+{
+  "_comment": "known: interactions over 50 ms on a Mac today, each with the issue that fixes it (#656) and its checked time when it was listed (measuredMs, null: never showed within 3 s); remove an entry when its fix lands. ci: every interaction's median on GitHub's macOS runner, which is 2-4 times slower than a Mac (null: never shows there); set it from the CI job's report when a change makes one faster. The rules are in scripts/latency_gate.py and docs/latency.md.",
+  "known": {
+    "lyrics.toggle": {
+      "issue": 674,
+      "measuredMs": 123
+    },
+    "page.back": {
+      "issue": 677,
+      "measuredMs": null
+    },
+    "page.search": {
+      "issue": 675,
+      "measuredMs": 89
+    },
+    "page.sidebarClick": {
+      "issue": 675,
+      "measuredMs": 66
+    },
+    "palette.close": {
+      "issue": 671,
+      "measuredMs": 78
+    },
+    "palette.open": {
+      "issue": 671,
+      "measuredMs": 88
+    },
+    "palette.type": {
+      "issue": 671,
+      "measuredMs": null
+    },
+    "playback.next": {
+      "issue": 687,
+      "measuredMs": null
+    },
+    "playback.previous": {
+      "issue": 687,
+      "measuredMs": null
+    },
+    "playback.repeat": {
+      "issue": 677,
+      "measuredMs": null
+    },
+    "playback.seek": {
+      "issue": 677,
+      "measuredMs": null
+    },
+    "playback.shuffle": {
+      "issue": 677,
+      "measuredMs": null
+    },
+    "queue.toggle": {
+      "issue": 673,
+      "measuredMs": 77
+    },
+    "settings.open": {
+      "issue": 676,
+      "measuredMs": 113
+    },
+    "sidebar.toggle": {
+      "issue": 672,
+      "measuredMs": 83
+    }
+  },
+  "ci": {
+    "playback.toggle.key": 83,
+    "playback.toggle.click": 80,
+    "playback.next": null,
+    "playback.previous": null,
+    "playback.seek": null,
+    "playback.shuffle": null,
+    "playback.repeat": null,
+    "palette.open": 291,
+    "palette.type": 217,
+    "palette.close": 254,
+    "sidebar.toggle": 261,
+    "queue.toggle": 279,
+    "lyrics.toggle": 547,
+    "page.search": 370,
+    "page.back": null,
+    "page.sidebarClick": null,
+    "list.scroll": 37,
+    "settings.open": 303,
+    "playback.toggle.longList": 60
+  }
+}
