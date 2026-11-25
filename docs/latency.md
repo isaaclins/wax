@@ -70,9 +70,9 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `playback.toggle.click` | Click the play/pause button | 36 | 38 | |
 | `playback.next` | ⇧⌘→ skips to the next song | 37 | 39 | fixed in #687 (was never) |
 | `playback.previous` | ⇧⌘← goes back a song | 38 | 39-53 | #704 (was never; shows at once since #687) |
-| `playback.seek` | ⌘→ jumps ahead in the song | 24 | 35 | |
-| `playback.shuffle` | ⌥⌘S turns shuffle on or off | 38 | 42 | |
-| `playback.repeat` | ⌥⌘R changes repeat | 41 | 44 | |
+| `playback.seek` | ⌘→ jumps ahead in the song | 24-30 | 30-46 | |
+| `playback.shuffle` | ⌥⌘S turns shuffle on or off | 38-55 | 42-59 | #730 (was never) |
+| `playback.repeat` | ⌥⌘R changes repeat | 41-58 | 44-60 | #730 (was never) |
 | `palette.open` | ⌘K opens the command palette | 79 → 26 | 88 → 36 | #671 |
 | `palette.type` | Typing a letter in the palette | 71* → 41 | never → 44 | #671 |
 | `palette.close` | Esc closes the palette | 72 → 37 | 78 → 46 | #671 |
@@ -80,7 +80,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `queue.toggle` | ⌥⌘Q opens or closes the queue | 72 | 77 | #673 |
 | `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 114 | 123 | #674 |
 | `page.search` | ⌘F opens Search | 86 | 89 | #675 |
-| `page.back` | ⌘[ goes back a page | 41 | 45 | |
+| `page.back` | ⌘[ goes back a page | 41-62 | 45-63 | #730 (was never) |
 | `page.sidebarClick` | Click a playlist in the sidebar | 60 | 66 | #675 |
 | `playback.toggle.longList` | Space with the 1000-song playlist open | 36 | 37 | |
 | `list.scroll` | Scrolling a 1000-song playlist | 30 | 37 | |
@@ -102,7 +102,10 @@ they never showed: the probe's keys never reached SwiftUI's menu bar, and on the
 German keyboard ⌘[ is ⌘ö. Once they did, shuffle and repeat took 65 ms and ⌘[ 58 ms, because every
 change rebuilt the menu bar inside the frame that showed it and the next shortcut first brought
 the menu bar's items up to date. The menu bar now hears of a change once, right after that frame,
-and updates its items then. Under load 9 shuffle and repeat rose to 46-55 ms.
+and updates its items then. The lower times are from one run under load 5; on the final #677
+branch, three runs under load 3-7 gave the higher ones. Play/pause is at 45-47 ms on main too
+(#726), so that's not only load. Shuffle, repeat and ⌘[ stay on the `known` list until #730 gets
+them to 40 ms checked.
 
 ## The sound (Apple Music)
 
