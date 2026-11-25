@@ -82,7 +82,7 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
             window.styleMask.insert(.resizable)
             controller.sizingOptions = [.minSize]
         }
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         return (controller, window, sampler)
     }
 
@@ -152,7 +152,7 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
         let split = try XCTUnwrap(Self.splitView(in: controller.view))
         split.setPosition(620, ofDividerAt: 0)
         controller.view.layoutSubtreeIfNeeded()
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         let sidebar = try XCTUnwrap(split.arrangedSubviews.first)
         let detail = try XCTUnwrap(split.arrangedSubviews.last)
         let bounds = controller.view.bounds

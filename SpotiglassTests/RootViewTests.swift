@@ -166,14 +166,14 @@ final class RootViewTests: XCTestCase {
         ))
         .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
         ViewTestHost.host(root, size: CGSize(width: 720, height: 520))
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
 
         try root.inspect().find(button: SpotiglassL10n.string("auth.disconnect.button")).tap()
         XCTAssertTrue(
             AppKitTestSupport.pumpRunLoop(until: { services.services == [.appleMusic] }),
             "Disconnect never took Spotify out"
         )
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
 
         XCTAssertEqual(services.services, [.appleMusic])
         XCTAssertEqual(services.active, .appleMusic)
@@ -506,10 +506,10 @@ final class RootViewPinsAfterAddingTests: XCTestCase {
     /// then until what that change queued has run too, so a late overwrite would still show.
     private func settle(until done: () -> Bool) async throws {
         while !done() {
-            AppKitTestSupport.settle(passes: 1)
+            await AppKitTestSupport.settle(passes: 1)
             try await Task.sleep(for: .milliseconds(10))
         }
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
     }
 
     func testAddingAppleMusicShowsItsPins() async throws {
@@ -666,12 +666,12 @@ final class RootViewToolbarLayoutTests: XCTestCase {
     /// switch that never comes runs into the per-test limit.
     private func settle(until done: () -> Bool) async throws {
         while !done() {
-            AppKitTestSupport.settle(passes: 1)
+            await AppKitTestSupport.settle(passes: 1)
             try await Task.sleep(for: .milliseconds(10))
         }
         // Until what the switch queued has run, so a layout it scheduled for the next display
         // cycle runs while watched.
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
     }
 }
 

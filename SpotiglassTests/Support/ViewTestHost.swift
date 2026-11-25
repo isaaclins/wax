@@ -26,6 +26,28 @@ enum AppKitTestSupport {
     /// queue: an async test already runs inside a main-queue job, and the main queue doesn't drain
     /// nested inside one, so a marker would never run there.
     static func settle(passes: Int = 3) {
+        settleRunLoop(passes: passes)
+    }
+
+    /// ``settle(passes:)`` for async tests. Their body runs inside a main-actor job, and the
+    /// synchronous barrier never lets other main-actor work (or the main queue) run however long
+    /// it turns: this one suspends after each pass so that work runs too, before a check that
+    /// something did NOT happen. Swift picks it in every async context, so an async test can't
+    /// settle without it by accident.
+    static func settle(passes: Int = 3) async {
+        for _ in 0..<passes {
+            settleRunLoop(passes: 1)
+            await ViewTestHost.renderPendingUpdates(passes: 1)
+        }
+    }
+
+    /// The synchronous barrier, callable from an async test too, for the one test that has to
+    /// keep the main actor's own work held off (#693). Everything else uses ``settle(passes:)``.
+    static func settleRunLoopOnly(passes: Int = 3) {
+        settleRunLoop(passes: passes)
+    }
+
+    private static func settleRunLoop(passes: Int) {
         for _ in 0..<passes {
             for window in NSApp?.windows ?? [] {
                 window.contentView?.layoutSubtreeIfNeeded()
@@ -63,8 +85,7 @@ enum AppKitTestSupport {
         let deadline = Date().addingTimeInterval(timeout)
         while !condition() {
             guard Date() < deadline else { return false }
-            settle(passes: 1)
-            await ViewTestHost.renderPendingUpdates(passes: 1)
+            await settle(passes: 1)
         }
         return true
     }

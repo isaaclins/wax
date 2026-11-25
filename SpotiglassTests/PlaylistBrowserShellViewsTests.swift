@@ -174,7 +174,7 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
 
         controller.view.frame = CGRect(x: 0, y: 0, width: 400, height: 640)
         controller.view.layoutSubtreeIfNeeded()
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertTrue(PlaylistBrowserView.mutualExclusionWidth(for: 400, sidebarWidth: SpotiglassDesign.sidebarWidth))
     }
 
@@ -301,7 +301,7 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         )
         .environmentObject(LyricsOverlayController())
         ViewTestHost.host(column, size: CGSize(width: 720, height: 520))
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertNoThrow(try column.inspect())
     }
 
@@ -554,7 +554,7 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
                 if end.origin == clip.bounds.origin { break }
                 clip.scroll(to: end.origin)
                 scrollView.reflectScrolledClipView(clip)
-                AppKitTestSupport.settle()
+                await AppKitTestSupport.settle()
                 root.layoutSubtreeIfNeeded()
             }
             let lastRow = list.convert(list.rect(ofRow: list.numberOfRows - 1), to: nil)
@@ -575,7 +575,7 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
 
         // Same page, same trail: the lyrics stay.
         hosted.browser.sidebarSelection = hosted.browser.sidebarSelection
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertTrue(hosted.lyricsOverlay.isPresented, "the lyrics closed without going anywhere")
 
         let elsewhere: SidebarSelection = hosted.browser.sidebarSelection == .likedSongs ? .home : .likedSongs

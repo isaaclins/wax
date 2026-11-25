@@ -592,8 +592,7 @@ final class LyricsPopOutTests: XCTestCase {
         let paused = await AppKitTestSupport.settle(until: { self.pauses(commander) > 0 })
         XCTAssertTrue(paused, "Space in the pop-out never reached its player")
         // Whatever else the press set off has run, so a second pause would be counted.
-        AppKitTestSupport.settle()
-        await ViewTestHost.renderPendingUpdates()
+        await AppKitTestSupport.settle()
         XCTAssertEqual(pauses(commander), 1, "Space in the pop-out pauses what it shows")
     }
 

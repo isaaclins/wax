@@ -184,7 +184,7 @@ final class WindowResizeCostTests: XCTestCase {
         for step in 0..<12 {
             resize(window, toWidth: 1_450 - CGFloat(step) * 30, height: 900 - CGFloat(step) * 10)
         }
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertEqual(offScreen(), [], "a resize built a row or card far outside the window")
 
         // Back to full size: the table already has its rows, so the far row and the far card
@@ -192,7 +192,7 @@ final class WindowResizeCostTests: XCTestCase {
         for step in (0..<12).reversed() {
             resize(window, toWidth: 1_450 - CGFloat(step) * 30, height: 900 - CGFloat(step) * 10)
         }
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertEqual(offScreen(), [], "growing the window built a row or card far outside it")
     }
 
@@ -261,13 +261,13 @@ final class WindowResizeCostTests: XCTestCase {
             AppKitTestSupport.pumpRunLoop(until: { ViewBodyTally.counts?[second] != nil }),
             "the results never came on screen", file: file, line: line
         )
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertNil(ViewBodyTally.counts?[farOff], "Search built \(farOff) far outside the window", file: file, line: line)
 
         for step in 0..<12 {
             resize(window, toWidth: 900 - CGFloat(step) * 20, height: 600 - CGFloat(step) * 10)
         }
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertNil(ViewBodyTally.counts?[farOff], "a resize built \(farOff) far outside the window", file: file, line: line)
     }
 

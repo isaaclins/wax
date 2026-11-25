@@ -516,7 +516,7 @@ final class BrowserWindowTitleTests: XCTestCase {
 
         await viewModel.selectSidebar(.playlist("p1"))
         XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { window.title == "Focus" }), "the window never took the playlist's name")
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertEqual(window.title, "Focus")
         XCTAssertEqual(window.titleVisibility, .visible)
         // Without the title the bar's buttons slid over next to the sidebar button on Home and
@@ -527,7 +527,7 @@ final class BrowserWindowTitleTests: XCTestCase {
 
         await viewModel.navigateBack()
         XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { window.title == home }), "the window never went back to Home's name")
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertEqual(viewModel.sidebarSelection, .home)
         XCTAssertEqual(window.title, home)
         XCTAssertEqual(window.titleVisibility, .hidden)
@@ -554,7 +554,7 @@ final class BrowserWindowTitleTests: XCTestCase {
             AppKitTestSupport.pumpRunLoop(until: { window.titleVisibility == .hidden }),
             "the bar kept the playlist's title on Home"
         )
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertTrue(viewModel.canNavigateBack, "Home should have somewhere to go back to")
         XCTAssertEqual(window.titleVisibility, .hidden)
         let backLabel = NavigationToolbarChrome.destinationDescription(for: viewModel, locale: SpotiglassL10n.locale)
@@ -581,7 +581,7 @@ final class BrowserWindowTitleTests: XCTestCase {
 
         // A pinned track selects its row while it starts playing, with Home still on screen.
         await viewModel.selectSidebar(.pinnedItem("pinned-track"))
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertEqual(window.title, ViewTestHost.localizedString("browser.home"))
         XCTAssertEqual(window.titleVisibility, .hidden)
 
@@ -590,7 +590,7 @@ final class BrowserWindowTitleTests: XCTestCase {
             AppKitTestSupport.pumpRunLoop(until: { window.title != ViewTestHost.localizedString("browser.home") }),
             "the empty page kept Home's name"
         )
-        AppKitTestSupport.settle()
+        await AppKitTestSupport.settle()
         XCTAssertNil(viewModel.sidebarSelection)
         XCTAssertNotEqual(window.title, ViewTestHost.localizedString("browser.home"))
         XCTAssertFalse(window.title.isEmpty, "the window keeps a real name (#161)")
