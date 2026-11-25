@@ -191,13 +191,22 @@ private final class AppearanceLog {
 }
 
 /// Holds one piece of view state and reports it, like a pane's selection or search text.
+///
+/// A state object, made once for each identity of the view. A `@State` initial value is part of
+/// the view value the window keeps, and built with CI's Xcode 26 a rebuilt identity started from
+/// that same `UUID()`, so the test couldn't tell the new state from the old.
 private struct StateProbe: View {
     let log: AppearanceLog
-    @State private var token = UUID()
+    @StateObject private var state = ProbeState()
 
     var body: some View {
-        Text(verbatim: token.uuidString)
-            .onAppear { log.tokens.append(token) }
+        Text(verbatim: state.token.uuidString)
+            .onAppear { log.tokens.append(state.token) }
             .onDisappear { log.disappearances += 1 }
     }
+}
+
+@MainActor
+private final class ProbeState: ObservableObject {
+    let token = UUID()
 }
