@@ -1275,11 +1275,6 @@
   },
   {
     "file": "Spotiglass/Utilities/ArtworkImageStore.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … return nil"
-  },
-  {
-    "file": "Spotiglass/Utilities/ArtworkImageStore.swift",
     "rule": "try-reason",
     "code": "DiskCacheTrim.write { try? data.write(to: fileURL, options: [.atomic]) }"
   },

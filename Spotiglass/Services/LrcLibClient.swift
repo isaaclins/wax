@@ -261,11 +261,11 @@ struct LrcLibClient: Sendable {
         request.setValue(AppMetadata.spotiglassHTTPUserAgent, forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 45
 
-        // The log names the endpoint, never the song: the query is the user's listening (#603).
+        // The request itself is in the call log with its URL (#734).
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await CallLog.http(request, session: session, expected: [404])
         } catch {
             if !(error is CancellationError) {
                 SpotiglassLog.error(.api, "LRCLIB \(endpoint) failed: \(SpotiglassLog.describe(error))")

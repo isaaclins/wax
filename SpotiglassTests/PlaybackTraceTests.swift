@@ -222,9 +222,14 @@ final class AudioOutputTraceTests: XCTestCase {
         defer { trace.stop() }
         trace.start()
         trace.start()
+        trace.flush()
         XCTAssertEqual(lines.count, 1, lines.joined(separator: "\n"))
         XCTAssertTrue(lines[0].hasPrefix("default output "), lines[0])
         XCTAssertTrue(lines[0].contains("; outputs: "), lines[0])
+        // #734: the stream format and who uses the microphone (an app on AirPods' mic drops them
+        // to call quality).
+        XCTAssertTrue(lines[0].contains(", stream "), lines[0])
+        XCTAssertTrue(lines[0].contains("; microphone in use by "), lines[0])
         for device in MacAudioOutputHardware.enumerateOutputDevices() {
             XCTAssertTrue(lines[0].contains(", \(device.id)) "), lines[0])
             XCTAssertTrue(lines[0].contains(", \(device.id)) "), lines[0])
@@ -236,6 +241,7 @@ final class AudioOutputTraceTests: XCTestCase {
 
         // An equalizer route change logs the path again, with why.
         trace.log(reason: "equalizer route off -> starting(target none)")
+        trace.flush()
         XCTAssertEqual(lines.count, 2)
         XCTAssertTrue(lines[1].hasSuffix(" [equalizer route off -> starting(target none)]"), lines[1])
     }

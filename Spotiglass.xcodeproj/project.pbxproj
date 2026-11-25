@@ -256,6 +256,9 @@
 		PKG00000000000000000005 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = PKG00000000000000000004 /* Sparkle */; };
 		POD00000000000000000000001 /* PlaylistOwnerDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = POD00000000000000000000011 /* PlaylistOwnerDisplay.swift */; };
 		PRO00000000000000000000E1 /* SpotiglassLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRO00000000000000000000F1 /* SpotiglassLog.swift */; };
+		F73400000000000000000001 /* CallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73400000000000000000002 /* CallLog.swift */; };
+		F73400000000000000000003 /* InteractionLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73400000000000000000004 /* InteractionLog.swift */; };
+		F73400000000000000000005 /* HangWatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73400000000000000000006 /* HangWatch.swift */; };
 		SRC0000000000000000000023 /* ScreenshotMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080023 /* ScreenshotMode.swift */; };
 		SRC0000000000000000080B02 /* PublishedWhenChanged.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080B03 /* PublishedWhenChanged.swift */; };
 		F42200000000000000000001 /* ViewBodyTally.swift in Sources */ = {isa = PBXBuildFile; fileRef = F42200000000000000000002 /* ViewBodyTally.swift */; };
@@ -392,6 +395,7 @@
 		TST0000000000000000000120 /* SpotiglassLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST0000000000000000010120 /* SpotiglassLogTests.swift */; };
 		TST0000000000000000000121 /* EqualizerHALPluginTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST0000000000000000010121 /* EqualizerHALPluginTests.swift */; };
 		F59000000000000000000003 /* PlaybackTraceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59000000000000000000004 /* PlaybackTraceTests.swift */; };
+		F73400000000000000000007 /* FullLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73400000000000000000008 /* FullLogTests.swift */; };
 		TST0000000000000000000122 /* EqualizerABRMSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST0000000000000000010122 /* EqualizerABRMSTests.swift */; };
 		TSTEQDRIVERC0000000000B1 /* SpotiglassEQDSP.c in Sources */ = {isa = PBXBuildFile; fileRef = TSTEQDRIVERC0000000000F1 /* SpotiglassEQDSP.c */; };
 		TSTEQDRIVERC0000000000B2 /* EQCoefficientReader.c in Sources */ = {isa = PBXBuildFile; fileRef = TSTEQDRIVERC0000000000F2 /* EQCoefficientReader.c */; };
@@ -755,6 +759,9 @@
 		P1000000000000000000001C /* PinnedItemsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedItemsStoreTests.swift; sourceTree = "<group>"; };
 		POD00000000000000000000011 /* PlaylistOwnerDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistOwnerDisplay.swift; sourceTree = "<group>"; };
 		PRO00000000000000000000F1 /* SpotiglassLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotiglassLog.swift; sourceTree = "<group>"; };
+		F73400000000000000000002 /* CallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallLog.swift; sourceTree = "<group>"; };
+		F73400000000000000000004 /* InteractionLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionLog.swift; sourceTree = "<group>"; };
+		F73400000000000000000006 /* HangWatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HangWatch.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080023 /* ScreenshotMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotMode.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080B03 /* PublishedWhenChanged.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublishedWhenChanged.swift; sourceTree = "<group>"; };
 		F42200000000000000000002 /* ViewBodyTally.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewBodyTally.swift; sourceTree = "<group>"; };
@@ -951,6 +958,7 @@
 		TST0000000000000000010120 /* SpotiglassLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotiglassLogTests.swift; sourceTree = "<group>"; };
 		TST0000000000000000010121 /* EqualizerHALPluginTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerHALPluginTests.swift; sourceTree = "<group>"; };
 		F59000000000000000000004 /* PlaybackTraceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackTraceTests.swift; sourceTree = "<group>"; };
+		F73400000000000000000008 /* FullLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FullLogTests.swift; sourceTree = "<group>"; };
 		TST0000000000000000010122 /* EqualizerABRMSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerABRMSTests.swift; sourceTree = "<group>"; };
 		TSTEQDRIVERC0000000000F1 /* SpotiglassEQDSP.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = SpotiglassEQDSP.c; path = SpotiglassEQDriver/SpotiglassEQDSP.c; sourceTree = SOURCE_ROOT; };
 		TSTEQDRIVERC0000000000F2 /* EQCoefficientReader.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = EQCoefficientReader.c; path = SpotiglassEQDriver/EQCoefficientReader.c; sourceTree = SOURCE_ROOT; };
@@ -1253,6 +1261,7 @@
 				EQPOLICYTEST0000000000002 /* EqualizerDriverInstallPolicyTests.swift */,
 				TST0000000000000000010121 /* EqualizerHALPluginTests.swift */,
 				F59000000000000000000004 /* PlaybackTraceTests.swift */,
+				F73400000000000000000008 /* FullLogTests.swift */,
 				EFT000000000000000000002 /* EqualizerForwardingTargetTests.swift */,
 				EQR000000000000000000002 /* EqualizerSettingsRowTests.swift */,
 				TST000000000000000001011C /* EQCoefficientPublisherTests.swift */,
@@ -1629,6 +1638,9 @@
 				582000000000000000000003 /* LegacyLoginItems.h */,
 				582000000000000000000002 /* LegacyLoginItems.m */,
 				PRO00000000000000000000F1 /* SpotiglassLog.swift */,
+				F73400000000000000000002 /* CallLog.swift */,
+				F73400000000000000000004 /* InteractionLog.swift */,
+				F73400000000000000000006 /* HangWatch.swift */,
 				SRC0000000000000000080023 /* ScreenshotMode.swift */,
 				SRC0000000000000000080B03 /* PublishedWhenChanged.swift */,
 				F42200000000000000000002 /* ViewBodyTally.swift */,
@@ -1804,6 +1816,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				PRO00000000000000000000E1 /* SpotiglassLog.swift in Sources */,
+				F73400000000000000000001 /* CallLog.swift in Sources */,
+				F73400000000000000000003 /* InteractionLog.swift in Sources */,
+				F73400000000000000000005 /* HangWatch.swift in Sources */,
 				SRC0000000000000000000023 /* ScreenshotMode.swift in Sources */,
 				SRC0000000000000000080B02 /* PublishedWhenChanged.swift in Sources */,
 				F42200000000000000000001 /* ViewBodyTally.swift in Sources */,
@@ -2134,6 +2149,7 @@
 				EQPOLICYTEST0000000000001 /* EqualizerDriverInstallPolicyTests.swift in Sources */,
 				TST0000000000000000000121 /* EqualizerHALPluginTests.swift in Sources */,
 				F59000000000000000000003 /* PlaybackTraceTests.swift in Sources */,
+				F73400000000000000000007 /* FullLogTests.swift in Sources */,
 				EFT000000000000000000001 /* EqualizerForwardingTargetTests.swift in Sources */,
 				EQR000000000000000000001 /* EqualizerSettingsRowTests.swift in Sources */,
 				TST000000000000000000011C /* EQCoefficientPublisherTests.swift in Sources */,
