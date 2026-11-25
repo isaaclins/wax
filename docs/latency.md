@@ -57,7 +57,7 @@ can't drift back.
 
 ## Every interaction
 
-Measured on 2026-11-25, Release build of 0.8.64, Mac mini M4, 60 Hz. Median and checked time
+Measured on 2026-11-25, Release builds of 0.8.64 to 0.8.68, Mac mini M4, 60 Hz. Median and checked time
 in ms. These are the "before": the probe changes no behaviour. Each fix adds its "after" here.
 
 | Interaction | What you do | Median | Checked | Issue |
