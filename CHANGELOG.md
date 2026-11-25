@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.73] - 2026-11-25
+
+### Fixed
+
+- Apple Music shows the song you start right away, before it begins playing.
+
 ## [0.8.72] - 2026-11-25
 
 ### Fixed
