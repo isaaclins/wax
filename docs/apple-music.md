@@ -217,6 +217,10 @@ default output, so Apple Music goes through it as well.
 
 - **Music videos** can't be queued by MusicKit's player on macOS; they are skipped when a list
   is played.
+- **Resume and skips take a moment to sound.** Pause stops the sound in about 75 ms, but resume
+  takes about 250 ms, next about 200 ms and previous about 450 ms. That is Apple's player,
+  which plays outside Wax and can't load a song ahead; the bar shows every press at once
+  ([latency](latency.md#the-sound-apple-music)).
 - **Reordering a playlist.** Wax has no drag-to-reorder for playlist tracks yet, on either
   service.
 - **Artist pages** opened from the library show the albums in your library and tracks from them,

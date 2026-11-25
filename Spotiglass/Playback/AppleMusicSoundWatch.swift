@@ -21,7 +21,8 @@ final class AppleMusicSoundWatch {
     enum Wait: Equatable {
         /// The position moves on the song that was current when the command went out.
         case moves
-        /// The position moves on another song (a skip, a new queue).
+        /// The position moves on another song (a skip, a new queue), or on the same song started
+        /// over.
         case movesOnAnotherSong
         /// The position holds still.
         case holdsStill
@@ -32,6 +33,8 @@ final class AppleMusicSoundWatch {
     /// A position unchanged this long counts as held still: MusicKit's position runs on its own
     /// clock and changes on every read while it plays.
     static let stillAfter: Duration = .milliseconds(20)
+    /// How far back the position has to go on the same song to count as that song started over.
+    static let restartJump: TimeInterval = 0.5
     /// The watch gives up after this long and says so.
     static let limit: Duration = .seconds(10)
 
@@ -109,7 +112,11 @@ final class AppleMusicSoundWatch {
             defer { last = reading }
             switch wait {
             case .moves, .movesOnAnotherSong:
-                guard wait == .moves || reading.entryID != before.entryID else { break }
+                // A skip that starts the same song over (previous on the queue's first song) is a
+                // new start too: its position went back, by more than a correction of the
+                // player's own clock could.
+                guard wait == .moves || reading.entryID != before.entryID
+                    || reading.positionSeconds + Self.restartJump < before.positionSeconds else { break }
                 guard let first = firstOnSong else {
                     firstOnSong = reading.positionSeconds
                     break

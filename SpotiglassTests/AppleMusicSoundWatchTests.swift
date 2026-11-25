@@ -61,6 +61,17 @@ final class AppleMusicSoundWatchTests: XCTestCase {
         XCTAssertEqual(lines, ["skipToPrevious: playing 45.0 ms after the command"])
     }
 
+    /// Previous on the queue's first song starts that song over: the entry stays, its position
+    /// goes back to 0:00 and moves from there. That is a start too, not one that never comes.
+    func testPreviousThatStartsTheSameSongOverIsTimed() async {
+        let lines = await run("skipToPrevious", .movesOnAnotherSong) { t in
+            if t < 60 { return self.reading(8.0, "song-1") }
+            if t < 70 { return self.reading(0, "song-1", playing: false) }
+            return self.reading(Double(t - 70) / 1000, "song-1")
+        }
+        XCTAssertEqual(lines, ["skipToPrevious: playing 75.0 ms after the command"])
+    }
+
     /// Resume: the position holds where it was paused for about 25 ms, then moves.
     func testResumeIsTimedUntilThePositionMoves() async {
         let lines = await run("resume", .moves) { t in
