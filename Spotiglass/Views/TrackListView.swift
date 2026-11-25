@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import SwiftUI
 
@@ -102,8 +103,10 @@ struct TrackListView<Row: View>: View {
     /// A click selects a row but left the table without keyboard focus, so the selection stayed
     /// grey (the inactive look) and the arrow keys, Delete and ⌘A never reached the table (#628).
     /// The list selects through its own click recognizer, which doesn't focus the table, even
-    /// with no gesture on the rows (#689). A new selection focuses it.
-    @FocusState private var isListFocused: Bool
+    /// with no gesture on the rows. A new selection focuses it, from AppKit: SwiftUI's focus state
+    /// still said "focused" after the keyboard had gone elsewhere through AppKit, and then the
+    /// table never got it back (#689).
+    @State private var tableFocus = TrackListTableFocus()
 
     var body: some View {
         #if DEBUG
@@ -139,10 +142,9 @@ struct TrackListView<Row: View>: View {
             }
             .listStyle(.inset)
             .environment(\.defaultMinListRowHeight, TrackListRow.listRowHeight)
-            .focused($isListFocused)
+            .background(TrackListTableFocus.Probe(focus: tableFocus))
             .onChange(of: selection) {
-                // A click already gave the table focus; asking again runs this view again.
-                if !selection.isEmpty, !isListFocused { isListFocused = true }
+                if !selection.isEmpty { tableFocus.focusTable() }
                 selectionFeed.announce()
             }
             // The table's own double-click and menu, not each row's: a row's menu was built on
@@ -184,6 +186,61 @@ struct TrackListView<Row: View>: View {
         else { return }
         realizedRows.lastReportedFirstVisibleTrackID = id
         onFirstVisibleTrackChanged(id)
+    }
+}
+
+/// Gives the table of a ``TrackListView`` the keyboard (#628, #689).
+@MainActor
+final class TrackListTableFocus {
+    private weak var probe: NSView?
+    private weak var table: NSTableView?
+
+    /// Makes the list's table the first responder unless it already is.
+    func focusTable() {
+        guard let window = probe?.window else { return }
+        if let table, table.window === window {
+            if window.firstResponder !== table { window.makeFirstResponder(table) }
+            return
+        }
+        guard let found = findTable() else { return }
+        table = found
+        if window.firstResponder !== found { window.makeFirstResponder(found) }
+    }
+
+    /// The list's table: the nearest one around the probe (the list's background) whose scroll
+    /// view covers the probe's middle. The sidebar's list is a table too, further away.
+    private func findTable() -> NSTableView? {
+        guard let probe else { return nil }
+        let frame = probe.convert(probe.bounds, to: nil)
+        let middle = NSPoint(x: frame.midX, y: frame.midY)
+        var ancestor = probe.superview
+        while let current = ancestor {
+            var stack: [NSView] = [current]
+            while let view = stack.popLast() {
+                if let table = view as? NSTableView, let scroll = table.enclosingScrollView,
+                   scroll.convert(scroll.bounds, to: nil).contains(middle) {
+                    return table
+                }
+                stack.append(contentsOf: view.subviews)
+            }
+            ancestor = current.superview
+        }
+        return nil
+    }
+
+    /// An empty view behind the list, so the list's table can be found from it.
+    struct Probe: NSViewRepresentable {
+        let focus: TrackListTableFocus
+
+        func makeNSView(context: Context) -> NSView {
+            let view = NSView()
+            focus.probe = view
+            return view
+        }
+
+        func updateNSView(_ nsView: NSView, context: Context) {
+            focus.probe = nsView
+        }
     }
 }
 
