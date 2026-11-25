@@ -199,12 +199,12 @@ extension PlaylistBrowserViewModel {
             adjustSidebarTrackCountAfterEdit(playlistID: playlistID, by: partial.completed)
             await refreshCurrentPlaylistMutationDetail(for: [playlistID])
             let name = shownPlaylistName(playlistID: playlistID, given: playlistName)
+            // No "try again": sending the same songs again would add the first ones twice.
             trackMutationToastText = LocalizedText(SpotiglassL10n.format(
                 "playlist.mutation.partialAddToPlaylist",
                 Int64(partial.completed),
                 Int64(partial.total),
-                name.string,
-                Self.describeFailure(partial.underlying, operation: .addToPlaylist)
+                name.string
             ))
         } catch {
             trackMutationToastText = Self.failureText(error, operation: .addToPlaylist)
@@ -281,12 +281,12 @@ extension PlaylistBrowserViewModel {
             adjustSidebarTrackCountAfterEdit(playlistID: destinationPlaylistID, by: partial.completed)
             await refreshCurrentPlaylistMutationDetail(for: [sourcePlaylistID, destinationPlaylistID])
             let name = shownPlaylistName(playlistID: destinationPlaylistID, given: destinationName)
+            // A move out of Liked Songs never removes anything, so it reads like an add.
             trackMutationToastText = LocalizedText(SpotiglassL10n.format(
-                "playlist.mutation.partialMoveAdd",
+                sourceIsLikedSongs ? "playlist.mutation.partialAddToPlaylist" : "playlist.mutation.partialMoveAdd",
                 Int64(partial.completed),
                 Int64(partial.total),
-                name.string,
-                Self.describeFailure(partial.underlying, operation: .moveBetweenPlaylists)
+                name.string
             ))
         } catch {
             trackMutationToastText = Self.failureText(error, operation: .moveBetweenPlaylists)
@@ -416,18 +416,17 @@ extension PlaylistBrowserViewModel {
             // The playlist exists, so it shows like any new one, with the songs it got (#596).
             SpotiglassLog.error(
                 .browsing,
-                "Created playlist \(created.playlist.id) but added only \(created.added) of \(created.total) songs"
+                "Created playlist \(created.playlist.id) but added only \(created.added) of \(created.total) songs — \(created.underlying.localizedDescription)"
             )
             insertSidebarPlaylist(created.playlist, refreshedTrackCount: created.added)
-            let reason = Self.describeFailure(created.underlying, operation: .createPlaylist)
+            // No "try again": creating it again would make a second playlist.
             trackMutationToastText = LocalizedText(created.added == 0
-                ? SpotiglassL10n.format("playlist.mutation.createdPlaylistWithoutTracks", created.playlist.name, reason)
+                ? SpotiglassL10n.format("playlist.mutation.createdPlaylistWithoutTracks", created.playlist.name)
                 : SpotiglassL10n.format(
                     "playlist.mutation.createdPlaylistWithMissingTracks",
                     created.playlist.name,
                     Int64(created.added),
-                    Int64(created.total),
-                    reason
+                    Int64(created.total)
                 ))
         } catch {
             trackMutationToastText = Self.failureText(error, operation: .createPlaylist)

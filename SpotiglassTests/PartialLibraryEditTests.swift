@@ -30,7 +30,7 @@ final class PartialLibraryEditTests: XCTestCase {
         await viewModel.addRowsToPlaylist(rows, playlistID: playlist.id, playlistName: playlist.name)
 
         XCTAssertEqual(posts, 2)
-        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Added 100 of 101 tracks to Road Trip."), true, viewModel.trackMutationToast ?? "no note")
+        XCTAssertEqual(viewModel.trackMutationToast, "Added 100 of 101 tracks to Road Trip. Add only the missing ones again.", "no \"try again\": that would add the first 100 twice")
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 101, "the open playlist was read again")
     }
 
@@ -63,6 +63,30 @@ final class PartialLibraryEditTests: XCTestCase {
         XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Added 100 of 101 tracks to Destination and removed none from this playlist."), true,
                        viewModel.trackMutationToast ?? "no note")
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 101, "the open source was read again")
+    }
+
+    /// A move out of Liked Songs never removes anything, so its partial note reads like an add.
+    func testAMoveOutOfLikedSongsThatStopsPartWayReadsLikeAnAdd() async {
+        let http = RoutedHTTPClient()
+        var posts = 0
+        http.route = { request in
+            if request.httpMethod == "POST" {
+                posts += 1
+                return posts == 1 ? .data(Data(), statusCode: 201) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+            }
+            return .json("[]")
+        }
+        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: http)
+        let destination = PlaylistBrowsingTestFixtures.playlist(id: "destination", name: "Destination")
+        let viewModel = PlaylistBrowserViewModel(api: client, cache: DisabledBrowsingCache())
+        viewModel.playlistsByID = [destination.id: destination]
+        let rows = TrackRowViewModel.numberedPlaylistRows((0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+
+        await viewModel.moveRowsBetweenPlaylists(
+            rows, from: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID, to: destination.id, destinationName: destination.name
+        )
+
+        XCTAssertEqual(viewModel.trackMutationToast, "Added 100 of 101 tracks to Destination. Add only the missing ones again.")
     }
 
     /// `DELETE /v1/playlists/X/items` answers 200, then 503: 100 of 101 songs left the playlist.
@@ -169,7 +193,7 @@ final class PartialLibraryEditTests: XCTestCase {
         XCTAssertEqual(itemPosts, 2)
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["P"])
         XCTAssertEqual(viewModel.playlistsByID["P"]?.trackCount, 100)
-        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Created New Mix, but only 100 of 101 tracks could be added."), true,
+        XCTAssertEqual(viewModel.trackMutationToast, "Created New Mix, but only 100 of 101 tracks could be added.",
                        viewModel.trackMutationToast ?? "no note")
     }
 
@@ -197,7 +221,7 @@ final class PartialLibraryEditTests: XCTestCase {
 
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["P"])
         XCTAssertEqual(viewModel.playlistsByID["P"]?.trackCount, 0)
-        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Created New Mix, but its tracks couldn't be added."), true,
+        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Created New Mix, but its tracks couldn't be added. Add them to it again."), true,
                        viewModel.trackMutationToast ?? "no note")
     }
 
