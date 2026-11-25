@@ -96,11 +96,65 @@ Seek, shuffle and repeat never show on the Mac mini. On CI's runner they showed 
 one run (36, 106 and 128 ms) and in none of the next, so they have no CI time and #677 may be the
 probe's menu-bar path rather than Wax.
 
+## The sound (Apple Music)
+
+Pause, resume and skipping should change what you hear within 50 ms too (#679). The interaction
+probe above sees only the screen, and the sample library plays nothing, so the sound has its own
+tool:
+
+```sh
+scripts/sound-latency.sh               # Wax is running and playing an Apple Music playlist
+scripts/sound-latency.sh --rounds 12 --only next,previous
+```
+
+It presses Space (pause, then resume), ⇧⌘→ and ⇧⌘← in the running Wax, 6 rounds by default, and
+listens to the Mac's audio output through a Core Audio process tap. It times each press to the
+first silent output cycle (pause), the first sound again (resume), and for a skip the first sound
+after the old song went quiet. The tap hears the output before volume and mute, so the Mac can stay
+muted. The first run asks for System Audio Recording permission for the terminal that runs it. The
+tool is a script for your Mac only: the app itself never listens to audio
+(`scripts/eq-mic-permission-audit.sh`). A song that begins with silence adds that silence to a
+skip's time, so look at the fastest time next to the median.
+
+### Measured
+
+Release builds, Mac mini M4, built-in speakers, macOS 27, 8 rounds through Wax, Liked Songs
+playing. Median, fastest and slowest, in ms:
+
+| Press | Before (0.8.68) | After (this change) | MusicKit alone |
+|---|---|---|---|
+| Space, pause | 75 (72-108) | 74 (71-89) | 51-74 |
+| Space, resume | 245 (243-248) | 249 (245-255) | 232-256 |
+| ⇧⌘→, next | 204 (192-213) | 212 (199-217) | 206-223 |
+| ⇧⌘←, previous | 445 (416-477) | 440 (410-465) | 455-545 |
+
+"MusicKit alone" sends `ApplicationMusicPlayer`'s own commands from a test, with no Wax in
+between. Wax sends a skip to the player in the same millisecond as the press, and a Space press
+15-20 ms after it (the log's `sound` lines give both times), so nearly all of it is Apple's player:
+
+- MusicKit doesn't play the sound in Wax's process. It hands it to a macOS service
+  (`RemotePlayerService`), and the times above are that service's, whatever the app does. Keeping
+  the speakers running with silence, pausing through the playback rate instead of `pause()`, and
+  jumping to the next queue entry directly instead of skipping changed none of them.
+- MusicKit has no way to load a song's audio ahead. Its queue already holds the songs around the
+  current one, and next was as slow 25 s into a song as right after it started.
+- Previous is slower than next with the same songs, also with MusicKit alone.
+
+So 50 ms can't be reached for resume and skips with Apple Music. What Wax does instead:
+
+- **It shows the press at once.** Play/pause flips as you press (see `playback.toggle.key` above).
+  A song, album or playlist that is started and still being looked up (the first play of Liked
+  Songs took 1.45 s to sound) turns Play into a small spinner at once, until the song plays or the
+  play fails. The log's `bar updated to starting` line measured it 16 ms after the press.
+- **The playback log says how long the player took.** After each pause, resume, skip and new
+  queue, a `sound` line says when the player's position stopped or started moving, after the
+  command and after the press, for example
+  `sound skipToNext: playing 95.0 ms after the command, 98.0 ms after the press`. That position is
+  what the app can see; the sound follows it by about another 30-200 ms (the table's times minus
+  the log's). A start that never comes is logged after 10 s.
+
 ## What isn't measured yet
 
-- **The sound.** Pause, resume and skipping must change what you hear within 50 ms, with the
-  songs around the current one loaded ahead. The sample library plays nothing, so the probe only
-  sees the screen. Apple Music's press-to-sound times are #679.
 - **Apple Music's screens.** The probe runs on screenshot mode's Spotify stand-in, because CI has
   no Apple Music account. The views are the same for both services; the data behind them isn't.
 - **A sidebar click on CI's runner.** There, clicking a sidebar playlist never shows, while it
