@@ -373,4 +373,44 @@ final class CommandPaletteViewModelSearchRefreshTests: XCTestCase {
         XCTAssertFalse(viewModel.sections.contains { $0.items.contains { $0.id == "track-old" } })
         XCTAssertTrue(viewModel.sections.contains { $0.items.contains { $0.id == "track-new" } })
     }
+
+    /// A pill switch while the same query is being asked again only re-filters what is there:
+    /// it doesn't cancel the running search and start another one.
+    func testAPillSwitchWhileTheSameQueryReloadsDoesNotRestartIt() async {
+        let viewModel = CommandPaletteViewModel()
+        defer { viewModel.hide() }
+        var callCount = 0
+        var release: CheckedContinuation<Void, Never>?
+        let reloadAsked = expectation(description: "the reload reached the provider")
+        viewModel.searchProvider = { _, _ in
+            callCount += 1
+            if callCount == 2 {
+                await withCheckedContinuation { continuation in
+                    release = continuation
+                    reloadAsked.fulfill()
+                }
+            }
+            return CommandPaletteSearchResults(tracks: [
+                CommandPaletteItem(
+                    id: "track-1", title: "Song", subtitle: nil,
+                    iconSystemName: "music.note", section: .tracks, keywords: []
+                ) {}
+            ])
+        }
+        viewModel.show()
+        viewModel.query = "song"
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+        XCTAssertEqual(callCount, 1)
+
+        // A language switch asks for the same query again.
+        viewModel.languageDidChange()
+        await fulfillment(of: [reloadAsked], timeout: 10)
+        viewModel.selectCategory(.artists)
+        release?.resume()
+        await viewModel.waitForSearchCompletion()
+
+        XCTAssertEqual(callCount, 2, "the pill switch restarted the running search")
+    }
 }
+

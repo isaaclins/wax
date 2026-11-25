@@ -67,6 +67,9 @@ final class CommandPaletteViewModel: ObservableObject {
     private var suppressLegacyPrefixQueryRefresh = false
     /// Lowercased query of the last songs-scope search whose catalog fetch completed; skips redundant identical network calls.
     private var lastSuccessfulSongSearchQuery: String?
+    /// The cached rows are only the half of a search that answered (#595): a pill switch asks
+    /// again instead of filtering them.
+    private var cachedResultsArePartial = false
     /// Best-known result set (instant local matches, upgraded to local+catalog once the network returns)
     /// for ``cachedResultsQuery``. Lets the footer category pills re-filter instantly without re-querying.
     private var cachedResults: CommandPaletteSearchResults?
@@ -134,6 +137,7 @@ final class CommandPaletteViewModel: ObservableObject {
         isLoading = false
         lastSuccessfulSongSearchQuery = nil
         cachedResults = nil
+        cachedResultsArePartial = false
         cachedResultsQuery = nil
         suppressLegacyPrefixQueryRefresh = false
         rateLimitCooldownUntil = .distantPast
@@ -290,6 +294,7 @@ final class CommandPaletteViewModel: ObservableObject {
         isLoading = false
         lastSuccessfulSongSearchQuery = nil
         cachedResults = nil
+        cachedResultsArePartial = false
         cachedResultsQuery = nil
         suppressLegacyPrefixQueryRefresh = false
         rateLimitCooldownUntil = .distantPast
@@ -358,7 +363,7 @@ final class CommandPaletteViewModel: ObservableObject {
         if !trimmed.isEmpty,
            trimmed.count >= Self.minimumPaletteSearchQueryCharacters,
            cachedResultsQuery == trimmed,
-           lastSuccessfulSongSearchQuery == trimmed.lowercased(),
+           !cachedResultsArePartial,
            cachedResults != nil {
             renderSectionsFromCache(trimmed: trimmed)
         } else {
@@ -488,6 +493,7 @@ final class CommandPaletteViewModel: ObservableObject {
     private func resetSongSearchCache() {
         lastSuccessfulSongSearchQuery = nil
         cachedResults = nil
+        cachedResultsArePartial = false
         cachedResultsQuery = nil
     }
 
@@ -520,6 +526,7 @@ final class CommandPaletteViewModel: ObservableObject {
             SpotiglassLog.info(.api, "palette search '\(query)' provider \(Int(Date().timeIntervalSince(providerStart) * 1000))ms")
             try Task.checkCancellation()
             cachedResults = searchResults
+            cachedResultsArePartial = false
             cachedResultsQuery = query
             lastSuccessfulSongSearchQuery = dedupeQuery
             renderSectionsFromCache(trimmed: query)
@@ -538,6 +545,7 @@ final class CommandPaletteViewModel: ObservableObject {
             // so the same query, the next keystroke or a pill switch asks again (#595).
             SpotiglassLog.debug(.api, "palette search '\(query)' answered in part")
             cachedResults = partial.results
+            cachedResultsArePartial = true
             cachedResultsQuery = query
             lastSuccessfulSongSearchQuery = nil
             renderSectionsFromCache(trimmed: query)
