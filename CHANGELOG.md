@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.72] - 2026-11-25
+
+### Fixed
+
+- Lyrics that LRCLIB has now show up for singles and smaller artists, instead of "No lyrics found".
+
 ## [0.8.71] - 2026-11-25
 
 ### Fixed
