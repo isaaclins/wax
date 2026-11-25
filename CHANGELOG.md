@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.74] - 2026-11-25
+
+### Fixed
+
+- Apple Music artist pages now show the artist's full catalog of songs and albums, with your saved music in its own section.
+
 ## [0.8.73] - 2026-11-25
 
 ### Fixed
