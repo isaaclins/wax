@@ -18,7 +18,8 @@ The workflow **CI** lives at [.github/workflows/ci.yml](../.github/workflows/ci.
 | Trigger | Every pull request, and every push to `main` |
 | `static-checks` job | `ubuntu-latest`: microphone / process-tap audit, then the four-part localization audit |
 | `test` job | `macos-26`: resolve packages, full unit test suite with coverage, per-file coverage gate |
-| On failure | The `.xcresult` bundle is uploaded as an artifact for 14 days |
+| `latency` job | `macos-26`, Xcode 26.6: times every interaction in a Release build and fails when one gets clearly slower than its time on that runner or stops showing ([latency.md](latency.md)) |
+| On failure | The `.xcresult` bundle is uploaded as an artifact for 14 days; the latency job always uploads its report |
 | Concurrency | Superseded runs are cancelled per branch, except on `main` |
 
 The static audits run on Linux so an obvious violation fails in about a minute instead of waiting on a macOS runner. The `test` job is pinned to `macos-26` for the same deployment-target reason as the release workflow below.
