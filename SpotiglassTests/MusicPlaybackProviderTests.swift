@@ -1547,6 +1547,32 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         XCTAssertNil(session.refusedPlayPause)
     }
 
+    /// A pause the bar went back from, then pause and play pressed again, then the first pause
+    /// answered late: it may have landed after the play, so the play is sent again and wins.
+    func testSpotifyALateAnswerToARolledBackPauseIsFollowedByTheLatestPlayAgain() async {
+        let clock = ManualPlaybackClock()
+        let (commander, session) = playingSpotify(clock: clock)
+        session.inAppCommandAckTimeout = .milliseconds(20)
+        session.pushedPlayStateExpectationTimeout = .milliseconds(20)
+
+        await session.requestTogglePlayPause()?.value
+        let rolledBack = session.playPauseRequestSerial
+        let reportWait = session.pushedPlayStateExpectationTask
+        await Self.endAckWait(session, on: clock)
+        await Self.endReportWait(reportWait, of: session, on: clock)
+        XCTAssertTrue(Self.isPlaying(session))
+
+        await session.requestTogglePlayPause()?.value
+        session.handle(.playerCommandFinished(command: "pause", id: session.playPauseRequestSerial))
+        await session.requestTogglePlayPause()?.value
+        session.handle(.playerCommandFinished(command: "resume", id: session.playPauseRequestSerial))
+        session.handle(.playerCommandFinished(command: "pause", id: rolledBack))
+        await waitUntil("four commands on the page", changes: commander.changes) { Self.playPauseCommands(commander).count >= 4 }
+
+        XCTAssertEqual(Self.playPauseCommands(commander), [.pause, .pause, .resume, .resume], "the late pause had the last word")
+        XCTAssertTrue(Self.isPlaying(session))
+    }
+
     /// A pause the page answered (finished) but never reported keeps the pause: the page
     /// confirmed it ran.
     func testSpotifyAPauseThePageRanButNeverReportedStaysPaused() async {

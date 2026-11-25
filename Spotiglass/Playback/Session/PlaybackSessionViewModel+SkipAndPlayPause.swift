@@ -365,15 +365,17 @@ extension PlaybackSessionViewModel {
               request.sendsRequestedState else { return }
         pageReportedPlayState = request.stateAfter
         if request.serial == inAppPressRolledBackSerial {
-            // The bar went back from this press when its answer didn't come; it came after all,
-            // so the press landed and the bar shows it again.
             inAppPressRolledBackSerial = nil
-            guard request.serial == playPauseRequestSerial else { return }
-            if case .error = connectionState { return }
-            SpotiglassLog.info(.playback, "Spotify playback SDK answered \(request.inAppCommand) after the bar went back; showing it")
-            clearRefusedPlayPause()
-            setConnectionState(request.stateAfter)
-            return
+            // The bar went back from this press when its answer didn't come; it came after all,
+            // so the press landed and the bar shows it again. With a later press since, that
+            // one decides: it is sent again below when it is the opposite.
+            if request.serial == playPauseRequestSerial {
+                if case .error = connectionState { return }
+                SpotiglassLog.info(.playback, "Spotify playback SDK answered \(request.inAppCommand) after the bar went back; showing it")
+                clearRefusedPlayPause()
+                setConnectionState(request.stateAfter)
+                return
+            }
         }
         guard request.serial != wasRunning?.serial,
               let later = lastSentInAppPress,
@@ -475,6 +477,7 @@ extension PlaybackSessionViewModel {
         clearPushedPlayStateExpectation()
         finishInAppCommand()
         inAppCommandsUnanswered.removeAll()
+        inAppPressRolledBackSerial = nil
         playPauseCommandTail = nil
         playPauseRequestsInFlight = 0
     }
