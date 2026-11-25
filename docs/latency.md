@@ -5,8 +5,8 @@ menu, playback control, search keystroke and page change. When the real result n
 or Apple Music, the app shows at once that it heard the input (the button changes, the page opens
 with a loading state), and that first reaction is what counts.
 
-A PR that touches an interaction runs `scripts/latency-test.sh` and puts the times before and
-after in its description.
+A PR that touches an interaction runs `scripts/latency-test.sh` on a Mac and puts the times before
+and after in its description.
 
 ## How it's measured
 
@@ -28,14 +28,29 @@ changed (the player says paused, the palette is open, the list has moved). One d
 (16.7 ms at 60 Hz) is added for that frame to reach the screen. A main thread that is busy after
 the input delays that frame, so it counts in full.
 
-The time checked against 50 ms drops the single slowest try, since a shared CI machine now and
-then stalls for a frame; a try that never showed within 3 s counts as the slowest. The report
-lands in `build/latency/report.json`, with what the app showed for every try that went wrong.
+The time checked against 50 ms drops the single slowest try, since a busy machine now and then
+stalls for a frame; a try that never showed within 3 s counts as the slowest. The report lands in
+`build/latency/report.json`, with what the app showed for every try that went wrong. Run it on a
+quiet Mac: with builds or tests running next to it, times rise.
 
-CI runs the script on every pull request (job "Interaction latency (Release)"). Interactions
-that are over 50 ms today are listed in [`scripts/latency-baseline.json`](../scripts/latency-baseline.json)
-with the issue that fixes each one. They're reported but don't fail the job. Anything else over
-50 ms fails it. When a fix lands, its entry goes.
+Interactions that are over 50 ms on a Mac today are listed under `known` in
+[`scripts/latency-baseline.json`](../scripts/latency-baseline.json), with the issue that fixes
+each one and its time when it was listed. They're reported but don't fail the run, unless one gets
+more than twice as slow as that time or stops showing. Anything else over 50 ms fails it. When a
+fix lands, its entry goes.
+
+## In CI
+
+CI runs `scripts/latency-test.sh --ci` on every pull request (job "Interaction latency (Release)").
+GitHub's macOS runners are 3-4 times slower than a Mac: play/pause takes about 80 ms there and ⌘K
+about 290 ms, so the 50 ms line can't be checked on them. Instead every interaction has its median
+on that runner under `ci` in the baseline file, and the job fails when one gets more than twice as
+slow, stops showing, or is new and has no time there yet. That catches a change like #645 (play/pause
+going from 50 to 610 ms). Whether something is within 50 ms is what the run on a Mac says, and a PR
+that touches an interaction puts that run's times in its description.
+
+When a change makes an interaction faster, set its `ci` time from the job's uploaded report, so it
+can't drift back.
 
 ## Every interaction
 
@@ -44,10 +59,10 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 
 | Interaction | What you do | Median | Checked | Issue |
 |---|---|---|---|---|
-| `playback.toggle.key` | Space pauses or resumes | 40 | 40 | |
-| `playback.toggle.click` | Click the play/pause button | 37 | 41 | |
-| `playback.next` | ⇧⌘→ skips to the next song | 23 | 23 | |
-| `playback.previous` | ⇧⌘← goes back a song | 23 | 24 | |
+| `playback.toggle.key` | Space pauses or resumes | 40 | 40 | #678 |
+| `playback.toggle.click` | Click the play/pause button | 37 | 41 | #678 |
+| `playback.next` | ⇧⌘→ skips to the next song | never | never | #687 |
+| `playback.previous` | ⇧⌘← goes back a song | never | never | #687 |
 | `playback.seek` | ⌘→ jumps ahead in the song | never | never | #677 |
 | `playback.shuffle` | ⌥⌘S turns shuffle on or off | never | never | #677 |
 | `playback.repeat` | ⌥⌘R changes repeat | never | never | #677 |
@@ -65,7 +80,11 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 
 \* Run on its own; after the palette has been opened and closed 8 times, the letters never reach
 the field (#671).
-"never" means nothing changed on screen within 3 s in any try (#677).
+"never" means nothing changed on screen within 3 s in any try. Next and previous count once the
+player bar names another song; screenshot mode's player can't change its song for a skip sent
+through the Web API, so there it never does (#687).
+Play/pause is within 50 ms on a quiet Mac, but its slower tries reach 50-59 ms on a busy one, so
+it stays listed until #678 gives it room.
 
 ## What isn't measured yet
 
@@ -74,6 +93,9 @@ the field (#671).
   sees the screen. Apple Music's press-to-sound times are #679.
 - **Apple Music's screens.** The probe runs on screenshot mode's Spotify stand-in, because CI has
   no Apple Music account. The views are the same for both services; the data behind them isn't.
+- **Some interactions on CI's runner.** There, clicking a sidebar playlist never shows and ⌘F
+  misses about 3 tries in 8, while both work on a Mac, so CI can't yet tell when the first gets slower
+  (#688).
 - Drag and drop, context menus, the queue's own buttons, Settings changes, the service switcher,
   the scrubber and volume aren't in the list yet (#680). Add a `Step` to
   `InteractionLatencyProbe.steps` with what to press and how to tell it showed.

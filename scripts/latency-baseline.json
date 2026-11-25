@@ -1,5 +1,5 @@
 {
-  "_comment": "Interactions over 50 ms today, each with the issue that fixes it (#656). scripts/latency-test.sh reports them without failing; remove an entry when its fix lands. measuredMs is the checked time when it was added (null: never showed within 3 s).",
+  "_comment": "known: interactions over 50 ms on a Mac today, each with the issue that fixes it (#656) and its checked time when it was listed (measuredMs, null: never showed within 3 s). scripts/latency-test.sh reports them without failing unless one gets more than twice as slow or stops showing; remove an entry when its fix lands. ci: every interaction's median on GitHub's macOS runner, which is 3-4 times slower than a Mac (null: never shows there); --ci fails when one gets more than twice as slow. Refresh a ci time from the job's report when a change makes one faster.",
   "known": {
     "lyrics.toggle": {
       "issue": 674,
@@ -29,6 +29,14 @@
       "issue": 671,
       "measuredMs": null
     },
+    "playback.next": {
+      "issue": 687,
+      "measuredMs": null
+    },
+    "playback.previous": {
+      "issue": 687,
+      "measuredMs": null
+    },
     "playback.repeat": {
       "issue": 677,
       "measuredMs": null
@@ -40,6 +48,14 @@
     "playback.shuffle": {
       "issue": 677,
       "measuredMs": null
+    },
+    "playback.toggle.click": {
+      "issue": 678,
+      "measuredMs": 51
+    },
+    "playback.toggle.key": {
+      "issue": 678,
+      "measuredMs": 49
     },
     "queue.toggle": {
       "issue": 673,
@@ -53,5 +69,25 @@
       "issue": 672,
       "measuredMs": 83
     }
+  },
+  "ci": {
+    "playback.toggle.key": 83,
+    "playback.toggle.click": 78,
+    "playback.next": null,
+    "playback.previous": null,
+    "playback.seek": null,
+    "playback.shuffle": null,
+    "playback.repeat": null,
+    "palette.open": 291,
+    "palette.type": 217,
+    "palette.close": 254,
+    "sidebar.toggle": 256,
+    "queue.toggle": 267,
+    "lyrics.toggle": 547,
+    "page.search": 370,
+    "page.back": null,
+    "page.sidebarClick": null,
+    "list.scroll": 37,
+    "settings.open": 303
   }
 }

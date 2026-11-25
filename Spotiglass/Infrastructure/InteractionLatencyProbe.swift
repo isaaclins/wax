@@ -115,18 +115,14 @@ final class InteractionLatencyProbe {
                 id: "playback.next",
                 title: "⇧⌘→ skips to the next song",
                 prepare: { await $0.waitUntil { !$0.playback.isSkipCommandPending } },
+                // Shown once the player bar names another song. The skip buttons stay as they look
+                // while the skip is on its way, so nothing else on screen says it was heard.
                 start: { probe in
                     let uri = probe.nowPlayingURI
                     probe.press(.rightArrow, [.command, .shift])
-                    return { probe.playback.isSkipCommandPending || probe.nowPlayingURI != uri }
+                    return { probe.nowPlayingURI != uri }
                 },
-                // The app holds further skips until the player confirms this one. The sample
-                // player never confirms a skip sent through the Web API, so the probe ends the wait
-                // the confirmation would end; otherwise only the first try could skip.
-                finish: { probe in
-                    _ = await probe.waitUntil { !$0.playback.isSkipCommandPending }
-                    probe.playback.clearPendingSkipCommand()
-                }
+                finish: { await $0.endSkipWait() }
             ),
             Step(
                 id: "playback.previous",
@@ -135,8 +131,9 @@ final class InteractionLatencyProbe {
                 start: { probe in
                     let uri = probe.nowPlayingURI
                     probe.press(.leftArrow, [.command, .shift])
-                    return { probe.playback.isSkipCommandPending || probe.nowPlayingURI != uri }
-                }
+                    return { probe.nowPlayingURI != uri }
+                },
+                finish: { await $0.endSkipWait() }
             ),
             Step(id: "playback.seek", title: "⌘→ jumps ahead in the song") { probe in
                 let anchor = probe.playback.progressAnchor
@@ -269,6 +266,14 @@ final class InteractionLatencyProbe {
                 }
             ),
         ]
+    }
+
+    /// The app holds further skips until the player confirms the last one. Screenshot mode's
+    /// player never hears a skip sent through the Web API, so it never confirms one: the probe ends
+    /// the wait the confirmation would end, or only the first try could skip.
+    private func endSkipWait() async {
+        _ = await waitUntil { !$0.playback.isSkipCommandPending }
+        playback.clearPendingSkipCommand()
     }
 
     /// The playlist `mock_spotify.py --long-playlist` adds, for scrolling.

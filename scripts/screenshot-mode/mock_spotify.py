@@ -196,9 +196,6 @@ def page(items, query, base, path=None):
 
 FAKE_SDK = r"""(function () {
   const S = __STATE__;
-  // The playing song and the ones after it; next and previous move through them.
-  const songs = [S.current].concat(S.next);
-  let index = 0;
   class Player {
     constructor(options) { this.options = options; this.listeners = {}; this.paused = false;
       this.position = S.position; this.startedAt = Date.now(); this.volume = options.volume || 0.8; }
@@ -210,8 +207,7 @@ FAKE_SDK = r"""(function () {
       const position = this.paused ? this.position : this.position + (Date.now() - this.startedAt);
       return { paused: this.paused, position: position % S.duration, duration: S.duration, loading: false,
         shuffle: false, repeat_mode: 0, timestamp: Date.now(), context: { uri: S.context, metadata: {} },
-        disallows: {}, track_window: { current_track: songs[index], previous_tracks: songs.slice(0, index),
-          next_tracks: songs.slice(index + 1) } };
+        disallows: {}, track_window: { current_track: S.current, previous_tracks: [], next_tracks: S.next } };
     }
     connect() {
       try { this.options.getOAuthToken(() => {}); } catch (_) {}
@@ -231,10 +227,8 @@ FAKE_SDK = r"""(function () {
       this.emit('player_state_changed', this.state()); return Promise.resolve(); }
     seek(ms) { this.position = ms; this.startedAt = Date.now(); this.emit('player_state_changed', this.state());
       return Promise.resolve(); }
-    skipTo(i) { index = (i + songs.length) % songs.length; this.position = 0; this.startedAt = Date.now();
-      setTimeout(() => this.emit('player_state_changed', this.state()), 60); return Promise.resolve(); }
-    nextTrack() { return this.skipTo(index + 1); }
-    previousTrack() { return this.skipTo(index - 1); }
+    nextTrack() { return Promise.resolve(); }
+    previousTrack() { return Promise.resolve(); }
     setVolume(v) { this.volume = v; return Promise.resolve(); }
     getVolume() { return Promise.resolve(this.volume); }
     activateElement() { return Promise.resolve(); }

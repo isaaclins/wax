@@ -229,8 +229,10 @@ jobs:
   latency:
     name: Interaction latency (Release)
     # Every interaction shows its result within 50 ms (#656). The Release app runs on the sample
-    # library of screenshot mode, presses each shortcut and clicks each control itself, and fails
-    # the job when one that isn't in scripts/latency-baseline.json takes longer. docs/latency.md.
+    # library of screenshot mode and presses each shortcut and clicks each control itself. This
+    # runner is 3-4 times slower than a Mac, so the job fails when an interaction gets more than
+    # twice as slow as its time here in scripts/latency-baseline.json, or stops showing; the 50 ms
+    # check itself is the same script run on a Mac. docs/latency.md.
     runs-on: macos-26
     timeout-minutes: 40
     steps:
@@ -246,7 +248,7 @@ jobs:
         run: xcodebuild -resolvePackageDependencies -project Spotiglass.xcodeproj -scheme Spotiglass
 
       - name: Time every interaction
-        run: ./scripts/latency-test.sh
+        run: ./scripts/latency-test.sh --ci
 
       - name: Upload the report
         if: always()
