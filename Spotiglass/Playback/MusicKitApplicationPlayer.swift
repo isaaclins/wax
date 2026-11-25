@@ -20,6 +20,14 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     static let artistSongLimit = 100
 
     private let player = ApplicationMusicPlayer.shared
+    /// Logs how long the player took to start or stop after each command (#679).
+    private lazy var soundWatch = AppleMusicSoundWatch(read: { [player] in
+        AppleMusicSoundWatch.Reading(
+            positionSeconds: player.playbackTime,
+            entryID: player.queue.currentEntry?.id,
+            isPlaying: player.state.playbackStatus == .playing
+        )
+    })
     /// Starts queues and gives back what last played when MusicKit refuses one (#476).
     private lazy var starts = AppleMusicQueueStarts<RestorePoint>(player: MusicKitQueueStarter(player: player))
 
@@ -140,6 +148,9 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             return RestorePoint(book: book, uris: ownURIs)
         }
         let started: AppleMusicQueueStarts<RestorePoint>.Started
+        let requestedAt = PlaybackTrace.shared.recentRequestAt
+        let sentAt = ContinuousClock.now
+        let before = soundWatch.readNow()
         do {
             started = try await starts.start(
                 queued.map(\.entry),
@@ -172,6 +183,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         // meanwhile (a newer play, or a stop) owns the player, its book and its rows: leave
         // them alone.
         guard starts.holdsQueue(started) else { return }
+        soundWatch.watch("play", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
         // The book is still this queue's when MusicKit took it at once (an add may have finished
         // meanwhile). When it only took it from the pressed song on, the queue was set again: an
         // add that went into the refused one is gone with it, so the book is this queue's own,
@@ -203,17 +215,24 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
 
     func pause() {
         PlaybackTrace.shared.command("pause")
+        let sentAt = ContinuousClock.now
         player.pause()
         starts.paused()
+        soundWatch.watch("pause", for: .holdsStill, sentAt: sentAt, requestedAt: PlaybackTrace.shared.recentRequestAt)
     }
 
     func resume() async throws {
         PlaybackTrace.shared.command("play", "(resume)")
+        let requestedAt = PlaybackTrace.shared.recentRequestAt
+        let sentAt = ContinuousClock.now
+        let before = soundWatch.readNow()
         try await Self.mapped { try await self.player.play() }
         starts.playerPlays()
+        soundWatch.watch("resume", for: .moves, sentAt: sentAt, before: before, requestedAt: requestedAt)
     }
 
     func stop() {
+        soundWatch.cancel()
         starts.stop()
         book = AppleMusicQueueBook()
         uriByEntryKey = [:]
@@ -229,14 +248,22 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
 
     func skipToNext() async throws {
         PlaybackTrace.shared.command("skipToNext")
+        let requestedAt = PlaybackTrace.shared.recentRequestAt
+        let sentAt = ContinuousClock.now
+        let before = soundWatch.readNow()
         try await Self.mapped { try await self.player.skipToNextEntry() }
         starts.playerPlays()
+        soundWatch.watch("skipToNext", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
     }
 
     func skipToPrevious() async throws {
         PlaybackTrace.shared.command("skipToPrevious")
+        let requestedAt = PlaybackTrace.shared.recentRequestAt
+        let sentAt = ContinuousClock.now
+        let before = soundWatch.readNow()
         try await Self.mapped { try await self.player.skipToPreviousEntry() }
         starts.playerPlays()
+        soundWatch.watch("skipToPrevious", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
     }
 
     func setShuffle(_ enabled: Bool) {
