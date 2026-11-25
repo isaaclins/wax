@@ -29,6 +29,24 @@ struct TrackRowViewModel: Equatable, Identifiable {
     /// Shows the "In your library" mark on an album page's saved songs (#658).
     private(set) var isInLibrary = false
 
+    /// The row as a track keyed by its library ID, for a provider that lists a saved song before
+    /// its library does (#596). `nil` for a row that can't be saved.
+    var shownTrack: MusicTrack? {
+        guard let uri = playableURI, let id = LibraryEditableTrackURI.trackID(uri) else { return nil }
+        return MusicTrack(
+            id: id,
+            name: title,
+            artists: artistRefs.isEmpty ? [subtitle] : artistRefs.map(\.name),
+            artistRefs: artistRefs,
+            albumArtworkURL: artworkURL,
+            durationMilliseconds: durationMilliseconds,
+            isExplicit: isExplicit,
+            isPlayable: true,
+            linkedFromID: nil,
+            uri: uri
+        )
+    }
+
     /// The same row at another spot in its list, with the same ``id`` so the list keeps it (#543).
     func at(listPosition: Int) -> TrackRowViewModel {
         var moved = self
