@@ -97,6 +97,7 @@ struct ImmersiveLyricsView: View {
             await lyricsLoad
             await queuePrefetch
         }
+        .onDisappear { lyricsModel.stopWaitingForConnection() }
         .onExitCommand(perform: onDismiss)
     }
 

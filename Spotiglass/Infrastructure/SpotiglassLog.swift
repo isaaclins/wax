@@ -138,7 +138,8 @@ enum SpotiglassLog {
             let nsError = error as NSError
             // Foundation and system errors print their userInfo, which may hold a URL.
             if nsError.domain == NSURLErrorDomain || nsError.domain == NSCocoaErrorDomain
-                || nsError.domain == NSPOSIXErrorDomain || nsError.domain == NSOSStatusErrorDomain {
+                || nsError.domain == NSPOSIXErrorDomain || nsError.domain == NSOSStatusErrorDomain
+                || nsError.domain == (kCFErrorDomainCFNetwork as String) {
                 return "\(nsError.domain) \(nsError.code)"
             }
             return String(describing: error)

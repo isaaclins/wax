@@ -6647,6 +6647,29 @@
         }
       }
     },
+    "lyrics.error.network": {
+      "extractionState": "stale",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Verbindung zum Songtext-Dienst. Die Songtexte laden wieder, sobald die Verbindung zurück ist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn’t connect to the lyrics service. Lyrics load again once the connection is back."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo conectar con el servicio de letras. Las letras se cargarán cuando vuelva la conexión."
+          }
+        }
+      }
+    },
     "lyrics.error.noLyrics": {
       "extractionState": "stale",
       "localizations": {
