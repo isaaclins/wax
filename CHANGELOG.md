@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.69] - 2026-11-25
+
+### Fixed
+
+- When something fails to load, Wax now says it failed instead of showing "No results" or an empty playlist.
+
 ## [0.8.68] - 2026-11-25
 
 ### Fixed
