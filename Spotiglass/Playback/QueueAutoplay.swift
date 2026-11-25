@@ -186,6 +186,23 @@ final class QueueAutoplay: ObservableObject {
 
     @Published private(set) var status: Status
 
+    /// A command Wax sent that moves the player to another song (#735).
+    enum SongCommand: Equatable {
+        /// Next, previous or stop: the same queue goes on.
+        case skip
+        /// A new play: the listener started something new.
+        case newQueue
+
+        /// From the name ``PlaybackTrace`` logs the command under.
+        init?(named name: String?) {
+            switch name {
+            case nil: return nil
+            case "setQueue", "play": self = .newQueue
+            default: self = .skip
+            }
+        }
+    }
+
     /// `nil` when the service has nothing to build Autoplay from; the control is then hidden.
     private let source: (any QueueAutoplaySource)?
     /// The queue it reads and adds to. Holds the provider, never this object, so no cycle.
@@ -227,9 +244,9 @@ final class QueueAutoplay: ObservableObject {
     /// New songs in a row that started within ``jumpWindow`` of an add.
     private var jumpsAfterAdds = 0
     private let now: () -> ContinuousClock.Instant
-    /// Whether Wax itself just moved the player to another song (a skip, a new play), so a new
-    /// song then is no jump.
-    private let songCommandSent: @MainActor () -> Bool
+    /// What Wax itself just sent that moves the player to another song, if anything: a new song
+    /// then is no jump, and a new play lets Autoplay try again after it stopped.
+    private let songCommandSent: @MainActor () -> SongCommand?
     /// A new song this soon after an add is one the add made the player jump to: Autoplay adds
     /// right after a song starts, and a song this short doesn't end on its own that soon.
     static let jumpWindow: Duration = .milliseconds(1500)
@@ -248,8 +265,8 @@ final class QueueAutoplay: ObservableObject {
         windowSize: Int = 20,
         addedSongWeight: Double = 0.5,
         now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now },
-        songCommandSent: @escaping @MainActor () -> Bool = {
-            PlaybackTrace.shared.songCommand(within: AppleMusicSongChange.commandWindow) != nil
+        songCommandSent: @escaping @MainActor () -> SongCommand? = {
+            SongCommand(named: PlaybackTrace.shared.songCommand(within: AppleMusicSongChange.commandWindow))
         }
     ) {
         self.source = source
@@ -337,6 +354,15 @@ final class QueueAutoplay: ObservableObject {
         guard keys.isDisjoint(with: currentKeys) else { return }
         currentKeys = keys
         let enriched = seed.uri.flatMap { knownTracks[$0] }.map { QueueAutoplaySeed(track: $0) } ?? seed
+        let command = songCommandSent()
+        if status == .heldAfterJumps, command == .newQueue {
+            // Starting something new tries again (#735).
+            SpotiglassLog.info(.playback, "Autoplay adds again: a new play started")
+            jumpsAfterAdds = 0
+            lastAddAt = nil
+            needsFill = true
+            status = .on
+        }
         let wasAdded = !keys.isDisjoint(with: addedKeys)
         currentSeed = enriched.weighted(wasAdded ? addedSongWeight : 1)
         // Going back to a song heard before adds nothing: only new songs move the queue on.
@@ -345,7 +371,7 @@ final class QueueAutoplay: ObservableObject {
         if let currentSeed { played.append(currentSeed) }
         if played.count > historyLimit { played.removeFirst(played.count - historyLimit) }
         guard isEnabled, status != .heldAfterJumps else { return }
-        if let lastAddAt, lastAddAt.duration(to: now()) < Self.jumpWindow, !songCommandSent() {
+        if let lastAddAt, lastAddAt.duration(to: now()) < Self.jumpWindow, command == nil {
             jumpsAfterAdds += 1
             SpotiglassLog.info(
                 .playback,

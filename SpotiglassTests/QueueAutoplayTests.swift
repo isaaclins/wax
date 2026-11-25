@@ -30,7 +30,13 @@ final class QueueAutoplayTests: XCTestCase {
             fillTarget: fillTarget,
             now: now,
             // What Wax sent the player last: a skip or a new play moves it to another song.
-            songCommandSent: { [player] in ["next", "previous", "play"].contains(player.commands.last ?? "") }
+            songCommandSent: { [player] in
+                switch player.commands.last {
+                case "next", "previous": .skip
+                case "queue", "play": .newQueue
+                default: nil
+                }
+            }
         )
         let adapter = ProviderQueueAutoplayPlayer(provider: provider) { AppleMusicPlaybackProvider.deviceID }
         autoplay.player = adapter
@@ -392,7 +398,7 @@ final class QueueAutoplayTests: XCTestCase {
         let autoplay = QueueAutoplay(
             source: source,
             flag: StoredFlag(key: "test.autoplay", defaultValue: false, defaults: nil),
-            songCommandSent: { [player] in player.commands.last == "next" }
+            songCommandSent: { [player] in player.commands.last == "next" ? .skip : nil }
         )
         autoplay.follow(session, provider: provider)
         let windows = (0..<2).map { _ in
@@ -845,6 +851,37 @@ extension QueueAutoplayTests {
         h.autoplay.setEnabled(true)
         await h.autoplay.settle()
         XCTAssertNotEqual(h.autoplay.status, .heldAfterJumps)
+    }
+
+    /// After Autoplay stopped adding, a skip keeps it stopped, and starting something new lets it
+    /// try again without turning it off and on (#735).
+    func testStartingSomethingNewAfterAutoplayStoppedTriesAgain() async throws {
+        let clock = ManualClock()
+        let h = makeHarness(fillTarget: 4, now: clock.now)
+        try await h.provider.play(.items(uris: seeds, startURI: nil), deviceID: deviceID)
+        h.autoplay.setEnabled(true)
+        try await notePlaying(h)
+        h.player.jumpsAfterAppend = true
+        clock.advance(by: .seconds(200))
+        try await next(h)
+        for _ in 0..<10 {
+            clock.advance(by: .milliseconds(200))
+            try await notePlaying(h)
+        }
+        XCTAssertEqual(h.autoplay.status, .heldAfterJumps)
+
+        h.player.jumpsAfterAppend = false
+        clock.advance(by: .seconds(5))
+        try await next(h)
+        XCTAssertEqual(h.autoplay.status, .heldAfterJumps, "a skip doesn't start Autoplay again")
+
+        let other = (1...3).map { "applemusic:song:other-\($0)" }
+        clock.advance(by: .seconds(5))
+        try await h.provider.play(.items(uris: other, startURI: nil), deviceID: deviceID)
+        try await notePlaying(h)
+        XCTAssertEqual(h.autoplay.status, .on, "a new play lets Autoplay add again")
+        let ahead = try await upcoming(h).count
+        XCTAssertEqual(ahead, 4, "the new short queue was filled")
     }
 
     /// Skipping right after Autoplay added songs is the listener's own move, never a jump.
