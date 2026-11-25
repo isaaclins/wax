@@ -10,10 +10,15 @@ import XCTest
 @MainActor
 final class PlayPauseRenderScopeTests: XCTestCase {
     private var hostedWindow: NSWindow?
+    /// The songs of the list this test opened. Only their rows count: a window an earlier test
+    /// closed can still draw a row of its own list while this one measures (#683).
+    private var hostedTrackIDs: Set<String> = []
 
     override func tearDown() {
         ViewBodyTally.counts = nil
         ViewTestHost.tearDownAll()
+        hostedWindow = nil
+        hostedTrackIDs = []
         super.tearDown()
     }
 
@@ -61,6 +66,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             trackResults: ["p1": [.success(tracks)]],
             playlistsHandler: { playlists }
         )
+        hostedTrackIDs = Set(tracks.map(\.id))
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await browserVM.load()
         await browserVM.selectPlaylist(id: "p1")
@@ -110,6 +116,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
 
     private func trackRows(in counts: [String: Int]) -> Set<String> {
         Set(counts.keys.filter { $0.hasPrefix("TrackListRow:") }.map { String($0.dropFirst("TrackListRow:".count)) })
+            .intersection(hostedTrackIDs)
     }
 
     private func playlistRows(in counts: [String: Int]) -> Set<String> {
