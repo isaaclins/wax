@@ -504,10 +504,14 @@ final class WindowResizeCostTests: XCTestCase {
                 file: file, line: line
             )
         }
-        let rows = counts.keys.filter { $0.hasPrefix("PlaylistListRow:") || rowsOnScreen($0) }
+        // Before #673 each press drew every row on screen twice, 12 times in these six presses.
+        // On a busy Mac the list now and then draws its rows once more on its own (2 of 20 runs
+        // at load 9: every row once, nothing above them), so a row may draw once, not with the
+        // presses.
+        let rows = counts.keys.filter { ($0.hasPrefix("PlaylistListRow:") || rowsOnScreen($0)) && (counts[$0] ?? 0) > 1 }
         XCTAssertTrue(
             rows.isEmpty,
-            "rows on screen re-rendered when the queue opened and closed: \(rows.sorted().prefix(5).map { "\($0) \(counts[$0] ?? 0)x" })",
+            "rows on screen re-rendered as the queue opened and closed: \(rows.sorted().prefix(5).map { "\($0) \(counts[$0] ?? 0)x" })",
             file: file, line: line
         )
     }
