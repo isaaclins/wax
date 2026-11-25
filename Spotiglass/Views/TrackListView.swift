@@ -114,6 +114,11 @@ struct TrackListView<Row: View>: View {
         #endif
         let tracksGeneration = realizedRows.generation(of: tracks)
         let _ = selectionFeed.store(selection)
+        // The table's double-click, from AppKit. SwiftUI's own (the primary action of
+        // `contextMenu(forSelectionType:)`) held every mouse-down back until the mouse-up and then
+        // handed the table both at once: the table waited for a mouse-up that had already come,
+        // and the next click only ended that wait instead of selecting its row (#689).
+        let _ = tableFocus.onDoubleClick = doubleClickAction
         ScrollViewReader { proxy in
             List(selection: liveSelection()) {
                 if let headerContent {
@@ -147,8 +152,8 @@ struct TrackListView<Row: View>: View {
                 if !selection.isEmpty { tableFocus.focusTable() }
                 selectionFeed.announce()
             }
-            // The table's own double-click and menu, not each row's: a row's menu was built on
-            // every mouse-down to find out whether the row wanted the click (#689).
+            // The table's own menu, not each row's: a row's menu was built on every mouse-down to
+            // find out whether the row wanted the click (#689).
             .modifier(TrackListRowActionsModifier(tracks: tracks, actions: rowActions))
             .onKeyPress(.return) {
                 guard let playSelection, !selection.isEmpty else { return .ignored }
@@ -171,13 +176,41 @@ struct TrackListView<Row: View>: View {
         }
     }
 
+    /// What a double-click on a selected row does: plays (or pauses) the first selected song.
+    private var doubleClickAction: (() -> Void)? {
+        guard let rowActions else { return nil }
+        let tracks = tracks
+        let selectionFeed = selectionFeed
+        return {
+            guard let first = tracks.first(where: { selectionFeed.isSelected($0.id) }) else { return }
+            rowActions.activate(first)
+        }
+    }
+
     private func setRowRealized(_ isRealized: Bool, track: TrackRowViewModel) {
         if isRealized {
             realizedRows.trackIDs.insert(track.id)
+            prepareMenu(of: track)
         } else {
             realizedRows.trackIDs.remove(track.id)
         }
         reportFirstVisibleTrack()
+    }
+
+    /// Hands rows that came on screen to ``TrackListRowActions/prepareMenus``, all of one turn of
+    /// the run loop at once.
+    private func prepareMenu(of track: TrackRowViewModel) {
+        guard let prepare = rowActions?.prepareMenus else { return }
+        let realizedRows = realizedRows
+        realizedRows.rowsAwaitingMenus.append(track)
+        guard !realizedRows.isPreparingMenus else { return }
+        realizedRows.isPreparingMenus = true
+        DispatchQueue.main.async {
+            realizedRows.isPreparingMenus = false
+            let rows = realizedRows.rowsAwaitingMenus
+            realizedRows.rowsAwaitingMenus = []
+            prepare(rows)
+        }
     }
 
     private func reportFirstVisibleTrack() {
@@ -189,11 +222,17 @@ struct TrackListView<Row: View>: View {
     }
 }
 
-/// Gives the table of a ``TrackListView`` the keyboard (#628, #689).
+/// Gives the table of a ``TrackListView`` the keyboard (#628, #689), and its double-click.
 @MainActor
 final class TrackListTableFocus {
     private weak var probe: NSView?
     private weak var table: NSTableView?
+    /// Runs on a double-click on a selected row.
+    var onDoubleClick: (() -> Void)?
+    private var monitor: Any?
+    /// The mouse-down last taken for a double-click. AppKit can hand a held-back mouse-down to
+    /// the monitor a second time, and a second run would pause what the first one played.
+    private var lastDoubleClick: TimeInterval?
 
     /// Makes the list's table the first responder unless it already is.
     func focusTable() {
@@ -205,6 +244,38 @@ final class TrackListTableFocus {
         guard let found = findTable() else { return }
         table = found
         if window.firstResponder !== found { window.makeFirstResponder(found) }
+    }
+
+    /// Watches the window's mouse-downs for a double-click on the table, and leaves each one to
+    /// the table as it is.
+    func watchDoubleClicks() {
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            self?.handleMouseDown(event)
+            return event
+        }
+    }
+
+    func stopWatchingDoubleClicks() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+    }
+
+    private func handleMouseDown(_ event: NSEvent) {
+        guard event.clickCount == 2,
+              event.modifierFlags.isDisjoint(with: [.command, .shift]),
+              let onDoubleClick,
+              let window = probe?.window, event.window === window,
+              event.timestamp != lastDoubleClick
+        else { return }
+        if table?.window !== window { table = findTable() }
+        guard let table else { return }
+        let point = table.convert(event.locationInWindow, from: nil)
+        let row = table.row(at: point)
+        // The first click of the two selected the row; the list's header and footer can't be.
+        guard row >= 0, table.visibleRect.contains(point), table.selectedRowIndexes.contains(row) else { return }
+        lastDoubleClick = event.timestamp
+        onDoubleClick()
     }
 
     /// The list's table: the nearest one around the probe (the list's background) whose scroll
@@ -235,11 +306,20 @@ final class TrackListTableFocus {
         func makeNSView(context: Context) -> NSView {
             let view = NSView()
             focus.probe = view
+            focus.watchDoubleClicks()
             return view
         }
 
         func updateNSView(_ nsView: NSView, context: Context) {
             focus.probe = nsView
+        }
+
+        func makeCoordinator() -> TrackListTableFocus {
+            focus
+        }
+
+        static func dismantleNSView(_ nsView: NSView, coordinator: TrackListTableFocus) {
+            coordinator.stopWatchingDoubleClicks()
         }
     }
 }
@@ -251,6 +331,9 @@ final class TrackListTableFocus {
 @MainActor
 final class TrackListRealizedRows {
     var trackIDs: Set<String> = []
+    /// Rows come on screen whose menus haven't been prepared yet, handed over together.
+    var rowsAwaitingMenus: [TrackRowViewModel] = []
+    var isPreparingMenus = false
     /// Each row's place in the list, built again when the rows change.
     var positionByTrackID: [String: Int] = [:]
     var lastReportedFirstVisibleTrackID: String?
@@ -308,6 +391,10 @@ struct TrackListRowActions {
     /// The rest of the menu, for the rows it acts on in list order: the selection when the
     /// right-click was on a selected row, else that row.
     let menuItems: ([TrackRowViewModel]) -> AnyView
+    /// Fetches what the menu of these rows shows that comes from the network, such as whether
+    /// a song is in Liked Songs. Called as rows come on screen: a menu is built when it opens,
+    /// and an answer that arrives after that doesn't reach the open menu (#689).
+    var prepareMenus: (@MainActor ([TrackRowViewModel]) -> Void)? = nil
 
     func activate(_ track: TrackRowViewModel) {
         TrackListRow.perform(invocation(track), playURI: playURI, togglePlayPause: togglePlayPause)
@@ -323,9 +410,6 @@ private struct TrackListRowActionsModifier: ViewModifier {
         if let actions {
             content.contextMenu(forSelectionType: String.self) { ids in
                 menu(for: ids, actions: actions)
-            } primaryAction: { ids in
-                guard let first = tracks.first(where: { ids.contains($0.id) }) else { return }
-                actions.activate(first)
             }
         } else {
             content

@@ -162,6 +162,14 @@ struct PlaylistDetailContent: View {
         ])
     }
 
+    /// Looks up whether the songs on screen are liked, for their menus (#689). Liked Songs knows
+    /// without asking.
+    private var prepareTrackMenus: (@MainActor ([TrackRowViewModel]) -> Void)? {
+        guard detail.playlist.id != SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID else { return nil }
+        let browserViewModel = browserViewModel
+        return { browserViewModel.prepareTrackMenus(for: $0) }
+    }
+
     private var isEditingDisplayedPlaylistName: Bool {
         guard isEditingPlaylistName,
               let editingPlaylistID
@@ -237,7 +245,8 @@ struct PlaylistDetailContent: View {
                                     hasPlaybackDevice: hasPlaybackDevice,
                                     copyableURI: targets.count == 1 ? targets.first?.playableURI : nil
                                 ))
-                            }
+                            },
+                            prepareMenus: prepareTrackMenus
                         ),
                         rowContentKey: rowContentKey
                     )

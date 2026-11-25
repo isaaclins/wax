@@ -122,6 +122,13 @@ extension PlaylistBrowserViewModel {
 
     /// Resolves the missing saved states for a menu's catalog rows. The Liked
     /// Songs surface skips this entirely because membership is known locally.
+    /// Starts looking up whether `rows` are in Liked Songs, for their menus to show (#689).
+    func prepareTrackMenus(for rows: [TrackRowViewModel]) {
+        let rows = likedSongsMutationRows(for: rows)
+        guard !rows.isEmpty else { return }
+        Task { await loadSavedTrackStates(for: rows) }
+    }
+
     func loadSavedTrackStates(for rows: [TrackRowViewModel]) async {
         let ids = catalogTrackIDs(for: rows)
         // A cached answer the provider now answers differently is out of date (an album saved

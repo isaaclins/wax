@@ -84,7 +84,8 @@ struct HomeView: View {
                             hasPlaybackDevice: hasPlaybackDevice,
                             copyableURI: targets.count == 1 ? targets.first?.playableURI : nil
                         ))
-                    }
+                    },
+                    prepareMenus: { viewModel.prepareTrackMenus(for: $0) }
                 ),
                 headerContent: AnyView(listHeader)
             )

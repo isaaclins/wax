@@ -150,7 +150,8 @@ struct ArtistDetailContent: View {
                             hasPlaybackDevice: hasPlaybackDevice,
                             copyableURI: targets.count == 1 ? targets.first?.playableURI : nil
                         ))
-                    }
+                    },
+                    prepareMenus: { browserViewModel.prepareTrackMenus(for: $0) }
                 ),
                 headerContent: AnyView(listHeader),
                 footerContent: AnyView(listFooter)
