@@ -490,7 +490,11 @@ struct AppleMusicLibraryEditor: Sendable {
             // The rows picked, where they sit in the Music app's own playlist: the browser's
             // positions count copies on their way from the cloud, which it doesn't have yet.
             let positions = rows.isEmpty ? nil : pending.musicAppPositions(rows.sorted(), playlistID: playlistID, shown: shownTracks)
-            scripted.append(MusicAppPlaylistRemoval(track: match, positions: positions ?? removal.positions))
+            // Where the Music app has it can't be known yet: it would fall back to another copy.
+            if let positions, positions.contains(nil) {
+                throw AppleMusicLibraryEditError.notInMusicYet
+            }
+            scripted.append(MusicAppPlaylistRemoval(track: match, positions: positions?.compactMap { $0 } ?? removal.positions))
         }
         guard !scripted.isEmpty else { return }
         // The Music app would take another copy of the song than the one picked.
