@@ -1,8 +1,8 @@
 name: CI
 
 # Runs the checks that guard `main` on every pull request and every push to
-# `main` (the macOS jobs once per pull request, see the test job). Until this
-# existed, nothing ran the test suite automatically: the only workflow was "Release artifact", which is `workflow_dispatch`-only.
+# `main` (on pull requests the macOS jobs run once, see the test job). Until
+# this existed, nothing ran the test suite automatically: the only workflow was "Release artifact", which is `workflow_dispatch`-only.
 # Two tests rotted unnoticed on `main` as a result (#73, #74), and both were
 # found by hand rather than by CI.
 #
@@ -14,8 +14,8 @@ on:
   pull_request:
   push:
     branches: [main]
-  # The macOS jobs run once on the commit that is about to merge:
-  # `gh workflow run ci.yml --ref <branch>` before merging.
+  # The macOS jobs run once per pull request, right before it merges: bring
+  # the branch up to date with main, then `gh workflow run ci.yml --ref <branch>`.
   workflow_dispatch:
 
 # A newer push to the same branch makes an in-flight run obsolete. Cancel it
@@ -102,9 +102,10 @@ jobs:
     # macOS runners are few and shared, and a pull request gets several pushes
     # while it is reviewed: on 2026-11-25 these jobs waited about 50 minutes in
     # the queue for 11 minutes of work, and 42 of 89 runs were cancelled by the
-    # next push. So on pull requests from this repo they run once, on the
-    # commit that is about to merge (workflow_dispatch), and on every push to
-    # main. Pull requests from forks still run them right away.
+    # next push. So on pull requests from this repo they run once, right
+    # before merging, on the branch brought up to date with main
+    # (workflow_dispatch), and on every push to main. Pull requests from forks
+    # still run them right away.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     # Pinned to macos-26 (Tahoe) because Spotiglass and SpotiglassTests both
     # have a macOS 26.0 deployment target. The macos-latest label currently
