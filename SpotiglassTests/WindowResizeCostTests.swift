@@ -25,6 +25,7 @@ final class WindowResizeCostTests: XCTestCase {
     /// The hosted browser's model and the lyrics controller it hands its queue to.
     private var hostedBrowser: PlaylistBrowserViewModel?
     private var hostedLyrics: LyricsOverlayController?
+    private var hostedPlayback: PlaybackSessionViewModel?
 
     /// Hosts the real browser the way the app shows it: the library loaded once, both playlists
     /// in the sidebar and, for `.bigPlaylist`, a 500-song page with its rows drawn.
@@ -68,6 +69,7 @@ final class WindowResizeCostTests: XCTestCase {
             provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander())
         )
         let playback = playbackHost.playbackViewModel
+        hostedPlayback = playback
         playback.deviceID = "device-1"
         playback.hasTransferredPlaybackToCurrentDevice = true
         playback.setTransportStateKnown(true)
@@ -486,14 +488,22 @@ final class WindowResizeCostTests: XCTestCase {
         await toggle(true)
         await toggle(false)
         ViewBodyTally.counts = [:]
+        // Where the player's model announced a change during the presses, for a failure elsewhere.
+        var announced: [String] = []
+        let announcements = hostedPlayback?.objectWillChange.sink { _ in
+            if announced.count < 3 {
+                announced.append(Thread.callStackSymbols.dropFirst(2).prefix(16).map { $0.split(separator: " ", omittingEmptySubsequences: true).dropFirst(3).prefix(1).joined() }.joined(separator: " < "))
+            }
+        }
         for visible in [true, false, true, false, true, false] {
             await toggle(visible)
         }
+        announcements?.cancel()
         let counts = ViewBodyTally.counts ?? [:]
         // What else drew, and at what size, so a failure on another machine says where to look.
         let others = counts.filter { !$0.key.contains(":") }.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)x" }
         let window = NSApp.windows.first { $0.contentView?.frame.width ?? 0 > 1_000 }
-        let context = "drew: \(others); window \(window.map { "\($0.frame.size)" } ?? "none"), screen \(NSScreen.main.map { "\($0.frame.size)" } ?? "none"), app active \(NSApp.isActive)"
+        let context = "drew: \(others); window \(window.map { "\($0.frame.size)" } ?? "none"), screen \(NSScreen.main.map { "\($0.frame.size)" } ?? "none"), app active \(NSApp.isActive), player announced \(announced)"
         for container in [
             "PlaylistBrowserView",
             "BrowserTransportBar",
