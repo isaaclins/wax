@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import Spotiglass
 
@@ -130,6 +131,25 @@ final class TrackSelectionMenuStateTests: XCTestCase {
 
         XCTAssertEqual(viewModel.savedTrackStates, ["saved": true, "new": false])
         XCTAssertEqual(api.savedTrackStatusesCalls, [["saved", "new"]])
+    }
+
+    /// The answers come in on their own time, for the rows on screen. They tell the song menus,
+    /// which watch the saved states, and not the browser: it drew itself again, sidebar and all,
+    /// for each one, at moments like a play/pause (#689).
+    func testALikedSongsAnswerTellsTheMenusNotTheBrowser() async {
+        let api = MockBrowsingAPI(playlistResults: [], trackResults: [:], savedTrackStatusesHandler: { ids in ids.map { _ in true } })
+        let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        var browserChanges = 0
+        var menuChanges = 0
+        let browser = viewModel.objectWillChange.sink { browserChanges += 1 }
+        let menus = viewModel.savedTrackStateStore.objectWillChange.sink { menuChanges += 1 }
+        defer { browser.cancel(); menus.cancel() }
+
+        await viewModel.loadSavedTrackStates(for: [makeRow(id: "saved", playable: true)])
+
+        XCTAssertEqual(viewModel.savedTrackStates, ["saved": true])
+        XCTAssertGreaterThan(menuChanges, 0, "the song menus weren't told")
+        XCTAssertEqual(browserChanges, 0, "the whole browser was told")
     }
 
     // MARK: - Add to Queue availability

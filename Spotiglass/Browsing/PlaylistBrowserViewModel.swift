@@ -39,10 +39,14 @@ final class PlaylistBrowserViewModel: ObservableObject {
     /// The detail table's selection, observed only by the views that show it.
     let detailTrackSelection = DetailTrackSelection()
     /// Saved state keyed by the service's track ID. Context menus fill this lazily from
-    /// `savedTrackStatuses` when a surface needs it. Not published: only a song menu reads it,
-    /// when it opens, and an answer that arrives while nothing is open would otherwise draw the
-    /// whole browser again, the sidebar included (#689).
-    internal(set) var savedTrackStates: [String: Bool] = [:]
+    /// `savedTrackStatuses` when a surface needs it. Kept in ``savedTrackStateStore``, which only
+    /// the song menus watch: published here, every answer drew the whole browser again, the
+    /// sidebar included, and the answers for the rows on screen come in on their own time (#689).
+    var savedTrackStates: [String: Bool] {
+        get { savedTrackStateStore.states }
+        set { savedTrackStateStore.states = newValue }
+    }
+    let savedTrackStateStore = SavedTrackStateStore()
     /// Track IDs a `savedTrackStatuses` lookup is on its way for.
     var savedTrackLookupsInFlight: Set<String> = []
     /// Library state keyed by album ID, for providers that can save albums.

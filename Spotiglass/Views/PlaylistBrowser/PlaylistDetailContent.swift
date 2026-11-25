@@ -514,6 +514,8 @@ struct TrackOpsMenuItems: View {
     let copyableURI: String?
 
     @EnvironmentObject private var pinnedStore: PinnedItemsStore
+    /// Redraws the menu when a Liked Songs answer for its songs comes in.
+    @ObservedObject private var savedTrackStateStore: SavedTrackStateStore
 
     init(
         targets: [TrackRowViewModel],
@@ -529,6 +531,7 @@ struct TrackOpsMenuItems: View {
     ) {
         self.targets = targets
         self.browserViewModel = browserViewModel
+        self.savedTrackStateStore = browserViewModel.savedTrackStateStore
         self.sourcePlaylistID = sourcePlaylistID
         self.onRequestCreatePlaylist = onRequestCreatePlaylist
         self.onRequestLibraryContinuation = onRequestLibraryContinuation
