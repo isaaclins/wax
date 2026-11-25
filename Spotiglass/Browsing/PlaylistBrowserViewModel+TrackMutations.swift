@@ -1,4 +1,3 @@
-import Combine
 import Foundation
 
 enum PlaylistMutationOperation: Equatable {
@@ -30,13 +29,6 @@ enum LibraryEditableTrackURI {
         let id = String(uri.dropFirst(prefix.count))
         return id.isEmpty ? nil : id
     }
-}
-
-/// Whether songs are in Liked Songs, as far as the song menus know (#689). Its own object, so an
-/// answer redraws the menus that show it rather than the browser around them.
-@MainActor
-final class SavedTrackStateStore: ObservableObject {
-    @Published var states: [String: Bool] = [:]
 }
 
 extension PlaylistBrowserViewModel {
