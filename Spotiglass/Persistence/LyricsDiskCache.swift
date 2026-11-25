@@ -13,6 +13,8 @@ struct LyricsDiskCache: Sendable {
             case rateLimited
             case transient
             case permanent
+            /// A dropped connection: kept in memory only, never written here (#599).
+            case network
         }
 
         let failureClass: FailureClass

@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 
 @testable import Spotiglass
@@ -484,6 +485,195 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         guard case .ready(.instrumental) = vm.phase else {
             return XCTFail("expected lyrics, got \(vm.phase)")
         }
+    }
+
+    // MARK: - A dropped connection (#599)
+
+    private func failedMessage(_ vm: ImmersiveLyricsViewModel, file: StaticString = #filePath, line: UInt = #line) -> String? {
+        guard case let .failed(message) = vm.phase else {
+            XCTFail("expected .failed, got \(vm.phase)", file: file, line: line)
+            return nil
+        }
+        return message.string
+    }
+
+    private func temporaryDiskCache() throws -> (LyricsDiskCache, URL) {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SpotiglassLyricsNetwork-\(UUID().uuidString)")
+        return (try LyricsDiskCache(directory: dir), dir)
+    }
+
+    private static let syncedLyrics = FetchedLyrics.synced([SyncedLyricLine(id: 0, startTimeMs: 0, words: "Back online")])
+
+    /// The issue's replay: offline once, then the song's lyrics are there. Try again fetches
+    /// them, nothing about the drop is saved, and a relaunch does not wait either.
+    func testOfflineFailureBacksOffAsTransientAndTryAgainRefetches() async throws {
+        let (disk, dir) = try temporaryDiskCache()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var fetchCount = 0
+        let fetch: (PlaybackNowPlaying) async throws -> FetchedLyrics = { _ in
+            fetchCount += 1
+            if fetchCount == 1 { throw URLError(.notConnectedToInternet) }
+            return Self.syncedLyrics
+        }
+        let vm = ImmersiveLyricsViewModel(fetchLyrics: fetch, diskCache: disk)
+        let track = sampleTrack(spotifyID: "offlineOnce")
+
+        await vm.load(track: track)
+        XCTAssertEqual(failedMessage(vm), SpotiglassL10n.string("lyrics.error.network"))
+        XCTAssertNil(disk.loadTrackBackoffMetadata(trackKey: "offlineOnce"), "A dropped connection must not be saved.")
+
+        await vm.retry(track: track)
+        XCTAssertEqual(fetchCount, 2)
+        XCTAssertEqual(vm.phase, .ready(Self.syncedLyrics))
+    }
+
+    func testOfflineFailureIsForgottenAfterARelaunch() async throws {
+        let (disk, dir) = try temporaryDiskCache()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var fetchCount = 0
+        let vm = ImmersiveLyricsViewModel(fetchLyrics: { _ in
+            fetchCount += 1
+            throw URLError(.networkConnectionLost)
+        }, diskCache: disk)
+        let track = sampleTrack(spotifyID: "offlineRelaunch")
+        await vm.load(track: track)
+
+        ImmersiveLyricsViewModel.resetSharedStateForTesting()
+        let relaunched = ImmersiveLyricsViewModel(fetchLyrics: { _ in
+            fetchCount += 1
+            return Self.syncedLyrics
+        }, diskCache: disk)
+        await relaunched.load(track: track)
+
+        XCTAssertEqual(fetchCount, 2)
+        XCTAssertEqual(relaunched.phase, .ready(Self.syncedLyrics))
+    }
+
+    /// Opening lyrics again a moment later does not refetch, but the wait is short.
+    func testOfflineWaitIsShort() async {
+        var clock = Date(timeIntervalSince1970: 1_000_000)
+        var fetchCount = 0
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                throw URLError(.timedOut)
+            },
+            now: { clock }
+        )
+        let track = sampleTrack(spotifyID: "offlineShortWait")
+
+        await vm.load(track: track)
+        await vm.load(track: track)
+        await vm.preload(track: track)
+        XCTAssertEqual(fetchCount, 1)
+        XCTAssertEqual(failedMessage(vm), SpotiglassL10n.string("lyrics.error.network"))
+
+        clock += 6
+        await vm.load(track: track)
+        XCTAssertEqual(fetchCount, 2, "A connection wait is seconds, not the 15 minutes of a permanent failure.")
+    }
+
+    func testLyricsLoadAgainWhenTheNetworkComesBack() async throws {
+        let (signals, continuation) = AsyncStream<Void>.makeStream()
+        var fetchCount = 0
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                if fetchCount == 1 { throw URLError(.cannotFindHost) }
+                return Self.syncedLyrics
+            },
+            networkRecovered: signals
+        )
+        let track = sampleTrack(spotifyID: "networkBack")
+        await vm.load(track: track)
+        XCTAssertEqual(failedMessage(vm), SpotiglassL10n.string("lyrics.error.network"))
+
+        let ready = expectation(description: "lyrics shown once the network is back")
+        let observation = vm.$phase.sink { phase in
+            if phase == .ready(Self.syncedLyrics) { ready.fulfill() }
+        }
+        continuation.yield()
+        await fulfillment(of: [ready], timeout: 5)
+        observation.cancel()
+        XCTAssertEqual(fetchCount, 2)
+        continuation.finish()
+    }
+
+    func testTryAgainFetchesAtOnceAtMostEveryFewSeconds() async {
+        var clock = Date(timeIntervalSince1970: 1_000_000)
+        var waits: [TimeInterval] = []
+        var phasesDuringWait: [ImmersiveLyricsViewModel.Phase] = []
+        var fetchCount = 0
+        var vm: ImmersiveLyricsViewModel!
+        vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                throw URLError(.notConnectedToInternet)
+            },
+            now: { clock },
+            sleep: { seconds in
+                waits.append(seconds)
+                phasesDuringWait.append(vm.phase)
+                clock += seconds
+            }
+        )
+        let track = sampleTrack(spotifyID: "retryThrottle")
+
+        await vm.load(track: track)
+        await vm.retry(track: track)
+        XCTAssertEqual(fetchCount, 2, "The first press fetches at once, past the connection wait.")
+        XCTAssertEqual(waits, [])
+
+        clock += 1
+        await vm.retry(track: track)
+        XCTAssertEqual(fetchCount, 3)
+        XCTAssertEqual(waits.count, 1)
+        XCTAssertEqual(waits.first ?? 0, ImmersiveLyricsViewModel.manualRetryInterval - 1, accuracy: 0.001)
+        XCTAssertEqual(phasesDuringWait, [.loading], "A quick second press shows it arrived while it waits.")
+
+        clock += 10
+        await vm.retry(track: track)
+        XCTAssertEqual(fetchCount, 4)
+        XCTAssertEqual(waits.count, 1)
+    }
+
+    func testTryAgainFetchesPastAPermanentWait() async {
+        var fetchCount = 0
+        let vm = ImmersiveLyricsViewModel { _ in
+            fetchCount += 1
+            if fetchCount == 1 { throw LrcLibClient.Failure.http(400) }
+            return .instrumental
+        }
+        let track = sampleTrack(spotifyID: "retryPermanent")
+        await vm.load(track: track)
+        await vm.load(track: track)
+        XCTAssertEqual(fetchCount, 1)
+
+        await vm.retry(track: track)
+        XCTAssertEqual(fetchCount, 2)
+        XCTAssertEqual(vm.phase, .ready(.instrumental))
+    }
+
+    func testTryAgainStillWaitsOutARateLimit() async {
+        var fetchCount = 0
+        let vm = ImmersiveLyricsViewModel { _ in
+            fetchCount += 1
+            throw LrcLibClient.Failure.rateLimited(retryAfter: 300)
+        }
+        let track = sampleTrack(spotifyID: "retryRateLimited")
+        await vm.load(track: track)
+        await vm.retry(track: track)
+        XCTAssertEqual(fetchCount, 1, "The server asked to wait; pressing Try again must not hit it again.")
+        XCTAssertTrue(failedMessage(vm)?.contains("rate limited") ?? false)
+    }
+
+    func testServerErrorWaitDoesNotBlameTheTrack() async {
+        let vm = ImmersiveLyricsViewModel { _ in throw LrcLibClient.Failure.http(503) }
+        let track = sampleTrack(spotifyID: "serverWaitMessage")
+        await vm.load(track: track)
+        await vm.load(track: track)
+        XCTAssertEqual(failedMessage(vm), SpotiglassL10n.string("lyrics.error.http"))
     }
 }
 

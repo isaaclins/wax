@@ -32,7 +32,7 @@ struct ImmersiveLyricsLyricsPhaseColumn: View {
                         .foregroundStyle(.white.opacity(0.9))
                     if let track = currentTrack {
                         Button(SpotiglassL10n.string("lyrics.tryAgain")) {
-                            Task { await lyricsModel.load(track: track) }
+                            Task { await lyricsModel.retry(track: track) }
                         }
                         .buttonStyle(.borderedProminent)
                     }
