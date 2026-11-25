@@ -8,6 +8,7 @@ import XCTest
 @MainActor
 final class DetailSurfaceRegressionTests: XCTestCase {
     override func tearDown() {
+        ViewBodyTally.counts = nil
         ViewTestHost.tearDownAll()
         super.tearDown()
     }
@@ -344,6 +345,7 @@ final class DetailSurfaceRegressionTests: XCTestCase {
             var selection: Set<String> = []
             var activated: [String] = []
             var builds: [String] = []
+            var prepared: [String] = []
         }
         let record = Record()
         let view = TrackListSelectionHarness(record: { record.selection = $0 }) { selection in
@@ -364,7 +366,8 @@ final class DetailSurfaceRegressionTests: XCTestCase {
                     invocation: { .play(uri: $0.id) },
                     playURI: { record.activated.append($0) },
                     togglePlayPause: {},
-                    menuItems: { targets in AnyView(Button("Rows \(targets.map(\.id).joined(separator: ","))") {}) }
+                    menuItems: { targets in AnyView(Button("Rows \(targets.map(\.id).joined(separator: ","))") {}) },
+                    prepareMenus: { record.prepared += $0.map(\.id) }
                 ),
                 rowContentKey: AnyHashable("list")
             )
@@ -384,25 +387,33 @@ final class DetailSurfaceRegressionTests: XCTestCase {
         await AppKitTestSupport.settle()
         XCTAssertGreaterThan(table.visibleRect.height, table.rect(ofRow: tracks.count - 1).maxY - 1, "not every row is on screen")
         let row = { (id: String) in try XCTUnwrap(tracks.firstIndex { $0.id == id }) }
+        // What a menu shows from the network (whether a song is liked) is asked for as its row comes
+        // on screen: built when it opens, a menu showed "Add to Liked Songs" greyed out the first time.
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { Set(record.prepared) == Set(tracks.map(\.id)) }),
+            "the menus of the rows on screen weren't prepared: \(record.prepared)"
+        )
 
-        func post(_ type: NSEvent.EventType, row index: Int, clickCount: Int = 1) {
+        /// A click as a mouse makes it: the button goes down and up before the app handles either,
+        /// so the table, which waits for the mouse-up on a mouse-down (it may be a drag), finds it.
+        func click(_ index: Int, clickCount: Int) {
             let rect = table.rect(ofRow: index)
             let point = table.convert(NSPoint(x: rect.minX + rect.width * 0.4, y: rect.midY), to: nil)
-            guard let event = NSEvent.mouseEvent(
-                with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: clickCount,
-                pressure: type == .leftMouseUp ? 0 : 1
-            ) else { return XCTFail("no \(type) event") }
-            NSApp.postEvent(event, atStart: false)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                guard let event = NSEvent.mouseEvent(
+                    with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: clickCount,
+                    pressure: type == .leftMouseUp ? 0 : 1
+                ) else { return XCTFail("no \(type) event") }
+                NSApp.postEvent(event, atStart: false)
+            }
             while let next = NSApp.nextEvent(matching: .any, until: Date(), inMode: .default, dequeue: true) {
                 NSApp.sendEvent(next)
             }
         }
         func doubleClick(_ index: Int) {
-            for clickCount in 1...2 {
-                post(.leftMouseDown, row: index, clickCount: clickCount)
-                post(.leftMouseUp, row: index, clickCount: clickCount)
-            }
+            click(index, clickCount: 1)
+            click(index, clickCount: 2)
             AppKitTestSupport.settle()
         }
         func select(_ ids: Set<String>) throws {
@@ -432,17 +443,20 @@ final class DetailSurfaceRegressionTests: XCTestCase {
         // LongListScrollCostTests, on the real playlist page).
         try select(["t1"])
         XCTAssertTrue(window.firstResponder === table, "a new selection left the table without the keyboard")
-        // Taking the keyboard redraws the rows on screen (a selection looks different in a table that
-        // has it); that's done before counting.
         await AppKitTestSupport.settle()
         record.builds = []
+        ViewBodyTally.counts = [:]
         try select(["t2"])
         XCTAssertTrue(
             AppKitTestSupport.pumpRunLoop(until: { Set(record.builds).isSuperset(of: ["t1-", "t2+"]) }),
             "the rows the selection changed weren't built again: \(record.builds)"
         )
         await AppKitTestSupport.settle()
-        XCTAssertEqual(Set(record.builds), ["t1-", "t2+"], "a new selection built rows it didn't change")
+        // The list of rows itself isn't built again: that went through every row of the list. Rows the
+        // selection didn't change aren't counted: something around the list can still draw them again
+        // (it happened once in a full `make test`, every row with its selection unchanged).
+        XCTAssertNil(ViewBodyTally.counts?["TrackListRows"], "a new selection built the list of rows again")
+        ViewBodyTally.counts = nil
 
         // The keyboard leaves through AppKit, which SwiftUI's own focus state didn't notice: it still
         // said the table had it, and the next selection never gave it back.
@@ -450,12 +464,14 @@ final class DetailSurfaceRegressionTests: XCTestCase {
         try select(["t3"])
         XCTAssertTrue(window.firstResponder === table, "the table didn't get the keyboard back")
 
-        // GitHub's runners don't hand a posted click to the window; where nothing reached the table
-        // there is nothing to check.
+        // A double-click on a selected row plays it. The first click of the two selects the row; a
+        // posted click doesn't always get that far in a test (GitHub's runners don't hand it to the
+        // window at all), so the row is selected first. The table watches the mouse-downs as they
+        // go by and leaves them alone: SwiftUI's own double-click held each one back until its
+        // mouse-up, and the table then waited for a mouse-up that had already come (#689).
+        try select(["t4"])
         doubleClick(try row("t4"))
-        if !record.activated.isEmpty || record.selection.contains("t4") {
-            XCTAssertEqual(record.activated, ["t4"], "a double-click didn't play its row")
-        }
+        XCTAssertEqual(record.activated, ["t4"], "a double-click didn't play its row once")
 
         // A right-click on a row of a selection acts on the selection, anywhere else on that row.
         try select(["t1", "t3"])
