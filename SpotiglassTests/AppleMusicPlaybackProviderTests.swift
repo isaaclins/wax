@@ -2033,6 +2033,9 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
     /// Thrown by every add at the end while set, like a network outage.
     var appendError: Error?
     private(set) var appendAttempts = 0
+    /// Like MusicKit in #735 (macOS 27, a long library playlist): each add at the end is followed
+    /// by the player moving to the next song by itself, no skip sent.
+    var jumpsAfterAppend = false
     /// A skip MusicKit refuses; the song that was playing keeps playing.
     var skipFailure: MusicPlaybackError?
     /// Sends whenever a command is recorded, a lookup starts or stops waiting, or the repeat
@@ -2211,6 +2214,11 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         let plan = book.planAppend(AppleMusicQueueBook.Row(uri: uri, title: uri), currentIndex: current, entryCount: queue.count)
         queue.insert(uri, at: min(plan.index ?? queue.count, queue.count))
         book.finishAdd(plan)
+        if jumpsAfterAppend, index + 1 < queue.count {
+            index += 1
+            positionBase = 0
+            positionAnchor = now
+        }
     }
 
     /// How often the player was read.

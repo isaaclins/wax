@@ -29,6 +29,22 @@ final class PlaybackTrace {
     /// When the app last sent the player anything, so a state change without one is marked as
     /// coming from outside (media keys, Control Center, the system).
     private var lastCommandAt: ContinuousClock.Instant?
+    /// The last command that moves the player to another song, and when (#735).
+    private var lastSongCommand: (name: String, at: ContinuousClock.Instant)?
+    static let songChangingCommands: Set<String> = ["skipToNext", "skipToPrevious", "setQueue", "play", "stop"]
+
+    /// Whether `command` can move the player to another song. A resume ("play (resume)") goes on
+    /// with the same song, so a song change right after one is still the player's own.
+    static func movesToAnotherSong(_ command: String, _ detail: String) -> Bool {
+        songChangingCommands.contains(command) && !(command == "play" && detail == "(resume)")
+    }
+
+    /// The command that moved the player to another song, if one went out within `window`: a song
+    /// change without one is the player's own (the song ended, or MusicKit moved on by itself).
+    func songCommand(within window: Duration) -> String? {
+        guard let lastSongCommand, lastSongCommand.at.duration(to: now()) <= window else { return nil }
+        return lastSongCommand.name
+    }
 
     init(
         now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now },
@@ -79,6 +95,7 @@ final class PlaybackTrace {
     func command(_ command: String, _ detail: String = "", planned: Int? = nil) {
         let at = now()
         lastCommandAt = at
+        if Self.movesToAnotherSong(command, detail) { lastSongCommand = (command, at) }
         var run = 1
         // A send after a new request starts a new run.
         if let last = lastSent[command], last.at.duration(to: at) < Self.repeatWindow,

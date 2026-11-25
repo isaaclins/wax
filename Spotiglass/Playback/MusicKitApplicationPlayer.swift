@@ -1234,6 +1234,35 @@ enum AppleMusicContentRestrictions {
     }
 }
 
+/// Why the player is on another song (#735): a command Wax sent, the song before reaching its end,
+/// or MusicKit moving on by itself part way through a song. MusicKit's player gives no reason of
+/// its own, so the line says what the log can tell: how far the song before got.
+enum AppleMusicSongChange {
+    struct Seen: Equatable {
+        let positionMilliseconds: Int
+        let durationMilliseconds: Int?
+    }
+
+    /// A song command this recent is what moved the player.
+    static let commandWindow: Duration = .seconds(2)
+    /// The position is read about once a second, so a song this close to its end ended.
+    static let endMargin = 3000
+
+    static func reason(before: Seen?, command: String?) -> String? {
+        if let command { return "after \(command)" }
+        guard let before else { return nil }
+        let at = PlaybackPositionWatch.time(before.positionMilliseconds)
+        guard let duration = before.durationMilliseconds else {
+            return "no song command sent; the song before was last seen at \(at)"
+        }
+        let of = PlaybackPositionWatch.time(duration)
+        if before.positionMilliseconds >= duration - endMargin {
+            return "the song before ended (\(at) of \(of))"
+        }
+        return "MusicKit moved on by itself, no song command sent: the song before stopped at \(at) of \(of)"
+    }
+}
+
 /// Logs what MusicKit's player reports by itself (#590): its status (playing, paused, stopped,
 /// interrupted, seeking), its rate, and the entry it is on. MusicKit announces a change before it
 /// makes it, so each change is read on the next turn of the main queue, and only lines that differ
@@ -1249,6 +1278,10 @@ final class AppleMusicPlayerStateObserver {
     private var lastStatus: String?
     private var lastRate: Float?
     private var lastEntryID: String??
+    /// What was last seen of the song playing: how far it got and how long it is, to say why the
+    /// player is on another song when it moves on (#735).
+    private var lastSeen: AppleMusicSongChange.Seen?
+    private var justChanged = false
 
     private var queueSubscription: AnyCancellable?
     private var subscribedQueue: ObjectIdentifier?
@@ -1300,15 +1333,33 @@ final class AppleMusicPlayerStateObserver {
             lastRate = rate
             changed = true
         }
-        let entryID = player.queue.currentEntry?.id
+        let current = player.queue.currentEntry
+        let entryID = current?.id
         if lastEntryID != .some(entryID) {
             let entries = player.queue.entries
             let index = entryID.flatMap { id in entries.firstIndex { $0.id == id } }
+            let why = AppleMusicSongChange.reason(
+                before: lastSeen,
+                command: PlaybackTrace.shared.songCommand(within: AppleMusicSongChange.commandWindow)
+            )
             PlaybackTrace.shared.playerReported(
                 "current entry -> \(entryID ?? "none") (position \(index.map { "\($0 + 1)" } ?? "-") of \(entries.count))"
+                    + (why.map { ": \($0)" } ?? "")
             )
             lastEntryID = .some(entryID)
+            lastSeen = nil
+            justChanged = true
             changed = true
+        } else if let current {
+            let seconds = player.playbackTime
+            var duration: Int?
+            if case let .song(song) = current.item, let length = song.duration { duration = Int(length * 1000) }
+            let milliseconds = seconds.isFinite ? Int((seconds * 1000).rounded()) : nil
+            // The first read after a change can still carry the song before's time.
+            if let milliseconds, !justChanged || milliseconds < 1500 {
+                lastSeen = AppleMusicSongChange.Seen(positionMilliseconds: milliseconds, durationMilliseconds: duration)
+            }
+            justChanged = false
         }
         return changed
     }

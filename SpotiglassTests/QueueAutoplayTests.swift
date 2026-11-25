@@ -17,14 +17,26 @@ final class QueueAutoplayTests: XCTestCase {
         let adapter: ProviderQueueAutoplayPlayer
     }
 
-    private func makeHarness(fillTarget: Int = 8) -> Harness {
+    private func makeHarness(
+        fillTarget: Int = 8,
+        now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now }
+    ) -> Harness {
         let player = ScriptedAppleMusicPlayer()
         let provider = AppleMusicPlaybackProvider(player: player)
         let source = SampleAutoplaySource()
         let autoplay = QueueAutoplay(
             source: source,
             flag: StoredFlag(key: "test.autoplay", defaultValue: false, defaults: nil),
-            fillTarget: fillTarget
+            fillTarget: fillTarget,
+            now: now,
+            // What Wax sent the player last: a skip or a new play moves it to another song.
+            songCommandSent: { [player] in
+                switch player.commands.last {
+                case "next", "previous": .skip
+                case "queue", "play": .newQueue
+                default: nil
+                }
+            }
         )
         let adapter = ProviderQueueAutoplayPlayer(provider: provider) { AppleMusicPlaybackProvider.deviceID }
         autoplay.player = adapter
@@ -162,8 +174,15 @@ final class QueueAutoplayTests: XCTestCase {
         XCTAssertEqual(current(h), mine[0])
         let queue3 = try await upcoming(h)
         XCTAssertEqual(queue3.first, mine[1], "a hand-added song isn't moved")
+        XCTAssertEqual(queue3.count, 9, "nine still ahead: nothing added (#735)")
+
+        // Two more songs: the second leaves seven ahead, and one new song goes at the end.
+        try await next(h)
+        try await next(h)
         let queue4 = try await upcoming(h)
+        XCTAssertEqual(queue4.count, 8)
         XCTAssertTrue(queue4.last?.hasPrefix("applemusic:song:new-") == true, "the new song went at the end")
+        XCTAssertFalse(autoplaySongs.contains(queue4.last ?? ""))
 
         // The hand-added songs count fully in the seeds; Autoplay's own songs count half.
         let seedsAsked = try XCTUnwrap(h.source.requests.last)
@@ -378,7 +397,8 @@ final class QueueAutoplayTests: XCTestCase {
         let source = SampleAutoplaySource()
         let autoplay = QueueAutoplay(
             source: source,
-            flag: StoredFlag(key: "test.autoplay", defaultValue: false, defaults: nil)
+            flag: StoredFlag(key: "test.autoplay", defaultValue: false, defaults: nil),
+            songCommandSent: { [player] in player.commands.last == "next" ? .skip : nil }
         )
         autoplay.follow(session, provider: provider)
         let windows = (0..<2).map { _ in
@@ -768,4 +788,157 @@ extension QueueAutoplayTests {
             score: score
         )
     }
+}
+
+// MARK: - The player jumping after Autoplay's adds (#735)
+
+extension QueueAutoplayTests {
+    /// #735 as it happened: a song started in a 435-song library playlist with Autoplay on. On
+    /// macOS 27 each add at the end was followed by the player moving to the next song, which
+    /// made Autoplay add again: 15 songs in 18 s, no skip sent. With a long list still ahead,
+    /// Autoplay adds nothing, so the song plays on and the next one is the playlist's next.
+    func testALongPlaylistPlaysOnWhenThePlayerJumpsAfterEachAdd() async throws {
+        let clock = ManualClock()
+        let h = makeHarness(now: clock.now)
+        h.player.jumpsAfterAppend = true
+        let playlist = (1...435).map { "applemusic:song:i.\($0)" }
+        h.autoplay.setEnabled(true)
+        try await h.provider.play(.items(uris: playlist, startURI: playlist[8]), deviceID: deviceID)
+
+        // What the session does: every new song the player reports goes to Autoplay.
+        for _ in 0..<15 {
+            try await notePlaying(h)
+            clock.advance(by: .milliseconds(600))
+        }
+
+        XCTAssertEqual(current(h), playlist[8], "the started song still plays")
+        let next = try await upcoming(h).first
+        XCTAssertEqual(next, playlist[9], "the next song is the playlist's next")
+        XCTAssertFalse(h.player.commands.contains { $0.hasPrefix("append ") }, "nothing added with 426 songs ahead")
+    }
+
+    /// Near the end of the queue Autoplay must add, and if the player then moves on right after
+    /// each add, Autoplay stops after two such jumps instead of feeding the loop, and says so.
+    /// Turning it off and on tries again.
+    func testAutoplayStopsAddingWhenThePlayerJumpsAfterEachAdd() async throws {
+        let clock = ManualClock()
+        let h = makeHarness(fillTarget: 4, now: clock.now)
+        try await h.provider.play(.items(uris: seeds, startURI: nil), deviceID: deviceID)
+        h.autoplay.setEnabled(true)
+        try await notePlaying(h)
+        let appendsAfterFill = h.player.commands.filter { $0.hasPrefix("append ") }.count
+        XCTAssertGreaterThan(appendsAfterFill, 0, "the short queue was filled")
+
+        h.player.jumpsAfterAppend = true
+        // A song ends normally and starts the loop: add, jump, add, jump.
+        clock.advance(by: .seconds(200))
+        try await next(h)
+        for _ in 0..<10 {
+            clock.advance(by: .milliseconds(200))
+            try await notePlaying(h)
+        }
+
+        XCTAssertEqual(h.autoplay.status, .heldAfterJumps)
+        let appendsInLoop = h.player.commands.filter { $0.hasPrefix("append ") }.count - appendsAfterFill
+        XCTAssertLessThanOrEqual(appendsInLoop, QueueAutoplay.jumpLimit + 1, "Autoplay kept feeding the loop")
+        let settled = h.player.commands.count
+        clock.advance(by: .milliseconds(200))
+        try await notePlaying(h)
+        XCTAssertEqual(h.player.commands.count, settled, "held: a new song adds nothing")
+
+        h.player.jumpsAfterAppend = false
+        h.autoplay.setEnabled(false)
+        h.autoplay.setEnabled(true)
+        await h.autoplay.settle()
+        XCTAssertNotEqual(h.autoplay.status, .heldAfterJumps)
+    }
+
+    /// After Autoplay stopped adding, a skip keeps it stopped, and starting something new lets it
+    /// try again without turning it off and on (#735).
+    func testStartingSomethingNewAfterAutoplayStoppedTriesAgain() async throws {
+        let clock = ManualClock()
+        let h = makeHarness(fillTarget: 4, now: clock.now)
+        try await h.provider.play(.items(uris: seeds, startURI: nil), deviceID: deviceID)
+        h.autoplay.setEnabled(true)
+        try await notePlaying(h)
+        h.player.jumpsAfterAppend = true
+        clock.advance(by: .seconds(200))
+        try await next(h)
+        for _ in 0..<10 {
+            clock.advance(by: .milliseconds(200))
+            try await notePlaying(h)
+        }
+        XCTAssertEqual(h.autoplay.status, .heldAfterJumps)
+
+        h.player.jumpsAfterAppend = false
+        clock.advance(by: .seconds(5))
+        try await next(h)
+        XCTAssertEqual(h.autoplay.status, .heldAfterJumps, "a skip doesn't start Autoplay again")
+
+        let other = (1...3).map { "applemusic:song:other-\($0)" }
+        clock.advance(by: .seconds(5))
+        try await h.provider.play(.items(uris: other, startURI: nil), deviceID: deviceID)
+        try await notePlaying(h)
+        XCTAssertEqual(h.autoplay.status, .on, "a new play lets Autoplay add again")
+        let ahead = try await upcoming(h).count
+        XCTAssertEqual(ahead, 4, "the new short queue was filled")
+    }
+
+    /// The names the playback log gives Wax's commands: a new queue or its play is something new,
+    /// the skips and stop keep the queue, and no command is none.
+    func testTheLoggedCommandNamesMapToANewPlayOrASkip() {
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "setQueue"), .newQueue)
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "play"), .newQueue)
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "skipToNext"), .skip)
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "skipToPrevious"), .skip)
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "stop"), .skip)
+        XCTAssertNil(QueueAutoplay.SongCommand(named: nil))
+        // Each name PlaybackTrace counts as moving to another song maps to one of the two.
+        for name in PlaybackTrace.songChangingCommands {
+            XCTAssertNotNil(QueueAutoplay.SongCommand(named: name), name)
+        }
+    }
+
+    /// Skipping right after Autoplay added songs is the listener's own move, never a jump.
+    func testSkippingRightAfterAnAddDoesntStopAutoplay() async throws {
+        let clock = ManualClock()
+        let h = makeHarness(fillTarget: 4, now: clock.now)
+        try await h.provider.play(.items(uris: seeds, startURI: nil), deviceID: deviceID)
+        h.autoplay.setEnabled(true)
+        try await notePlaying(h)
+        for _ in 0..<6 {
+            clock.advance(by: .milliseconds(100))
+            try await next(h)
+        }
+        XCTAssertEqual(h.autoplay.status, .on)
+        let ahead = try await upcoming(h).count
+        XCTAssertEqual(ahead, 4)
+    }
+
+    /// The log line for a song change says why, as far as the log can tell (#735).
+    func testSongChangeReasonTellsAnEndFromMusicKitMovingOn() {
+        typealias Change = AppleMusicSongChange
+        XCTAssertEqual(
+            Change.reason(before: .init(positionMilliseconds: 400, durationMilliseconds: 215_000), command: nil),
+            "MusicKit moved on by itself, no song command sent: the song before stopped at 0:00.4 of 3:35.0"
+        )
+        XCTAssertEqual(
+            Change.reason(before: .init(positionMilliseconds: 213_500, durationMilliseconds: 215_000), command: nil),
+            "the song before ended (3:33.5 of 3:35.0)"
+        )
+        XCTAssertEqual(
+            Change.reason(before: .init(positionMilliseconds: 400, durationMilliseconds: 215_000), command: "skipToNext"),
+            "after skipToNext"
+        )
+        XCTAssertNil(Change.reason(before: nil, command: nil))
+    }
+}
+
+/// A clock a test moves by hand; only the main actor's tests touch it.
+final class ManualClock: @unchecked Sendable {
+    private var instant = ContinuousClock.now
+
+    func advance(by duration: Duration) { instant = instant.advanced(by: duration) }
+
+    var now: () -> ContinuousClock.Instant { { self.instant } }
 }

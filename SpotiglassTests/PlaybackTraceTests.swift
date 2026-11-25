@@ -41,6 +41,20 @@ final class PlaybackTraceTests: XCTestCase {
         XCTAssertTrue(lines[10].hasSuffix("(2 of 2 asked for)"), lines[10])
     }
 
+    /// #735: a song change names the command that moved the player, but a resume goes on with the
+    /// same song, so a jump right after one is still told as the player's own.
+    func testAResumeIsNoSongCommandButASkipOrAQueueStartIs() {
+        let trace = makeTrace()
+        trace.command("play", "(resume)")
+        XCTAssertNil(trace.songCommand(within: .seconds(2)), "resuming doesn't move to another song")
+        trace.command("skipToNext")
+        XCTAssertEqual(trace.songCommand(within: .seconds(2)), "skipToNext")
+        time += .seconds(3)
+        XCTAssertNil(trace.songCommand(within: .seconds(2)), "a skip 3 s ago didn't move the player now")
+        trace.command("play", "(queue start)")
+        XCTAssertEqual(trace.songCommand(within: .seconds(2)), "play")
+    }
+
     /// #645: the log says how long the bar took to show a press, or a change the player made by
     /// itself (a media key), so a report of a slow bar can be read from the log alone.
     func testTheLogSaysHowLongTheBarTookToShowAPressOrTheMediaKey() {

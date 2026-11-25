@@ -382,6 +382,7 @@ struct QueueAutoplayStatusLine: View {
         case .finding: "queue.autoplay.status.finding"
         case .noMatches: "queue.autoplay.status.noMatches"
         case .failed: "queue.autoplay.status.failed"
+        case .heldAfterJumps: "queue.autoplay.status.heldAfterJumps"
         }
     }
 }
