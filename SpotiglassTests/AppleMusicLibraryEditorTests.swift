@@ -3109,7 +3109,7 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
 
     /// Starts a read of the playlist that reads its rows now and finishes only when the returned
     /// gate opens.
-    private func heldRead() async -> (read: Task<[String], Error>, release: LibraryEditsGate) {
+    private func heldRead() async -> (read: Task<[MusicTrack], Error>, release: LibraryEditsGate) {
         let gate = LibraryEditsGate()
         let started = LibraryEditsGate()
         source.playlistTracksGate = gate
@@ -3117,9 +3117,9 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         let provider = provider!
         let playlistID = playlistID
         let read = Task {
-            try await provider.playlistTracks(playlistID: playlistID, limit: 100, maxPages: 1).compactMap { item -> String? in
+            try await provider.playlistTracks(playlistID: playlistID, limit: 100, maxPages: 1).compactMap { item -> MusicTrack? in
                 guard case let .track(track) = item.content else { return nil }
-                return track.name
+                return track
             }
         }
         await started.wait()
@@ -3173,9 +3173,39 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         try await remove(songB, at: 0)
         late.release.open()
 
-        let shown = try await late.read.value
+        let shown = try await late.read.value.map(\.name)
         XCTAssertEqual(shown, ["C", "A"], "my adds of C and A, which the late read doesn't have yet")
         try await expectShown(["C", "E", "A"], "a fresh read")
+    }
+
+    /// The same sequence: the late read shows [C, A], with C as a copy it doesn't list yet. A
+    /// newer read had C at the top, where the Music app has it, so this older read can't say
+    /// where it is: removing that C from what the late read showed is refused, and the Music app
+    /// is told nothing.
+    func testRemovingACopyANewerReadPlacedFromAnOlderViewIsRefused() async throws {
+        knowSongB()
+        knowSongCOnlyByItsPersistentID()
+        try library("B")
+        try await add(songA)
+        let late = await heldRead()
+        try await add(songC)
+        try library("B", "C")
+        try await expectShown(["B", "C", "A"])
+        try libraryRows(["B", "C", "E", "A"])
+        try await expectShown(["B", "C", "E", "A"])
+        try await remove(songB, at: 0)
+        late.release.open()
+        let shown = try await late.read.value
+        XCTAssertEqual(shown.map(\.name), ["C", "A"])
+        let calls = musicApp.calls
+
+        do {
+            try await editor.removeFromPlaylist(playlistID: playlistID, removals: [(songID: songC, positions: [0])], shownTracks: shown)
+            XCTFail("the removal went through")
+        } catch {
+            XCTAssertEqual(error as? AppleMusicLibraryEditError, .notInMusicYet)
+        }
+        XCTAssertEqual(musicApp.calls, calls, "the Music app is told nothing")
     }
 
     /// [A, B]: a read of [A, B] starts and finishes late. I remove A; E is added on another
@@ -3192,7 +3222,7 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         try await remove(songB, at: 0)
         late.release.open()
 
-        let shown = try await late.read.value
+        let shown = try await late.read.value.map(\.name)
         XCTAssertEqual(shown, [], "the late read has both songs I removed")
         try await expectShown(["E"], "a fresh read")
     }
@@ -3218,7 +3248,7 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
 
         between.release.open()
 
-        let shown = try await between.read.value
+        let shown = try await between.read.value.map(\.name)
         XCTAssertEqual(shown, ["C"], "the read from partway through the removal")
     }
 }
