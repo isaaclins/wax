@@ -28,8 +28,12 @@ final class AppleMusicSoundWatch {
         case holdsStill
     }
 
-    /// How often the watch looks while it waits.
-    static let interval: Duration = .milliseconds(5)
+    /// How often the watch looks while it waits. It reads the player on the main actor, so it
+    /// looks no more often than a frame's worth of precision needs, and once a start takes longer
+    /// than ``slowAfter`` (a song still being looked up, or one that never comes) less often.
+    static let interval: Duration = .milliseconds(10)
+    static let slowInterval: Duration = .milliseconds(50)
+    static let slowAfter: Duration = .seconds(1)
     /// A position unchanged this long counts as held still: MusicKit's position runs on its own
     /// clock and changes on every read while it plays.
     static let stillAfter: Duration = .milliseconds(20)
@@ -94,9 +98,10 @@ final class AppleMusicSoundWatch {
         var changedAt = sentAt
         var firstOnSong: TimeInterval? = wait == .movesOnAnotherSong ? nil : before.positionSeconds
         let deadline = sentAt.advanced(by: Self.limit)
-        var next = clock.now
+        let watchStart = clock.now
+        var next = watchStart
         while !Task.isCancelled {
-            next = next.advanced(by: Self.interval)
+            next = next.advanced(by: watchStart.duration(to: next) < Self.slowAfter ? Self.interval : Self.slowInterval)
             do {
                 try await clock.sleep(until: next, tolerance: nil)
             } catch is CancellationError {

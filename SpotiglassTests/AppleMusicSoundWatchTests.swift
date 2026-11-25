@@ -3,7 +3,7 @@ import XCTest
 
 /// The playback log's line on how long Apple Music's player took to start or stop (#679). Each
 /// test replays what MusicKit's `ApplicationMusicPlayer` reported on a Mac mini M4 (macOS 27,
-/// 2026-11-25), read every 5 ms after the command, on an injected clock.
+/// 2026-11-25), read every 10 ms after the command, on an injected clock.
 @MainActor
 final class AppleMusicSoundWatchTests: XCTestCase {
     /// What the player reports `t` ms after the command.
@@ -13,7 +13,7 @@ final class AppleMusicSoundWatchTests: XCTestCase {
         AppleMusicSoundWatch.Reading(positionSeconds: position, entryID: entry, isPlaying: playing)
     }
 
-    /// Sends `command` at 0 ms and steps the clock 5 ms at a time until the watch reports or
+    /// Sends `command` at 0 ms and steps the clock 10 ms at a time until the watch reports or
     /// `steps` run out. Returns the lines it logged.
     private func run(
         _ command: String,
@@ -47,7 +47,7 @@ final class AppleMusicSoundWatchTests: XCTestCase {
             if t < 90 { return self.reading(0, "song-2") }
             return self.reading(Double(t - 90) / 1000, "song-2")
         }
-        XCTAssertEqual(lines, ["skipToNext: playing 95.0 ms after the command, 98.0 ms after the press"])
+        XCTAssertEqual(lines, ["skipToNext: playing 100.0 ms after the command, 103.0 ms after the press"])
     }
 
     /// A song switch alone doesn't count: the new song has to play (MusicKit shows it paused at
@@ -58,7 +58,7 @@ final class AppleMusicSoundWatchTests: XCTestCase {
             if t < 40 { return self.reading(0, "song-1", playing: false) }
             return self.reading(Double(t - 40) / 1000, "song-1")
         }
-        XCTAssertEqual(lines, ["skipToPrevious: playing 45.0 ms after the command"])
+        XCTAssertEqual(lines, ["skipToPrevious: playing 50.0 ms after the command"])
     }
 
     /// Previous on the queue's first song starts that song over: the entry stays, its position
@@ -69,7 +69,7 @@ final class AppleMusicSoundWatchTests: XCTestCase {
             if t < 70 { return self.reading(0, "song-1", playing: false) }
             return self.reading(Double(t - 70) / 1000, "song-1")
         }
-        XCTAssertEqual(lines, ["skipToPrevious: playing 75.0 ms after the command"])
+        XCTAssertEqual(lines, ["skipToPrevious: playing 80.0 ms after the command"])
     }
 
     /// Resume: the position holds where it was paused for about 25 ms, then moves.
