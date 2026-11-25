@@ -261,9 +261,9 @@ final class CommandPaletteManager: ObservableObject {
         // The browser binds again on every page change, so every published value is set only
         // when it changes: each set re-renders the window and rebuilds the menus, and a page
         // change set some twenty of them to what they already were (#675). The subscriptions
-        // below set every value right away, from what each player holds now. They are the only
-        // place that sets them: a first guess from this service's player alone was wrong while
-        // the other service is heard, and the page change then announced the repeat twice.
+        // below set every value right away, from the music you hear. There is no first guess
+        // from this service's player before them: while the other service is heard it was
+        // wrong, and the page change then announced the repeat twice.
 
         let playerPushesState = playback.playerPushesState
         Publishers.CombineLatest4(
