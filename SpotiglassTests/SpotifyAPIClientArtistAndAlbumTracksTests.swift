@@ -189,6 +189,45 @@ final class SpotifyAPIClientArtistAndAlbumTracksTests: XCTestCase {
         XCTAssertEqual(result.tracks.map(\.id), ["tr1", "tr2"])
         XCTAssertEqual(httpClient.requests.count, 1, "maxPages cap should stop pagination after one HTTP call regardless of `next` URL.")
     }
+
+    /// A next link back to a page already read used to end the list as if it were complete (#595).
+    func testAlbumTracksFailWhenTheNextURLRepeats() async throws {
+        let httpClient = QueueHTTPClient([
+            .json("""
+            {
+              "limit": 1,
+              "next": "https://api.spotify.com/v1/albums/al1/tracks?offset=1&limit=1",
+              "offset": 0,
+              "previous": null,
+              "total": 3,
+              "items": [
+                { "id": "tr1", "name": "S", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr1" }
+              ]
+            }
+            """),
+            .json("""
+            {
+              "limit": 1,
+              "next": "https://api.spotify.com/v1/albums/al1/tracks?offset=1&limit=1",
+              "offset": 0,
+              "previous": null,
+              "total": 3,
+              "items": [
+                { "id": "tr2", "name": "S", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr2" }
+              ]
+            }
+            """)
+        ])
+        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+
+        do {
+            _ = try await client.albumTracksWithMetrics(albumID: "al1", market: "US", limit: 1, maxPages: 10)
+            XCTFail("a repeated next URL returned a partial album as a success")
+        } catch let error as SpotifyAPIError {
+            guard case .decoding = error else { return XCTFail("unexpected error \(error)") }
+        }
+        XCTAssertEqual(httpClient.requests.count, 2)
+    }
 }
 
 private actor AlbumTracksPageRoutingHTTPClient: HTTPClient {

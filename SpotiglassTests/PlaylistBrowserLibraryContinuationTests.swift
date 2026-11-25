@@ -216,8 +216,119 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         }
 
         XCTAssertFalse(didEnqueue)
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("library.continuation.empty"))
+        // Every source failed: that is a failure, not a library with too little music (#595).
+        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("library.continuation.loadFailed"))
         XCTAssertEqual(api.playlistTracksInvocationCountByID[playlist.id], 1)
+        XCTAssertNil(cache.savedLibraryContinuation, "a failed collection was saved as an empty library")
+    }
+
+    /// Offline, the failed collection was saved as a fresh empty library and reused for 15
+    /// minutes without asking the network again (#595).
+    func testAFailedCollectionIsNotCachedSoTheNextInvocationAsksAgain() async {
+        struct SampleError: Error {}
+        let seed = track("seed", artistID: "artist")
+        let matches = [
+            track("one", artistID: "artist"), track("two", artistID: "artist"), track("three", artistID: "artist"),
+        ]
+        let api = MockBrowsingAPI(playlistResults: [], trackResults: [:])
+        var online = false
+        var topTrackCalls = 0
+        api.topTracksHandler = { _, _ in
+            topTrackCalls += 1
+            guard online else { throw SampleError() }
+            return matches
+        }
+        let cache = MockBrowsingCache()
+        let viewModel = makeViewModel(api: api, cache: cache)
+
+        await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
+            QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
+        }
+        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("library.continuation.loadFailed"))
+
+        online = true
+        var enqueued: [String] = []
+        await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
+            enqueued = uris
+            return QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
+        }
+        XCTAssertEqual(topTrackCalls, 2, "the second invocation didn't reach the network")
+        XCTAssertEqual(enqueued.count, matches.count)
+    }
+
+    /// Enough tracks came back, but a source failed: the toast still says part of the library
+    /// didn't load, so a thin mix isn't taken for everything there is.
+    func testAFailedSourceIsMentionedEvenWhenEnoughTracksWereAdded() async {
+        struct SampleError: Error {}
+        let seed = track("seed", artistID: "artist")
+        let api = MockBrowsingAPI(
+            playlistResults: [],
+            trackResults: [:],
+            savedTracksResult: .success(MusicSavedTracksResult(
+                tracks: [item(seed)] + ["one", "two", "three", "four", "five"].map { item(track($0, artistID: "artist")) },
+                totalAvailable: 6
+            ))
+        )
+        api.topTracksHandler = { _, _ in throw SampleError() }
+        let viewModel = makeViewModel(api: api, cache: MockBrowsingCache())
+        var added = 0
+
+        await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
+            added = uris.count
+            return QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
+        }
+
+        XCTAssertGreaterThanOrEqual(added, 3, "enough for the ordinary toast, not the short one")
+        XCTAssertEqual(
+            viewModel.trackMutationToast,
+            SpotiglassL10n.format("library.continuation.addedLoadFailed", Int64(added))
+        )
+    }
+
+    /// With every artist's top tracks failing, both breadth lists came out empty and the cache
+    /// took that as a complete collection for 15 minutes (#595).
+    func testFailedArtistTopTracksKeepTheCollectionOutOfTheCache() async {
+        struct SampleError: Error {}
+        let seed = track("seed", artistID: "artist")
+        let api = MockBrowsingAPI(
+            playlistResults: [],
+            trackResults: [:],
+            savedTracksResult: .success(MusicSavedTracksResult(
+                tracks: [item(seed)] + ["one", "two", "three", "four"].map { item(track($0, artistID: "artist")) },
+                totalAvailable: 5
+            ))
+        )
+        api.artistTopTracksHandler = { _, _ in throw SampleError() }
+        let cache = MockBrowsingCache()
+        let viewModel = makeViewModel(api: api, cache: cache)
+
+        await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
+            QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
+        }
+
+        XCTAssertEqual(api.artistTopTracksCallCount, 1)
+        XCTAssertNil(cache.savedLibraryContinuation, "a collection missing a failed source was saved as fresh")
+    }
+
+    /// Some sources failed and too little came back: the note says the library didn't fully
+    /// load instead of blaming the library's size.
+    func testAShortContinuationAfterAFailedSourceSaysTheLibraryDidNotFullyLoad() async {
+        struct SampleError: Error {}
+        let seed = track("seed", artistID: "artist")
+        let api = MockBrowsingAPI(
+            playlistResults: [],
+            trackResults: [:],
+            savedTracksResult: .success(MusicSavedTracksResult(tracks: [item(seed), item(track("one", artistID: "artist"))], totalAvailable: 2))
+        )
+        api.topTracksHandler = { _, _ in throw SampleError() }
+        let cache = MockBrowsingCache()
+        let viewModel = makeViewModel(api: api, cache: cache)
+
+        await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
+            QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
+        }
+        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.format("library.continuation.shortLoadFailed", Int64(1)))
+        XCTAssertNil(cache.savedLibraryContinuation, "a collection with a failed source was saved as fresh")
     }
 
     func testCollectionUsesLoadedDetailRowsWhenItsPlaylistCacheIsMissing() async {

@@ -102,11 +102,11 @@ struct SpotifyAPIClient {
 
             nextURL = page.next
             if let nextURL {
-                // Defensive loop protection: bail out if Spotify returns a
-                // repeated `next` URL to prevent duplicate page storms.
+                // Defensive loop protection: stop if Spotify returns a repeated
+                // `next` URL, so a broken response can't cause a page storm.
                 let key = nextURL.absoluteString
                 if seenNextURLs.contains(key) {
-                    break
+                    throw Self.repeatedPageError(path: path)
                 }
                 seenNextURLs.insert(key)
             }
@@ -114,6 +114,13 @@ struct SpotifyAPIClient {
         } while nextURL != nil
 
         return results
+    }
+
+    /// A `next` link back to a page already read means a broken response. The list read so far
+    /// is incomplete, so it fails rather than passing as the whole list (#595).
+    static func repeatedPageError(path: String) -> SpotifyAPIError {
+        SpotiglassLog.error(.api, "Spotify \(path) linked back to a page it already sent; the list is incomplete")
+        return .decoding("Spotify linked back to a page it already sent.")
     }
 
     func send<Response: Decodable>(

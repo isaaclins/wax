@@ -382,15 +382,24 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
                 try AppleMusicFixtures.playlist(id: "pl.f523a1b2c3", name: "Late Night Jazz", curator: "Apple Music Jazz"),
                 try AppleMusicFixtures.playlist(id: "pl.f523d4e5f6", name: "Jazz Essentials", curator: "Apple Music Jazz"),
             ])
-            let results = try await PlaylistBrowserPaletteSearchBuilder.search(
-                query: "apple music jazz",
-                category: .all,
-                catalogProvider: AppleMusicBrowsingProvider(source: source),
-                environment: environment,
-                loadedContextTracks: nil,
-                visiblePlaylists: [row],
-                currentUserID: AppleMusicBrowsingProvider.libraryUserID
-            )
+            let results: CommandPaletteSearchResults
+            do {
+                results = try await PlaylistBrowserPaletteSearchBuilder.search(
+                    query: "apple music jazz",
+                    category: .all,
+                    catalogProvider: AppleMusicBrowsingProvider(source: source),
+                    environment: environment,
+                    loadedContextTracks: nil,
+                    visiblePlaylists: [row],
+                    currentUserID: AppleMusicBrowsingProvider.libraryUserID
+                )
+                XCTAssertFalse(libraryFails, "a failed library search passed as the whole answer")
+            } catch let partial as CommandPalettePartialSearchFailure {
+                // The catalog half still shows, with a note that the library half is missing (#595).
+                XCTAssertTrue(libraryFails)
+                XCTAssertEqual(partial.missing.missing, .library)
+                results = partial.results
+            }
             XCTAssertEqual(results.myPlaylists.map { $0.id }, ["playlist-p.F523Lk2MnB"], "library search fails: \(libraryFails)")
             XCTAssertEqual(
                 results.mergedPlaylistsForAllCategory().map { $0.id },
@@ -1711,8 +1720,16 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         source.librarySearchItems = AppleMusicSearchItems(songs: [try AppleMusicFixtures.song(id: "i.1", title: "Mine")])
         let provider = AppleMusicBrowsingProvider(source: source)
 
-        let libraryOnly = try await provider.search(query: "mine", limit: 10)
-        XCTAssertEqual(libraryOnly.tracks.map(\.name), ["Mine"])
+        // What the library found shows, marked as incomplete: offline, a song that isn't saved
+        // read as "No results" (#595).
+        do {
+            _ = try await provider.search(query: "mine", limit: 10)
+            XCTFail("a failed catalog search passed as the whole answer")
+        } catch let partial as MusicSearchPartialFailure {
+            XCTAssertEqual(partial.results.tracks.map(\.name), ["Mine"])
+            XCTAssertEqual(partial.missing, .catalog)
+            XCTAssertEqual((partial.underlying as? URLError)?.code, .notConnectedToInternet)
+        }
 
         source.librarySearchError = URLError(.cancelled)
         do {
@@ -1720,6 +1737,32 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
             XCTFail("expected the catalog error")
         } catch {
             XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+        }
+    }
+
+    /// Offline with nothing saved that matches, the search said "No results" (#595).
+    func testAFailedCatalogSearchWithNoLibraryMatchesIsAFailure() async {
+        let source = MockAppleMusicSource()
+        source.catalogSearchError = URLError(.notConnectedToInternet)
+        do {
+            let results = try await AppleMusicBrowsingProvider(source: source).search(query: "radiohead", limit: 10)
+            XCTFail("returned \(results.tracks.count) tracks instead of failing")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+        }
+    }
+
+    /// The library half failing hides nothing silently either: the catalog results show, marked.
+    func testAFailedLibrarySearchKeepsTheCatalogResultsMarkedIncomplete() async throws {
+        let source = MockAppleMusicSource()
+        source.librarySearchError = URLError(.timedOut)
+        source.catalogSearchItems = AppleMusicSearchItems(songs: [try AppleMusicFixtures.song(id: "1", title: "Theirs")])
+        do {
+            _ = try await AppleMusicBrowsingProvider(source: source).search(query: "theirs", limit: 10)
+            XCTFail("a failed library search passed as the whole answer")
+        } catch let partial as MusicSearchPartialFailure {
+            XCTAssertEqual(partial.results.tracks.map(\.name), ["Theirs"])
+            XCTAssertEqual(partial.missing, .library)
         }
     }
 

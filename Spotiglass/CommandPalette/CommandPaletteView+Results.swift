@@ -87,7 +87,9 @@ struct CommandPaletteResultsBodyView: View {
         if viewModel.isLoading && allEmpty {
             CommandPaletteSearchingPlaceholderView(accessibilityReduceMotion: accessibilityReduceMotion)
         } else if sections.isEmpty || allEmpty {
-            if hasUserQuery, !onlyPrefix, !trimmed.isEmpty, !viewModel.isLoading {
+            // A failed search says so in the line above; "No results" under it would claim
+            // there is nothing to find (#595).
+            if hasUserQuery, !onlyPrefix, !trimmed.isEmpty, !viewModel.isLoading, viewModel.errorText == nil {
                 Text(String(format: SpotiglassL10n.string("palette.noResults"), trimmed))
                     .font(.callout)
                     .foregroundStyle(.secondary)

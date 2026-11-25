@@ -33,6 +33,9 @@ extension PlaylistBrowserViewModel {
 
         do {
             if paging.seenNextURLs.contains(nextURL.absoluteString) {
+                // A broken response, not the end of the list: logged rather than passed off as
+                // complete (#595).
+                SpotiglassLog.error(.browsing, "Artist albums linked back to a page already read; stopping Load More")
                 paging.nextURL = nil
             } else {
                 let page = try await api.artistAlbumsPage(

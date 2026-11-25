@@ -67,6 +67,9 @@ final class CommandPaletteViewModel: ObservableObject {
     private var suppressLegacyPrefixQueryRefresh = false
     /// Lowercased query of the last songs-scope search whose catalog fetch completed; skips redundant identical network calls.
     private var lastSuccessfulSongSearchQuery: String?
+    /// The cached rows are only the half of a search that answered (#595): a pill switch asks
+    /// again instead of filtering them.
+    private var cachedResultsArePartial = false
     /// Best-known result set (instant local matches, upgraded to local+catalog once the network returns)
     /// for ``cachedResultsQuery``. Lets the footer category pills re-filter instantly without re-querying.
     private var cachedResults: CommandPaletteSearchResults?
@@ -74,6 +77,9 @@ final class CommandPaletteViewModel: ObservableObject {
     private var cachedResultsQuery: String?
     /// After Spotify returns HTTP 429, blocks new palette searches until this instant (in addition to client-side GET retries inside `SpotifyAPIClient`).
     private var rateLimitCooldownUntil: Date = .distantPast
+    /// What the 429 said, shown again for every keystroke inside the cooldown: those searches are
+    /// skipped, and a cleared line read as "No results" (#595).
+    private var rateLimitError: LocalizedText?
 
     deinit {
         searchTask?.cancel()
@@ -131,9 +137,11 @@ final class CommandPaletteViewModel: ObservableObject {
         isLoading = false
         lastSuccessfulSongSearchQuery = nil
         cachedResults = nil
+        cachedResultsArePartial = false
         cachedResultsQuery = nil
         suppressLegacyPrefixQueryRefresh = false
         rateLimitCooldownUntil = .distantPast
+        rateLimitError = nil
     }
 
     /// What the palette offers before a search starts: recent searches, then quick actions, so
@@ -286,9 +294,11 @@ final class CommandPaletteViewModel: ObservableObject {
         isLoading = false
         lastSuccessfulSongSearchQuery = nil
         cachedResults = nil
+        cachedResultsArePartial = false
         cachedResultsQuery = nil
         suppressLegacyPrefixQueryRefresh = false
         rateLimitCooldownUntil = .distantPast
+        rateLimitError = nil
         searchTask?.cancel()
         searchTask = nil
         let restoreFocus = restoreFocus
@@ -325,7 +335,7 @@ final class CommandPaletteViewModel: ObservableObject {
             // blank while the debounced catalog fetch is in flight.
             renderInstantLocalResults(trimmed: trimmed)
             isLoading = true
-            error = nil
+            if Date() >= rateLimitCooldownUntil { error = nil }
         }
         searchTask = Task { [weak self] in
             guard let self else { return }
@@ -338,6 +348,10 @@ final class CommandPaletteViewModel: ObservableObject {
         await searchTask?.value
     }
 
+    /// Told the query of every song search once it has finished handling its answer, including
+    /// one a newer search replaced. Lets a test wait for exactly that instead of a delay.
+    var songSearchDidFinish: ((String) -> Void)?
+
     /// Re-filters the cached result set for `category` without hitting the network when the
     /// current query's results are already loaded; otherwise falls back to a fresh search.
     /// This is what makes the footer pills (and Tab) switch instantly instead of re-querying.
@@ -349,6 +363,7 @@ final class CommandPaletteViewModel: ObservableObject {
         if !trimmed.isEmpty,
            trimmed.count >= Self.minimumPaletteSearchQueryCharacters,
            cachedResultsQuery == trimmed,
+           !cachedResultsArePartial,
            cachedResults != nil {
             renderSectionsFromCache(trimmed: trimmed)
         } else {
@@ -478,6 +493,7 @@ final class CommandPaletteViewModel: ObservableObject {
     private func resetSongSearchCache() {
         lastSuccessfulSongSearchQuery = nil
         cachedResults = nil
+        cachedResultsArePartial = false
         cachedResultsQuery = nil
     }
 
@@ -485,8 +501,10 @@ final class CommandPaletteViewModel: ObservableObject {
     /// instant local matches already on screen. The category is applied at render time,
     /// not requested from the network, so switching pills never triggers another fetch.
     private func runSongScopeSearch(query: String) async {
+        defer { songSearchDidFinish?(query) }
         if Date() < rateLimitCooldownUntil {
             isLoading = false
+            error = rateLimitError
             return
         }
 
@@ -508,6 +526,7 @@ final class CommandPaletteViewModel: ObservableObject {
             SpotiglassLog.info(.api, "palette search '\(query)' provider \(Int(Date().timeIntervalSince(providerStart) * 1000))ms")
             try Task.checkCancellation()
             cachedResults = searchResults
+            cachedResultsArePartial = false
             cachedResultsQuery = query
             lastSuccessfulSongSearchQuery = dedupeQuery
             renderSectionsFromCache(trimmed: query)
@@ -516,6 +535,23 @@ final class CommandPaletteViewModel: ObservableObject {
             isLoading = false
         } catch is CancellationError {
             isLoading = false
+        } catch let partial as CommandPalettePartialSearchFailure {
+            // A newer search replaced this one: its answer must not overwrite the newer rows.
+            guard !Task.isCancelled else {
+                SpotiglassLog.debug(.api, "palette search '\(query)' answered in part after a newer search started")
+                return
+            }
+            // What did load shows, with a line for what didn't. Not marked as a finished search,
+            // so the same query, the next keystroke or a pill switch asks again (#595).
+            SpotiglassLog.debug(.api, "palette search '\(query)' answered in part")
+            cachedResults = partial.results
+            cachedResultsArePartial = true
+            cachedResultsQuery = query
+            lastSuccessfulSongSearchQuery = nil
+            renderSectionsFromCache(trimmed: query)
+            selectionToKeep = nil
+            isLoading = false
+            self.error = LocalizedText(BrowsingDisplayError.partialSearch(partial.missing).message)
         } catch let error as SpotifyAPIError {
             switch error {
             case let .rateLimited(retryAfter):
@@ -524,7 +560,8 @@ final class CommandPaletteViewModel: ObservableObject {
                 lastSuccessfulSongSearchQuery = nil
                 // Keep any instant local matches visible; only the catalog half failed.
                 isLoading = false
-                self.error = LocalizedText(error.userMessage)
+                rateLimitError = LocalizedText(error.userMessage)
+                self.error = rateLimitError
             default:
                 lastSuccessfulSongSearchQuery = nil
                 isLoading = false

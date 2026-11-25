@@ -30,19 +30,31 @@ extension PlaylistBrowserViewModel {
         }
         let generation = libraryContinuationGeneration
 
-        guard let library = try? await collectLibraryContinuation(seed: seed, generation: generation) else {
+        let collection: (library: LibraryContinuationLibrary, sourcesFailed: Bool)
+        do {
+            collection = try await collectLibraryContinuation(seed: seed, generation: generation)
+        } catch is CancellationError {
             // Cancellation is intentionally silent: a cancelled menu action must
             // not rank, enqueue, or publish a misleading partial result.
+            return
+        } catch {
+            // Each failed source was logged as it failed; this is what the listener is told.
+            SpotiglassLog.info(.browsing, "Library continuation: nothing loaded, nothing queued")
+            guard generation == libraryContinuationGeneration, !Task.isCancelled else { return }
+            trackMutationToastText = LocalizedText(SpotiglassL10n.string("library.continuation.loadFailed"))
             return
         }
         guard generation == libraryContinuationGeneration, !Task.isCancelled else { return }
         let continuation = LibraryContinuationRanking.rank(
             seed: seed,
-            library: library,
+            library: collection.library,
             limit: LibraryContinuationPolicy.queueLength
         )
         guard !continuation.isEmpty else {
-            trackMutationToastText = LocalizedText(SpotiglassL10n.string("library.continuation.empty"))
+            // With sources that didn't load, "too little music" would be a guess: say what happened.
+            trackMutationToastText = LocalizedText(SpotiglassL10n.string(
+                collection.sourcesFailed ? "library.continuation.loadFailed" : "library.continuation.empty"
+            ))
             return
         }
 
@@ -64,34 +76,38 @@ extension PlaylistBrowserViewModel {
             ))
         } else if continuation.count < LibraryContinuationPolicy.minimumUsefulLength {
             trackMutationToastText = LocalizedText(SpotiglassL10n.format(
-                "library.continuation.short",
+                collection.sourcesFailed ? "library.continuation.shortLoadFailed" : "library.continuation.short",
                 Int64(continuation.count)
             ))
         } else {
             trackMutationToastText = LocalizedText(SpotiglassL10n.format(
-                "library.continuation.added",
+                collection.sourcesFailed ? "library.continuation.addedLoadFailed" : "library.continuation.added",
                 Int64(result.enqueued)
             ))
         }
     }
 
+    /// The library to continue from, and whether any source failed to load. A failed source is
+    /// never saved as part of a fresh aggregate: offline, every source came back empty and that
+    /// was kept for 15 minutes as "your library has too little music" (#595).
     private func collectLibraryContinuation(
         seed: MusicTrack,
         generation: Int
-    ) async throws -> LibraryContinuationLibrary {
+    ) async throws -> (library: LibraryContinuationLibrary, sourcesFailed: Bool) {
         try checkLibraryContinuationIsCurrent(generation)
         if let cached = try? cache.loadLibraryContinuationIndex(
             now: now(),
             maxAge: LibraryContinuationPolicy.cacheMaxAge
         ), canUseCachedAggregate(cached, for: seed) {
-            return cached
+            return (cached, false)
         }
         let stale = try? cache.loadLibraryContinuationIndexIgnoringAge()
+        var failures = LibraryContinuationFailures()
 
         var playlists: [LibraryContinuationPlaylist] = []
-        for summary in try await continuationPlaylistSummaries() {
+        for summary in try await continuationPlaylistSummaries(failures: &failures) {
             try checkLibraryContinuationIsCurrent(generation)
-            let tracks = try await continuationTracks(for: summary, stale: stale)
+            let tracks = try await continuationTracks(for: summary, stale: stale, failures: &failures)
             try checkLibraryContinuationIsCurrent(generation)
             if !tracks.isEmpty || hasCachedPlaylistTracks(for: summary) {
                 playlists.append(
@@ -104,18 +120,19 @@ extension PlaylistBrowserViewModel {
         }
 
         try checkLibraryContinuationIsCurrent(generation)
-        let savedTracks = try await continuationSavedTracks(stale: stale)
+        let savedTracks = try await continuationSavedTracks(stale: stale, failures: &failures)
         try checkLibraryContinuationIsCurrent(generation)
-        let topTracks = try await continuationTopTracks(stale: stale)
+        let topTracks = try await continuationTopTracks(stale: stale, failures: &failures)
         try checkLibraryContinuationIsCurrent(generation)
-        let topArtists = try await continuationTopArtists(stale: stale)
+        let topArtists = try await continuationTopArtists(stale: stale, failures: &failures)
         try checkLibraryContinuationIsCurrent(generation)
-        let followedArtists = try await continuationFollowedArtists(stale: stale)
+        let followedArtists = try await continuationFollowedArtists(stale: stale, failures: &failures)
         try checkLibraryContinuationIsCurrent(generation)
         let artistTopTrackCollection = try await continuationArtistTopTracks(
             seed: seed,
             stale: stale,
-            generation: generation
+            generation: generation,
+            failures: &failures
         )
 
         try checkLibraryContinuationIsCurrent(generation)
@@ -131,19 +148,26 @@ extension PlaylistBrowserViewModel {
         try checkLibraryContinuationIsCurrent(generation)
         if hasTracks(collected) {
             // Even a stale aggregate can have been refreshed from per-source
-            // caches, so keep the combined result for the next invocation.
-            try? cache.saveLibraryContinuationIndex(collected, cachedAt: now())
-            return collected
+            // caches, so keep the combined result for the next invocation, but
+            // only when every source answered: a failed one is asked again.
+            if !failures.any {
+                try? cache.saveLibraryContinuationIndex(collected, cachedAt: now())
+            }
+            return (collected, failures.any)
         }
         // A transient failure across every endpoint should not throw away a
         // previously usable index. It is still honest because the ranker will
         // return only tracks present in that cached index.
-        if let stale { return stale }
+        if let stale { return (stale, failures.any) }
+        if let error = failures.first {
+            // Nothing loaded because the sources failed, not because the library is empty.
+            throw error
+        }
         // Cache an empty, successfully attempted collection too. This prevents
         // an actually empty library from triggering a full crawl on every menu
         // invocation; mutations and playlist refreshes invalidate this entry.
         try? cache.saveLibraryContinuationIndex(collected, cachedAt: now())
-        return collected
+        return (collected, false)
     }
 
     private func checkLibraryContinuationIsCurrent(_ generation: Int) throws {
@@ -176,7 +200,9 @@ extension PlaylistBrowserViewModel {
         return artistIDs
     }
 
-    private func continuationPlaylistSummaries() async throws -> [MusicPlaylistSummary] {
+    private func continuationPlaylistSummaries(
+        failures: inout LibraryContinuationFailures
+    ) async throws -> [MusicPlaylistSummary] {
         let loadedSummaries = orderedPlaylistSummaries(
             visible: visiblePlaylists.compactMap { playlistsByID[$0.id] },
             remaining: playlistsByID.values
@@ -196,6 +222,7 @@ extension PlaylistBrowserViewModel {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            failures.logFailure(error, source: "playlists")
             return []
         }
     }
@@ -217,7 +244,8 @@ extension PlaylistBrowserViewModel {
 
     private func continuationTracks(
         for summary: MusicPlaylistSummary,
-        stale: LibraryContinuationLibrary?
+        stale: LibraryContinuationLibrary?,
+        failures: inout LibraryContinuationFailures
     ) async throws -> [MusicTrack] {
         try Task.checkCancellation()
         if let cached = try? cache.loadTracksIgnoringAge(
@@ -249,6 +277,7 @@ extension PlaylistBrowserViewModel {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            failures.logFailure(error, source: "a playlist's tracks")
             return stale?.playlists.first(where: { $0.id == summary.id })?.tracks ?? []
         }
     }
@@ -260,7 +289,10 @@ extension PlaylistBrowserViewModel {
         )) != nil
     }
 
-    private func continuationSavedTracks(stale: LibraryContinuationLibrary?) async throws -> [MusicTrack] {
+    private func continuationSavedTracks(
+        stale: LibraryContinuationLibrary?,
+        failures: inout LibraryContinuationFailures
+    ) async throws -> [MusicTrack] {
         try Task.checkCancellation()
         let playlistID = SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID
         let snapshotID = SpotiglassSidebarLibrary.likedSongsCacheSnapshotID
@@ -283,12 +315,14 @@ extension PlaylistBrowserViewModel {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            failures.logFailure(error, source: "saved tracks")
             return stale?.savedTracks ?? []
         }
     }
 
     private func continuationTopTracks(
-        stale: LibraryContinuationLibrary?
+        stale: LibraryContinuationLibrary?,
+        failures: inout LibraryContinuationFailures
     ) async throws -> [MusicTrack] {
         try Task.checkCancellation()
         if !homeTopTrackData.isEmpty {
@@ -306,12 +340,14 @@ extension PlaylistBrowserViewModel {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            failures.logFailure(error, source: "top tracks")
             return []
         }
     }
 
     private func continuationTopArtists(
-        stale: LibraryContinuationLibrary?
+        stale: LibraryContinuationLibrary?,
+        failures: inout LibraryContinuationFailures
     ) async throws -> [MusicArtist] {
         try Task.checkCancellation()
         if let staleArtists = stale?.topArtists, !staleArtists.isEmpty {
@@ -326,12 +362,14 @@ extension PlaylistBrowserViewModel {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            failures.logFailure(error, source: "top artists")
             return []
         }
     }
 
     private func continuationFollowedArtists(
-        stale: LibraryContinuationLibrary?
+        stale: LibraryContinuationLibrary?,
+        failures: inout LibraryContinuationFailures
     ) async throws -> [MusicArtist] {
         try Task.checkCancellation()
         if let staleArtists = stale?.followedArtists, !staleArtists.isEmpty {
@@ -345,6 +383,7 @@ extension PlaylistBrowserViewModel {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            failures.logFailure(error, source: "followed artists")
             return []
         }
     }
@@ -352,7 +391,8 @@ extension PlaylistBrowserViewModel {
     private func continuationArtistTopTracks(
         seed: MusicTrack,
         stale: LibraryContinuationLibrary?,
-        generation: Int
+        generation: Int,
+        failures: inout LibraryContinuationFailures
     ) async throws -> (tracks: [MusicTrack], artistIDs: [String]) {
         try checkLibraryContinuationIsCurrent(generation)
         let artistIDs = seedArtistIDs(for: seed)
@@ -394,7 +434,10 @@ extension PlaylistBrowserViewModel {
             } catch {
                 // One artist's optional breadth data should not prevent the
                 // other credited artists from contributing a signal. The
-                // failed ID is left out of the cache scope so it is retried.
+                // failed ID is left out of the cache scope so it is retried, and the
+                // collection isn't saved as fresh: with every artist failing, both
+                // lists came out empty and the cache took that as complete (#595).
+                failures.logFailure(error, source: "an artist's top tracks")
                 continue
             }
         }
@@ -405,5 +448,18 @@ extension PlaylistBrowserViewModel {
         !library.savedTracks.isEmpty
             || library.playlists.contains { !$0.tracks.isEmpty }
             || !library.topTracks.isEmpty
+    }
+}
+
+/// The sources of a library continuation that failed to load, so a failure is never taken for
+/// an empty library (#595).
+private struct LibraryContinuationFailures {
+    private(set) var first: Error?
+
+    var any: Bool { first != nil }
+
+    mutating func logFailure(_ error: Error, source: String) {
+        if first == nil { first = error }
+        SpotiglassLog.error(.browsing, "Library continuation: \(source) didn't load: \(SpotiglassLog.describe(error))")
     }
 }

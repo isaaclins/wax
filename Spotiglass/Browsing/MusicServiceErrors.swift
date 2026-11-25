@@ -162,3 +162,21 @@ extension BrowsingDisplayError {
         }
     }
 }
+
+extension BrowsingDisplayError {
+    /// The note over a search that answered in part (#595): what is shown, and which half is
+    /// missing, so the rows are never read as everything there is.
+    static func partialSearch(
+        _ failure: MusicSearchPartialFailure,
+        service: MusicService = MusicServiceSelection.current
+    ) -> BrowsingDisplayError {
+        BrowsingDisplayError(
+            title: SpotiglassL10n.string("search.partial.title"),
+            message: failure.missing == .catalog
+                ? SpotiglassL10n.format("search.partial.catalogMissing", service.displayName)
+                : SpotiglassL10n.format("search.partial.libraryMissing", service.displayName),
+            canRetry: true,
+            diagnosticDetails: SpotiglassLog.describe(failure.underlying)
+        )
+    }
+}

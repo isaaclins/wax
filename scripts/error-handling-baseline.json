@@ -42,16 +42,6 @@
     "code": "message: editError.localizedDescription,"
   },
   {
-    "file": "Spotiglass/Browsing/PlaylistBrowserTapTargetNavigation.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … return"
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserTapTargetNavigation.swift",
-    "rule": "try-reason",
-    "code": "guard let resolvedID = try? await resolveArtistID(target.name) else { return }"
-  },
-  {
     "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+AdjacentPlaylistNavigation.swift",
     "rule": "try-reason",
     "code": "try? await clock.sleep(until: deadline, tolerance: nil)"
@@ -89,34 +79,8 @@
   },
   {
     "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … continue"
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … return []",
-    "count": 4
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … return stale?.playlists.first(where: { $0.id == summary.id })?.tracks ?? []"
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … return stale?.savedTracks ?? []"
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
     "rule": "try-reason",
     "code": "(try? cache.loadTracksIgnoringAge("
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
-    "rule": "try-reason",
-    "code": "guard let library = try? await collectLibraryContinuation(seed: seed, generation: generation) else {"
   },
   {
     "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LibraryContinuation.swift",
@@ -1080,11 +1044,6 @@
     "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
     "rule": "try-reason",
     "code": "var ratingsDeadline: @Sendable () async -> Void = { try? await Task.sleep(for: AppleMusicBrowsingProvider.ratingsWait) }"
-  },
-  {
-    "file": "Spotiglass/Services/AppleMusicCloudLibrary.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch AppleMusicLibraryEditError.requestFailed where pages == 0 { … return []"
   },
   {
     "file": "Spotiglass/Services/AppleMusicCloudLibrary.swift",

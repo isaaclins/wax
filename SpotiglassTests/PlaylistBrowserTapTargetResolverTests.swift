@@ -154,7 +154,8 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
                     try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: name) { query, _ in
                         Self.catalogSearch(query)
                     }
-                }
+                },
+                showFailure: { XCTFail("unexpected failure \($0.string)") }
             )
         }
         XCTAssertEqual(opened, "bad-bunny")
@@ -315,5 +316,71 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
             MusicSearchResults(tracks: [], artists: [], albums: [], playlists: [])
         }
         XCTAssertNil(id)
+    }
+
+    // MARK: - #595: one half of an Apple Music search failing
+
+    /// The library read failed but the catalog found the artist: the name still opens it,
+    /// instead of "Couldn't open".
+    func testResolveArtistIDUsesTheHalfThatAnsweredWhenTheOtherFailed() async throws {
+        let answered = MusicSearchResults(tracks: [], artists: [Self.artist("a1", "Taylor Swift")], albums: [], playlists: [])
+        let id = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Taylor Swift") { _, _ in
+            throw MusicSearchPartialFailure(results: answered, missing: .library, underlying: URLError(.timedOut))
+        }
+        XCTAssertEqual(id, "a1")
+    }
+
+    /// Offline, a saved album is still found from the library half.
+    func testResolveAlbumIDUsesTheHalfThatAnsweredWhenTheOtherFailed() async throws {
+        let album = MusicAlbum(id: "alb1", name: "Midnights", artists: ["Taylor Swift"], imageURL: nil, uri: "music:album:alb1")
+        let answered = MusicSearchResults(tracks: [], artists: [], albums: [album], playlists: [])
+        let id = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Midnights", artistHint: "Taylor Swift") { _, _ in
+            throw MusicSearchPartialFailure(results: answered, missing: .catalog, underlying: URLError(.notConnectedToInternet))
+        }
+        XCTAssertEqual(id, "alb1")
+    }
+
+    /// A search that failed outright is still a failure, for the tap to report.
+    func testResolveArtistIDStillThrowsWhenTheWholeSearchFailed() async {
+        do {
+            _ = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Taylor Swift") { _, _ in
+                throw URLError(.notConnectedToInternet)
+            }
+            XCTFail("expected the failure to come through")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+        }
+    }
+
+    /// The catalog failed and the library half has no such artist: the catalog may have had
+    /// them, so the tap reports the failure instead of quietly opening nothing.
+    func testResolveArtistIDReportsTheFailureWhenTheHalfThatAnsweredHasNoMatch() async {
+        do {
+            _ = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Taylor Swift") { _, _ in
+                throw MusicSearchPartialFailure(
+                    results: MusicSearchResults(tracks: [], artists: [Self.artist("a9", "Someone Else")], albums: [], playlists: []),
+                    missing: .catalog,
+                    underlying: URLError(.notConnectedToInternet)
+                )
+            }
+            XCTFail("expected the catalog's failure")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+        }
+    }
+
+    func testResolveAlbumIDReportsTheFailureWhenTheHalfThatAnsweredHasNoAlbums() async {
+        do {
+            _ = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Midnights", artistHint: "Taylor Swift") { _, _ in
+                throw MusicSearchPartialFailure(
+                    results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
+                    missing: .catalog,
+                    underlying: URLError(.notConnectedToInternet)
+                )
+            }
+            XCTFail("expected the catalog's failure")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+        }
     }
 }

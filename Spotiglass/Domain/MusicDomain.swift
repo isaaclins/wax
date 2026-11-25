@@ -549,6 +549,35 @@ struct MusicSearchResults: Codable, Equatable {
     }
 }
 
+/// A search that answered only in part (#595): `results` is what loaded, `missing` the part that
+/// didn't and `underlying` why. Thrown instead of returning `results` as if they were all there,
+/// so a failed catalog search never reads as "No results".
+struct MusicSearchPartialFailure: Error, @unchecked Sendable {
+    enum MissingPart: Equatable, Sendable {
+        /// The service's catalog didn't answer; only what's saved in the library is shown.
+        case catalog
+        /// The library didn't answer; only catalog results are shown.
+        case library
+    }
+
+    let results: MusicSearchResults
+    let missing: MissingPart
+    let underlying: Error
+
+    /// What `search` found, with the half that answered when the other failed, for a caller that
+    /// has its own way on when nothing matches (an artist's tracks fall back to the albums). A
+    /// search that failed outright still throws.
+    static func whatLoaded(_ search: () async throws -> MusicSearchResults) async throws -> MusicSearchResults {
+        do {
+            return try await search()
+        } catch let partial as MusicSearchPartialFailure {
+            // The provider logged what failed; the lookup goes on with what answered.
+            SpotiglassLog.debug(.browsing, "A lookup uses the half of the search that answered")
+            return partial.results
+        }
+    }
+}
+
 struct MusicEpisode: Codable, Equatable, Identifiable {
     let id: String
     /// Names as the service sent them, maybe blank; ``name`` and ``showName`` are what to

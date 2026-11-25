@@ -8,8 +8,17 @@ extension PlaylistBrowserViewModel {
         }
         artistFetchMetrics.requestStarts += 1
         let task = Task { [api] in
-            let profile = try await api.currentUserProfile()
-            let market = profile.country
+            // The country is only a hint for the artist's top tracks: without it the page still
+            // loads, instead of failing on a profile lookup it barely needs (#595).
+            let market: String?
+            do {
+                market = try await api.currentUserProfile().country
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                SpotiglassLog.error(.browsing, "Profile didn't load for the artist page: \(SpotiglassLog.describe(error))")
+                market = nil
+            }
             if preferCached {
                 async let cachedDetail = api.artistCached(id: id, cacheMode: .allowStale)
                 async let cachedAlbums = api.artistAlbumsCached(
@@ -45,6 +54,9 @@ extension PlaylistBrowserViewModel {
                 if let url = nextURL {
                     let key = url.absoluteString
                     if seenNextURLs.contains(key) {
+                        // A broken response, not the end of the list: the albums read so far
+                        // still show, and the loop is logged (#595).
+                        SpotiglassLog.error(.browsing, "Artist albums linked back to a page already read; showing what loaded")
                         break
                     }
                     seenNextURLs.insert(key)

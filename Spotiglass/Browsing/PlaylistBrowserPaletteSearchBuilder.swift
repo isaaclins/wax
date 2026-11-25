@@ -65,7 +65,16 @@ enum PlaylistBrowserPaletteSearchBuilder {
         // tracks and the palette ranks the artist itself to the top, so the old sequential
         // `artist:"…"` augmentation call (which roughly doubled search latency) isn't worth it.
         let paletteSearchLimit = 30
-        let results = try await catalogProvider.search(query: query, limit: paletteSearchLimit)
+        let results: MusicSearchResults
+        var partialFailure: MusicSearchPartialFailure?
+        do {
+            results = try await catalogProvider.search(query: query, limit: paletteSearchLimit)
+        } catch let partial as MusicSearchPartialFailure {
+            // Half the search answered: its rows show, with a note for the half that didn't (#595).
+            SpotiglassLog.debug(.browsing, "Palette search shows part of its results")
+            results = partial.results
+            partialFailure = partial
+        }
 
         mapped.catalogPlaylists = results.playlists.map { playlist in
             let pinPayload = PinnedItem.playlist(playlist)
@@ -134,6 +143,9 @@ enum PlaylistBrowserPaletteSearchBuilder {
             )
         }
 
+        if let partialFailure {
+            throw CommandPalettePartialSearchFailure(results: mapped, missing: partialFailure)
+        }
         return mapped
     }
 

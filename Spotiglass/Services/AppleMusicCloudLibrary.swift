@@ -64,6 +64,9 @@ struct MusicDataRequestCloudLibrary: AppleMusicCloudLibrary {
                 .api,
                 "Apple Music \(request.httpMethod ?? "GET") \(request.url?.path ?? "") failed: \(error)"
             )
+            if let dataError = error as? MusicDataRequest.Error, dataError.status == 404 {
+                throw AppleMusicLibraryEditError.notFound
+            }
             throw AppleMusicLibraryEditError.requestFailed
         }
     }
@@ -116,8 +119,10 @@ struct MusicDataRequestCloudLibrary: AppleMusicCloudLibrary {
             let data: Data
             do {
                 data = try await send(AppleMusicCloudRequests.get(path))
-            } catch AppleMusicLibraryEditError.requestFailed where pages == 0 {
-                // A new, empty playlist answers 404 for its tracks.
+            } catch AppleMusicLibraryEditError.notFound where pages == 0 {
+                // A new, empty playlist answers 404 for its tracks. Any other failure is a
+                // failure: a timeout or a 5xx must not read as an empty playlist (#595).
+                SpotiglassLog.debug(.api, "Apple Music playlist tracks: 404 on the first page, read as a new empty playlist")
                 return []
             }
             let page = try JSONDecoder().decode(SongPage.self, from: data)

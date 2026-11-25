@@ -75,20 +75,28 @@ struct ErrorStateView: View {
 
 struct StaleCacheBanner: View {
     let error: BrowsingDisplayError?
+    /// Loads what is missing again; without it the banner only explains.
+    var retry: (() -> Void)?
 
     private var message: String {
         error?.message ?? SpotiglassL10n.format("browser.cachedFallback", MusicServiceSelection.current.displayName)
     }
 
     var body: some View {
-        Text(message)
-            .font(.caption)
-            .multilineTextAlignment(.center)
-            .lineLimit(nil)
-            .fixedSize(horizontal: false, vertical: true)
-            .help(message)
-            .padding(SpotiglassDesign.spacingS)
-            .background(.background, in: Capsule())
-            .padding(SpotiglassDesign.spacingM)
+        HStack(spacing: SpotiglassDesign.spacingS) {
+            Text(message)
+                .multilineTextAlignment(.center)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .help(message)
+            if let retry {
+                Button(SpotiglassL10n.string("browser.retry"), action: retry)
+                    .buttonStyle(.link)
+            }
+        }
+        .font(.caption)
+        .padding(SpotiglassDesign.spacingS)
+        .background(.background, in: Capsule())
+        .padding(SpotiglassDesign.spacingM)
     }
 }

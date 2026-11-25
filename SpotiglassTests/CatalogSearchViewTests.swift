@@ -536,6 +536,92 @@ final class CatalogSearchViewTests: XCTestCase {
             XCTAssertNotEqual(pill.pillLabel, "search.category.\(pill.rawValue)")
         }
     }
+
+    // MARK: - #595: a search that answered in part
+
+    /// Offline, the library half answers: its rows show under a note with Retry instead of
+    /// "No results", and the answer isn't cached, so a pill switch asks the service again.
+    func testAPartialSearchShowsItsRowsUnderANoteAndIsNotCached() async {
+        let viewModel = CatalogSearchViewModel()
+        let calls = CatalogSearchCallCount()
+        let loaded = makeCatalogResults()
+        viewModel.searchProvider = { _, offset, _ in
+            calls.increment()
+            guard offset == 0 else { return MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []) }
+            throw MusicSearchPartialFailure(results: loaded, missing: .catalog, underlying: URLError(.notConnectedToInternet))
+        }
+        viewModel.query = "found"
+        viewModel.queryDidChange()
+        await viewModel.waitForSearchCompletion()
+
+        guard case let .staleCache(results, error) = viewModel.state else {
+            return XCTFail("expected the rows under a note, got \(viewModel.state)")
+        }
+        XCTAssertEqual(results.tracks.map(\.id), ["t1"])
+        XCTAssertEqual(error?.canRetry, true)
+        XCTAssertEqual(
+            error?.message,
+            BrowsingDisplayError.partialSearch(
+                MusicSearchPartialFailure(results: loaded, missing: .catalog, underlying: URLError(.notConnectedToInternet))
+            ).message
+        )
+        XCTAssertEqual(calls.count, 1, "the loop stops at the partial page")
+
+        viewModel.selectCategory(.artists)
+        await viewModel.waitForSearchCompletion()
+        XCTAssertGreaterThan(calls.count, 1, "a partial answer isn't served from the cache")
+    }
+    /// The library half failing doesn't cut the catalog's paging short: a focused tab still
+    /// loads its pages and Load More, and the note stays until the library answers.
+    func testAFailedLibraryHalfKeepsLoadMoreAndTheNote() async {
+        let viewModel = CatalogSearchViewModel()
+        let missing = MusicSearchPartialFailure(
+            results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
+            missing: .library,
+            underlying: URLError(.timedOut)
+        )
+        viewModel.searchProvider = { _, offset, _ in
+            let indexes: [Int]
+            switch offset {
+            case 0, 10, 20: indexes = Array((offset + 1)...(offset + 10))
+            case 30: indexes = [31]
+            default: indexes = []
+            }
+            let page = MusicSearchResults(
+                tracks: indexes.map { index in
+                    MusicTrack(
+                        id: "track-\(index)", name: "Track \(index)", artists: ["Artist"], albumArtworkURL: nil,
+                        durationMilliseconds: 120_000, isExplicit: false, isPlayable: true, linkedFromID: nil,
+                        uri: "spotify:track:track-\(index)"
+                    )
+                },
+                artists: [], albums: [], playlists: []
+            )
+            guard offset == 0 else { return page }
+            throw MusicSearchPartialFailure(results: page, missing: .library, underlying: missing.underlying)
+        }
+
+        viewModel.query = "many results"
+        viewModel.selectCategory(.tracks)
+        await viewModel.waitForSearchCompletion()
+        XCTAssertEqual(viewModel.visibleResults.tracks.count, 30)
+        XCTAssertTrue(viewModel.canLoadMore)
+
+        await viewModel.loadMore()
+
+        XCTAssertEqual(viewModel.visibleResults.tracks.count, 31)
+        guard case let .staleCache(_, error) = viewModel.state else {
+            return XCTFail("the note went away while the library is still missing: \(viewModel.state)")
+        }
+        XCTAssertEqual(error?.message, BrowsingDisplayError.partialSearch(missing).message)
+    }
+}
+
+private final class CatalogSearchCallCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+    var count: Int { lock.withLock { value } }
+    func increment() { lock.withLock { value += 1 } }
 }
 
 private actor CatalogSearchErrorGate {

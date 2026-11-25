@@ -57,13 +57,13 @@ extension SpotifyAPIClient {
             if let nextURL {
                 if let nextOffset = Self.offset(from: nextURL) {
                     if seenOffsets.contains(nextOffset) {
-                        break
+                        throw Self.repeatedPageError(path: "/v1/me/tracks")
                     }
                     seenOffsets.insert(nextOffset)
                 }
                 let key = nextURL.absoluteString
                 if seenNextURLs.contains(key) {
-                    break
+                    throw Self.repeatedPageError(path: "/v1/me/tracks")
                 }
                 seenNextURLs.insert(key)
             }
@@ -105,7 +105,9 @@ extension SpotifyAPIClient {
             pagesFetched += 1
             if let pageCap, pagesFetched >= pageCap { break }
             guard let next = response.artists.next else { break }
-            guard seenNextURLs.insert(next.absoluteString).inserted else { break }
+            guard seenNextURLs.insert(next.absoluteString).inserted else {
+                throw Self.repeatedPageError(path: "/v1/me/following")
+            }
             after = Self.after(from: next)
             guard after != nil else { break }
         } while true

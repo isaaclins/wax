@@ -22,6 +22,9 @@ enum AppleMusicLibraryEditError: LocalizedError, Equatable {
     case notEditable
     /// Apple Music answered with an error.
     case requestFailed
+    /// Apple Music answered 404: what was asked for isn't there. Told apart from
+    /// `requestFailed` so a timeout or a server error never reads as "nothing there" (#595).
+    case notFound
     /// Music lists the playlist differently than Spotiglass shows it: it changed elsewhere since
     /// it was read, so a new order counted from the screen would move the wrong songs (#543).
     case playlistChanged
@@ -42,7 +45,7 @@ enum AppleMusicLibraryEditError: LocalizedError, Equatable {
             SpotiglassL10n.string("appleMusic.edit.error.ambiguousSong")
         case .notEditable:
             SpotiglassL10n.string("appleMusic.edit.error.notEditable")
-        case .requestFailed:
+        case .requestFailed, .notFound:
             SpotiglassL10n.string("appleMusic.edit.error.requestFailed")
         case .playlistChanged:
             SpotiglassL10n.string("playlist.mutation.reorderChangedElsewhere")

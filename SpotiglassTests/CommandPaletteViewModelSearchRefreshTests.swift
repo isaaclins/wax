@@ -113,6 +113,8 @@ final class CommandPaletteViewModelSearchRefreshTests: XCTestCase {
         viewModel.refresh()
         await viewModel.waitForSearchCompletion()
         XCTAssertEqual(callCount, 1, "Palette should honor cooldown and not dispatch another search immediately")
+        // The skipped search must still say why: a cleared line read as "No results" (#595).
+        XCTAssertEqual(viewModel.errorText, SpotifyAPIError.rateLimited(retryAfter: 3).userMessage)
     }
 
     func testLegacyAtPrefixSongSearchCallsProviderOnceForNormalizedQuery() async {
@@ -249,4 +251,166 @@ final class CommandPaletteViewModelSearchRefreshTests: XCTestCase {
         // "kanye" matches the artist (prefix) but not the track, so Artists floats above Tracks.
         XCTAssertEqual(viewModel.sections.map(\.section), [.artists, .tracks])
     }
+
+    // MARK: - #595: a search that answered in part
+
+    /// What loaded shows with a line for what didn't, and the same query asks again instead of
+    /// keeping the partial answer as finished.
+    func testAPartialSearchShowsWhatLoadedWithANoteAndAsksAgain() async {
+        let viewModel = CommandPaletteViewModel()
+        defer { viewModel.hide() }
+        var callCount = 0
+        let missing = MusicSearchPartialFailure(
+            results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
+            missing: .catalog,
+            underlying: URLError(.notConnectedToInternet)
+        )
+        viewModel.searchProvider = { _, _ in
+            callCount += 1
+            let loaded = CommandPaletteSearchResults(tracks: [
+                CommandPaletteItem(
+                    id: "track-saved", title: "Saved Song", subtitle: "Artist",
+                    iconSystemName: "music.note", section: .tracks, keywords: []
+                ) {}
+            ])
+            throw CommandPalettePartialSearchFailure(results: loaded, missing: missing)
+        }
+        viewModel.show()
+        viewModel.query = "saved"
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+
+        XCTAssertEqual(viewModel.errorText, BrowsingDisplayError.partialSearch(missing).message)
+        XCTAssertTrue(
+            viewModel.sections.contains { $0.items.contains { $0.id == "track-saved" } },
+            "the half that answered still shows"
+        )
+
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+        XCTAssertEqual(callCount, 2, "a partial answer isn't kept as the finished search")
+    }
+    /// A pill switch after a partial answer asks again instead of filtering the partial rows.
+    func testAPillSwitchAfterAPartialSearchAsksAgain() async {
+        let viewModel = CommandPaletteViewModel()
+        defer { viewModel.hide() }
+        var callCount = 0
+        viewModel.searchProvider = { _, _ in
+            callCount += 1
+            throw CommandPalettePartialSearchFailure(
+                results: CommandPaletteSearchResults(),
+                missing: MusicSearchPartialFailure(
+                    results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
+                    missing: .catalog,
+                    underlying: URLError(.notConnectedToInternet)
+                )
+            )
+        }
+        viewModel.show()
+        viewModel.query = "saved"
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+        XCTAssertEqual(callCount, 1)
+
+        viewModel.selectCategory(.artists)
+        await viewModel.waitForSearchCompletion()
+        XCTAssertEqual(callCount, 2)
+    }
+
+    /// A partial answer that arrives after a newer search started must not replace the newer
+    /// rows or put its note over them. The order is forced: the old answer is held until the
+    /// new search has finished.
+    func testALatePartialAnswerDoesNotOverwriteANewerSearch() async {
+        let viewModel = CommandPaletteViewModel()
+        defer { viewModel.hide() }
+        var releaseOld: CheckedContinuation<Void, Never>?
+        let oldAsked = expectation(description: "old search reached the provider")
+        let oldFinished = expectation(description: "old search finished handling its answer")
+        viewModel.songSearchDidFinish = { query in
+            if query == "old" { oldFinished.fulfill() }
+        }
+        viewModel.searchProvider = { query, _ in
+            if query == "old" {
+                await withCheckedContinuation { continuation in
+                    releaseOld = continuation
+                    oldAsked.fulfill()
+                }
+                throw CommandPalettePartialSearchFailure(
+                    results: CommandPaletteSearchResults(tracks: [
+                        CommandPaletteItem(
+                            id: "track-old", title: "Old", subtitle: nil,
+                            iconSystemName: "music.note", section: .tracks, keywords: []
+                        ) {}
+                    ]),
+                    missing: MusicSearchPartialFailure(
+                        results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
+                        missing: .catalog,
+                        underlying: URLError(.notConnectedToInternet)
+                    )
+                )
+            }
+            return CommandPaletteSearchResults(tracks: [
+                CommandPaletteItem(
+                    id: "track-new", title: "New", subtitle: nil,
+                    iconSystemName: "music.note", section: .tracks, keywords: []
+                ) {}
+            ])
+        }
+        viewModel.show()
+        viewModel.query = "old"
+        viewModel.refresh()
+        await fulfillment(of: [oldAsked], timeout: 10)
+
+        viewModel.query = "new"
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+        XCTAssertTrue(viewModel.sections.contains { $0.items.contains { $0.id == "track-new" } })
+
+        releaseOld?.resume()
+        await fulfillment(of: [oldFinished], timeout: 10)
+
+        XCTAssertNil(viewModel.errorText, "the old search's note landed on the new results")
+        XCTAssertFalse(viewModel.sections.contains { $0.items.contains { $0.id == "track-old" } })
+        XCTAssertTrue(viewModel.sections.contains { $0.items.contains { $0.id == "track-new" } })
+    }
+
+    /// A pill switch while the same query is being asked again only re-filters what is there:
+    /// it doesn't cancel the running search and start another one.
+    func testAPillSwitchWhileTheSameQueryReloadsDoesNotRestartIt() async {
+        let viewModel = CommandPaletteViewModel()
+        defer { viewModel.hide() }
+        var callCount = 0
+        var release: CheckedContinuation<Void, Never>?
+        let reloadAsked = expectation(description: "the reload reached the provider")
+        viewModel.searchProvider = { _, _ in
+            callCount += 1
+            if callCount == 2 {
+                await withCheckedContinuation { continuation in
+                    release = continuation
+                    reloadAsked.fulfill()
+                }
+            }
+            return CommandPaletteSearchResults(tracks: [
+                CommandPaletteItem(
+                    id: "track-1", title: "Song", subtitle: nil,
+                    iconSystemName: "music.note", section: .tracks, keywords: []
+                ) {}
+            ])
+        }
+        viewModel.show()
+        viewModel.query = "song"
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+        XCTAssertEqual(callCount, 1)
+
+        // A language switch asks for the same query again.
+        viewModel.languageDidChange()
+        await fulfillment(of: [reloadAsked], timeout: 10)
+        viewModel.selectCategory(.artists)
+        release?.resume()
+        await viewModel.waitForSearchCompletion()
+
+        XCTAssertEqual(callCount, 2, "the pill switch restarted the running search")
+    }
 }
+

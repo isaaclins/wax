@@ -995,6 +995,31 @@ final class PlaylistBrowserViewModelLibraryTests: XCTestCase {
         XCTAssertEqual(api.lastTracksLimit, 50, "Spotify's /v1/playlists/{id}/items endpoint caps limit at 50; passing more than 50 returns HTTP 400.")
         XCTAssertLessThanOrEqual(api.lastTracksLimit ?? Int.max, 50)
     }
+
+    // MARK: - #595: profile vs playlists
+
+    /// The profile failing (a 503) no longer throws away the playlists that loaded. With no user
+    /// known, own playlists can't be renamed, and a toast says so once, not on every refresh.
+    func testAFailedProfileKeepsThePlaylistsAndSaysSoOnce() async {
+        let rows = ["one", "two", "three"].map { PlaylistBrowsingTestFixtures.playlist(id: $0, name: $0.capitalized) }
+        let api = MockBrowsingAPI(
+            playlistResults: [.success(rows), .success(rows)],
+            trackResults: [:],
+            profileHandler: { throw SpotifyAPIError.server(statusCode: 503, message: "Service Unavailable", details: nil) }
+        )
+        let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+
+        await viewModel.load()
+
+        XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.title), ["One", "Two", "Three"])
+        XCTAssertNil(viewModel.currentUserID)
+        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("library.profile.loadFailed"))
+
+        viewModel.trackMutationToastText = nil
+        await viewModel.refreshPlaylists(trigger: .automatic)
+        XCTAssertEqual(api.currentUserPlaylistsCallCount, 2)
+        XCTAssertNil(viewModel.trackMutationToast, "the same failure isn't announced again")
+    }
 }
 
 private final class LockedEvents: @unchecked Sendable {

@@ -431,6 +431,21 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
         XCTAssertNoThrow(try animatedSearch.inspect())
     }
 
+    /// A failed search with no local matches showed its error and "No results" together (#595).
+    func testAFailedSearchDoesNotAlsoSayNoResults() async throws {
+        let vm = CommandPaletteViewModel()
+        vm.searchProvider = { _, _ in throw SpotifyAPIError.rateLimited(retryAfter: 3) }
+        vm.show()
+        defer { vm.hide() }
+        vm.query = "radioh"
+        vm.refresh()
+        await vm.waitForSearchCompletion()
+        XCTAssertNotNil(vm.errorText)
+        let body = CommandPaletteResultsBodyView(viewModel: vm, accessibilityReduceMotion: true)
+        ViewTestHost.host(body, size: CGSize(width: 700, height: 400))
+        XCTAssertThrowsError(try body.inspect().find(text: "No results for \"radioh\""))
+    }
+
     func testSectionedListTapAndIconLeading() throws {
         let vm = CommandPaletteViewModel()
         vm.show()

@@ -309,4 +309,45 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
             uri: "spotify:album:\(id)"
         )
     }
+
+    // MARK: - #595
+
+    /// The artist page loads without the profile (it only gave the country hint), and a search
+    /// whose other half failed still gives the artist's tracks instead of falling back to albums.
+    func testArtistPageLoadsWithoutTheProfileAndUsesTheHalfOfTheSearchThatAnswered() async {
+        let hit = MusicTrack(
+            id: "search-hit",
+            name: "Search Hit",
+            artists: ["Artist artist-xyz"],
+            artistRefs: [MusicArtistRef(id: "artist-xyz", name: "Artist artist-xyz")],
+            albumArtworkURL: nil,
+            durationMilliseconds: 100_000,
+            isExplicit: false,
+            isPlayable: true,
+            linkedFromID: nil,
+            uri: "spotify:track:search-hit"
+        )
+        let api = MockBrowsingAPI(
+            playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])],
+            trackResults: ["one": [.success([PlaylistBrowsingTestFixtures.track(id: "track-one")])]],
+            searchHandler: { _, _ in
+                throw MusicSearchPartialFailure(
+                    results: MusicSearchResults(tracks: [hit], artists: [], albums: [], playlists: []),
+                    missing: .library,
+                    underlying: URLError(.timedOut)
+                )
+            },
+            profileHandler: { throw URLError(.timedOut) }
+        )
+        let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+
+        await viewModel.load()
+        await viewModel.selectArtist(id: "artist-xyz")
+
+        guard case let .loaded(.artist(detail)) = viewModel.detailState else {
+            return XCTFail("Expected loaded artist detail, got \(viewModel.detailState)")
+        }
+        XCTAssertEqual(detail.tracks.map(\.title), ["Search Hit"])
+        XCTAssertEqual(api.albumTracksCallCount, 0, "no album fallback when the search answered")
+    }
 }

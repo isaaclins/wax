@@ -13,7 +13,7 @@ extension PlaylistBrowserViewModel {
         do {
             let sanitizedName = artist.name.replacingOccurrences(of: "\"", with: "")
             let query = "artist:\"\(sanitizedName)\""
-            let results = try await api.search(query: query, limit: 10)
+            let results = try await MusicSearchPartialFailure.whatLoaded { try await api.search(query: query, limit: 10) }
             let matching = results.tracks.filter { $0.artistRefs.contains { $0.id == artistId } }
             if !matching.isEmpty {
                 return Array(matching.prefix(10))
