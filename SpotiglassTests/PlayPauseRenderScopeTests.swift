@@ -222,22 +222,29 @@ final class PlayPauseRenderScopeTests: XCTestCase {
                 uri: "applemusic:song:\(index)"
             )))
         }
+        let playingURI = "applemusic:song:i.fromSearch"
         let nowPlaying = PlaybackNowPlaying(
             name: "Song \(matched)", artists: ["Artist"], albumName: "Album", albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 180_000, positionMilliseconds: 10_000, uri: "applemusic:song:i.fromSearch"
+            durationMilliseconds: 180_000, positionMilliseconds: 0, uri: playingURI
         )
+        // The player reads the song back as MusicKit does: with its catalog id, which no row of
+        // the list has, and its own title, artists and length.
+        let player = ScriptedAppleMusicPlayer()
+        player.songs[playingURI] = MusicTrack(
+            id: playingURI, name: nowPlaying.name, artists: nowPlaying.artists, albumArtworkURL: nil,
+            albumName: nil, durationMilliseconds: 180_000, isExplicit: false, isPlayable: true, linkedFromID: nil,
+            uri: playingURI
+        )
+        let provider = AppleMusicPlaybackProvider(player: player)
         // The bar shows Play before a song starts, as the app's does, then the song plays.
-        let playback = try await hostBrowser(
-            tracks: (0..<rowCount).map(song),
-            playing: .paused(nowPlaying),
-            provider: AppleMusicPlaybackProvider(player: ScriptedAppleMusicPlayer())
-        )
+        let playback = try await hostBrowser(tracks: (0..<rowCount).map(song), playing: .paused(nowPlaying), provider: provider)
         playback.deviceID = AppleMusicPlaybackProvider.deviceID
         playback.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
+        // Started in the player, as a song from Search is: a press then has a song to pause and
+        // resume, and the player's reads agree with what the bar shows (#693).
+        try await provider.play(.items(uris: [playingURI], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
         playback.setConnectionState(.playing(nowPlaying))
-        // This test keeps the main actor's own work held off between presses, as it always has:
-        // with that work running, a press here reaches more rows and can stop redrawing (#693).
-        AppKitTestSupport.settleRunLoopOnly()
+        await AppKitTestSupport.settle()
         let window = try XCTUnwrap(ViewTestHost.windows.last)
         // The table keeps a few rows ready above and below the window, so allow a margin.
         let rowsThatFit = Int((window.contentLayoutRect.height / TrackListRow.listRowHeight).rounded(.up))
@@ -247,7 +254,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             let pressedAt = ContinuousClock.now
             playback.requestTogglePlayPause()
             XCTAssertEqual(PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: playback.connectionState), press.isMultiple(of: 2))
-            let drawn = AppKitTestSupport.pumpRunLoop(until: {
+            let drawn = await AppKitTestSupport.settle(until: {
                 (ViewBodyTally.counts?["PlaybackControlsView"] ?? 0) > 0
                     && (ViewBodyTally.counts?["TrackListRow:r\(matched)"] ?? 0) > 0
             })
@@ -263,12 +270,24 @@ final class PlayPauseRenderScopeTests: XCTestCase {
                 "press \(press) reached \(rowsReached) of \(rowCount) rows, though about \(rowsThatFit) fit in the window"
             )
             ViewBodyTally.counts = nil
+            // The player takes the press after MusicKit's measured lag, on its own clock: once
+            // the press reached it, that time passes, so its reads report the new state.
+            let command = press.isMultiple(of: 2) ? "resume" : "pause"
+            let sentSoFar = { player.commands.filter { $0 == command }.count }
+            let sent = await AppKitTestSupport.settle(until: { sentSoFar() >= (press + 1) / 2 })
+            XCTAssertTrue(sent, "press \(press): the \(command) never reached the player")
+            XCTAssertEqual(sentSoFar(), (press + 1) / 2, "press \(press): the \(command) reached the player more than once")
+            player.advance(by: ScriptedAppleMusicPlayer.lag[command] ?? 0)
             // The next press comes once this press's icon swap is over, as a person's would: the
             // swap is a 0.18 s animation on the wall clock (`PlaybackControlsView`), so its end is
             // that time after the press, and its last frame has drawn once the window settled.
-            XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { pressedAt.duration(to: .now) >= Self.iconSwap }))
-            AppKitTestSupport.settleRunLoopOnly()
+            let swapped = await AppKitTestSupport.settle(until: { pressedAt.duration(to: .now) >= Self.iconSwap })
+            XCTAssertTrue(swapped)
+            await AppKitTestSupport.settle()
         }
+        // The player has a song now, so the session keeps reading it: stop it, or it goes on
+        // reading through every test after this one.
+        await playback.disconnect()
     }
 }
 

@@ -2231,7 +2231,7 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         }
         return AppleMusicPlayerState(
             status: playing ? .playing : .paused,
-            current: Self.track(queue[index]),
+            current: track(queue[index]),
             positionMilliseconds: Int(position() * 1000),
             shuffle: shuffle,
             repeatMode: repeatMode
@@ -2240,7 +2240,7 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
 
     func readUpcoming() -> [MusicTrack] {
         guard queue.indices.contains(index) else { return [] }
-        return queue[(index + 1)...].map(Self.track)
+        return queue[(index + 1)...].map(track)
     }
 
     /// The URIs queued after the current song, as the player holds them.
@@ -2261,7 +2261,7 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         let entryCount = queue.count
         for absolute in indices.reversed() { queue.remove(at: absolute) }
         let bookRemoval = book.remove(at: indices, entryCount: entryCount)
-        let receipt = QueueRemovalReceipt(positions: chosen, tracks: uris.map(Self.track))
+        let receipt = QueueRemovalReceipt(positions: chosen, tracks: uris.map(track))
         removed[receipt.id] = (uris, bookRemoval)
         return receipt
     }
@@ -2279,6 +2279,14 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
             indices.append(absolute)
         }
         book.restore(entry.book, at: indices, entryCount: entryCount)
+    }
+
+    /// What the player reads back for a song, by URI: a song set here reads with its own title,
+    /// artists and length, as MusicKit's does; any other is named after its URI.
+    var songs: [String: MusicTrack] = [:]
+
+    private func track(_ uri: String) -> MusicTrack {
+        songs[uri] ?? Self.track(uri)
     }
 
     private static func track(_ uri: String) -> MusicTrack {
