@@ -27,6 +27,10 @@ import MusicKit
 final class AppleMusicContentRatings: @unchecked Sendable {
     static let shared = AppleMusicContentRatings()
 
+    /// Posted (on any thread) after a lookup found release covers, so covers drawn before it
+    /// answered can swap in the catalog cover (#737, ``AppleMusicArtworkRegistry/registerLaterCover(for:_:)``).
+    static let catalogCoversArrived = Notification.Name("AppleMusicContentRatings.catalogCoversArrived")
+
     /// The catalog's answer for these catalog song IDs.
     typealias CatalogLookup = @Sendable (_ catalogIDs: [String]) async throws -> [String: AppleMusicCatalogRelease]
     /// One page of the library's songs, as `AppleMusicContentSource.librarySongs` reads them.
@@ -276,7 +280,8 @@ final class AppleMusicContentRatings: @unchecked Sendable {
     private func store(_ batch: [String], lookup: CatalogLookup) async {
         // try?: the source logs a failed lookup; nothing is kept, so the next read asks again.
         guard let releases = try? await lookup(batch) else { return }
-        lock.withLock {
+        let foundCovers = lock.withLock { () -> Bool in
+            var foundCovers = false
             for id in batch {
                 let rating: CatalogRating = switch releases[id]?.isExplicit {
                 case true?: .explicit
@@ -287,9 +292,12 @@ final class AppleMusicContentRatings: @unchecked Sendable {
                 ratingsByCatalogID.setValue(rating, forKey: id)
                 if let artwork = releases[id]?.artwork {
                     artworkByCatalogID.setValue(artwork, forKey: id)
+                    foundCovers = true
                 }
             }
+            return foundCovers
         }
+        if foundCovers { NotificationCenter.default.post(name: Self.catalogCoversArrived, object: self) }
     }
 
     /// The releases of `persistentIDs` after a library read; those it didn't list are noted, so

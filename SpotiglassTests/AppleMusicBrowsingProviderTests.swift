@@ -2994,9 +2994,12 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         XCTAssertEqual(covers.map { $0.scheme?.lowercased() }, ["musickit", "musickit"], "mapped before the catalog answered")
         XCTAssertEqual(requested(), covers.map(\.absoluteString), "nothing to swap in yet")
 
+        // Covers already on screen hear that they can ask again.
+        let arrived = expectation(forNotification: AppleMusicContentRatings.catalogCoversArrived, object: AppleMusicContentRatings.shared)
         release.finish()
         // Waits for the lookup still asking instead of asking again.
         await AppleMusicContentRatings.shared.resolve([saved], lookup: source.catalogSongReleases, library: nil)
+        await fulfillment(of: [arrived], timeout: 5)
 
         XCTAssertEqual(requested(), ["https://example.com/art/catalog-9737011/120x120bb.jpg", covers[1].absoluteString])
         XCTAssertEqual(source.ratingLookups.count, 1)

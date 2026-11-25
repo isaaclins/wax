@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import MusicKit
 import SwiftUI
 
@@ -345,8 +346,11 @@ private struct CachedArtworkImage: View {
     var artworkKey: String? = nil
     @StateObject private var artworkLoader = ArtworkImageLoader()
     @Environment(\.displayScale) private var displayScale
+    /// Bumped when catalog covers arrive, so a library cover on screen asks again (#737).
+    @State private var coverArrivals = 0
 
     var body: some View {
+        let _ = coverArrivals
         // The request, not the mapped URL: a saved song's library cover becomes its catalog
         // cover once that is known (#737).
         if AppleMusicArtworkRegistry.needsMusicKit(requestURL) {
@@ -356,6 +360,13 @@ private struct CachedArtworkImage: View {
             ZStack {
                 ArtworkPlaceholderContent(state: .none, size: size, describesState: false)
                 MusicKitArtwork(url: url, width: size, height: size, itemKey: artworkKey)
+            }
+            .onReceive(
+                NotificationCenter.default.publisher(for: AppleMusicContentRatings.catalogCoversArrived)
+                    .receive(on: DispatchQueue.main)
+            ) { _ in
+                // Only the rows whose catalog cover is now known draw again.
+                if !AppleMusicArtworkRegistry.needsMusicKit(requestURL) { coverArrivals &+= 1 }
             }
         } else {
             downloadedArtwork

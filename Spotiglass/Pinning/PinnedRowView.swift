@@ -251,7 +251,9 @@ struct DragPreviewArtwork: View {
         artworkKey: String?
     ) -> NSImage? {
         guard let artworkURL else { return nil }
-        if AppleMusicArtworkRegistry.needsMusicKit(artworkURL) {
+        // The request decides: a saved song's library cover can have become its downloaded
+        // catalog cover since it was mapped (#737).
+        if AppleMusicArtworkRegistry.needsMusicKit(requestURL ?? artworkURL) {
             return OnScreenArtwork.shared.snapshot(url: artworkURL, itemKey: artworkKey)
         }
         return requestURL.flatMap { ArtworkImageStore.cachedImageIfAvailable(for: $0) }

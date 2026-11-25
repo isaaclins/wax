@@ -57,8 +57,11 @@ final class AppleMusicArtworkRegistry: @unchecked Sendable {
     /// The downloadable cover that replaces the library artwork at `url`, once it's known.
     private func laterCover(for url: URL) -> Artwork? {
         // Asked outside the lock: the answer comes from another lock (the ratings').
-        guard let cover = lock.withLock({ laterCoverByURL.value(forKey: url.absoluteString) }) else { return nil }
-        return cover()
+        guard let cover = lock.withLock({ laterCoverByURL.value(forKey: url.absoluteString) }),
+              let found = cover() else { return nil }
+        // Found: keep just the cover, not what it was asked from.
+        lock.withLock { laterCoverByURL.setValue({ found }, forKey: url.absoluteString) }
+        return found
     }
 
     /// Pixel sizes artwork is requested in. Views round their drawn size up to one of these, so
