@@ -25,6 +25,10 @@
       "issue": 730,
       "measuredMs": 60
     },
+    "playback.seek": {
+      "issue": 730,
+      "measuredMs": 46
+    },
     "playback.shuffle": {
       "issue": 730,
       "measuredMs": 59

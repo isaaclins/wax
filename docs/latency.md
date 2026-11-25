@@ -70,7 +70,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `playback.toggle.click` | Click the play/pause button | 36 | 38 | |
 | `playback.next` | ⇧⌘→ skips to the next song | 37 | 39 | fixed in #687 (was never) |
 | `playback.previous` | ⇧⌘← goes back a song | 38 | 39-53 | #704 (was never; shows at once since #687) |
-| `playback.seek` | ⌘→ jumps ahead in the song | 24-30 | 30-46 | |
+| `playback.seek` | ⌘→ jumps ahead in the song | 24-30 | 30-46 | #730 (was never) |
 | `playback.shuffle` | ⌥⌘S turns shuffle on or off | 38-55 | 42-59 | #730 (was never) |
 | `playback.repeat` | ⌥⌘R changes repeat | 41-58 | 44-60 | #730 (was never) |
 | `palette.open` | ⌘K opens the command palette | 79 → 26 | 88 → 36 | #671 |
@@ -105,7 +105,8 @@ the menu bar's items up to date. The menu bar now hears of a change once, right 
 and updates its items then. The lower times are from one run under load 5; on the final #677
 branch, three runs under load 3-7 gave the higher ones. Play/pause is at 45-47 ms on main too
 (#726), so that's not only load. Shuffle, repeat and ⌘[ stay on the `known` list until #730 gets
-them to 40 ms checked.
+them to 40 ms checked, and so does seek: it passes, but its checked time reached 45-46 ms in two
+runs, too close to 50 for the list's 40 ms rule (#678).
 
 ## The sound (Apple Music)
 
