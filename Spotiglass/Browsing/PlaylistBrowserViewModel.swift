@@ -149,6 +149,21 @@ final class PlaylistBrowserViewModel: ObservableObject {
     var pendingAdjacentPlaylistOffset: Int = 0
     /// The ⌘↑/⌘↓ debounce waits on this clock (a test steps it).
     let adjacentPlaylistClock: any PlaybackClock
+    /// The reads while the library is still arriving wait on this clock (a test steps it).
+    let libraryArrivalClock: any PlaybackClock
+    /// The next read of a library that is still arriving (#654).
+    var libraryArrivalTask: Task<Void, Never>?
+    /// Reads made since the library was first seen still arriving; bounded by
+    /// ``maxLibraryArrivalReads``.
+    var libraryArrivalReads = 0
+    /// The parts of the library that read empty while still arriving, read again by
+    /// ``libraryArrivalTask``.
+    var libraryPartsArriving: Set<MusicLibraryPart> = []
+    /// While the covers settle after the library arrived: how many the last look found.
+    var libraryCoversSeen: Int?
+    /// Bumped when the account is forgotten, so a look that was already reading stops there and
+    /// sets up no further looks for the account that left.
+    var libraryArrivalGeneration = 0
     var lastTracksRevalidationByID: [String: (snapshotID: String, at: Date)] = [:]
     var inFlightPlaylistListRefreshTask: Task<([MusicPlaylistSummary], MusicUserProfile), Error>?
     var playlistListRefreshGeneration = 0
@@ -243,10 +258,12 @@ final class PlaylistBrowserViewModel: ObservableObject {
         manualPlaylistRefreshCooldown: TimeInterval = 2,
         artistDetailCacheTTL: TimeInterval = 90,
         initialArtistAlbumPageCount: Int = 2,
-        adjacentPlaylistClock: any PlaybackClock = ContinuousClock()
+        adjacentPlaylistClock: any PlaybackClock = ContinuousClock(),
+        libraryArrivalClock: any PlaybackClock = ContinuousClock()
     ) {
         self.api = api
         self.adjacentPlaylistClock = adjacentPlaylistClock
+        self.libraryArrivalClock = libraryArrivalClock
         self.cache = cache
         self.editPermissions = editPermissions
         self.now = now
@@ -274,7 +291,23 @@ final class PlaylistBrowserViewModel: ObservableObject {
         )
     }
 
+    /// The Apple Account left (signed out of Music, or access taken away): what was read
+    /// belongs to it, so the next account is read afresh once the browser is back (#654). Liked
+    /// Songs is the one list kept under the same ID for every account, so its kept rows go too.
+    func forgetAccount() {
+        clearForSignOut()
+        hasLoaded = false
+        // try?: the memory cache never throws; a stale row would only show until the next read.
+        try? cache.invalidateTracks(playlistID: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID)
+    }
+
     func clearForSignOut() {
+        libraryArrivalTask?.cancel()
+        libraryArrivalTask = nil
+        libraryArrivalReads = 0
+        libraryPartsArriving = []
+        libraryCoversSeen = nil
+        libraryArrivalGeneration += 1
         playlistTrackCountTask?.cancel()
         playlistTrackCountTask = nil
         playlistTrackCountStandIns = []

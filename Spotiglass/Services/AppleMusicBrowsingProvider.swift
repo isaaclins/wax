@@ -201,6 +201,14 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
 
     var listsPlaylistsWithoutTrackCounts: Bool { true }
 
+    /// After a sign-in, Apple brings the library to this Mac over a minute or more: songs first,
+    /// playlists and covers later (#654). The iCloud Music Library already has them, so an empty
+    /// read here while it doesn't is the library still arriving. Unknown (offline) reads as no.
+    func libraryIsStillArriving(_ part: MusicLibraryPart) async -> Bool {
+        // try?: the read logs its own failure; an unknown answer shows the library as read.
+        (try? await source.cloudLibraryHasItems(part)) ?? false
+    }
+
     func playlistTrackCounts(playlistIDs: [String]) async -> [String: Int] {
         guard !playlistIDs.isEmpty else { return [:] }
         var counts: [String: Int] = [:]

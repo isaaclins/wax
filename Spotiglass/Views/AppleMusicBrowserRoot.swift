@@ -63,7 +63,7 @@ struct AppleMusicBrowserRoot: View {
                         .controlSize(.large)
                         .accessibilityLabel(SpotiglassL10n.string("home.section.loading"))
                 }
-            case .needsPermission, .denied:
+            case .needsPermission, .denied, .signedOut:
                 permissionContent
             case .authorized:
                 browser
@@ -76,19 +76,29 @@ struct AppleMusicBrowserRoot: View {
                 await session.requestAccess()
             }
         }
+        .task {
+            // Signing in or out of Music while this window is open (#654).
+            await session.followAccountChanges()
+        }
+        .task(id: session.state == .signedOut) {
+            await session.recheckWhileSignedOut()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            // Access is changed in System Settings; pick it up when the user comes back.
+            // Access is changed in System Settings, the sign-in in Music; pick it up when the user
+            // comes back.
             Task { await session.refresh() }
         }
         .onChange(of: session.state, initial: true) { old, state in
             commandPaletteManager.isSignedIn = state == .authorized
-            if state == .authorized {
+            // Access is what adds Apple Music; signed out of Music, the window says to sign in.
+            if state == .authorized || state == .signedOut {
                 onAuthorized()
             }
             switch Self.accessTransition(from: old, to: state) {
             case .granted: rewireScene()
             case .lost:
                 prepareForReset()
+                viewModel.forgetAccount()
             case .unchanged: break
             }
         }
@@ -132,16 +142,18 @@ struct AppleMusicBrowserRoot: View {
                     .font(.title2.weight(.semibold))
                     .labelStyle(.titleAndIcon)
 
-                    Text(
-                        session.state == .denied
-                            ? SpotiglassL10n.string("appleMusic.permission.denied")
-                            : SpotiglassL10n.string("appleMusic.permission.message")
-                    )
+                    Text(Self.permissionMessage(for: session.state))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
 
-                    if session.state == .denied {
+                    if session.state == .signedOut {
+                        Button(SpotiglassL10n.string("appleMusic.signedOut.openMusic")) {
+                            Self.openMusicApp()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                    } else if session.state == .denied {
                         Button(SpotiglassL10n.string("appleMusic.permission.openSettings")) {
                             NSWorkspace.shared.open(AppleMusicSession.privacySettingsURL)
                         }
@@ -164,6 +176,19 @@ struct AppleMusicBrowserRoot: View {
             .frame(maxWidth: SpotiglassDesign.Layout.panelMaxWidth)
             .padding(SpotiglassDesign.spacingL)
         }
+    }
+
+    static func permissionMessage(for state: AppleMusicSession.State) -> String {
+        switch state {
+        case .denied: SpotiglassL10n.string("appleMusic.permission.denied")
+        case .signedOut: SpotiglassL10n.string("appleMusic.signedOut.message")
+        case .checking, .needsPermission, .authorized: SpotiglassL10n.string("appleMusic.permission.message")
+        }
+    }
+
+    private static func openMusicApp() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: AppleMusicSession.musicAppBundleID) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 
     /// No disk cache for Apple Music: library artwork URLs are only valid while MusicKit's

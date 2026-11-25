@@ -56,6 +56,14 @@ extension PlaylistBrowserViewModel {
             )
             try? cache.savePlaylists(playlists, cachedAt: now())
             invalidateLibraryContinuationCache()
+            if playlists.isEmpty, await isStillArriving(.playlists) {
+                // Not "No playlists" for a library that is still on its way (#654).
+                playlistsByID = [:]
+                playlistState = .loading
+                waitForLibraryToArrive(.playlists)
+                await selectHomeIfNoDetailIsShown()
+                return
+            }
             if playlists.isEmpty {
                 playlistsByID = [:]
                 playlistState = .empty(LocalizedText.noPlaylists(on: MusicServiceSelection.current))
@@ -106,6 +114,90 @@ extension PlaylistBrowserViewModel {
             }
             await selectHomeIfNoDetailIsShown()
         }
+    }
+
+    /// Reads between two looks at a library that is still arriving, and how many looks at most:
+    /// Apple took about a minute in #654, so five minutes leave room for a big library. After
+    /// that, an empty read is shown as empty.
+    static let libraryArrivalInterval: Duration = .seconds(5)
+    static let maxLibraryArrivalReads = 60
+
+    /// Whether an empty read of this part is the library still arriving, as long as the bound
+    /// on looking again allows.
+    func isStillArriving(_ part: MusicLibraryPart) async -> Bool {
+        guard libraryArrivalReads < Self.maxLibraryArrivalReads else { return false }
+        let generation = libraryArrivalGeneration
+        let arriving = await api.libraryIsStillArriving(part)
+        // An answer about an account that left meanwhile starts no looks.
+        return arriving && generation == libraryArrivalGeneration
+    }
+
+    /// Reads the parts still arriving again after a short wait. Each read fills in what arrived
+    /// since; a read that still finds the part missing calls this again. Only what is waiting is
+    /// read: a list already on screen is not replaced by a spinner every few seconds.
+    func waitForLibraryToArrive(_ part: MusicLibraryPart) {
+        libraryPartsArriving.insert(part)
+        scheduleLibraryArrivalLook()
+    }
+
+    private func scheduleLibraryArrivalLook() {
+        guard libraryArrivalTask == nil else { return }
+        let clock = libraryArrivalClock
+        let generation = libraryArrivalGeneration
+        libraryArrivalTask = Task { [weak self] in
+            // try?: the wait only fails when cancelled (sign-out), which is checked right below.
+            try? await clock.sleep(until: clock.now.advanced(by: Self.libraryArrivalInterval), tolerance: nil)
+            guard let self, !Task.isCancelled, generation == self.libraryArrivalGeneration else { return }
+            self.libraryArrivalTask = nil
+            await self.lookAtArrivingLibrary(generation: generation)
+        }
+    }
+
+    /// One look while the library arrives. Once every part is there, the covers can still be on
+    /// their way (#654: playlists and covers came about a minute after the songs), so the
+    /// playlists and the open Liked Songs are read again, quietly with their rows on screen, for
+    /// as long as a look finds more covers than the one before.
+    private func lookAtArrivingLibrary(generation: Int) async {
+        libraryArrivalReads += 1
+        let waiting = libraryPartsArriving
+        libraryPartsArriving = []
+        let coversBefore = libraryCoversSeen
+        libraryCoversSeen = nil
+        if waiting.contains(.playlists) || coversBefore != nil {
+            await refreshPlaylists(trigger: .automatic)
+        }
+        // The account left while the playlists were read: nothing more for it.
+        guard generation == libraryArrivalGeneration else { return }
+        if showsLikedSongs {
+            if waiting.contains(.songs) {
+                await refreshSelectedPlaylist()
+            } else if libraryPartsArriving.isEmpty, detailState.currentValue != nil {
+                await revalidateLikedSongs(session: detailSession)
+            }
+        }
+        // A part still arriving has already set up the next look.
+        guard generation == libraryArrivalGeneration, libraryPartsArriving.isEmpty,
+              libraryArrivalReads < Self.maxLibraryArrivalReads else { return }
+        let covers = coversOnScreen
+        if let coversBefore, covers <= coversBefore { return }
+        libraryCoversSeen = covers
+        scheduleLibraryArrivalLook()
+    }
+
+    /// Liked Songs is what the window shows: not an album or artist page opened from it, which
+    /// keeps it selected and must not be replaced by it.
+    private var showsLikedSongs: Bool {
+        switch currentNavigationTarget {
+        case .artist, .album: return false
+        case .sidebar, nil: return sidebarSelection == .likedSongs
+        }
+    }
+
+    /// The covers of the library on screen: the sidebar's playlists and the open Liked Songs.
+    private var coversOnScreen: Int {
+        let playlistCovers = playlistsByID.values.filter { $0.imageURL != nil }.count
+        guard showsLikedSongs, case let .playlist(detail)? = detailState.currentValue else { return playlistCovers }
+        return playlistCovers + detail.tracks.filter { $0.artworkURL != nil }.count
     }
 
     /// A fresh playlist cache skips the `me/playlists` refresh, which is also where the current

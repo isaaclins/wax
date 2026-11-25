@@ -18066,6 +18066,75 @@
           }
         }
       }
+    },
+    "appleMusic.signedOut.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Music on this Mac isn't signed in, so Wax can't see your library. Open Music and choose Account › Sign In. Wax notices on its own."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Música no tiene una sesión iniciada en este Mac, así que Wax no ve tu biblioteca. Abre Música y elige Cuenta › Iniciar sesión. Wax lo detecta solo."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musik ist auf diesem Mac nicht angemeldet, darum sieht Wax deine Mediathek nicht. Öffne Musik und wähle Account › Anmelden. Wax merkt es von selbst."
+          }
+        }
+      }
+    },
+    "appleMusic.signedOut.openMusic": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Music"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Música"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musik öffnen"
+          }
+        }
+      }
+    },
+    "settings.account.appleMusic.status.signedOut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Music isn't signed in. Sign in in the Music app."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Música no tiene sesión iniciada. Inicia sesión en la app Música."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musik ist nicht angemeldet. Melde dich in der Musik-App an."
+          }
+        }
+      }
     }
   },
   "version": "1.1"

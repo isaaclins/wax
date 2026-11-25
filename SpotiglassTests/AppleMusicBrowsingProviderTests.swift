@@ -1956,6 +1956,191 @@ final class AppleMusicSelectionAndSessionTests: XCTestCase {
         XCTAssertEqual(Root.accessTransition(from: .authorized, to: .denied), .lost)
         XCTAssertEqual(Root.accessTransition(from: .checking, to: .needsPermission), .unchanged)
         XCTAssertEqual(Root.accessTransition(from: .checking, to: .denied), .unchanged)
+        // Signed out of Music (#654): the library is gone like with no access, and comes back
+        // on signing in.
+        XCTAssertEqual(Root.accessTransition(from: .authorized, to: .signedOut), .lost)
+        XCTAssertEqual(Root.accessTransition(from: .signedOut, to: .authorized), .granted)
+        XCTAssertEqual(Root.accessTransition(from: .checking, to: .signedOut), .unchanged)
+    }
+
+    /// #654, step 1: signed out of Music, the window says so and offers Music, never an empty
+    /// library.
+    func testSignedOutOfMusicSaysSoInPlainWords() {
+        let message = AppleMusicBrowserRoot.permissionMessage(for: .signedOut)
+        XCTAssertNotEqual(message, AppleMusicBrowserRoot.permissionMessage(for: .needsPermission))
+        XCTAssertTrue(message.contains("isn't signed in"), message)
+        XCTAssertEqual(AppleMusicSession.musicAppBundleID, "com.apple.Music")
+    }
+
+    /// Only MusicKit's own "no one is signed in" means signed out; offline and Apple's servers
+    /// failing say nothing about the account, so the library stays on screen.
+    func testOnlyUserNotSignedInReadsAsSignedOut() {
+        XCTAssertEqual(SystemAppleMusicAuthorization.signedIn(after: .userNotSignedIn), false)
+        XCTAssertNil(SystemAppleMusicAuthorization.signedIn(after: .userTokenRequestFailed))
+        XCTAssertNil(SystemAppleMusicAuthorization.signedIn(after: .developerTokenRequestFailed))
+        XCTAssertNil(SystemAppleMusicAuthorization.signedIn(after: .unknown))
+    }
+
+    /// #654, steps 1 and 2 as they happened: Spotiglass opens while Music is signed out, then
+    /// the user signs in to Music with Spotiglass still open. The sign-in shows by itself.
+    @MainActor
+    func testSigningInToMusicWhileOpenIsPickedUpWithoutARelaunch() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.signedIn = false
+        let session = AppleMusicSession(authorization: authorization)
+        await session.refresh()
+        XCTAssertEqual(session.state, .signedOut)
+
+        let following = Task { await session.followAccountChanges() }
+        defer { following.cancel() }
+        authorization.signedIn = true
+        authorization.canPlay = true
+        authorization.announceAccountChange()
+        await waitUntil("the sign-in is picked up", changes: session.$state) { session.state == .authorized }
+        XCTAssertEqual(session.canPlayCatalogContent, true)
+
+        // And signing out again while open.
+        authorization.signedIn = false
+        authorization.canPlay = false
+        authorization.announceAccountChange()
+        await waitUntil("the sign-out is picked up", changes: session.$state) { session.state == .signedOut }
+    }
+
+    /// A subscription that plays is proof enough of a signed-in account: no token round trip.
+    @MainActor
+    func testASubscriberIsNotAskedForATokenEveryTime() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: true)
+        authorization.signedIn = false
+        let session = AppleMusicSession(authorization: authorization)
+        await session.refresh()
+        XCTAssertEqual(session.state, .authorized)
+        XCTAssertEqual(authorization.signInChecks, 0)
+    }
+
+    /// The sign-in check asks Apple's servers. On a slow network that can take as long as the
+    /// request's timeout, so the window shows the library after the grace period instead of a
+    /// spinner, and switches to the sign-in screen if the answer turns out "signed out".
+    @MainActor
+    func testASlowSignInCheckDoesNotHoldTheWindow() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.signedIn = false
+        authorization.holdsSignInCheck = true
+        let clock = ManualPlaybackClock()
+        let session = AppleMusicSession(authorization: authorization, clock: clock)
+        let refreshing = Task { await session.refresh() }
+
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed, "the grace period runs")
+        XCTAssertEqual(session.state, .checking)
+        clock.advance(by: AppleMusicSession.signInCheckGrace)
+        await waitUntil("the library shows meanwhile", changes: session.$state) { session.state == .authorized }
+
+        authorization.answerSignInCheck()
+        await refreshing.value
+        XCTAssertEqual(session.state, .signedOut)
+    }
+
+    /// A check that answers within the grace period goes straight to its screen, with no
+    /// library in between.
+    @MainActor
+    func testAQuickSignInCheckGoesStraightToTheSignInScreen() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.signedIn = false
+        let clock = ManualPlaybackClock()
+        let session = AppleMusicSession(authorization: authorization, clock: clock)
+        var shown: [AppleMusicSession.State] = []
+        let watch = session.$state.sink { shown.append($0) }
+        defer { watch.cancel() }
+
+        await session.refresh()
+        XCTAssertEqual(shown, [.checking, .signedOut])
+        XCTAssertEqual(clock.sleeperCount, 0, "the grace period ends with the answer")
+    }
+
+    /// Account updates, coming back to the front and the sign-in screen's recheck can overlap. A
+    /// "signed out" that was still on its way when a newer refresh found the account signed in
+    /// must not send the window back to the sign-in screen.
+    @MainActor
+    func testALateSignedOutAnswerDoesNotOverturnANewerSignIn() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        let session = AppleMusicSession(authorization: authorization, clock: ManualPlaybackClock())
+        await session.refresh()
+        XCTAssertEqual(session.state, .authorized)
+
+        authorization.holdsSignInCheck = true
+        authorization.signedIn = false
+        let slow = Task { await session.refresh() }
+        var held = authorization.heldSignInChecks.stream.makeAsyncIterator()
+        _ = await held.next()
+
+        // Meanwhile a newer refresh finds a subscription that plays.
+        authorization.canPlay = true
+        await session.refresh()
+        XCTAssertEqual(session.state, .authorized)
+
+        authorization.answerSignInCheck()
+        await slow.value
+        XCTAssertEqual(session.state, .authorized, "the older answer is dropped")
+    }
+
+    /// Music doesn't always announce a sign-in, so the sign-in screen looks again every few
+    /// seconds and goes away by itself once Music is signed in.
+    @MainActor
+    func testTheSignInScreenLooksAgainUntilMusicIsSignedIn() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.signedIn = false
+        let clock = ManualPlaybackClock()
+        let session = AppleMusicSession(authorization: authorization, clock: clock)
+        await session.refresh()
+        XCTAssertEqual(session.state, .signedOut)
+        let rechecking = Task { await session.recheckWhileSignedOut() }
+
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed)
+        clock.advance(by: AppleMusicSession.signedOutRecheckInterval)
+        let armedAgain = await clock.waitForSleepers(1)
+        XCTAssertTrue(armedAgain, "still signed out, so it looks again")
+        XCTAssertEqual(session.state, .signedOut)
+
+        authorization.signedIn = true
+        clock.advance(by: AppleMusicSession.signedOutRecheckInterval)
+        await rechecking.value
+        XCTAssertEqual(session.state, .authorized)
+        XCTAssertEqual(authorization.signInChecks, 3)
+        XCTAssertEqual(clock.sleeperCount, 0, "signed in, it stops looking")
+    }
+
+    /// Access taken away while a slow sign-in check still waits: the older check's grace period
+    /// must not put the library back on screen.
+    @MainActor
+    func testANewerRefreshCancelsTheOlderGracePeriod() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.holdsSignInCheck = true
+        let clock = ManualPlaybackClock()
+        let session = AppleMusicSession(authorization: authorization, clock: clock)
+        let slow = Task { await session.refresh() }
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed, "the grace period runs")
+
+        authorization.status = .denied
+        await session.refresh()
+        XCTAssertEqual(session.state, .denied)
+        XCTAssertEqual(clock.sleeperCount, 0, "the older grace period is cancelled")
+
+        clock.advance(by: AppleMusicSession.signInCheckGrace)
+        authorization.answerSignInCheck()
+        await slow.value
+        XCTAssertEqual(session.state, .denied)
+    }
+
+    /// Offline the sign-in can't be told: the library stays, as before.
+    @MainActor
+    func testAnUnknownSignInKeepsTheLibrary() async {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.signedIn = nil
+        let session = AppleMusicSession(authorization: authorization)
+        await session.refresh()
+        XCTAssertEqual(session.state, .authorized)
     }
 
     /// Under Apple Music the Spotify session is always signed out. The menu bar (Search, Back,
@@ -2001,13 +2186,321 @@ final class AppleMusicSelectionAndSessionTests: XCTestCase {
     }
 }
 
+/// #654, step 3: right after a sign-in Apple brings the library to this Mac over a minute or
+/// more, songs first, playlists and covers later. Until it has, the browser shows it loading and
+/// reads it again, never "No playlists" or "no liked songs" for a library that has them.
+final class AppleMusicLibraryArrivalTests: XCTestCase {
+    /// Runs the next look once it is due, and waits until it is done.
+    @MainActor
+    private func nextLook(_ viewModel: PlaylistBrowserViewModel, _ clock: ManualPlaybackClock, file: StaticString = #filePath, line: UInt = #line) async {
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed, "a look is due", file: file, line: line)
+        let look = viewModel.libraryArrivalTask
+        clock.advance(by: PlaylistBrowserViewModel.libraryArrivalInterval)
+        await look?.value
+    }
+
+    @MainActor
+    private func browser(_ source: MockAppleMusicSource, clock: ManualPlaybackClock) -> PlaylistBrowserViewModel {
+        PlaylistBrowserViewModel(
+            api: AppleMusicBrowsingProvider(source: source),
+            cache: MockBrowsingCache(),
+            libraryArrivalClock: clock
+        )
+    }
+
+    /// The exact path from the report: Liked Songs already has its songs, the playlists are in
+    /// iCloud but not on this Mac yet, and come a while later.
+    @MainActor
+    func testPlaylistsThatArriveLateShowLoadingThenFillIn() async throws {
+        let source = MockAppleMusicSource()
+        source.librarySongCount = 3
+        source.cloudLibraryParts = [.playlists, .songs]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+
+        await viewModel.refreshPlaylists()
+        XCTAssertEqual(viewModel.playlistState, .loading, "not \"No playlists\" while they're on their way")
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed, "it looks again")
+
+        // Still on their way at the next look: still loading, and it looks once more.
+        clock.advance(by: PlaylistBrowserViewModel.libraryArrivalInterval)
+        await waitUntil("looked again", changes: source.changes) {
+            source.calls.filter { $0.hasPrefix("libraryPlaylists") }.count >= 2
+        }
+        let armedAgain = await clock.waitForSleepers(1)
+        XCTAssertTrue(armedAgain)
+        XCTAssertEqual(viewModel.playlistState, .loading)
+
+        // Apple delivers them.
+        source.playlists = [
+            try AppleMusicFixtures.playlist(id: "p.1", name: "Road"),
+            try AppleMusicFixtures.playlist(id: "p.2", name: "Night"),
+        ]
+        await nextLook(viewModel, clock)
+        XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["p.1", "p.2"])
+
+        // One more look for covers still on their way; it finds none, so the looking ends.
+        XCTAssertNotNil(viewModel.libraryArrivalTask, "covers can come after the playlists")
+        await nextLook(viewModel, clock)
+        XCTAssertNil(viewModel.libraryArrivalTask, "nothing left to wait for")
+        XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["p.1", "p.2"])
+    }
+
+    /// Liked Songs read empty while the songs are still coming: loading, then the songs.
+    @MainActor
+    func testLikedSongsThatArriveLateShowLoadingThenFillIn() async throws {
+        let source = MockAppleMusicSource()
+        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Road")]
+        source.cloudLibraryParts = [.playlists, .songs]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+        await viewModel.refreshPlaylists()
+
+        await viewModel.selectSidebar(.likedSongs)
+        await waitUntil("Liked Songs is loading", changes: viewModel.$detailState) { viewModel.detailState == .loading }
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed, "it looks again")
+
+        source.librarySongCount = 2
+        clock.advance(by: PlaylistBrowserViewModel.libraryArrivalInterval)
+        await waitUntil("the songs show", changes: viewModel.$detailState) {
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count == 2
+        }
+    }
+
+    /// The report's screen: Liked Songs with its songs on screen while the playlists are still
+    /// on their way. Looking for the playlists leaves the songs alone, never a spinner in their
+    /// place; once the playlists are there, Liked Songs is read once more, quietly, for covers.
+    @MainActor
+    func testLikedSongsOnScreenStayWhileThePlaylistsArrive() async throws {
+        let source = MockAppleMusicSource()
+        source.librarySongCount = 3
+        source.cloudLibraryParts = [.playlists, .songs]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+        await viewModel.refreshPlaylists()
+        await viewModel.selectSidebar(.likedSongs)
+        await waitUntil("Liked Songs shows its songs", changes: viewModel.$detailState) {
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count == 3
+        }
+        func likedSongsReads() -> Int { source.calls.filter { $0.hasPrefix("librarySongs(") && $0.hasSuffix(",0)") }.count }
+        let readsBefore = likedSongsReads()
+        var shownStates: [BrowsingLoadState<BrowsingDetailContent>] = []
+        let watch = viewModel.$detailState.sink { shownStates.append($0) }
+        defer { watch.cancel() }
+
+        // A look while the playlists are still missing.
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed)
+        clock.advance(by: PlaylistBrowserViewModel.libraryArrivalInterval)
+        await waitUntil("looked again", changes: source.changes) {
+            source.calls.filter { $0.hasPrefix("libraryPlaylists") }.count >= 2
+        }
+        let armedAgain = await clock.waitForSleepers(1)
+        XCTAssertTrue(armedAgain)
+        XCTAssertEqual(likedSongsReads(), readsBefore, "the songs on screen are not read again for the playlists")
+
+        // The playlists arrive: Liked Songs is read once more, quietly, for its covers.
+        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Road")]
+        await nextLook(viewModel, clock)
+        XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["p.1"])
+        XCTAssertEqual(likedSongsReads(), readsBefore + 1)
+
+        // The look after finds no new covers, and the looking ends.
+        await nextLook(viewModel, clock)
+        XCTAssertNil(viewModel.libraryArrivalTask, "nothing left to wait for")
+        XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 3)
+        XCTAssertFalse(shownStates.contains(.loading), "never a spinner in place of the songs: \(shownStates)")
+    }
+
+    /// #654, step 3: the songs were there with blank covers, and the covers came about a minute
+    /// later. Looks go on, quietly, while each finds more covers, and end once one finds none.
+    @MainActor
+    func testCoversThatArriveAfterTheSongsFillIn() async throws {
+        let source = MockAppleMusicSource()
+        source.savedSongs = try (0..<3).map { try AppleMusicFixtures.song(id: "i.\($0)", title: "Song \($0)", withArtwork: false) }
+        source.cloudLibraryParts = [.playlists, .songs]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+        await viewModel.refreshPlaylists()
+        await viewModel.selectSidebar(.likedSongs)
+        await waitUntil("Liked Songs shows its songs", changes: viewModel.$detailState) {
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count == 3
+        }
+        func covers() -> Int { PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).filter { $0.artworkURL != nil }.count }
+        XCTAssertEqual(covers(), 0)
+
+        // The playlists come, the covers not yet.
+        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Road")]
+        await nextLook(viewModel, clock)
+        XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["p.1"])
+        XCTAssertEqual(covers(), 0)
+
+        // The covers come: the next look shows them, and looks once more.
+        source.savedSongs = try (0..<3).map { try AppleMusicFixtures.song(id: "i.\($0)", title: "Song \($0)") }
+        XCTAssertNotNil(viewModel.libraryArrivalTask)
+        await nextLook(viewModel, clock)
+        XCTAssertEqual(covers(), 3)
+        XCTAssertNotNil(viewModel.libraryArrivalTask, "more covers came, so it looks once more")
+
+        // Nothing new at that look: the looking ends.
+        await nextLook(viewModel, clock)
+        XCTAssertNil(viewModel.libraryArrivalTask)
+        XCTAssertEqual(covers(), 3)
+    }
+
+    /// Nothing selected yet while the playlists are on their way: Home shows meanwhile, as it
+    /// did for an empty library, instead of a blank page.
+    @MainActor
+    func testHomeShowsWhileThePlaylistsArrive() async {
+        let source = MockAppleMusicSource()
+        source.cloudLibraryParts = [.playlists]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+
+        await viewModel.refreshPlaylists()
+        XCTAssertEqual(viewModel.playlistState, .loading)
+        XCTAssertEqual(viewModel.sidebarSelection, .home)
+    }
+
+    /// The whole path from #654, with the window's glue in between: Wax opens while Music is
+    /// signed out, the user signs in with Wax open, Liked Songs is there but the playlists come
+    /// later, then the user signs out again and the window forgets the account.
+    @MainActor
+    func testTheWholePathFromTheReport() async throws {
+        let authorization = MockAppleMusicAuthorization(status: .authorized, canPlay: false)
+        authorization.signedIn = false
+        let session = AppleMusicSession(authorization: authorization, clock: ManualPlaybackClock())
+        await session.refresh()
+        XCTAssertEqual(session.state, .signedOut)
+
+        let source = MockAppleMusicSource()
+        source.librarySongCount = 3
+        source.cloudLibraryParts = [.playlists, .songs]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+        let following = Task { await session.followAccountChanges() }
+        defer { following.cancel() }
+
+        // Signing in to Music while Wax is open.
+        var shown = session.state
+        authorization.signedIn = true
+        authorization.announceAccountChange()
+        await waitUntil("the sign-in is picked up", changes: session.$state) { session.state == .authorized }
+        XCTAssertEqual(AppleMusicBrowserRoot.accessTransition(from: shown, to: session.state), .granted)
+        await viewModel.loadIfNeeded()
+        XCTAssertEqual(viewModel.playlistState, .loading, "not \"No playlists\" while they arrive")
+
+        // The playlists arrive.
+        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Road")]
+        await nextLook(viewModel, clock)
+        XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["p.1"])
+
+        // Signing out again: the window forgets the account, the pending look included.
+        XCTAssertNotNil(viewModel.libraryArrivalTask)
+        shown = session.state
+        authorization.signedIn = false
+        authorization.announceAccountChange()
+        await waitUntil("the sign-out is picked up", changes: session.$state) { session.state == .signedOut }
+        XCTAssertEqual(AppleMusicBrowserRoot.accessTransition(from: shown, to: session.state), .lost)
+        viewModel.forgetAccount()
+        XCTAssertFalse(viewModel.hasLoaded, "the next account is read afresh")
+        XCTAssertNil(viewModel.libraryArrivalTask)
+    }
+
+    /// A library that really has no playlists says so at once, without waiting.
+    @MainActor
+    func testAnEmptyLibrarySaysSoAtOnce() async {
+        let source = MockAppleMusicSource()
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+
+        await viewModel.refreshPlaylists()
+        guard case .empty = viewModel.playlistState else {
+            return XCTFail("No playlists, got \(viewModel.playlistState)")
+        }
+        XCTAssertNil(viewModel.libraryArrivalTask)
+        XCTAssertEqual(clock.sleeperCount, 0)
+    }
+
+    /// Looking again is bounded: a library that never arrives ends as empty, not loading forever.
+    @MainActor
+    func testWaitingForTheLibraryEnds() async {
+        let source = MockAppleMusicSource()
+        source.cloudLibraryParts = [.playlists]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+        viewModel.libraryArrivalReads = PlaylistBrowserViewModel.maxLibraryArrivalReads
+
+        await viewModel.refreshPlaylists()
+        guard case .empty = viewModel.playlistState else {
+            return XCTFail("No playlists, got \(viewModel.playlistState)")
+        }
+        XCTAssertNil(viewModel.libraryArrivalTask)
+    }
+
+    /// Signing out while a look is already reading: that look stops, and sets up no further
+    /// looks for the account that left.
+    @MainActor
+    func testSigningOutDuringALookStartsNoMoreLooks() async {
+        let source = MockAppleMusicSource()
+        source.cloudLibraryParts = [.playlists]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+        await viewModel.refreshPlaylists()
+        XCTAssertEqual(viewModel.playlistState, .loading)
+
+        source.holdsCloudCheck = true
+        let armed = await clock.waitForSleepers(1)
+        XCTAssertTrue(armed)
+        let look = viewModel.libraryArrivalTask
+        clock.advance(by: PlaylistBrowserViewModel.libraryArrivalInterval)
+        var held = source.heldCloudChecks.stream.makeAsyncIterator()
+        _ = await held.next()
+
+        viewModel.forgetAccount()
+        source.answerCloudCheck()
+        await look?.value
+        XCTAssertNil(viewModel.libraryArrivalTask)
+        XCTAssertEqual(clock.sleeperCount, 0, "no look for the account that left")
+    }
+
+    /// Signing out drops the pending look, so it can't fill the next account's browser.
+    @MainActor
+    func testSigningOutStopsWaiting() async {
+        let source = MockAppleMusicSource()
+        source.cloudLibraryParts = [.playlists]
+        let clock = ManualPlaybackClock()
+        let viewModel = browser(source, clock: clock)
+        await viewModel.refreshPlaylists()
+        XCTAssertNotNil(viewModel.libraryArrivalTask)
+
+        viewModel.clearForSignOut()
+        XCTAssertNil(viewModel.libraryArrivalTask)
+        XCTAssertEqual(viewModel.libraryArrivalReads, 0)
+    }
+
+    func testTheCloudLibraryCheckReadsOneItem() throws {
+        XCTAssertEqual(MusicKitContentSource.cloudLibraryProbePath(.playlists), "/v1/me/library/playlists?limit=1")
+        XCTAssertEqual(MusicKitContentSource.cloudLibraryProbePath(.songs), "/v1/me/library/songs?limit=1")
+        XCTAssertTrue(try MusicKitContentSource.cloudLibraryPageHasItems(Data(#"{"data":[{"id":"p.1","type":"library-playlists"}]}"#.utf8)))
+        XCTAssertFalse(try MusicKitContentSource.cloudLibraryPageHasItems(Data(#"{"data":[]}"#.utf8)))
+    }
+}
+
 // MARK: - Test doubles
 
 private final class MockAppleMusicAuthorization: AppleMusicAuthorizing, @unchecked Sendable {
-    private var status: MusicAuthorization.Status
+    var status: MusicAuthorization.Status
     private let afterRequest: MusicAuthorization.Status
-    private let canPlay: Bool?
+    var canPlay: Bool?
+    /// What MusicKit says about the account signed in to Music; `nil` when it can't tell.
+    var signedIn: Bool? = true
     private(set) var requestCount = 0
+    private(set) var signInChecks = 0
+    private let changes = AsyncStream<Void>.makeStream()
 
     init(status: MusicAuthorization.Status, afterRequest: MusicAuthorization.Status? = nil, canPlay: Bool? = nil) {
         self.status = status
@@ -2024,6 +2517,29 @@ private final class MockAppleMusicAuthorization: AppleMusicAuthorizing, @uncheck
     }
 
     func canPlayCatalogContent() async -> Bool? { canPlay }
+
+    /// Holds the sign-in check until `answerSignInCheck()`, like a slow network.
+    var holdsSignInCheck = false
+    private let signInAnswers = AsyncStream<Void>.makeStream()
+
+    /// Yields as each held sign-in check starts waiting.
+    let heldSignInChecks = AsyncStream<Void>.makeStream()
+
+    func isSignedInToMusic() async -> Bool? {
+        signInChecks += 1
+        if holdsSignInCheck {
+            heldSignInChecks.continuation.yield()
+            for await _ in signInAnswers.stream { break }
+        }
+        return signedIn
+    }
+
+    func answerSignInCheck() { signInAnswers.continuation.yield() }
+
+    func accountChanges() -> AsyncStream<Void> { changes.stream }
+
+    /// What MusicKit's subscription updates do when the Music app signs in or out.
+    func announceAccountChange() { changes.continuation.yield() }
 }
 
 private final class TrackCountTestClock: @unchecked Sendable {
@@ -2199,6 +2715,26 @@ private final class MockAppleMusicSource: AppleMusicContentSource, @unchecked Se
         guard let countryCode else { throw URLError(.userAuthenticationRequired) }
         return countryCode
     }
+
+    /// What the iCloud Music Library on Apple's servers holds, by part.
+    var cloudLibraryParts: Set<MusicLibraryPart> = []
+
+    /// Holds the iCloud check until `answerCloudCheck()`, and yields on `heldCloudChecks` as it
+    /// starts waiting.
+    var holdsCloudCheck = false
+    let heldCloudChecks = AsyncStream<Void>.makeStream()
+    private let cloudAnswers = AsyncStream<Void>.makeStream()
+
+    func cloudLibraryHasItems(_ part: MusicLibraryPart) async throws -> Bool {
+        record("cloudLibraryHasItems(\(part))")
+        if holdsCloudCheck {
+            heldCloudChecks.continuation.yield()
+            for await _ in cloudAnswers.stream { break }
+        }
+        return cloudLibraryParts.contains(part)
+    }
+
+    func answerCloudCheck() { cloudAnswers.continuation.yield() }
 
     /// The catalog's ratings, `true` for explicit, by catalog song ID.
     var catalogRatings: [String: Bool] = [:]

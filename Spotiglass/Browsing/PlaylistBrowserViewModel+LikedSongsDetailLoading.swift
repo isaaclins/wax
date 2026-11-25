@@ -105,8 +105,8 @@ extension PlaylistBrowserViewModel {
     private func setLikedSongsDetailState(from tracks: [MusicPlaylistTrackItem], session: Int) async -> Bool {
         guard session == detailSession else { return false }
         if tracks.isEmpty {
-            detailState = .empty(LocalizedText(SpotiglassL10n.string("browser.empty.noLikedSongs")))
-            return true
+            await showNoLikedSongs(session: session)
+            return session == detailSession
         }
         let profile = try? await api.currentUserProfile()
         guard session == detailSession else { return false }
@@ -118,6 +118,19 @@ extension PlaylistBrowserViewModel {
         )
         await showPlaylistRows(PlaylistDetailViewModel(playlist: row, tracks: TrackRowViewModel.numberedPlaylistRows(tracks)), session: session)
         return session == detailSession
+    }
+
+    /// "No liked songs" only for a library that has none: while it is still arriving after a
+    /// sign-in, Liked Songs shows it loading and is read again (#654).
+    private func showNoLikedSongs(session: Int) async {
+        let arriving = await isStillArriving(.songs)
+        guard session == detailSession else { return }
+        if arriving {
+            detailState = .loading
+            waitForLibraryToArrive(.songs)
+        } else {
+            detailState = .empty(LocalizedText(SpotiglassL10n.string("browser.empty.noLikedSongs")))
+        }
     }
 
     private func firstLikedSongsArtwork(from tracks: [MusicPlaylistTrackItem]) -> URL? {
@@ -167,7 +180,7 @@ extension PlaylistBrowserViewModel {
                 artworkURL: firstLikedSongsArtwork(from: result.tracks)
             )
             if result.tracks.isEmpty {
-                detailState = .empty(LocalizedText(SpotiglassL10n.string("browser.empty.noLikedSongs")))
+                await showNoLikedSongs(session: session)
             } else {
                 await showPlaylistRows(
                     PlaylistDetailViewModel(playlist: row, tracks: TrackRowViewModel.numberedPlaylistRows(result.tracks)),
