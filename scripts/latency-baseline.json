@@ -40,10 +40,6 @@
     "settings.open": {
       "issue": 676,
       "measuredMs": 113
-    },
-    "sidebar.toggle": {
-      "issue": 672,
-      "measuredMs": 83
     }
   },
   "ci": {

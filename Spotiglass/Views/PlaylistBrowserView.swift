@@ -29,7 +29,10 @@ struct PlaylistBrowserView: View {
     /// When lyrics opens we snapshot here; when the playlist list remounts, `ScrollViewReader` scrolls to this id then clears it.
     @State var pendingPlaylistListScrollRestoreID: String?
     /// Drives only the **playlist** sidebar (leading column). Queue visibility is separate — see `PlaylistBrowserDetailWithQueueSplit` below.
-    @State var playlistColumnVisibility: NavigationSplitViewVisibility = .doubleColumn
+    /// Shown is `.all`, the value this two-column split view writes back by itself: setting
+    /// `.doubleColumn` made it write `.all` straight after, so the whole browser rendered twice
+    /// before the sidebar came back (#672).
+    @State var playlistColumnVisibility: NavigationSplitViewVisibility = .all
     /// Disconnecting clears the session and costs a full OAuth round trip to undo, and the
     /// control sits next to Refresh, so it asks first.
     @State var isConfirmingDisconnect = false
@@ -550,14 +553,17 @@ struct PlaylistBrowserView: View {
         // (its page has no header), so a hidden sidebar comes back for it (#478).
         .onChange(of: viewModel.pendingSidebarPlaylistNameEditID) { _, requestedID in
             if requestedID != nil, playlistColumnVisibility == .detailOnly {
-                playlistColumnVisibility = .doubleColumn
+                playlistColumnVisibility = .all
             }
         }
         .onChange(of: playlistColumnVisibility, initial: true) { _, newValue in
             viewModel.isSidebarShown = newValue != .detailOnly
         }
         .onChange(of: playlistColumnVisibility) { _, newValue in
-            commandPaletteManager.setSidebarVisible(newValue != .detailOnly)
+            // After the frame: the manager re-renders the whole window and the menu bar (#672).
+            MainRunLoop.afterThisFrame { [commandPaletteManager] in
+                commandPaletteManager.setSidebarVisible(newValue != .detailOnly)
+            }
             if newValue != .detailOnly {
                 // The sidebar is back (by hand or by widening), so nothing is held for the
                 // queue any more; a later hide by hand must not be undone by a widening (#413).

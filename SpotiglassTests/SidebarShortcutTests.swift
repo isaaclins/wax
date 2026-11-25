@@ -261,6 +261,8 @@ final class SidebarShortcutTests: XCTestCase {
         XCTAssertEqual(commands.sidebarItemTitle, SpotiglassL10n.string("menu.view.hideSidebar"))
         XCTAssertTrue(manager.handleKeyEvent(commandS))
         XCTAssertFalse(sidebarVisible)
+        // The title follows once the frame that moved the sidebar is out (#672).
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { manager.isSidebarVisible == false }))
         XCTAssertEqual(commands.sidebarItemTitle, SpotiglassL10n.string("menu.view.showSidebar"))
 
         // The palette lists it, and running it from there shows the sidebar again.
@@ -274,6 +276,7 @@ final class SidebarShortcutTests: XCTestCase {
         XCTAssertEqual(queue?.score(for: "sidebar"), 100, "the queue panel is not the sidebar")
         manager.execute(commandID: CommandPaletteCommandID.toggleSidebar)
         XCTAssertTrue(sidebarVisible)
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { manager.isSidebarVisible }))
         XCTAssertEqual(commands.sidebarItemTitle, SpotiglassL10n.string("menu.view.hideSidebar"))
     }
 

@@ -208,7 +208,12 @@ enum PlaylistBrowserCommandPaletteConfiguration {
             manager.setSidebarVisible(sidebarVisible.wrappedValue)
             manager.toggleSidebar = { [weak manager] in
                 sidebarVisible.wrappedValue.toggle()
-                manager?.setSidebarVisible(sidebarVisible.wrappedValue)
+                // The menu's Show/Hide Sidebar title follows once the sidebar has moved: a change
+                // of the manager re-renders the whole window and the menu bar, which held back
+                // the sidebar's first frame by another 20-30 ms (#672).
+                MainRunLoop.afterThisFrame { [weak manager] in
+                    manager?.setSidebarVisible(sidebarVisible.wrappedValue)
+                }
             }
         } else {
             manager.toggleSidebar = nil

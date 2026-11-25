@@ -105,7 +105,7 @@ extension PlaylistBrowserView {
             isSidebarHeldForQueue = true
         case .restore:
             isSidebarHeldForQueue = false
-            playlistColumnVisibility = .doubleColumn
+            playlistColumnVisibility = .all
         }
     }
 }
