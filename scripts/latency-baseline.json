@@ -5,10 +5,6 @@
       "issue": 674,
       "measuredMs": 123
     },
-    "page.back": {
-      "issue": 677,
-      "measuredMs": null
-    },
     "page.search": {
       "issue": 675,
       "measuredMs": 89
@@ -20,18 +16,6 @@
     "playback.previous": {
       "issue": 704,
       "measuredMs": 53
-    },
-    "playback.repeat": {
-      "issue": 677,
-      "measuredMs": null
-    },
-    "playback.seek": {
-      "issue": 677,
-      "measuredMs": null
-    },
-    "playback.shuffle": {
-      "issue": 677,
-      "measuredMs": null
     },
     "queue.toggle": {
       "issue": 673,

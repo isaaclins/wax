@@ -21,7 +21,11 @@ then runs its own probe
 ([`InteractionLatencyProbe`](../Spotiglass/Infrastructure/InteractionLatencyProbe.swift)): it
 presses each shortcut and clicks each control 8 times. Keys and clicks are real events posted to
 its own event queue, so they go through the same key monitors, menu shortcuts and hit testing as a
-press on the keyboard; the window server step before that is left out. A scroll goes straight to
+press on the keyboard; the window server step before that is left out. Keys are made the way the
+keyboard makes them, from a Core Graphics event on the key that types each character on the Mac's
+layout: SwiftUI's menu bar ignores a key made with `NSEvent.keyEvent` or with its characters set by
+hand (#677), and macOS moves a shortcut the layout can't type to another key (⌘[ is ⌘ö on a Swiss
+German keyboard), so Back is pressed with the key its menu item shows. A scroll goes straight to
 the list's scroll view, where a real one ends up. The clock starts when the first event goes out.
 
 A try ends at the first frame Core Animation commits after the state the screen draws from has
@@ -66,9 +70,9 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `playback.toggle.click` | Click the play/pause button | 36 | 38 | |
 | `playback.next` | ⇧⌘→ skips to the next song | 37 | 39 | fixed in #687 (was never) |
 | `playback.previous` | ⇧⌘← goes back a song | 38 | 39-53 | #704 (was never; shows at once since #687) |
-| `playback.seek` | ⌘→ jumps ahead in the song | never | never | #677 |
-| `playback.shuffle` | ⌥⌘S turns shuffle on or off | never | never | #677 |
-| `playback.repeat` | ⌥⌘R changes repeat | never | never | #677 |
+| `playback.seek` | ⌘→ jumps ahead in the song | 24 | 35 | |
+| `playback.shuffle` | ⌥⌘S turns shuffle on or off | 38 | 42 | |
+| `playback.repeat` | ⌥⌘R changes repeat | 41 | 44 | |
 | `palette.open` | ⌘K opens the command palette | 79 → 26 | 88 → 36 | #671 |
 | `palette.type` | Typing a letter in the palette | 71* → 41 | never → 44 | #671 |
 | `palette.close` | Esc closes the palette | 72 → 37 | 78 → 46 | #671 |
@@ -76,7 +80,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `queue.toggle` | ⌥⌘Q opens or closes the queue | 72 | 77 | #673 |
 | `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 114 | 123 | #674 |
 | `page.search` | ⌘F opens Search | 86 | 89 | #675 |
-| `page.back` | ⌘[ goes back a page | never | never | #677 |
+| `page.back` | ⌘[ goes back a page | 41 | 45 | |
 | `page.sidebarClick` | Click a playlist in the sidebar | 60 | 66 | #675 |
 | `playback.toggle.longList` | Space with the 1000-song playlist open | 36 | 37 | |
 | `list.scroll` | Scrolling a 1000-song playlist | 30 | 37 | |
@@ -93,9 +97,12 @@ mode's player never moves for a skip, so it lists more songs around the current 
 two, and a run of skips keeps finding the next one.
 Play/pause was measured again with the probe's fixes (the clock starts at the first input, and a
 try's timer no longer ends a later try): every press showed, and one try in 8 reached 43-52 ms.
-Seek, shuffle and repeat never show on the Mac mini. On CI's runner they showed in every try of
-one run (36, 106 and 128 ms) and in none of the next, so they have no CI time and #677 may be the
-probe's menu-bar path rather than Wax.
+Seek, shuffle, repeat and ⌘[ are from 2026-11-25 with #677, on a Mac mini under load 5. Before it
+they never showed: the probe's keys never reached SwiftUI's menu bar, and on the Mac mini's Swiss
+German keyboard ⌘[ is ⌘ö. Once they did, shuffle and repeat took 65 ms and ⌘[ 58 ms, because every
+change rebuilt the menu bar inside the frame that showed it and the next shortcut first brought
+the menu bar's items up to date. The menu bar now hears of a change once, right after that frame,
+and updates its items then. Under load 9 shuffle and repeat rose to 46-55 ms.
 
 ## The sound (Apple Music)
 
@@ -159,9 +166,9 @@ So 50 ms can't be reached for resume and skips with Apple Music. What Wax does i
 - **Apple Music's screens.** The probe runs on screenshot mode's Spotify stand-in, because CI has
   no Apple Music account. The views are the same for both services; the data behind them isn't.
 - **A sidebar click on CI's runner.** There, clicking a sidebar playlist never shows, while it
-  works on a Mac, so CI can't yet tell when it gets slower (#688). ⌘[ never shows there either,
-  as on a Mac. Next and previous have no CI time yet, since they only show since #687. Seek,
-  shuffle and repeat show in some runs and not others (#677).
+  works on a Mac, so CI can't yet tell when it gets slower (#688). Next and previous have no CI
+  time yet, since they only show since #687, and neither do seek, shuffle, repeat and ⌘[, which
+  only show since #677.
 - Drag and drop, context menus, the queue's own buttons, Settings changes, the service switcher,
   the scrubber and volume aren't in the list yet (#680). Add a `Step` to
   `InteractionLatencyProbe.steps` with what to press and how to tell it showed.
