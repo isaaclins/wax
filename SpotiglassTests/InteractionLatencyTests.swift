@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 @testable import Spotiglass
@@ -100,5 +101,48 @@ final class InteractionLatencyTests: XCTestCase {
         XCTAssertTrue(lines[1].hasPrefix("ok   playback.toggle.key"))
         XCTAssertTrue(lines[2].hasPrefix("SLOW palette.open"))
         XCTAssertTrue(lines[2].contains("1 never showed: not shown after 3 s (palette closed)"))
+    }
+
+    /// ⌥⌘S, ⌥⌘R, ⌘→ and ⌘[ live only in the menu bar, and SwiftUI's menu bar items ignore a key
+    /// made with `NSEvent.keyEvent`: in screenshot mode none of them ever did anything (#677). The
+    /// probe's keys are made as the keyboard's are, from a Core Graphics event, on the key that
+    /// types each character on this Mac's layout. `scripts/latency-test.sh` checks that the menu
+    /// bar answers them.
+    @MainActor
+    func testProbeKeysAreTheKeyboardsKeys() {
+        let keys: [InteractionLatencyProbe.Key] = [.s, .r, .k, .m, .q, .l, .f, .comma]
+        for key in keys {
+            let code = InteractionLatencyProbe.keyCode(for: key)
+            guard let down = InteractionLatencyProbe.keyEvent(code: code, [.command, .option], arrow: false, keyDown: true),
+                let up = InteractionLatencyProbe.keyEvent(code: code, [.command, .option], arrow: false, keyDown: false)
+            else { return XCTFail("no key event for \(key)") }
+            XCTAssertNotNil(down.cgEvent)
+            XCTAssertEqual(down.type, .keyDown)
+            XCTAssertEqual(up.type, .keyUp)
+            XCTAssertEqual(down.charactersIgnoringModifiers, key.characters, "\(key) is on another key on this layout")
+            XCTAssertEqual(down.modifierFlags.intersection([.command, .option, .shift, .control]), [.command, .option])
+        }
+
+        let right = InteractionLatencyProbe.keyEvent(
+            code: InteractionLatencyProbe.keyCode(for: .rightArrow), [.command], arrow: true, keyDown: true
+        )
+        XCTAssertEqual(right?.charactersIgnoringModifiers, InteractionLatencyProbe.Key.rightArrow.characters)
+        XCTAssertEqual(right?.modifierFlags.intersection([.command, .option, .shift, .control]), [.command])
+    }
+
+    /// The menu bar moves a shortcut whose character the layout can't type (Back's ⌘[ is ⌘ö on a
+    /// Swiss German keyboard), so the probe looks up the key for the character the item shows.
+    @MainActor
+    func testProbeFindsTheKeyThatTypesACharacter() {
+        for character in ["s", "r", "k", ","] {
+            guard let code = InteractionLatencyProbe.keyCode(typing: character) else {
+                return XCTFail("no key types \(character)")
+            }
+            XCTAssertEqual(
+                InteractionLatencyProbe.keyEvent(code: code, [], arrow: false, keyDown: true)?.charactersIgnoringModifiers,
+                character
+            )
+        }
+        XCTAssertNil(InteractionLatencyProbe.keyCode(typing: "\u{2603}"), "no key types a snowman")
     }
 }
