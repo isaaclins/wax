@@ -64,8 +64,8 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 |---|---|---|---|---|
 | `playback.toggle.key` | Space pauses or resumes | 38 | 40 | |
 | `playback.toggle.click` | Click the play/pause button | 36 | 38 | |
-| `playback.next` | ⇧⌘→ skips to the next song | 38 | 39 | fixed in #687 (was never) |
-| `playback.previous` | ⇧⌘← goes back a song | 39 | 49 | fixed in #687 (was never) |
+| `playback.next` | ⇧⌘→ skips to the next song | 37 | 39 | fixed in #687 (was never) |
+| `playback.previous` | ⇧⌘← goes back a song | 38 | 39-53 | #704 (was never; shows at once since #687) |
 | `playback.seek` | ⌘→ jumps ahead in the song | never | never | #677 |
 | `playback.shuffle` | ⌥⌘S turns shuffle on or off | never | never | #677 |
 | `playback.repeat` | ⌥⌘R changes repeat | never | never | #677 |

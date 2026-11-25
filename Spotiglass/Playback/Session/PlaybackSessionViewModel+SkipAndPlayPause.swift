@@ -688,7 +688,11 @@ extension PlaybackSessionViewModel {
         guard isCurrentSkipCommandDispatch(dispatch),
               ownsPlaybackHostGeneration(dispatch.hostGeneration),
               !Task.isCancelled
-        else { return false }
+        else {
+            // Never sent: the bar goes back to the song Spotify has, unless a newer skip owns it.
+            if isCurrentSkipCommandDispatch(dispatch) { revertSkipPreview() }
+            return false
+        }
         guard let commandDeviceID else {
             endSkipPreview()
             setConnectionState(.error(Self.playbackDeviceReconnectRequiredError()))

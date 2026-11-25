@@ -158,6 +158,36 @@ final class SkipPreviewTests: XCTestCase {
         XCTAssertEqual(fixture.session.sdkPreviousTracks, [])
     }
 
+    // The queue's Up next follows the bar: after a next it no longer starts with the song now
+    // shown, and after a previous it starts with the song the previous left.
+    func testUpNextFollowsTheSkipPreview() async {
+        let fixture = makeSession()
+        let spotifysList = ["c", "d", "e"].enumerated().map { index, id in
+            QueueItem.from(playback: Self.song(id), id: "api:\(index)")
+        }
+
+        await fixture.session.next()
+        XCTAssertEqual(
+            QueueViewModel.upcoming(spotifysList, followingSkipPreview: fixture.session.skipPreview).map(\.uri),
+            ["spotify:track:d", "spotify:track:e"]
+        )
+
+        let back = makeSession()
+        await back.session.previous()
+        XCTAssertEqual(
+            QueueViewModel.upcoming(spotifysList, followingSkipPreview: back.session.skipPreview).map(\.uri),
+            ["spotify:track:b", "spotify:track:c", "spotify:track:d", "spotify:track:e"]
+        )
+
+        // A song queued meanwhile leads Spotify's list: nothing is added in front of it twice.
+        let queued = [QueueItem.from(playback: Self.song("q"), id: "api:q")] + spotifysList
+        XCTAssertEqual(
+            QueueViewModel.upcoming(queued, followingSkipPreview: back.session.skipPreview).map(\.uri),
+            queued.map(\.uri)
+        )
+        XCTAssertEqual(QueueViewModel.upcoming(spotifysList, followingSkipPreview: nil), spotifysList)
+    }
+
     func testSpotifyGoingToAnotherSongWinsOverTheGuess() async {
         let fixture = makeSession()
         await fixture.session.next()
