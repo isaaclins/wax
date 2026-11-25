@@ -342,14 +342,17 @@ final class LyricsOverlayController: ObservableObject {
         navigateToAlbum = nil
     }
 
+    /// Every page change closes the lyrics, mostly while they are closed already. Setting the
+    /// same value again still re-rendered the window and rebuilt the menus, which made ⌘F to
+    /// Search the slowest page change (#675), so only a real change is published.
     func dismiss() {
-        isPresented = false
+        if isPresented { isPresented = false }
     }
 
     /// Opens the lyrics only when there is a song to show them for: the one in the player bar,
     /// whichever service is on screen (#486).
     func setPresented(_ presented: Bool) {
-        guard !presented || hasLyricsToShow else { return }
+        guard !presented || hasLyricsToShow, isPresented != presented else { return }
         isPresented = presented
     }
 

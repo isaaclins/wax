@@ -288,10 +288,12 @@ struct PlaylistBrowserView: View {
                     BrowserTransportBar(
                         playbackViewModel: playbackViewModel,
                         isLyricsPresented: isLyricsPresentedBinding,
+                        isLyricsShown: lyricsOverlay.isPresented,
                         openArtist: { target in
                             openArtistFromTapTarget(target)
                         }
                     )
+                    .equatable()
                 case let .unavailable(message):
                     PlaybackUnavailableBar(message: message)
                 }
@@ -676,10 +678,23 @@ struct PlayerBarClearance: ViewModifier {
 
 /// The player bar. It observes the player, so a play/pause re-renders the bar, not the browser
 /// around it (#422).
-private struct BrowserTransportBar: View {
+/// Equatable, so a page change doesn't build the bar again (#675): the browser runs its body
+/// on every page change, and the bar's closures are new each time, so SwiftUI took the bar for
+/// changed and measured its whole layout again before the new page could show. It follows the
+/// player through its own observation; from the browser it takes only whether the lyrics show.
+/// The binding and `openArtist` read and act on the live browser, so a kept copy works the same.
+private struct BrowserTransportBar: View, Equatable {
     @ObservedObject var playbackViewModel: PlaybackSessionViewModel
     let isLyricsPresented: Binding<Bool>
+    /// What `isLyricsPresented` reads now: the bar's lyrics button shows it.
+    let isLyricsShown: Bool
     let openArtist: (ArtistTapTarget) -> Void
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        MainActor.assumeIsolated {
+            lhs.playbackViewModel === rhs.playbackViewModel && lhs.isLyricsShown == rhs.isLyricsShown
+        }
+    }
 
     var body: some View {
         #if DEBUG

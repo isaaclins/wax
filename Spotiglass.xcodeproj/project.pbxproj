@@ -101,6 +101,7 @@
 		D40000000000000000000006 /* ArtistDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40000000000000000000016 /* ArtistDetailView.swift */; };
 		D40000000000000000000008 /* BrowserToolbarPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40000000000000000000018 /* BrowserToolbarPresentation.swift */; };
 		D40000000000000000000009 /* NavigationToolbarChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = D40000000000000000000019 /* NavigationToolbarChrome.swift */; };
+		9E4547F812BDD58FD9621E1F /* PageChangeRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35406AC7882550669DD4911F /* PageChangeRenderScopeTests.swift */; };
 		D4000000000000000000003A /* PlaylistBrowserViewModel+Navigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4000000000000000000002A /* PlaylistBrowserViewModel+Navigation.swift */; };
 		D4000000000000000000003D /* PlaylistBrowserViewModel+ErrorMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4000000000000000000002D /* PlaylistBrowserViewModel+ErrorMapping.swift */; };
 		D40000000000000000000071 /* PlaylistBrowserViewModel+PlaylistLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4000000000000000000002E /* PlaylistBrowserViewModel+PlaylistLibrary.swift */; };
@@ -619,6 +620,7 @@
 		D40000000000000000000016 /* ArtistDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtistDetailView.swift; sourceTree = "<group>"; };
 		D40000000000000000000018 /* BrowserToolbarPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserToolbarPresentation.swift; sourceTree = "<group>"; };
 		D40000000000000000000019 /* NavigationToolbarChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationToolbarChrome.swift; sourceTree = "<group>"; };
+		35406AC7882550669DD4911F /* PageChangeRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageChangeRenderScopeTests.swift; sourceTree = "<group>"; };
 		D4000000000000000000002A /* PlaylistBrowserViewModel+Navigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlaylistBrowserViewModel+Navigation.swift"; sourceTree = "<group>"; };
 		D4000000000000000000002D /* PlaylistBrowserViewModel+ErrorMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlaylistBrowserViewModel+ErrorMapping.swift"; sourceTree = "<group>"; };
 		D4000000000000000000002E /* PlaylistBrowserViewModel+PlaylistLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlaylistBrowserViewModel+PlaylistLibrary.swift"; sourceTree = "<group>"; };
@@ -1249,6 +1251,7 @@
 				86D387C17B543FD31C6C6E27 /* ServiceNeutralBrowsingTests.swift */,
 				D614C9B833214402B058244D /* SettingsLanguageSwitchTests.swift */,
 				TST00000000000000000800C1 /* MusicServiceStoreTests.swift */,
+				35406AC7882550669DD4911F /* PageChangeRenderScopeTests.swift */,
 				TST00000000000000000101B1 /* PlaylistBrowserLibraryEditsTests.swift */,
 				F54300000000000000000004 /* PlaylistTrackReorderTests.swift */,
 				F59600000000000000000002 /* PartialLibraryEditTests.swift */,
@@ -2147,6 +2150,7 @@
 				86370D0FBE489A0D0A054DD9 /* ServiceNeutralBrowsingTests.swift in Sources */,
 				515545A0C26A278485622323 /* SettingsLanguageSwitchTests.swift in Sources */,
 				TST00000000000000000800C0 /* MusicServiceStoreTests.swift in Sources */,
+				9E4547F812BDD58FD9621E1F /* PageChangeRenderScopeTests.swift in Sources */,
 				TST00000000000000000001B1 /* PlaylistBrowserLibraryEditsTests.swift in Sources */,
 				F54300000000000000000003 /* PlaylistTrackReorderTests.swift in Sources */,
 				F59600000000000000000001 /* PartialLibraryEditTests.swift in Sources */,

@@ -9,13 +9,9 @@
       "issue": 730,
       "measuredMs": 63
     },
-    "page.search": {
-      "issue": 675,
-      "measuredMs": 89
-    },
     "page.sidebarClick": {
       "issue": 675,
-      "measuredMs": 66
+      "measuredMs": 54
     },
     "playback.previous": {
       "issue": 704,

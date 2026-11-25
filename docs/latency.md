@@ -115,6 +115,13 @@ branch, three runs under load 3-7 gave the higher ones. Play/pause is at 45-47 m
 them to 40 ms checked, and so does seek: it passes, but its checked time reached 45-46 ms in two
 runs, too close to 50 for the list's 40 ms rule (#678).
 
+After #675 (same Mac, with other builds running beside it, so all four times are higher than the
+table's): ⌘F to Search went from 94 / 110 to 36 / 39 ms, a sidebar click from 82 / 88 to 51 / 54.
+A page change set some twenty of the palette's and the lyrics' values to what they already were,
+and each set re-rendered the window from its root and rebuilt the menus; the player bar was also
+built again on every page change. What's left of a sidebar click is SwiftUI's sidebar list: it
+updates the browser twice for one selection.
+
 ## The sound (Apple Music)
 
 Pause, resume and skipping should change what you hear within 50 ms too (#679). The interaction

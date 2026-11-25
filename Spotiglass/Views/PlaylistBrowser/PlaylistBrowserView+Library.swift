@@ -17,14 +17,19 @@ extension PlaylistBrowserView {
     /// the menu bar can enable and re-title its selection items (#132).
     func syncTrackSelectionMenuState() {
         let rows = viewModel.selectedTrackRows
-        commandPaletteManager.canEnqueueTrackSelection = Self.canEnqueueTrackSelection(
-            rows: rows,
-            hasPlaybackDevice: hasPlaybackDevice
-        )
-        commandPaletteManager.trackSelectionPinState = Self.trackSelectionPinState(
+        let canEnqueue = Self.canEnqueueTrackSelection(rows: rows, hasPlaybackDevice: hasPlaybackDevice)
+        let pinState = Self.trackSelectionPinState(
             for: rows.compactMap { $0.pinnedTrackItem() },
             isPinned: { pinnedStore.isPinned(id: $0) }
         )
+        // Runs on every page change: setting an unchanged value still re-renders the window and
+        // rebuilds the menus (#675).
+        if commandPaletteManager.canEnqueueTrackSelection != canEnqueue {
+            commandPaletteManager.canEnqueueTrackSelection = canEnqueue
+        }
+        if commandPaletteManager.trackSelectionPinState != pinState {
+            commandPaletteManager.trackSelectionPinState = pinState
+        }
     }
 
     /// Queueing needs both a row that can be played and somewhere to play it.
