@@ -233,7 +233,11 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     private func fillInLater(_ started: AppleMusicQueueStarts<RestorePoint>.Started) {
         fillInTask?.cancel()
         fillInTask = Task { [weak self] in
-            guard let fill = await self?.starts.fillIn(started) else { return }
+            let fill = await self?.starts.fillIn(started)
+            // Cancelled: a newer start or an Add to Queue took over, and owns `fillInTask`.
+            guard let self, !Task.isCancelled else { return }
+            fillInTask = nil
+            guard let fill else { return }
             SpotiglassLog.info(
                 .playback, "Apple Music queue started: the player holds \(fill.holds) of \(fill.asked) songs from the pressed one on"
             )
@@ -261,6 +265,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     func stop() {
         soundWatch.cancel()
         fillInTask?.cancel()
+        fillInTask = nil
         starts.stop()
         book = AppleMusicQueueBook()
         uriByEntryKey = [:]
@@ -352,6 +357,13 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     }
 
     func enqueue(uri: String, isCurrent: @escaping @MainActor () -> Bool) async throws {
+        // A song I add plays next: the last start's fill-in would put the album's missing songs
+        // ahead of it, so it stops checking (#736). Autoplay's adds go at the end and don't.
+        if let fillInTask {
+            fillInTask.cancel()
+            self.fillInTask = nil
+            SpotiglassLog.info(.playback, "Add to Queue before the started queue settled; not filling it in")
+        }
         try await add(uri: uri, atEnd: false, isCurrent: isCurrent)
     }
 
