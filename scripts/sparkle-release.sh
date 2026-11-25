@@ -209,7 +209,7 @@ validate_release_notes() {
   echo "==> Using release notes $RELEASE_NOTES"
 }
 
-SPARKLE_VERSION="${SPARKLE_VERSION:-2.7.1}"
+SPARKLE_VERSION="${SPARKLE_VERSION:-2.10.1}"
 SPARKLE_TARBALL="$ROOT/build/sparkle/Sparkle-${SPARKLE_VERSION}.tar.xz"
 GENERATE_APPCAST="${GENERATE_APPCAST:-}"
 
@@ -220,7 +220,7 @@ GENERATE_APPCAST="${GENERATE_APPCAST:-}"
 # runs until it matches. Bumping SPARKLE_VERSION means adding its checksum here.
 sparkle_tarball_sha256() {
   case "$1" in
-    2.7.1) echo "f7385c3e8c70c37e5928939e6246ac9070757b4b37a5cb558afa1b0d5ef189de" ;;
+    2.10.1) echo "1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27" ;;
     *) return 1 ;;
   esac
 }

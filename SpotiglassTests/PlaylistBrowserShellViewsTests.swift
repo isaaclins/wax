@@ -46,7 +46,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
     }
 
     func testPlaylistBrowserSidebarHosts() async throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let api = MockBrowsingAPI(
             playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Daily")])],
             trackResults: [:]
@@ -148,7 +147,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
     }
 
     func testPlaylistBrowserViewHostsShell() async throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let api = MockBrowsingAPI(
             playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Focus")])],
             trackResults: ["p1": [.success([PlaylistBrowsingTestFixtures.track(id: "t1")])]]
@@ -249,7 +247,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
     }
 
     func testPlaylistBrowserSidebarWithLibraryRowsHosts() throws {
-        try ViewTestHost.skipIfViewInspectorGeometryUnsupported()
         let browserVM = PlaylistBrowserViewModel(
             api: MockBrowsingAPI(playlistResults: [], trackResults: [:]),
             cache: MockBrowsingCache()

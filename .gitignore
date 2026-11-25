@@ -28,3 +28,6 @@ docs/sparkle-archives/
 # Session research scratch — not app content
 digital-agency-site-playbook.md
 __pycache__/
+
+# LLVM coverage output a test run can drop at the repo root
+*.profraw
