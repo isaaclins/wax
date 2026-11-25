@@ -229,11 +229,12 @@ final class LyricsTimingHoldView: NSView {
             guard event.window === window else { return nil }
             return .rightUp(event.locationInWindow)
         case .scrollWheel:
-            // Scrolling in another window stays that window's.
-            guard event.window === window else { return nil }
+            // Scrolling in another window stays that window's, and with the lyrics closed (they
+            // stay built, #674) scrolling belongs to the page: closing them ended any hold.
+            guard event.window === window, startsHolds else { return nil }
             return .scroll(deltaY: event.scrollingDeltaY, precise: event.hasPreciseScrollingDeltas)
         case .keyDown where event.keyCode == Self.escapeKeyCode:
-            return .escape
+            return startsHolds ? .escape : nil
         default:
             return nil
         }

@@ -564,6 +564,13 @@ final class LyricsTimingHoldTests: XCTestCase {
         XCTAssertNil(surface.holdEvent(for: down))
         XCTAssertTrue(surface.route(down) === down)
 
+        let escape = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: window.windowNumber, context: nil, characters: "\u{1b}",
+            charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: LyricsTimingHoldView.escapeKeyCode
+        ))
+        XCTAssertNil(surface.holdEvent(for: escape), "closed lyrics leave Esc to the page")
+
         surface.startsHolds = true
         XCTAssertNil(surface.route(down), "opened again, a right click starts a hold")
     }
