@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.68] - 2026-11-25
+
+### Fixed
+
+- Removing a song from a long Apple Music playlist now removes the copy you picked, and your edits stay correct while the rest of the list loads.
+
 ## [0.8.67] - 2026-11-25
 
 ### Fixed
