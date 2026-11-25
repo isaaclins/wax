@@ -103,9 +103,9 @@ probe's menu-bar path rather than Wax.
 - **Apple Music's screens.** The probe runs on screenshot mode's Spotify stand-in, because CI has
   no Apple Music account. The views are the same for both services; the data behind them isn't.
 - **A sidebar click on CI's runner.** There, clicking a sidebar playlist never shows, while it
-  works on a Mac, so CI can't yet tell when it gets slower (#688). ⌘[ never shows
-  there either, as on a Mac, next and previous have no CI time yet (#687 made them show), and seek, shuffle and repeat show in some runs and not others (#687,
-  #677).
+  works on a Mac, so CI can't yet tell when it gets slower (#688). ⌘[ never shows there either,
+  as on a Mac. Next and previous have no CI time yet, since they only show since #687. Seek,
+  shuffle and repeat show in some runs and not others (#677).
 - Drag and drop, context menus, the queue's own buttons, Settings changes, the service switcher,
   the scrubber and volume aren't in the list yet (#680). Add a `Step` to
   `InteractionLatencyProbe.steps` with what to press and how to tell it showed.

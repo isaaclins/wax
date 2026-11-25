@@ -25,11 +25,17 @@ extension PlaybackSessionViewModel {
         let stateBefore: PlaybackConnectionState
         /// Spotify's latest report held back, shown when the preview ends without an answer.
         var heldReport: MusicPlaybackEventEnvelope?
+        /// A previous pressed a few seconds into a song may restart that song instead, as
+        /// Spotify's own app does: the song and where it was when the press went out.
+        let restartable: (uri: String, positionMilliseconds: Int)?
     }
 
     /// How long the bar shows a skipped-to song Spotify hasn't reported. After that, Spotify's
     /// own latest report is what's shown.
     static let skipPreviewTimeout: Duration = .seconds(5)
+
+    /// How far into a song a previous may restart it rather than go back a song.
+    static let previousMayRestartAfterMilliseconds = 3_000
 
     /// Shows the song a skip goes to, from the songs Spotify's page listed around the current
     /// one. Only for Spotify's in-app player, whose reports confirm it. Nothing changes when the
@@ -53,6 +59,14 @@ extension PlaybackSessionViewModel {
             upcoming.insert(shown, at: 0)
         }
         guard let targetURI = target.uri, targetURI != shownURI else { return }
+        // Only the first skip: later ones leave a song Spotify hasn't reported yet.
+        var restartable = preview?.restartable
+        if preview == nil, kind == .previous {
+            let position = progressAnchor?.interpolatedPositionMs(at: Date()) ?? shown.positionMilliseconds
+            if position > Self.previousMayRestartAfterMilliseconds {
+                restartable = (shownURI, position)
+            }
+        }
         var leftURIs = preview?.leftURIs ?? []
         leftURIs.insert(shownURI)
         leftURIs.remove(targetURI)
@@ -64,7 +78,8 @@ extension PlaybackSessionViewModel {
             previous: previous,
             reportedURI: preview?.reportedURI ?? shownURI,
             stateBefore: preview?.stateBefore ?? connectionState,
-            heldReport: preview?.heldReport
+            heldReport: preview?.heldReport,
+            restartable: restartable
         )
         let song = target.with(positionMilliseconds: 0)
         if case .paused = connectionState {
@@ -85,14 +100,16 @@ extension PlaybackSessionViewModel {
     }
 
     /// Whether a report from Spotify's page is held back for the song on the bar: it still names
-    /// a song the skips left. A report of the song shown, of any other song, or without a song
-    /// ends the preview and goes through.
+    /// a song the skips left. A report of the song shown, of any other song, of a song a previous
+    /// restarted, or without a song ends the preview and goes through.
     func holdsReportForSkipPreview(_ nowPlaying: PlaybackNowPlaying?, event: MusicPlaybackEvent) -> Bool {
         guard var preview = skipPreview else { return false }
         guard ownsPlaybackHostGeneration(preview.hostGeneration),
-              let uri = nowPlaying?.uri,
+              let nowPlaying,
+              let uri = nowPlaying.uri,
               uri != preview.shownURI,
-              preview.leftURIs.contains(uri) else {
+              preview.leftURIs.contains(uri),
+              !Self.reportsRestart(nowPlaying, of: preview.restartable) else {
             endSkipPreview()
             return false
         }
@@ -101,6 +118,19 @@ extension PlaybackSessionViewModel {
         skipPreview = preview
         SpotiglassLog.info(.playback, "Holding SDK state_changed uri=\(uri) while a skip to \(preview.shownURI) is on its way")
         return true
+    }
+
+    /// Spotify answered a previous by starting the song again: the report is back at the start,
+    /// well before where the song was when the press went out. A report sent before the press is
+    /// still near that point.
+    private static func reportsRestart(
+        _ nowPlaying: PlaybackNowPlaying,
+        of restartable: (uri: String, positionMilliseconds: Int)?
+    ) -> Bool {
+        guard let restartable, nowPlaying.uri == restartable.uri else { return false }
+        let position = nowPlaying.positionMilliseconds
+        return position < previousMayRestartAfterMilliseconds
+            && position + previousMayRestartAfterMilliseconds < restartable.positionMilliseconds
     }
 
     /// The skip didn't go out or failed: the bar goes back to what Spotify last reported.
