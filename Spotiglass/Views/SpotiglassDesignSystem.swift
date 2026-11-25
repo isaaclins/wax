@@ -291,6 +291,8 @@ enum SpotiglassDesign {
     /// source of spacing, card and window-size rules.
     static let settingsWindowWidth: CGFloat = 980
     static let settingsWindowMinHeight: CGFloat = 660
+    /// The Settings window's height, titlebar included: what the `Settings` scene gave it.
+    static let settingsWindowHeight: CGFloat = 748
     static let settingsSidebarMinWidth: CGFloat = 220
     static let settingsSidebarIdealWidth: CGFloat = 240
     static let settingsSidebarMaxWidth: CGFloat = 280

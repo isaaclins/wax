@@ -67,6 +67,7 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
                 .appendingPathComponent("settings.json", isDirectory: false)
             return SpotiglassMenuCommands(
                 sceneRegistry: registry,
+                mainWindowFront: registry.mainWindowFront,
                 keymapStore: keymap,
                 settingsStore: SpotiglassSettingsStore(fileURL: settingsURL),
                 serviceStore: MusicServiceStore(

@@ -200,6 +200,14 @@
     ]
   },
   {
+    "file": "Spotiglass/Settings/SpotiglassSettingsView.swift",
+    "kind": "var.instance",
+    "name": "columnVisibility",
+    "hints": [
+      "unused"
+    ]
+  },
+  {
     "file": "Spotiglass/Utilities/TransportPollScheduling.swift",
     "kind": "function.method.static",
     "name": "transportPollingKey(for:resolvedTrackURI:)",

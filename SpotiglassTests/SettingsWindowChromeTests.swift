@@ -33,6 +33,20 @@ final class SettingsWindowChromeTests: XCTestCase {
         AppKitTestSupport.closeWindowSafely(window)
     }
 
+    /// The Settings scene showed a Show/Hide Sidebar button over the sidebar; the app's own
+    /// window gets it from the toolbar (#676).
+    func testTheToolbarHasTheSystemSidebarButton() {
+        let window = makeWindow()
+        UnifiedTitlebarProbeView.applyUnifiedTitlebar(to: window)
+
+        let toolbar = window.toolbar
+        XCTAssertEqual(toolbar?.items.map(\.itemIdentifier), SettingsToolbarItems.itemIdentifiers)
+        XCTAssertEqual(toolbar?.displayMode, .iconOnly)
+        let button = toolbar?.items.first { $0.itemIdentifier == .toggleSidebar }
+        XCTAssertEqual(button?.action, #selector(NSSplitViewController.toggleSidebar(_:)))
+        AppKitTestSupport.closeWindowSafely(window)
+    }
+
     func testApplyUnifiedTitlebarIsIdempotent() {
         let window = makeWindow()
         UnifiedTitlebarProbeView.applyUnifiedTitlebar(to: window)

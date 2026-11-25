@@ -1,20 +1,18 @@
 import AppKit
 import SwiftUI
 
-/// Gives the `Settings` scene the same unified titlebar as the main window (#19).
+/// Gives the Settings window the same unified titlebar as the main window (#19).
 ///
 /// The main window is a `WindowGroup` whose content declares a real SwiftUI
 /// `.toolbar`, so AppKit installs an `NSToolbar` and lays the window out with
 /// the taller unified titlebar: its traffic lights sit at an 18 pt inset.
-/// SwiftUI's `Settings` scene never installs an `NSToolbar` (it renders
-/// declared toolbar content inline in the window body instead), so its window
-/// keeps the short standard titlebar with the lights at an 8 pt inset. Scene
-/// modifiers such as `.windowToolbarStyle(.unified)` cannot close that gap,
-/// because they only style a toolbar that is never created.
+/// SwiftUI installs no `NSToolbar` in the Settings window (it was a `Settings`
+/// scene, and is now a window the app owns, #676), so the window would keep the
+/// short standard titlebar with the lights at an 8 pt inset.
 ///
-/// Attaching an empty `NSToolbar` to the backing window restores the unified
-/// metrics, which is also what Apple's own System Settings window uses. This
-/// only calls public AppKit API on the window SwiftUI already created.
+/// Attaching an `NSToolbar` to the window restores the unified metrics, which is
+/// also what Apple's own System Settings window uses. Its only item is the system
+/// sidebar button (``SettingsToolbarItems``).
 struct SettingsWindowChrome: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { UnifiedTitlebarProbeView() }
 
@@ -45,8 +43,38 @@ final class UnifiedTitlebarProbeView: NSView {
         if window.toolbar == nil {
             let toolbar = NSToolbar(identifier: toolbarIdentifier)
             toolbar.allowsUserCustomization = false
+            toolbar.delegate = SettingsToolbarItems.shared
+            toolbar.displayMode = .iconOnly
             window.toolbar = toolbar
         }
         window.toolbarStyle = .unified
+    }
+}
+
+/// The system's Show/Hide Sidebar button at the sidebar's trailing edge, with the title after it over the
+/// pane: what the `Settings` scene drew in its titlebar. The app owns the Settings window now
+/// (#676), and SwiftUI adds no toolbar to a window it doesn't own. The button sends
+/// `toggleSidebar(_:)` up the responder chain, which the settings split view answers, as it
+/// does for ⌃⌘S.
+final class SettingsToolbarItems: NSObject, NSToolbarDelegate {
+    static let shared = SettingsToolbarItems()
+
+    static let itemIdentifiers: [NSToolbarItem.Identifier] = [.flexibleSpace, .toggleSidebar, .sidebarTrackingSeparator]
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        Self.itemIdentifiers
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        Self.itemIdentifiers
+    }
+
+    func toolbar(
+        _ toolbar: NSToolbar,
+        itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
+        willBeInsertedIntoToolbar flag: Bool
+    ) -> NSToolbarItem? {
+        // All system items: AppKit builds them from the identifier.
+        nil
     }
 }

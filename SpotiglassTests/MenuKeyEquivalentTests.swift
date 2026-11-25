@@ -25,6 +25,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
         registry.activate(scene)
         return SpotiglassMenuCommands(
             sceneRegistry: registry,
+            mainWindowFront: registry.mainWindowFront,
             keymapStore: manager.keymapStore,
             settingsStore: makeSettingsStore(),
             serviceStore: MusicServiceStore(
@@ -295,6 +296,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
         registry.activate(scene)
         let commands = SpotiglassMenuCommands(
             sceneRegistry: registry,
+            mainWindowFront: registry.mainWindowFront,
             keymapStore: manager.keymapStore,
             settingsStore: makeSettingsStore(),
             serviceStore: MusicServiceStore(
@@ -317,6 +319,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
         registry.activate(scene)
         let commands = SpotiglassMenuCommands(
             sceneRegistry: registry,
+            mainWindowFront: registry.mainWindowFront,
             keymapStore: manager.keymapStore,
             settingsStore: makeSettingsStore(),
             serviceStore: MusicServiceStore(
@@ -344,6 +347,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
         registry.activate(scene)
         let commands = SpotiglassMenuCommands(
             sceneRegistry: registry,
+            mainWindowFront: registry.mainWindowFront,
             keymapStore: manager.keymapStore,
             settingsStore: makeSettingsStore(),
             serviceStore: MusicServiceStore(
@@ -372,6 +376,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
         registry.activate(scene)
         let commands = SpotiglassMenuCommands(
             sceneRegistry: registry,
+            mainWindowFront: registry.mainWindowFront,
             keymapStore: manager.keymapStore,
             settingsStore: makeSettingsStore(),
             serviceStore: MusicServiceStore(

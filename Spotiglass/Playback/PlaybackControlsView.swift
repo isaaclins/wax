@@ -342,7 +342,7 @@ struct PlaybackControlsView: View {
     var otherService: MusicService? = nil
     /// The playback log, where the bar says how long a press took to show (#645).
     var trace: PlaybackTrace = .shared
-    @Environment(\.openSettings) private var openSettingsAction
+    @Environment(\.openWaxSettings) private var openSettingsAction
     @State private var isVolumePopoverPresented = false
 
     var body: some View {

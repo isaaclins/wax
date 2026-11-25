@@ -3,6 +3,8 @@ import SwiftUI
 @main
 struct SpotiglassApp: App {
     private let sparkleUpdater = SparkleUpdaterController()
+    /// Settings lives in a window the app keeps, so ⌘, only has to bring it forward (#676).
+    private let settingsWindow = SettingsWindowController()
     /// Keeps the unit-test host in the background (#418); a normal launch is untouched.
     @NSApplicationDelegateAdaptor(SpotiglassApplicationDelegate.self) private var applicationDelegate
     @StateObject private var authViewModel: AuthViewModel
@@ -180,6 +182,35 @@ struct SpotiglassApp: App {
         }
     }
 
+    /// What the Settings window shows. Built once, the first time Settings opens.
+    private var settingsContent: some View {
+        SpotiglassSettingsView(
+            keymapStore: keymapStore,
+            settingsStore: settingsStore,
+            equalizerEngine: equalizerEngine,
+            onSignOut: {
+                // The account view starts AuthViewModel.signOut() after this
+                // synchronous preparation; RootView also clears account-bound
+                // stores when the auth state publishes its loss.
+                sceneRegistry.resetTransientState()
+            },
+            onHotkeyRecordingChange: { isRecording in
+                sceneRegistry.setHotkeyRecording(isRecording)
+            },
+            serviceStore: serviceStore,
+            appleMusicSession: appleMusicSession,
+            updater: sparkleUpdater.updater
+        )
+        .environmentObject(authViewModel)
+        .spotiglassLiveSettings(settingsStore)
+    }
+
+    private var openSettings: OpenWaxSettingsAction {
+        OpenWaxSettingsAction { [settingsWindow] in
+            settingsWindow.show { settingsContent }
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView(
@@ -196,6 +227,13 @@ struct SpotiglassApp: App {
                 .environmentObject(settingsStore)
                 .environmentObject(pinnedStore)
                 .environmentObject(playbackHosts.spotify)
+                .environment(\.openWaxSettings, openSettings)
+                // After the window is on screen, so it doesn't hold up the launch; once built,
+                // the first ⌘, only has to show Settings (#676).
+                .task {
+                    await Task.yield()
+                    settingsWindow.prepare { settingsContent }
+                }
                 .spotiglassLiveSettings(settingsStore)
                 .modifier(QueuePanelWindowMinSize())
         }
@@ -203,6 +241,13 @@ struct SpotiglassApp: App {
         // The unit-test host opens no main window (#418): tests that need a window make their own.
         .defaultLaunchBehavior(AppMetadata.isRunningUnitTests ? .suppressed : .automatic)
         .commands {
+            // The system's own Settings… item opens a `Settings` scene, which this app no longer has.
+            CommandGroup(replacing: .appSettings) {
+                Button(SpotiglassL10n.string("app.menu.settings", locale: settingsStore.appLocale)) {
+                    openSettings()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
             CommandGroup(after: .appInfo) {
                 CheckForUpdatesView(updater: sparkleUpdater.updater)
                 Button(SpotiglassL10n.string("app.menu.openPalette", locale: settingsStore.appLocale)) {
@@ -226,6 +271,7 @@ struct SpotiglassApp: App {
             if settingsStore.settings.appearance.language == .english {
                 SpotiglassMenuCommands(
                     sceneRegistry: sceneRegistry,
+                    mainWindowFront: sceneRegistry.mainWindowFront,
                     keymapStore: keymapStore,
                     settingsStore: settingsStore,
                     serviceStore: serviceStore,
@@ -235,6 +281,7 @@ struct SpotiglassApp: App {
             } else if settingsStore.settings.appearance.language == .spanish {
                 SpotiglassMenuCommands(
                     sceneRegistry: sceneRegistry,
+                    mainWindowFront: sceneRegistry.mainWindowFront,
                     keymapStore: keymapStore,
                     settingsStore: settingsStore,
                     serviceStore: serviceStore,
@@ -244,6 +291,7 @@ struct SpotiglassApp: App {
             } else {
                 SpotiglassMenuCommands(
                     sceneRegistry: sceneRegistry,
+                    mainWindowFront: sceneRegistry.mainWindowFront,
                     keymapStore: keymapStore,
                     settingsStore: settingsStore,
                     serviceStore: serviceStore,
@@ -270,28 +318,6 @@ struct SpotiglassApp: App {
         // by itself at launch.
         .restorationBehavior(.disabled)
         .defaultLaunchBehavior(.suppressed)
-
-        Settings {
-            SpotiglassSettingsView(
-                keymapStore: keymapStore,
-                settingsStore: settingsStore,
-                equalizerEngine: equalizerEngine,
-                onSignOut: {
-                    // The account view starts AuthViewModel.signOut() after this
-                    // synchronous preparation; RootView also clears account-bound
-                    // stores when the auth state publishes its loss.
-                    sceneRegistry.resetTransientState()
-                },
-                onHotkeyRecordingChange: { isRecording in
-                    sceneRegistry.setHotkeyRecording(isRecording)
-                },
-                serviceStore: serviceStore,
-                appleMusicSession: appleMusicSession,
-                updater: sparkleUpdater.updater
-            )
-            .environmentObject(authViewModel)
-            .spotiglassLiveSettings(settingsStore)
-        }
     }
 }
 

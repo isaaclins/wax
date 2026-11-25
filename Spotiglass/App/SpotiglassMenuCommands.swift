@@ -11,6 +11,8 @@ import SwiftUI
 @MainActor
 struct SpotiglassMenuCommands: Commands {
     @ObservedObject var sceneRegistry: SpotiglassSceneRegistry
+    /// The View menu's sidebar item follows which window is in front.
+    @ObservedObject var mainWindowFront: MainWindowFront
     @ObservedObject var keymapStore: CommandPaletteKeymapStore
     /// Commands are built outside the window content, so observe the settings
     /// store directly to rebuild the commands tree when the app language changes.
@@ -364,7 +366,7 @@ struct SpotiglassMenuCommands: Commands {
     /// With another window in front (Settings) the item is that window's, so its title can't
     /// name the browser's sidebar state, and it works signed out too, as the system item did.
     var sidebarItemTitle: String {
-        guard sceneRegistry.isMainWindowInFront else {
+        guard mainWindowFront.isInFront else {
             return SpotiglassL10n.string("palette.command.view.sidebar.toggle.title", locale: locale)
         }
         return (activeCommandPaletteManager?.isSidebarVisible ?? true)
@@ -380,7 +382,7 @@ struct SpotiglassMenuCommands: Commands {
     /// (#439); otherwise it is the window in front's own sidebar, Settings' included (#436).
     func isSidebarItemEnabled(keyWindow: NSWindow?) -> Bool {
         if LyricsPopOutWindow.isPopOut(keyWindow) { return isAvailable }
-        return isSignedIn || !sceneRegistry.isMainWindowInFront
+        return isSignedIn || !mainWindowFront.isInFront
     }
 
     private var queueItemTitle: String {
