@@ -163,7 +163,8 @@ enum QueueAutoplayRanking {
 /// queue's style: each new song that leaves fewer than that ahead adds one at the end. While a
 /// long list is still ahead it leaves the queue alone (#735: on macOS 27 each add to a long
 /// library playlist was followed by the player jumping to the next song). If the player still
-/// moves on right after its adds, it stops adding until it is turned off and on again. Songs
+/// moves on right after its adds, it stops adding until it is turned off and on again or
+/// something new is played. Songs
 /// only ever go at the end, so what the listener queued stays where it was, and turning it off
 /// leaves the queue as it is. Each service's playback host owns one
 /// (``forService(_:session:provider:)``).
@@ -180,7 +181,7 @@ final class QueueAutoplay: ObservableObject {
         /// Reading the queue or adding failed; the next song tries again.
         case failed
         /// The player moved to the next song right after Autoplay's adds again and again (#735),
-        /// so it stopped adding until it is turned off and on.
+        /// so it stopped adding until it is turned off and on or something new is played.
         case heldAfterJumps
     }
 

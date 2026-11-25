@@ -884,6 +884,21 @@ extension QueueAutoplayTests {
         XCTAssertEqual(ahead, 4, "the new short queue was filled")
     }
 
+    /// The names the playback log gives Wax's commands: a new queue or its play is something new,
+    /// the skips and stop keep the queue, and no command is none.
+    func testTheLoggedCommandNamesMapToANewPlayOrASkip() {
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "setQueue"), .newQueue)
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "play"), .newQueue)
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "skipToNext"), .skip)
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "skipToPrevious"), .skip)
+        XCTAssertEqual(QueueAutoplay.SongCommand(named: "stop"), .skip)
+        XCTAssertNil(QueueAutoplay.SongCommand(named: nil))
+        // Each name PlaybackTrace counts as moving to another song maps to one of the two.
+        for name in PlaybackTrace.songChangingCommands {
+            XCTAssertNotNil(QueueAutoplay.SongCommand(named: name), name)
+        }
+    }
+
     /// Skipping right after Autoplay added songs is the listener's own move, never a jump.
     func testSkippingRightAfterAnAddDoesntStopAutoplay() async throws {
         let clock = ManualClock()
