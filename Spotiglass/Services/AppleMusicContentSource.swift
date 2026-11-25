@@ -84,7 +84,8 @@ protocol AppleMusicContentSource: Sendable {
     func artistTopSongs(artistID: String) async throws -> [Song]
     func catalogSearch(term: String, limit: Int, offset: Int) async throws -> AppleMusicSearchItems
     /// The catalog's rating of each of these catalog songs, `true` for explicit (#518).
-    func catalogSongRatings(catalogIDs: [String]) async throws -> [String: Bool]
+    /// The catalog's rating and cover of each of these catalog songs (#518, #737).
+    func catalogSongReleases(catalogIDs: [String]) async throws -> [String: AppleMusicCatalogRelease]
     /// The catalog's rating of each of these catalog albums, `true` for explicit (#580).
     func catalogAlbumRatings(catalogIDs: [String]) async throws -> [String: Bool]
     func librarySearch(term: String, limit: Int) async throws -> AppleMusicSearchItems
@@ -351,16 +352,18 @@ struct MusicKitContentSource: AppleMusicContentSource {
         }
     }
 
-    func catalogSongRatings(catalogIDs: [String]) async throws -> [String: Bool] {
-        try await Self.catalogSongRatings(catalogIDs: catalogIDs)
+    func catalogSongReleases(catalogIDs: [String]) async throws -> [String: AppleMusicCatalogRelease] {
+        try await Self.catalogSongReleases(catalogIDs: catalogIDs)
     }
 
     /// Also the player's rating lookup, so its failure is logged too.
-    static func catalogSongRatings(catalogIDs: [String]) async throws -> [String: Bool] {
-        try await logged("catalog song ratings read (\(catalogIDs.count) songs)") { () async throws -> [String: Bool] in
+    static func catalogSongReleases(catalogIDs: [String]) async throws -> [String: AppleMusicCatalogRelease] {
+        try await logged("catalog song ratings read (\(catalogIDs.count) songs)") { () async throws -> [String: AppleMusicCatalogRelease] in
             let request = MusicCatalogResourceRequest<Song>(matching: \.id, memberOf: catalogIDs.map { MusicItemID($0) })
             return Dictionary(
-                try await request.response().items.map { ($0.id.rawValue, $0.contentRating == .explicit) },
+                try await request.response().items.map {
+                    ($0.id.rawValue, AppleMusicCatalogRelease(isExplicit: $0.contentRating == .explicit, artwork: $0.artwork))
+                },
                 uniquingKeysWith: { first, _ in first }
             )
         }

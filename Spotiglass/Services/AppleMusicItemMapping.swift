@@ -62,7 +62,14 @@ enum AppleMusicItemMapping {
             name: song.title,
             artists: artistNames(song.artistName),
             artistRefs: artistRefs(song.artists),
-            albumArtworkURL: artworkURL(song.artwork, size: ArtworkSize.row, pinKind: .track, itemID: song.id),
+            // A saved song's own cover is library artwork only MusicKit draws, which broke in
+            // long lists; its catalog release's cover is a plain download (#737).
+            albumArtworkURL: artworkURL(
+                AppleMusicContentRatings.shared.catalogArtwork(of: song) ?? song.artwork,
+                size: ArtworkSize.row,
+                pinKind: .track,
+                itemID: song.id
+            ),
             albumName: song.albumTitle,
             albumID: song.albums?.first?.id.rawValue,
             durationMilliseconds: milliseconds(song.duration),

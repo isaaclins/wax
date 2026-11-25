@@ -20,13 +20,15 @@ import MusicKit
 /// the library read didn't list the row) shows no label, as before, and the clean-only filter
 /// leaves it out: an unknown rating mustn't open up the restriction.
 ///
+/// The same lookup keeps the release's cover too (#737): see ``catalogArtwork(of:)``.
+///
 /// Bounded: past ``capacity`` the least recently used entries go first. Memory only. A failed
 /// lookup isn't kept, so the next read asks again.
 final class AppleMusicContentRatings: @unchecked Sendable {
     static let shared = AppleMusicContentRatings()
 
-    /// The catalog's ratings for these catalog song IDs, `true` for explicit.
-    typealias CatalogLookup = @Sendable (_ catalogIDs: [String]) async throws -> [String: Bool]
+    /// The catalog's answer for these catalog song IDs.
+    typealias CatalogLookup = @Sendable (_ catalogIDs: [String]) async throws -> [String: AppleMusicCatalogRelease]
     /// One page of the library's songs, as `AppleMusicContentSource.librarySongs` reads them.
     typealias LibraryPage = @Sendable (_ limit: Int, _ offset: Int) async throws -> [Song]
 
@@ -75,6 +77,8 @@ final class AppleMusicContentRatings: @unchecked Sendable {
     private var releasesBySongID: LRUDictionary<String, Release>
     private var librarySongsByPersistentID: LRUDictionary<String, LibrarySong>
     private var ratingsByCatalogID: LRUDictionary<String, CatalogRating>
+    /// The cover of each release looked up that has one.
+    private var artworkByCatalogID: LRUDictionary<String, Artwork>
     /// The lookup asking for each catalog ID now, so a read that comes along meanwhile waits for
     /// it instead of asking again.
     private var lookupsInFlight: [String: Task<Void, Never>] = [:]
@@ -100,6 +104,7 @@ final class AppleMusicContentRatings: @unchecked Sendable {
         releasesBySongID = LRUDictionary(capacity: self.capacity)
         librarySongsByPersistentID = LRUDictionary(capacity: self.capacity)
         ratingsByCatalogID = LRUDictionary(capacity: self.capacity)
+        artworkByCatalogID = LRUDictionary(capacity: self.capacity)
     }
 
     /// Forgets everything known (`SpotiglassTests` only: the shared instance outlives a test).
@@ -109,6 +114,7 @@ final class AppleMusicContentRatings: @unchecked Sendable {
             releasesBySongID = LRUDictionary(capacity: capacity)
             librarySongsByPersistentID = LRUDictionary(capacity: capacity)
             ratingsByCatalogID = LRUDictionary(capacity: capacity)
+            artworkByCatalogID = LRUDictionary(capacity: capacity)
             lookupsInFlight.removeAll()
             libraryRead = nil
             libraryWasReadInFull = false
@@ -128,27 +134,52 @@ final class AppleMusicContentRatings: @unchecked Sendable {
     func rating(of song: Song) -> Bool? {
         if let rating = song.contentRating { return rating == .explicit }
         let catalogID: String
-        switch release(of: song) {
-        case .none: return false
+        switch releaseID(of: song) {
+        case .noRelease: return false
+        case .unknown: return nil
         case let .catalog(id): catalogID = id
-        case let .librarySong(persistentID):
-            switch lock.withLock({ librarySongsByPersistentID.value(forKey: persistentID) }) {
-            case let .release(id)?: catalogID = id
-            // A library read found it names none: an upload.
-            case .noRelease?: return false
-            case .notListed?, nil: return nil
-            }
-        case .libraryRow:
-            switch lock.withLock({ librarySongsByPersistentID.value(forKey: song.id.rawValue) }) {
-            case let .release(id)?: catalogID = id
-            case .noRelease?: return false
-            case .notListed?, nil: return nil
-            }
         }
         switch lock.withLock({ ratingsByCatalogID.value(forKey: catalogID) }) {
         case .explicit?: return true
         case .clean?: return false
         case .unlisted?, nil: return nil
+        }
+    }
+
+    /// The cover of the catalog release a saved song names, once a lookup has found it; `nil`
+    /// for a catalog song, an upload, or a release not looked up yet.
+    ///
+    /// MusicKit gives a saved song library artwork (`musicKit://artwork/transient/...`) that only
+    /// its own view can draw, from the Music app's 1200 px copy of the cover. In a long list some
+    /// of those rows came out as a black and white diagonal tile instead of the cover, and every
+    /// row decoded a full size image for a 40 pt thumbnail (#737). The release's catalog cover is
+    /// the same image as a plain download Wax sizes, caches and logs itself.
+    func catalogArtwork(of song: Song) -> Artwork? {
+        guard case let .catalog(catalogID) = releaseID(of: song) else { return nil }
+        return lock.withLock { artworkByCatalogID.value(forKey: catalogID) }
+    }
+
+    private enum ReleaseID {
+        case catalog(String)
+        /// A catalog song, or a library song a library read found names none (an upload).
+        case noRelease
+        /// It names a release not known yet.
+        case unknown
+    }
+
+    private func releaseID(of song: Song) -> ReleaseID {
+        let persistentID: String
+        switch release(of: song) {
+        case .none: return .noRelease
+        case let .catalog(id): return .catalog(id)
+        case let .librarySong(id): persistentID = id
+        case .libraryRow: persistentID = song.id.rawValue
+        }
+        switch lock.withLock({ librarySongsByPersistentID.value(forKey: persistentID) }) {
+        case let .release(id)?: return .catalog(id)
+        // A library read found it names none: an upload.
+        case .noRelease?: return .noRelease
+        case .notListed?, nil: return .unknown
         }
     }
 
@@ -243,16 +274,20 @@ final class AppleMusicContentRatings: @unchecked Sendable {
     }
 
     private func store(_ batch: [String], lookup: CatalogLookup) async {
-        guard let ratings = try? await lookup(batch) else { return }
+        // try?: the source logs a failed lookup; nothing is kept, so the next read asks again.
+        guard let releases = try? await lookup(batch) else { return }
         lock.withLock {
             for id in batch {
-                let rating: CatalogRating = switch ratings[id] {
+                let rating: CatalogRating = switch releases[id]?.isExplicit {
                 case true?: .explicit
                 case false?: .clean
                 // Gone from this storefront: no label, as before, and not asked about again.
                 case nil: .unlisted
                 }
                 ratingsByCatalogID.setValue(rating, forKey: id)
+                if let artwork = releases[id]?.artwork {
+                    artworkByCatalogID.setValue(artwork, forKey: id)
+                }
             }
         }
     }
@@ -447,4 +482,11 @@ final class AppleMusicContentRatings: @unchecked Sendable {
             continuation?.resume()
         }
     }
+}
+
+/// What the catalog says about a song's release.
+struct AppleMusicCatalogRelease: Sendable {
+    var isExplicit: Bool
+    /// Its cover, a plain download (#737).
+    var artwork: Artwork?
 }

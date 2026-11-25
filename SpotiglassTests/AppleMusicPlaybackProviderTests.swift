@@ -667,7 +667,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         AppleMusicContentRatings.shared.resetSharedStateForTesting()
         let saved = try AppleMusicFixtures.song(id: "i.5180041", title: "Paper Lanterns", catalogID: "9518041")
         let clean = try AppleMusicFixtures.song(id: "i.5180042", title: "Low Tide", catalogID: "9518042")
-        await AppleMusicContentRatings.shared.resolve([saved, clean], lookup: { _ in ["9518041": true, "9518042": false] }, library: nil)
+        await AppleMusicContentRatings.shared.resolve([saved, clean], lookup: { _ in ["9518041": .init(isExplicit: true), "9518042": .init(isExplicit: false)] }, library: nil)
         let songs = [saved, clean].map { (AppleMusicItemMapping.track($0).uri, MusicPlayer.Queue.Entry($0)) }
 
         XCTAssertEqual(

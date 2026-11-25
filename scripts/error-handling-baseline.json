@@ -1032,11 +1032,6 @@
   {
     "file": "Spotiglass/Services/AppleMusicContentRatings.swift",
     "rule": "try-reason",
-    "code": "guard let ratings = try? await lookup(batch) else { return }"
-  },
-  {
-    "file": "Spotiglass/Services/AppleMusicContentRatings.swift",
-    "rule": "try-reason",
     "code": "guard let songs = try? await page(min(libraryPageSize, limit - offset), offset) else { return false }"
   },
   {

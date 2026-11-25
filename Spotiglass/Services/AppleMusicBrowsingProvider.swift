@@ -363,7 +363,7 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         let source = source
         await AppleMusicContentRatings.shared.resolve(
             songs,
-            lookup: source.catalogSongRatings,
+            lookup: source.catalogSongReleases,
             library: { try await source.librarySongs(limit: $0, offset: $1) },
             deadline: ratingsDeadline
         )

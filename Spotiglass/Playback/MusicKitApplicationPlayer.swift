@@ -764,7 +764,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         }
         await AppleMusicContentRatings.shared.resolve(
             songs,
-            lookup: { try await MusicKitContentSource.catalogSongRatings(catalogIDs: $0) },
+            lookup: { try await MusicKitContentSource.catalogSongReleases(catalogIDs: $0) },
             library: { try await MusicKitContentSource().librarySongs(limit: $0, offset: $1) }
         )
     }
