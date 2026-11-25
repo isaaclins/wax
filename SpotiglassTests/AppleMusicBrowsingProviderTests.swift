@@ -2964,6 +2964,44 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         XCTAssertEqual(source.ratingLookups.count, 1)
     }
 
+    /// A catalog slower than the list's wait used to leave those rows on MusicKit's library
+    /// artwork, the path that drew the tile, until the list was read again (#737). The row's cover
+    /// becomes the catalog cover as soon as the lookup answers, without another read; an upload
+    /// keeps its library cover.
+    func testASavedSongMappedBeforeItsReleaseLookupAnsweredShowsTheCatalogCoverOnceItDoes() async throws {
+        let source = MockAppleMusicSource()
+        let saved = try AppleMusicFixtures.song(id: "i.7370011", title: "Nota Loca", libraryArtwork: true, catalogID: "9737011")
+        source.savedSongs = [
+            saved,
+            try AppleMusicFixtures.song(id: "i.7370013", title: "Voice Memo Demo", libraryArtwork: true),
+        ]
+        source.catalogRatings = ["9737011": false]
+        source.catalogArtwork = ["9737011": try AppleMusicFixtures.catalogArtwork("9737011")]
+        let (held, release) = AsyncStream<Void>.makeStream()
+        source.ratingLookupHold = { for await _ in held {} }
+        var provider = AppleMusicBrowsingProvider(source: source)
+        provider.ratingsDeadline = {}
+
+        let result = try await provider.currentUserSavedTracks(limit: 50, maxPages: nil)
+        let covers = result.tracks.compactMap { item -> URL? in
+            guard case let .track(track) = item.content else { return nil }
+            return track.albumArtworkURL
+        }
+        XCTAssertEqual(covers.count, 2)
+        func requested() -> [String] {
+            covers.map { ArtworkRequest.url($0, points: TrackRowMetrics.artworkSize, scale: 2).absoluteString }
+        }
+        XCTAssertEqual(covers.map { $0.scheme?.lowercased() }, ["musickit", "musickit"], "mapped before the catalog answered")
+        XCTAssertEqual(requested(), covers.map(\.absoluteString), "nothing to swap in yet")
+
+        release.finish()
+        // Waits for the lookup still asking instead of asking again.
+        await AppleMusicContentRatings.shared.resolve([saved], lookup: source.catalogSongReleases, library: nil)
+
+        XCTAssertEqual(requested(), ["https://example.com/art/catalog-9737011/120x120bb.jpg", covers[1].absoluteString])
+        XCTAssertEqual(source.ratingLookups.count, 1)
+    }
+
     /// Library playlists and saved albums list their songs under the Music app's persistent ID
     /// alone: no rating and no catalog ID, as MusicKit gave every row of four real playlists. The
     /// same songs read from the library name both IDs, so one read of it gives each row its release.

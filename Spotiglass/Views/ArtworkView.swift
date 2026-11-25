@@ -347,7 +347,9 @@ private struct CachedArtworkImage: View {
     @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        if AppleMusicArtworkRegistry.needsMusicKit(url) {
+        // The request, not the mapped URL: a saved song's library cover becomes its catalog
+        // cover once that is known (#737).
+        if AppleMusicArtworkRegistry.needsMusicKit(requestURL) {
             // Apple Music library artwork: only MusicKit can draw it.
             // MusicKit draws nothing for artwork it can't load (e.g. songs that only live in the
             // cloud library), so the placeholder underneath shows through.
