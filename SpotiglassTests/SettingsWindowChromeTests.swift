@@ -75,14 +75,22 @@ final class SettingsWindowChromeTests: XCTestCase {
         AppKitTestSupport.closeWindowSafely(window)
     }
 
-    func testChromeHostsInSettingsWindowAndAppliesUnifiedTitlebar() throws {
+    /// Same race as above, through SwiftUI (#714): the probe queues its work on the main queue
+    /// once SwiftUI attaches it, which can be a later layout pass on a busy machine, and the
+    /// synchronous settle can't run main-queue blocks when the test runs inside one. So this
+    /// waits for the toolbar itself, suspending between passes so the main queue goes on.
+    func testChromeHostsInSettingsWindowAndAppliesUnifiedTitlebar() async throws {
         let controller = ViewTestHost.host(
             SettingsWindowChrome().frame(width: 0, height: 0),
             size: CGSize(width: 320, height: 240)
         )
-        AppKitTestSupport.settle()
-
         let window = try XCTUnwrap(controller.view.window)
+
+        let applied = await AppKitTestSupport.settle(until: {
+            window.toolbar?.identifier == UnifiedTitlebarProbeView.toolbarIdentifier
+        })
+
+        XCTAssertTrue(applied, "the probe never gave the hosting window its toolbar")
         XCTAssertEqual(window.toolbar?.identifier, UnifiedTitlebarProbeView.toolbarIdentifier)
         XCTAssertEqual(window.toolbarStyle, .unified)
     }
