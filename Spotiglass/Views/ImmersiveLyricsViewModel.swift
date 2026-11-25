@@ -185,14 +185,13 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             guard isCurrentLoad(generation) else { return }
             registerFailureBackoff(trackId: tid, failure: failure)
             phase = .failed(LocalizedText(failure.userFacingMessage))
-        } catch let urlError as URLError where urlError.code != .cancelled {
+        } catch let error where Self.isConnectionFailure(error) {
             guard isCurrentLoad(generation) else { return }
-            // Offline, timed out, DNS, connection lost: the connection, not the song (#599).
             // `LrcLibClient` logged the request; this is what the app does about it.
             let (count, wait) = registerNetworkBackoff(trackId: tid)
             SpotiglassLog.info(
                 .api,
-                "Lyrics failed (network, URLError \(urlError.code.rawValue)) \(count) time(s) for this song; showed the connection error, no new fetch for \(Int(wait.rounded())) s or until the network is back"
+                "Lyrics failed (network, \(SpotiglassLog.describe(error))) \(count) time(s) for this song; showed the connection error, no new fetch for \(Int(wait.rounded())) s or until the network is back"
             )
             trackWaitingForNetwork = track
             phase = .failed(LocalizedText(SpotiglassL10n.string("lyrics.error.network")))
@@ -204,6 +203,15 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             registerFailureBackoff(trackId: tid, failure: nil)
             phase = .failed(LocalizedText(SpotiglassL10n.string("lyrics.error.http")))
         }
+    }
+
+    /// The request never reached the lyrics service: offline, timed out, DNS, connection lost,
+    /// or the connection refused on this Mac (a firewall or sandbox fails the socket with a
+    /// POSIX error, not a `URLError`). The connection, not the song (#599).
+    static func isConnectionFailure(_ error: Error) -> Bool {
+        if let urlError = error as? URLError { return urlError.code != .cancelled }
+        let domain = (error as NSError).domain
+        return domain == NSPOSIXErrorDomain || domain == (kCFErrorDomainCFNetwork as String)
     }
 
     /// The network came back: connection waits end, and lyrics on screen that failed for

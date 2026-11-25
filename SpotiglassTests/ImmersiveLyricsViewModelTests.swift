@@ -528,6 +528,30 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         XCTAssertEqual(vm.phase, .ready(Self.syncedLyrics))
     }
 
+    /// What the app got with the lyrics service blocked for it alone (a firewall rule or
+    /// sandbox): the socket fails with EPERM, which reaches the app as a POSIX error, not a
+    /// `URLError`. That is the connection too, not 15 minutes on disk for the song.
+    func testConnectionRefusedOnThisMacIsAConnectionFailure() async throws {
+        let (disk, dir) = try temporaryDiskCache()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var fetchCount = 0
+        let vm = ImmersiveLyricsViewModel(fetchLyrics: { _ in
+            fetchCount += 1
+            if fetchCount == 1 { throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPERM)) }
+            return Self.syncedLyrics
+        }, diskCache: disk)
+        let track = sampleTrack(spotifyID: "blockedByFirewall")
+
+        await vm.load(track: track)
+        XCTAssertEqual(failedMessage(vm), SpotiglassL10n.string("lyrics.error.network"))
+        XCTAssertNil(disk.loadTrackBackoffMetadata(trackKey: "blockedByFirewall"), "A refused connection must not be saved.")
+        XCTAssertFalse(ImmersiveLyricsViewModel.isConnectionFailure(URLError(.cancelled)))
+        XCTAssertFalse(ImmersiveLyricsViewModel.isConnectionFailure(CancellationError()))
+
+        await vm.retry(track: track)
+        XCTAssertEqual(vm.phase, .ready(Self.syncedLyrics))
+    }
+
     func testOfflineFailureIsForgottenAfterARelaunch() async throws {
         let (disk, dir) = try temporaryDiskCache()
         defer { try? FileManager.default.removeItem(at: dir) }
