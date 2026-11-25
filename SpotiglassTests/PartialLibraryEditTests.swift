@@ -115,6 +115,64 @@ final class PartialLibraryEditTests: XCTestCase {
         XCTAssertNil(viewModel.savedTrackStates["t50"], "the song whose request failed is asked again")
     }
 
+    /// `DELETE /v1/me/tracks` in batches of 50: the first goes through, the second fails.
+    func testAnUnlikeThatFailsAfterTheFirstBatchMarksOnlyThoseUnliked() async {
+        let http = RoutedHTTPClient()
+        var deletes = 0
+        http.route = { request in
+            if request.httpMethod == "DELETE" {
+                deletes += 1
+                return deletes == 1 ? .data(Data(), statusCode: 200) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+            }
+            return .json("[]")
+        }
+        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: http)
+        let viewModel = PlaylistBrowserViewModel(api: client, cache: DisabledBrowsingCache())
+        let rows = TrackRowViewModel.numberedPlaylistRows((0..<51).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+        for index in 0..<51 { viewModel.savedTrackStates["t\(index)"] = true }
+
+        await viewModel.unfavoriteRows(rows)
+
+        XCTAssertEqual(deletes, 2)
+        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Removed 50 of 51 tracks from Liked Songs."), true, viewModel.trackMutationToast ?? "no note")
+        XCTAssertEqual(viewModel.savedTrackStates["t0"], false)
+        XCTAssertEqual(viewModel.savedTrackStates["t49"], false)
+        XCTAssertNil(viewModel.savedTrackStates["t50"], "the song whose request failed is asked again")
+    }
+
+    /// A new playlist with 101 songs: the first 100 go in, the second request answers 503.
+    func testAPlaylistCreatedWithSomeOfItsSongsSaysHowManyWentIn() async {
+        let http = RoutedHTTPClient()
+        var itemPosts = 0
+        http.route = { request in
+            switch request.url?.path {
+            case "/v1/me/playlists" where request.httpMethod == "POST":
+                return .json("""
+                {"id": "P", "name": "New Mix", "owner": {"id": "user-1", "display_name": "User"},
+                 "images": [], "items": {"total": 0}, "snapshot_id": "s1"}
+                """, statusCode: 201)
+            case "/v1/playlists/P/items" where request.httpMethod == "POST":
+                itemPosts += 1
+                return itemPosts == 1 ? .data(Data(), statusCode: 201) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+            default:
+                return .json(#"{"error":{"status":404,"message":"Not found"}}"#, statusCode: 404)
+            }
+        }
+        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: http)
+        let viewModel = PlaylistBrowserViewModel(api: client, cache: DisabledBrowsingCache())
+        viewModel.currentUserID = "user-1"
+        viewModel.playlistState = .loaded([])
+        let rows = TrackRowViewModel.numberedPlaylistRows((0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+
+        await viewModel.createPlaylistWithRows(name: "New Mix", rows: rows)
+
+        XCTAssertEqual(itemPosts, 2)
+        XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["P"])
+        XCTAssertEqual(viewModel.playlistsByID["P"]?.trackCount, 100)
+        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Created New Mix, but only 100 of 101 tracks could be added."), true,
+                       viewModel.trackMutationToast ?? "no note")
+    }
+
     /// `POST /v1/me/playlists` creates P, then `POST /v1/playlists/P/items` answers 503.
     func testAPlaylistCreatedWhoseSongsFailedStillShowsInTheSidebar() async {
         let http = RoutedHTTPClient()
