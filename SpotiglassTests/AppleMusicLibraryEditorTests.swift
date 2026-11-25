@@ -3154,6 +3154,40 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         XCTAssertEqual(musicApp.calls, [], "the Music app is told nothing")
     }
 
+    /// The same 10,001-row playlist, opened again: the browser first shows the rows counting
+    /// read, which stops at 10,000 too. Removing the C I added through the Music app from that
+    /// list is refused as well.
+    func testRemovingAMusicAppAddFromTheCountedRowsOfALongPlaylistIsRefused() async throws {
+        knowSongCOnlyByItsPersistentID()
+        let c = try AppleMusicFixtures.song(id: songC, title: "C", artist: "Santigold", catalogID: "506650078")
+        let b = try AppleMusicFixtures.song(id: songB, title: "B", artist: "Santigold", catalogID: "506650077")
+        source.tracksByPlaylistID[playlistID] = [.song(c)] + Array(repeating: .song(b), count: 9_999)
+        _ = await provider.playlistTrackCounts(playlistIDs: [playlistID])
+        let counted = await provider.lastReadPlaylistTracks(playlistID: playlistID) ?? []
+        let listed = counted.compactMap { item -> MusicTrack? in
+            guard case let .track(track) = item.content else { return nil }
+            return track
+        }
+        XCTAssertEqual(listed.count, 10_000)
+        pending.recordPlaylistAdditions(
+            [(AppleMusicLibraryEditorTests.track(id: songC, name: "C", artist: "Santigold"), try XCTUnwrap(lookup.songsByID[songC]))],
+            route: .musicApp, playlistID: playlistID, shown: listed
+        )
+        let shown = (await provider.lastReadPlaylistTracks(playlistID: playlistID) ?? []).compactMap { item -> MusicTrack? in
+            guard case let .track(track) = item.content else { return nil }
+            return track
+        }
+        XCTAssertEqual(shown.count, 10_001)
+
+        do {
+            try await editor.removeFromPlaylist(playlistID: playlistID, removals: [(songID: songC, positions: [10_000])], shownTracks: shown)
+            XCTFail("the removal went through")
+        } catch {
+            XCTAssertEqual(error as? AppleMusicLibraryEditError, .notInMusicYet)
+        }
+        XCTAssertEqual(musicApp.calls, [], "the Music app is told nothing")
+    }
+
     /// [B]: I add A through the API (on its way). A read of [B] starts and finishes late.
     /// Meanwhile I add C through the Music app, the library reads [B, C], E is added on another
     /// device and a read shows [B, C, E, A]. I remove B, which moves the record onto that read.

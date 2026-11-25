@@ -302,7 +302,9 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     /// are only the ones already looked up, so this stays instant; `playlistTracks` adds the rest.
     func lastReadPlaylistTracks(playlistID: String) async -> [MusicPlaylistTrackItem]? {
         guard let tracks = await trackCountCache.lastReadTracks(playlistID: playlistID), !tracks.isEmpty else { return nil }
-        return AppleMusicItemMapping.playlistItems(applyingPendingEdits(toPlaylistTracks: tracks, playlistID: playlistID))
+        // Counting stops at its bound, so a list that long may go on past its last row (#570).
+        let isComplete = tracks.count < MusicKitContentSource.maxCountedPlaylistTracks
+        return AppleMusicItemMapping.playlistItems(applyingPendingEdits(toPlaylistTracks: tracks, playlistID: playlistID, isComplete: isComplete))
     }
 
     func currentUserSavedTracks(limit: Int, maxPages: Int?) async throws -> MusicSavedTracksResult {
