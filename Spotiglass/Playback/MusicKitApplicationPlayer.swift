@@ -81,7 +81,17 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             // The browser's reads, which follow long catalog albums and playlists without
             // MusicKit's batches (#465).
             let source = MusicKitContentSource()
-            guard let album = try await Self.mapped({ try await source.album(id: id) }) else { throw Self.notFound(id) }
+            guard var album = try await Self.mapped({ try await source.album(id: id) }) else { throw Self.notFound(id) }
+            // A saved album's page shows the catalog album it names, so its Play plays that (#658).
+            if let catalogID = AppleMusicBrowsingProvider.catalogID(of: album) {
+                do {
+                    if let catalog = try await source.album(id: catalogID) { album = catalog }
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    SpotiglassLog.info(.playback, "Catalog album read for Play failed (\(MusicKitContentSource.describe(error))); playing the saved album")
+                }
+            }
             resolved = try await Self.entries(for: Self.mapped { try await source.tracks(of: album, limit: Self.contextTrackLimit) })
         case let .playlist(id):
             let source = MusicKitContentSource()
@@ -655,23 +665,25 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         }
     }
 
-    /// A library artist plays their songs in the library; a catalog artist its top songs.
+    /// A catalog artist plays their top songs, as their page shows them, also when songs of theirs
+    /// are saved (#658); a saved artist Apple Music has no copy of plays their songs in the library.
     private static func artistSongs(id: String) async throws -> [Song] {
         let itemID = MusicItemID(id)
+        if MusicKitLibraryLookup.isCatalogID(id) {
+            let artist = try await mapped {
+                try await MusicCatalogResourceRequest<Artist>(matching: \.id, equalTo: itemID).response().items.first
+            }
+            let topSongs = try await mapped({ try await artist?.with([.topSongs]) })?.topSongs ?? []
+            if !topSongs.isEmpty { return Array(topSongs.prefix(artistSongLimit)) }
+        }
         var artistRequest = MusicLibraryRequest<Artist>()
         artistRequest.filter(matching: \.id, equalTo: itemID)
-        if let artist = try await mapped({ try await artistRequest.response().items.first }) {
-            var songRequest = MusicLibraryRequest<Song>()
-            songRequest.filter(matching: \.artists, contains: artist)
-            songRequest.limit = artistSongLimit
-            let songs: MusicLibraryResponse<Song> = try await mapped { try await songRequest.response() }
-            return Array(songs.items)
-        }
-        let artist = try await mapped {
-            try await MusicCatalogResourceRequest<Artist>(matching: \.id, equalTo: itemID).response().items.first
-        }
-        guard let detailed = try await mapped({ try await artist?.with([.topSongs]) }) else { return [] }
-        return Array((detailed.topSongs ?? []).prefix(artistSongLimit))
+        guard let artist = try await mapped({ try await artistRequest.response().items.first }) else { return [] }
+        var songRequest = MusicLibraryRequest<Song>()
+        songRequest.filter(matching: \.artists, contains: artist)
+        songRequest.limit = artistSongLimit
+        let songs: MusicLibraryResponse<Song> = try await mapped { try await songRequest.response() }
+        return Array(songs.items)
     }
 
     // MARK: - Restrictions

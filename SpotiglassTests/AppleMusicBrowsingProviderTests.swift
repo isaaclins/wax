@@ -3762,6 +3762,7 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         source.albumsByID[Self.savedAlbumID] = savedAlbum
         source.libraryAlbumsByID[Self.savedAlbumID] = savedAlbum
         source.libraryAlbumsByID[Self.catalogAlbumID] = savedAlbum
+        source.extraAlbumsByArtistID[Self.savedArtistID] = [savedAlbum]
         source.extraTracksByAlbumID[Self.savedAlbumID] = try [(4, "Track 4", "-7716356195492915039"), (12, "Track 12", "-5458252454165740238")].map {
             Track.song(try AppleMusicFixtures.song(id: $0.2, title: $0.1, artist: "Tainy", album: "DATA"))
         }
@@ -3788,8 +3789,10 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         let extras = try XCTUnwrap(read)
 
         XCTAssertEqual(artist.name, "Tainy")
-        // The page keeps the ID it was opened with, so its paging and pin go by it.
+        // The page keeps the ID it was opened with, so its paging and pin go by it, while Play
+        // plays the catalog artist it shows.
         XCTAssertEqual(artist.id, Self.savedArtistID)
+        XCTAssertEqual(artist.uri, "\(AppleMusicItemMapping.uriScheme):artist:\(Self.catalogArtistID)")
         // Every release, newest first, and DATA with all 14 tracks.
         XCTAssertEqual(albums.map(\.name), ["Newer", "DATA", "Older"])
         XCTAssertEqual(albums.first { $0.name == "DATA" }?.totalTracks, 14)
@@ -3797,6 +3800,8 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         // What was saved has its own section and doesn't replace the catalog's.
         XCTAssertEqual(extras.libraryTracks.map(\.name), ["Saved 0", "Saved 1"])
         XCTAssertEqual(extras.libraryAlbums.map(\.id), [Self.savedAlbumID])
+        // The card counts the whole album, as the page it opens does.
+        XCTAssertEqual(extras.libraryAlbums.first?.totalTracks, 14)
     }
 
     func testAnArtistOpenedFromSearchShowsTheCatalogAndWhatIsSaved() async throws {
@@ -3856,6 +3861,28 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
             XCTAssertEqual(provider.knownSavedTrackStatus(id: "1650000004"), true, albumID)
             XCTAssertEqual(provider.knownSavedTrackStatus(id: "1650000012"), true, albumID)
         }
+    }
+
+    /// Opened through a saved song: the saved songs name no catalog ID and a search finds nobody,
+    /// but the saved album names its catalog album, whose songs name the artist.
+    func testASavedArtistIsMatchedThroughTheCatalogAlbumTheirSavedAlbumNames() async throws {
+        let source = try dataSavedWithoutCatalogIDs()
+        source.libraryArtistsByID[Self.catalogArtistID] = nil
+        for index in 0..<14 {
+            let id = "16500000\(String(format: "%02d", index))"
+            source.catalogSongsByID[id] = try AppleMusicFixtures.song(
+                id: id, title: "Track \(index)", artist: "Tainy",
+                artistRefs: [(Self.catalogArtistID, "Tainy")], albumRefs: [(Self.catalogAlbumID, "DATA")]
+            )
+        }
+        let provider = provider(source)
+
+        let artist = try await provider.artist(id: Self.savedArtistID, cacheMode: .bypassCache)
+        let albums = try await albums(provider, artistID: Self.savedArtistID)
+
+        XCTAssertEqual(artist.uri, "\(AppleMusicItemMapping.uriScheme):artist:\(Self.catalogArtistID)")
+        XCTAssertEqual(albums.map(\.name), ["Newer", "DATA", "Older"])
+        XCTAssertFalse(source.calls.contains { $0.hasPrefix("catalogSearch(") })
     }
 
     func testAnAlbumDoesntMarkASongOfTheSavedAlbumThatIsOnlyInAPlaylist() async throws {

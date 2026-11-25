@@ -109,6 +109,14 @@ extension AppleMusicBrowsingProvider {
         // Saved albums only, and one that can't be read is skipped: finding the match must never
         // cost the page more than the saved copy would.
         for album in albums where songIDs.count < Self.catalogMatchSongs && !MusicKitLibraryLookup.isCatalogID(album.id.rawValue) {
+            // A saved album names its catalog album, whose songs are catalog songs; a saved
+            // album's own songs, read through the album, name no catalog ID.
+            if let catalogAlbumID = Self.catalogID(of: album),
+               let catalogAlbum = try await catalogItem({ try await source.album(id: catalogAlbumID) }) ?? nil,
+               let tracks = try await catalogItem({ try await source.tracks(of: catalogAlbum, limit: Self.catalogMatchSongs) }) {
+                songIDs += Self.songCatalogIDs(tracks).filter { !songIDs.contains($0) }
+                continue
+            }
             guard let detailed = try await catalogItem({ try await source.album(id: album.id.rawValue) }) ?? nil,
                   let tracks = try await catalogItem({ try await source.tracks(of: detailed, limit: Self.catalogMatchSongs) })
             else { continue }
@@ -153,23 +161,38 @@ extension AppleMusicBrowsingProvider {
     private func artistLibrarySection(id: String) async throws -> ([MusicTrack], [MusicArtistAlbum]) {
         guard let saved = try await savedArtist(forPageID: id) else { return ([], []) }
         let albums = try await source.albums(of: saved, limit: Self.maxLibrarySectionAlbums)
-        var tracks: [MusicTrack] = []
-        var seen: Set<String> = []
-        for album in albums where tracks.count < Self.maxLibrarySectionTracks {
-            try Task.checkCancellation()
-            guard let detailed = try await source.album(id: album.id.rawValue) else { continue }
-            let albumTracks = try await source.tracks(of: detailed, limit: Self.maxLibraryAlbumTracks)
-            editor.songReferences.remember(albumTracks)
-            await lookUpRatings(albumTracks)
-            for track in albumTracks where tracks.count < Self.maxLibrarySectionTracks && seen.insert(track.id.rawValue).inserted {
-                tracks.append(AppleMusicItemMapping.track(track, album: detailed))
+        // The saved albums' songs, read a few albums at a time and kept in the albums' order.
+        var songsByAlbum = [(album: Album, tracks: [Track])?](repeating: nil, count: albums.count)
+        try await withThrowingTaskGroup(of: (Int, Album, [Track])?.self) { group in
+            var next = 0
+            func addNext() {
+                guard next < albums.count else { return }
+                let index = next
+                next += 1
+                group.addTask {
+                    guard let detailed = try await source.album(id: albums[index].id.rawValue) else { return nil }
+                    let tracks = try await source.tracks(of: detailed, limit: Self.maxLibraryAlbumTracks)
+                    editor.songReferences.remember(tracks)
+                    await lookUpRatings(tracks)
+                    return (index, detailed, tracks)
+                }
+            }
+            for _ in 0..<Self.libraryAlbumCountParallelism { addNext() }
+            while let read = try await group.next() {
+                if let (index, album, tracks) = read { songsByAlbum[index] = (album, tracks) }
+                addNext()
             }
         }
+        var tracks: [MusicTrack] = []
+        var seen: Set<String> = []
+        for case let (album, albumTracks)? in songsByAlbum {
+            for track in albumTracks where tracks.count < Self.maxLibrarySectionTracks && seen.insert(track.id.rawValue).inserted {
+                tracks.append(AppleMusicItemMapping.track(track, album: album))
+            }
+        }
+        // The cards give the whole album's count, as its page does (it opens the catalog album, #400).
         let ratings = albums.isEmpty ? [:] : await savedAlbumRatings(albums).known
-        let mapped = try await Self.libraryCounted(
-            albums.map { AppleMusicItemMapping.artistAlbum($0, catalogExplicit: ratings[$0.id.rawValue]) },
-            source: source
-        )
+        let mapped = albums.map { AppleMusicItemMapping.artistAlbum($0, catalogExplicit: ratings[$0.id.rawValue]) }
         return (tracks, Self.newestFirst(mapped, dates: albums))
     }
 
