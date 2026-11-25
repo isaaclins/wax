@@ -113,6 +113,8 @@ extension PlaylistBrowserViewModel {
     }
 
     /// The service's top songs when it gave them, else songs found through search or the albums.
+    /// With extras (Apple Music) those songs are a stand-in, so failing to find them leaves the
+    /// page without songs rather than failing it; Spotify's page fails as before.
     private func artistPageTracks(
         extras: MusicArtistPageExtras?,
         artistId: String,
@@ -120,8 +122,18 @@ extension PlaylistBrowserViewModel {
         albums: [MusicArtistAlbum],
         market: String?
     ) async throws -> [MusicTrack] {
-        if let top = extras?.topTracks, !top.isEmpty { return top }
-        return try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market)
+        guard let extras else {
+            return try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market)
+        }
+        if !extras.topTracks.isEmpty { return extras.topTracks }
+        do {
+            return try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            SpotiglassLog.info(.api, "Artist page songs failed (\(SpotiglassLog.describe(error))); the page shows without them")
+            return []
+        }
     }
 
     /// A failed read leaves the page without top songs and saved items rather than failing it.

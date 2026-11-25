@@ -3884,6 +3884,20 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         XCTAssertFalse(source.calls.contains { $0.hasPrefix("catalogSearch(") })
     }
 
+    /// A saved album's songs that are only in a playlist aren't saved (#401): not in the section,
+    /// and an album with nothing else saved isn't either.
+    func testTheLibrarySectionLeavesOutSongsOnlyInAPlaylist() async throws {
+        let onlyOne = try await provider(try dataSavedWithoutCatalogIDs(), playlistOnly: ["-5458252454165740238"])
+            .artistPageExtras(id: Self.savedArtistID)
+        XCTAssertEqual(try XCTUnwrap(onlyOne).libraryTracks.map(\.name), ["Track 4"])
+        XCTAssertEqual(try XCTUnwrap(onlyOne).libraryAlbums.map(\.id), [Self.savedAlbumID])
+
+        let none = try await provider(try dataSavedWithoutCatalogIDs(), playlistOnly: ["-7716356195492915039", "-5458252454165740238"])
+            .artistPageExtras(id: Self.savedArtistID)
+        XCTAssertTrue(try XCTUnwrap(none).libraryTracks.isEmpty)
+        XCTAssertTrue(try XCTUnwrap(none).libraryAlbums.isEmpty)
+    }
+
     /// One saved album that can't be read leaves the rest of the section.
     func testTheLibrarySectionKeepsItsOtherAlbumsWhenOneCantBeRead() async throws {
         let source = try dataSavedWithoutCatalogIDs()

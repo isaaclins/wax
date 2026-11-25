@@ -187,21 +187,28 @@ extension AppleMusicBrowsingProvider {
                 addNext()
             }
         }
+        // Only songs in the library: a saved album also lists songs that are only in a playlist
+        // (#401), and an album with none of them isn't saved.
         var tracks: [MusicTrack] = []
         var seen: Set<String> = []
+        var savedAlbumIDs: Set<String> = []
         for case let (album, albumTracks)? in songsByAlbum {
-            for track in albumTracks where tracks.count < Self.maxLibrarySectionTracks && seen.insert(track.id.rawValue).inserted {
+            let saved = Self.savedSongIDs(albumTracks, registry: editor.songReferences)
+            if !saved.isEmpty { savedAlbumIDs.insert(album.id.rawValue) }
+            for track in albumTracks where saved.contains(track.id.rawValue)
+                && tracks.count < Self.maxLibrarySectionTracks && seen.insert(track.id.rawValue).inserted {
                 tracks.append(AppleMusicItemMapping.track(track, album: album))
             }
         }
+        let savedAlbums = albums.filter { savedAlbumIDs.contains($0.id.rawValue) }
         // A card gives the count its page shows (#400): the whole album for one that names its
         // catalog album, which its page opens, else the saved songs (an upload, say).
-        let ratings = albums.isEmpty ? [:] : await savedAlbumRatings(albums).known
-        let mapped = albums.map { AppleMusicItemMapping.artistAlbum($0, catalogExplicit: ratings[$0.id.rawValue]) }
-        let withCatalogCopy = Set(albums.filter { Self.catalogID(of: $0) != nil }.map(\.id.rawValue))
+        let ratings = savedAlbums.isEmpty ? [:] : await savedAlbumRatings(savedAlbums).known
+        let mapped = savedAlbums.map { AppleMusicItemMapping.artistAlbum($0, catalogExplicit: ratings[$0.id.rawValue]) }
+        let withCatalogCopy = Set(savedAlbums.filter { Self.catalogID(of: $0) != nil }.map(\.id.rawValue))
         let counted = try await Self.libraryCounted(mapped.filter { !withCatalogCopy.contains($0.id) }, source: source)
         let countedByID = Dictionary(counted.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return (tracks, Self.newestFirst(mapped.map { countedByID[$0.id] ?? $0 }, dates: albums))
+        return (tracks, Self.newestFirst(mapped.map { countedByID[$0.id] ?? $0 }, dates: savedAlbums))
     }
 
     /// The saved copy of the artist a page was opened with, by either ID, else by name.
