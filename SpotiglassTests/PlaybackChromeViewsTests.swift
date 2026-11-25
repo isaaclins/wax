@@ -291,10 +291,12 @@ final class PlaybackChromeViewsTests: XCTestCase {
         let window = try XCTUnwrap(controller.view.window)
         window.title = "AXTestTransport"
         window.makeKeyAndOrderFront(nil)
-        // Where the test host has no accessibility tree at all, skip at once instead of waiting
-        // out the must-happen limit; where it has one, wait for the scrubber to be in it.
+        // Where the test host has no accessibility API at all, skip at once instead of waiting
+        // out the must-happen limit. Where it has one, wait for the scrubber to be in the tree,
+        // however late a busy machine publishes it, so the test never skips only for being early.
         AppKitTestSupport.settle()
-        if realizedAccessibilityTreeIfAvailable(in: window) != nil {
+        let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
+        if (try? axChildren(of: application, attribute: kAXWindowsAttribute)) != nil {
             _ = waitForAccessibilityTree(in: window)
         }
 
