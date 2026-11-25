@@ -24,11 +24,6 @@ struct SpotiglassApp: App {
     /// The added services and the one on screen (#373), shared by every window, the menu bar
     /// and Settings.
     @StateObject private var serviceStore: MusicServiceStore
-    /// The flag ``PlaylistBrowserView`` sets, read here so the View menu can say "Show Queue" or
-    /// "Hide Queue" instead of a stateless "Toggle". Not `@AppStorage`, which re-ran this scene on
-    /// every write to the defaults, the window frame AppKit saves on each resize included (#473).
-    @ObservedObject private var queuePanel = StoredFlag.queuePanelVisible
-    private var isQueueVisible: Bool { queuePanel.isOn }
     /// The narrowest a window gets with the queue closed.
     static let windowMinWidth: CGFloat = 520
     /// The shortest a window gets.
@@ -215,14 +210,7 @@ struct SpotiglassApp: App {
                 .environmentObject(pinnedStore)
                 .environmentObject(playbackHosts.spotify)
                 .spotiglassLiveSettings(settingsStore)
-                // With the queue open the window keeps room for the detail column and the
-                // panel at their minimums, so the panel is never cut off at its edge (#413).
-                .frame(
-                    minWidth: isQueueVisible
-                        ? max(Self.windowMinWidth, SpotiglassDesign.detailAndQueueMinWidth)
-                        : Self.windowMinWidth,
-                    minHeight: Self.windowMinHeight
-                )
+                .modifier(QueuePanelWindowMinSize())
         }
         .windowResizability(.contentMinSize)
         // The unit-test host opens no main window (#418): tests that need a window make their own.
@@ -255,7 +243,6 @@ struct SpotiglassApp: App {
                     settingsStore: settingsStore,
                     serviceStore: serviceStore,
                     isSignedIn: isSignedIn,
-                    isQueueVisible: isQueueVisible,
                     hasPlayback: hasPlayback
                 )
             } else if settingsStore.settings.appearance.language == .spanish {
@@ -265,7 +252,6 @@ struct SpotiglassApp: App {
                     settingsStore: settingsStore,
                     serviceStore: serviceStore,
                     isSignedIn: isSignedIn,
-                    isQueueVisible: isQueueVisible,
                     hasPlayback: hasPlayback
                 )
             } else {
@@ -275,7 +261,6 @@ struct SpotiglassApp: App {
                     settingsStore: settingsStore,
                     serviceStore: serviceStore,
                     isSignedIn: isSignedIn,
-                    isQueueVisible: isQueueVisible,
                     hasPlayback: hasPlayback
                 )
             }
@@ -501,4 +486,27 @@ private final class LegacyLoginItemSnapshot {
         snapshot = nil
     }
     deinit { WaxFinishLegacyLoginItems(snapshot, nil) }
+}
+
+/// The window's minimum size. With the queue open the window keeps room for the detail column
+/// and the panel at their minimums, so the panel is never cut off at its edge (#413).
+///
+/// This modifier is the only thing in the scene that watches the queue flag (the View menu
+/// watches it on its own). When ``SpotiglassApp`` read the flag itself, every ⌥⌘Q re-ran the
+/// whole scene, the menu bar and each window's root view: about 20 of the toggle's 75 ms (#673).
+struct QueuePanelWindowMinSize: ViewModifier {
+    @ObservedObject var queuePanel = StoredFlag.queuePanelVisible
+
+    static func minWidth(isQueueVisible: Bool) -> CGFloat {
+        isQueueVisible
+            ? max(SpotiglassApp.windowMinWidth, SpotiglassDesign.detailAndQueueMinWidth)
+            : SpotiglassApp.windowMinWidth
+    }
+
+    func body(content: Content) -> some View {
+        content.frame(
+            minWidth: Self.minWidth(isQueueVisible: queuePanel.isOn),
+            minHeight: SpotiglassApp.windowMinHeight
+        )
+    }
 }

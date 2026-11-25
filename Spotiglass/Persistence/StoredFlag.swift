@@ -14,6 +14,10 @@ final class StoredFlag: ObservableObject {
     /// `nil` keeps the value in memory only.
     private let defaults: UserDefaults?
     private var storedValue: Bool
+    /// The new value, after it is stored. For code that acts on a change without drawing the
+    /// flag: a view that only reacts to it subscribes here instead of observing the flag, so the
+    /// change doesn't re-run that view's body (#673).
+    let didChange = PassthroughSubject<Bool, Never>()
 
     init(key: String, defaultValue: Bool, defaults: UserDefaults?) {
         self.key = key
@@ -34,6 +38,7 @@ final class StoredFlag: ObservableObject {
             objectWillChange.send()
             storedValue = newValue
             defaults?.set(newValue, forKey: key)
+            didChange.send(newValue)
         }
     }
 

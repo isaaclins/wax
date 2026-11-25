@@ -72,8 +72,7 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
                 serviceStore: MusicServiceStore(
                     storage: InMemoryMusicServiceSelectionStorage(services: [.spotify, .appleMusic], active: service)
                 ),
-                isSignedIn: isSignedIn,
-                isQueueVisible: false
+                isSignedIn: isSignedIn
             )
         }
         // `onto` rewires a window's manager the way switching services does: each service's

@@ -1,14 +1,34 @@
 import SwiftUI
 
+/// The page and, while the queue is open, the queue panel beside it.
+///
+/// It observes the queue flag itself, so opening or closing the queue re-runs this body and not
+/// the browser's (#673). Both columns are built once, when the browser builds this view, and kept
+/// as values: a re-run here hands SwiftUI the same page it had, so the page, its rows and the
+/// queue panel's inputs compare equal and only the layout changes.
 struct PlaylistBrowserDetailWithQueueSplit<Main: View, Queue: View>: View {
     @Binding var unifiedRefreshFocus: UnifiedRefreshFocus
-    let isQueueVisible: Bool
-    @ViewBuilder let mainColumn: () -> Main
-    @ViewBuilder let queueColumn: () -> Queue
+    @ObservedObject var queuePanel: StoredFlag
+    private let mainColumn: Main
+    private let queueColumn: Queue
+
+    init(
+        unifiedRefreshFocus: Binding<UnifiedRefreshFocus>,
+        queuePanel: StoredFlag,
+        @ViewBuilder mainColumn: () -> Main,
+        @ViewBuilder queueColumn: () -> Queue
+    ) {
+        _unifiedRefreshFocus = unifiedRefreshFocus
+        _queuePanel = ObservedObject(wrappedValue: queuePanel)
+        self.mainColumn = mainColumn()
+        self.queueColumn = queueColumn()
+    }
+
+    private var isQueueVisible: Bool { queuePanel.isOn }
 
     var body: some View {
         HStack(spacing: 0) {
-            mainColumn()
+            mainColumn
                 .background(.background)
                 .frame(minWidth: SpotiglassDesign.detailColumnMinWidth)
                 .layoutPriority(1)
@@ -16,7 +36,7 @@ struct PlaylistBrowserDetailWithQueueSplit<Main: View, Queue: View>: View {
                     if hovering { unifiedRefreshFocus = .mainContent }
                 }
             if isQueueVisible {
-                queueColumn()
+                queueColumn
                     .transition(
                         .asymmetric(
                             insertion: .offset(x: SpotiglassDesign.sidebarWidth).combined(with: .opacity),
@@ -334,5 +354,25 @@ struct PlaylistBrowserMainDetailColumn: View {
             },
             areHeaderActionsAvailable: headerPlaybackTarget.isPlayable
         )
+    }
+}
+
+/// The toolbar's queue button. Its own view so that only its tooltip follows the queue flag,
+/// not the browser that holds the toolbar (#673).
+struct QueuePanelToolbarButton: View {
+    @ObservedObject var queuePanel: StoredFlag
+
+    var body: some View {
+        Button {
+            queuePanel.isOn.toggle()
+        } label: {
+            Label(SpotiglassL10n.string("browser.queue"), systemImage: "list.bullet.indent")
+        }
+        .help(
+            queuePanel.isOn
+                ? SpotiglassL10n.string("tooltip.toolbar.queue.hide")
+                : SpotiglassL10n.string("tooltip.toolbar.queue.show")
+        )
+        .accessibilityHint(SpotiglassL10n.string("browser.queue.hint"))
     }
 }

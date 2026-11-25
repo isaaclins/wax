@@ -34,6 +34,9 @@ struct QueuePanelView: View {
     }
 
     var body: some View {
+        #if DEBUG
+        let _ = ViewBodyTally.record("QueuePanelView")
+        #endif
         VStack(alignment: .leading, spacing: 0) {
             header
 

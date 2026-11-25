@@ -247,8 +247,7 @@ final class LyricsPopOutTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
         XCTAssertFalse(commands.isAvailable)
         XCTAssertFalse(commands.isRefreshEnabled)
@@ -279,8 +278,7 @@ final class LyricsPopOutTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
         XCTAssertFalse(commands.isSidebarItemEnabled(keyWindow: popOut), "no main window to show a sidebar in")
 

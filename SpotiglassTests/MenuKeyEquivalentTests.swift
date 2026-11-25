@@ -30,8 +30,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
     }
 
@@ -301,8 +300,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
 
         XCTAssertFalse(commands.isLyricsToggleEnabled, "Show Lyrics with no song in the bar")
@@ -324,8 +322,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
 
         XCTAssertTrue(commands.isRefreshEnabled)
@@ -352,8 +349,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
 
         XCTAssertTrue(commands.isBackEnabled)
@@ -381,8 +377,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
 
         XCTAssertEqual(commands.lyricsItemTitle, SpotiglassL10n.string("menu.view.showLyrics"))

@@ -388,6 +388,86 @@ final class WindowResizeCostTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(Self.sidebarMaximumThickness(in: content)), closedLimit, accuracy: 0.5)
     }
 
+    /// ⌥⌘Q took 72-85 ms in a Release build (#673): the queue flag was read by the app's scene
+    /// and by the browser, so opening or closing the queue re-ran the scene, the menu bar, the
+    /// browser and from there the page, the sidebar and the player bar, though only the queue
+    /// column and the page's width change. Now the queue panel comes and goes and nothing else
+    /// re-renders.
+    func testOpeningAndClosingTheQueueReRendersOnlyTheQueueOnABigPlaylist() async throws {
+        _ = try await hostBrowser(on: .bigPlaylist)
+        assertTogglingTheQueueReRendersOnlyTheQueue(
+            extraViews: ["PlaylistDetailContent"],
+            rowsOnScreen: { $0.hasPrefix("TrackListRow:") }
+        )
+    }
+
+    func testOpeningAndClosingTheQueueReRendersOnlyTheQueueOnHome() async throws {
+        _ = try await hostBrowser(on: .home)
+        // The queue covers the shelf's cards past the narrower page, so those leave and come back
+        // into view each time; the first card stays on screen the whole time.
+        assertTogglingTheQueueReRendersOnlyTheQueue(
+            extraViews: ["HomeView"],
+            rowsOnScreen: { $0 == "HomeMediaCardView:recent-album-0" || $0.hasPrefix("TrackListRow:top-") }
+        )
+    }
+
+    private func assertTogglingTheQueueReRendersOnlyTheQueue(
+        extraViews: [String],
+        rowsOnScreen: (String) -> Bool,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let flag = StoredFlag.queuePanelVisible
+        flag.isOn = false
+        defer { flag.isOn = false }
+        let toggle = { (visible: Bool) in
+            let panelBodies = { ViewBodyTally.counts?["QueuePanelView"] ?? 0 }
+            let before = panelBodies()
+            flag.isOn = visible
+            if visible {
+                // The queue has to show each time, so a toggle that does nothing can't pass.
+                XCTAssertTrue(
+                    AppKitTestSupport.pumpRunLoop(until: { panelBodies() > before }),
+                    "the queue panel never came on screen", file: file, line: line
+                )
+            }
+            // Past the open or close spring, which settles after about 0.8 s: opened again while
+            // it is still closing, SwiftUI keeps the panel it has instead of building a new one.
+            AppKitTestSupport.pumpRunLoop(for: 1.2)
+        }
+        // The first time the page takes the narrower width, its list measures its rows at that
+        // width once; that is not what each press costs, so it isn't counted.
+        waitUntilNothingRenders()
+        ViewBodyTally.counts = [:]
+        toggle(true)
+        toggle(false)
+        ViewBodyTally.counts = [:]
+        for visible in [true, false, true, false, true, false] {
+            toggle(visible)
+        }
+        let counts = ViewBodyTally.counts ?? [:]
+        for container in [
+            "PlaylistBrowserView",
+            "BrowserTransportBar",
+            "PlaybackControlsView",
+            "PlaylistBrowserSidebar",
+            "PlaylistsSidebarSectionContent",
+            "PlaylistBrowserMainDetailColumn",
+        ] + extraViews {
+            XCTAssertNil(
+                counts[container],
+                "\(container) re-rendered \(counts[container] ?? 0) times when the queue opened and closed three times",
+                file: file, line: line
+            )
+        }
+        let rows = counts.keys.filter { $0.hasPrefix("PlaylistListRow:") || rowsOnScreen($0) }
+        XCTAssertTrue(
+            rows.isEmpty,
+            "rows on screen re-rendered when the queue opened and closed: \(rows.sorted().prefix(5).map { "\($0) \(counts[$0] ?? 0)x" })",
+            file: file, line: line
+        )
+    }
+
     /// The playlist sidebar's widest drag as the split view controller has it.
     private static func sidebarMaximumThickness(in view: NSView) -> CGFloat? {
         if let split = view as? NSSplitView, split.arrangedSubviews.count >= 2,
