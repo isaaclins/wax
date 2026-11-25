@@ -99,6 +99,10 @@ class Library:
         now = spec.get("nowPlaying", "")
         self.now_playing = self.by_title.get(now, self.tracks[0])
         self.started = time.time() - 111  # a little under two minutes into the song
+        # What Shuffle and Repeat were last set to: Spotify answers with them afterwards, so the
+        # player bar doesn't turn them back on the next update (#677).
+        self.shuffle = False
+        self.repeat = "off"
 
     def images(self, url):
         return [{"url": url, "width": 640, "height": 640}]
@@ -159,7 +163,7 @@ class Library:
     def player(self):
         now = self.now_playing
         progress = int((time.time() - self.started) * 1000) % now["duration_ms"]
-        return {"device": DEVICE, "shuffle_state": False, "smart_shuffle": False, "repeat_state": "off",
+        return {"device": DEVICE, "shuffle_state": self.shuffle, "smart_shuffle": False, "repeat_state": self.repeat,
                 "timestamp": int(time.time() * 1000), "progress_ms": progress, "is_playing": True, "item": now,
                 "context": {"type": "playlist", "uri": self.playlists[0]["uri"], "href": self.playlists[0]["href"],
                             "external_urls": {}},
@@ -383,7 +387,17 @@ def make_handler(lib):
             return self.send(204)
 
         def do_PUT(self):
-            parts = urllib.parse.urlparse(self.path).path.rstrip("/").split("/")
+            url = urllib.parse.urlparse(self.path)
+            state = urllib.parse.parse_qs(url.query).get("state", [""])[0]
+            if url.path == "/v1/me/player/shuffle" and state in ("true", "false"):
+                self.discard_body()
+                lib.shuffle = state == "true"
+                return self.send(204)
+            if url.path == "/v1/me/player/repeat" and state in ("off", "context", "track"):
+                self.discard_body()
+                lib.repeat = state
+                return self.send(204)
+            parts = url.path.rstrip("/").split("/")
             body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
             playlist = next((p for p in lib.playlists if len(parts) == 5 and parts[4] == "items" and p["id"] == parts[3]), None)
             try:
