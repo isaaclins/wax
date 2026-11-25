@@ -563,6 +563,19 @@ struct MusicSearchPartialFailure: Error, @unchecked Sendable {
     let results: MusicSearchResults
     let missing: MissingPart
     let underlying: Error
+
+    /// What `search` found, with the half that answered when the other failed. For callers that
+    /// look something up rather than show a list (a name tap, an artist's tracks): a saved
+    /// artist still opens while the catalog is offline. A search that failed outright still throws.
+    static func whatLoaded(_ search: () async throws -> MusicSearchResults) async throws -> MusicSearchResults {
+        do {
+            return try await search()
+        } catch let partial as MusicSearchPartialFailure {
+            // The provider logged what failed; the lookup goes on with what answered.
+            SpotiglassLog.debug(.browsing, "A lookup uses the half of the search that answered")
+            return partial.results
+        }
+    }
 }
 
 struct MusicEpisode: Codable, Equatable, Identifiable {

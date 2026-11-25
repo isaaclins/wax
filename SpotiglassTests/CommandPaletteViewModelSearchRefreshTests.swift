@@ -251,4 +251,43 @@ final class CommandPaletteViewModelSearchRefreshTests: XCTestCase {
         // "kanye" matches the artist (prefix) but not the track, so Artists floats above Tracks.
         XCTAssertEqual(viewModel.sections.map(\.section), [.artists, .tracks])
     }
+
+    // MARK: - #595: a search that answered in part
+
+    /// What loaded shows with a line for what didn't, and the same query asks again instead of
+    /// keeping the partial answer as finished.
+    func testAPartialSearchShowsWhatLoadedWithANoteAndAsksAgain() async {
+        let viewModel = CommandPaletteViewModel()
+        defer { viewModel.hide() }
+        var callCount = 0
+        let missing = MusicSearchPartialFailure(
+            results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
+            missing: .catalog,
+            underlying: URLError(.notConnectedToInternet)
+        )
+        viewModel.searchProvider = { _, _ in
+            callCount += 1
+            let loaded = CommandPaletteSearchResults(tracks: [
+                CommandPaletteItem(
+                    id: "track-saved", title: "Saved Song", subtitle: "Artist",
+                    iconSystemName: "music.note", section: .tracks, keywords: []
+                ) {}
+            ])
+            throw CommandPalettePartialSearchFailure(results: loaded, missing: missing)
+        }
+        viewModel.show()
+        viewModel.query = "saved"
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+
+        XCTAssertEqual(viewModel.errorText, BrowsingDisplayError.partialSearch(missing).message)
+        XCTAssertTrue(
+            viewModel.sections.contains { $0.items.contains { $0.id == "track-saved" } },
+            "the half that answered still shows"
+        )
+
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+        XCTAssertEqual(callCount, 2, "a partial answer isn't kept as the finished search")
+    }
 }

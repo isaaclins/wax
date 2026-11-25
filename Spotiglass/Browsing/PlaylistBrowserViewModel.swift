@@ -166,6 +166,9 @@ final class PlaylistBrowserViewModel: ObservableObject {
     var libraryArrivalGeneration = 0
     var lastTracksRevalidationByID: [String: (snapshotID: String, at: Date)] = [:]
     var inFlightPlaylistListRefreshTask: Task<([MusicPlaylistSummary], MusicUserProfile?), Error>?
+    /// The toast for a profile that didn't load was shown and the profile hasn't loaded since, so
+    /// each automatic refresh doesn't repeat it (#595).
+    var profileFailureNoted = false
     var playlistListRefreshGeneration = 0
     var lastManualPlaylistRefreshAt: Date?
     /// Fills in sidebar track counts the playlist listing came without (Apple Music).

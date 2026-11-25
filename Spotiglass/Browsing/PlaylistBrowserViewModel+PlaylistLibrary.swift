@@ -251,7 +251,7 @@ extension PlaylistBrowserViewModel {
         inFlightPlaylistListRefreshTask = task
         do {
             let (playlists, profile) = try await task.value
-            if let profile { currentUserID = profile.id }
+            noteProfile(profile)
             if generation == playlistListRefreshGeneration {
                 inFlightPlaylistListRefreshTask = nil
             }
@@ -262,6 +262,19 @@ extension PlaylistBrowserViewModel {
             }
             throw error
         }
+    }
+
+    /// Keeps the current user from a refresh. Without a profile and with no user known yet, own
+    /// playlists read as someone else's and can't be renamed: that is said once, not hidden (#595).
+    private func noteProfile(_ profile: MusicUserProfile?) {
+        if let profile {
+            currentUserID = profile.id
+            profileFailureNoted = false
+            return
+        }
+        guard currentUserID?.isEmpty ?? true, !profileFailureNoted else { return }
+        profileFailureNoted = true
+        trackMutationToastText = LocalizedText(SpotiglassL10n.string("library.profile.loadFailed"))
     }
 
     private nonisolated static func optionalProfile(_ api: any MusicBrowsingProvider) async -> MusicUserProfile? {

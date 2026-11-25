@@ -18273,6 +18273,29 @@
           }
         }
       }
+    },
+    "library.profile.loadFailed": {
+      "comment": "Toast when the playlists loaded but the account profile didn't, so the user's own playlists can't be renamed yet.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your account details didn't load, so you can't rename your playlists until the next refresh."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los datos de tu cuenta no se cargaron, así que no puedes cambiar el nombre de tus listas hasta la próxima actualización."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Kontodaten wurden nicht geladen, daher kannst du deine Playlists erst nach der nächsten Aktualisierung umbenennen."
+          }
+        }
+      }
     }
   },
   "version": "1.1"
