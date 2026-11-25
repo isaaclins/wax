@@ -1527,6 +1527,26 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         XCTAssertEqual(session.refusedPlayPause?.title, SpotiglassL10n.string("playback.refused.pause"))
     }
 
+    /// A pause the bar went back from because nobody answered, answered after all: the pause
+    /// landed, so the bar shows it again instead of playing over a paused player.
+    func testSpotifyAPauseAnsweredAfterTheBarWentBackShowsThePause() async {
+        let clock = ManualPlaybackClock()
+        let (_, session) = playingSpotify(clock: clock)
+        session.inAppCommandAckTimeout = .milliseconds(20)
+        session.pushedPlayStateExpectationTimeout = .milliseconds(20)
+
+        await session.requestTogglePlayPause()?.value
+        let reportWait = session.pushedPlayStateExpectationTask
+        await Self.endAckWait(session, on: clock)
+        await Self.endReportWait(reportWait, of: session, on: clock)
+        XCTAssertTrue(Self.isPlaying(session))
+
+        session.handle(.playerCommandFinished(command: "pause", id: session.playPauseRequestSerial))
+
+        XCTAssertTrue(Self.isPaused(session), "the late answer left the bar playing over a paused player")
+        XCTAssertNil(session.refusedPlayPause)
+    }
+
     /// A pause the page answered (finished) but never reported keeps the pause: the page
     /// confirmed it ran.
     func testSpotifyAPauseThePageRanButNeverReportedStaysPaused() async {

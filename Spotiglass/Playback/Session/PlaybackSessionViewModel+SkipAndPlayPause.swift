@@ -364,6 +364,17 @@ extension PlaybackSessionViewModel {
               request.serial > playPauseSupersededThrough,
               request.sendsRequestedState else { return }
         pageReportedPlayState = request.stateAfter
+        if request.serial == inAppPressRolledBackSerial {
+            // The bar went back from this press when its answer didn't come; it came after all,
+            // so the press landed and the bar shows it again.
+            inAppPressRolledBackSerial = nil
+            guard request.serial == playPauseRequestSerial else { return }
+            if case .error = connectionState { return }
+            SpotiglassLog.info(.playback, "Spotify playback SDK answered \(request.inAppCommand) after the bar went back; showing it")
+            clearRefusedPlayPause()
+            setConnectionState(request.stateAfter)
+            return
+        }
         guard request.serial != wasRunning?.serial,
               let later = lastSentInAppPress,
               later.serial > request.serial,
@@ -453,6 +464,7 @@ extension PlaybackSessionViewModel {
             .playback,
             "Spotify playback SDK never answered \(latest.inAppCommand) and reported no state after \(Self.durationSeconds(pushedPlayStateExpectationTimeout))s; going back to the last confirmed state"
         )
+        inAppPressRolledBackSerial = latest.serial
         refusePlayPause(latest, error: MusicPlaybackError(service: .spotify, reason: .failed, detail: "no answer to \(latest.inAppCommand)"))
     }
 

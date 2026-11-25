@@ -733,6 +733,9 @@ final class PlaybackSessionViewModel: ObservableObject {
     var lastSentReadPress: PlayPauseRequest?
     /// For Spotify's page: the latest press sent to it.
     var lastSentInAppPress: PlayPauseRequest?
+    /// The press the bar went back from because the page never answered it: if the page's answer
+    /// still comes, the press did land and the bar shows it after all (#598).
+    var inAppPressRolledBackSerial: UInt64?
     /// Until then, a read that disagrees with the last pause or resume doesn't use up the
     /// settle window: the service can report the old state for a few seconds (#437).
     var playPauseReadHoldUntil: ContinuousClock.Instant?
