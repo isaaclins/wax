@@ -317,4 +317,38 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
         }
         XCTAssertNil(id)
     }
+
+    // MARK: - #595: one half of an Apple Music search failing
+
+    /// The library read failed but the catalog found the artist: the name still opens it,
+    /// instead of "Couldn't open".
+    func testResolveArtistIDUsesTheHalfThatAnsweredWhenTheOtherFailed() async throws {
+        let answered = MusicSearchResults(tracks: [], artists: [Self.artist("a1", "Taylor Swift")], albums: [], playlists: [])
+        let id = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Taylor Swift") { _, _ in
+            throw MusicSearchPartialFailure(results: answered, missing: .library, underlying: URLError(.timedOut))
+        }
+        XCTAssertEqual(id, "a1")
+    }
+
+    /// Offline, a saved album is still found from the library half.
+    func testResolveAlbumIDUsesTheHalfThatAnsweredWhenTheOtherFailed() async throws {
+        let album = MusicAlbum(id: "alb1", name: "Midnights", artists: ["Taylor Swift"], imageURL: nil, uri: "music:album:alb1")
+        let answered = MusicSearchResults(tracks: [], artists: [], albums: [album], playlists: [])
+        let id = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Midnights", artistHint: "Taylor Swift") { _, _ in
+            throw MusicSearchPartialFailure(results: answered, missing: .catalog, underlying: URLError(.notConnectedToInternet))
+        }
+        XCTAssertEqual(id, "alb1")
+    }
+
+    /// A search that failed outright is still a failure, for the tap to report.
+    func testResolveArtistIDStillThrowsWhenTheWholeSearchFailed() async {
+        do {
+            _ = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Taylor Swift") { _, _ in
+                throw URLError(.notConnectedToInternet)
+            }
+            XCTFail("expected the failure to come through")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+        }
+    }
 }

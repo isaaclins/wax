@@ -18,7 +18,7 @@ enum PlaylistBrowserTapTargetResolver {
             let artistEsc = firstArtist.replacingOccurrences(of: "\"", with: "")
             query = "album:\"\(escaped)\" artist:\"\(artistEsc)\""
         }
-        let results = try await search(query, 10)
+        let results = try await whatLoaded(search, query)
         guard !results.albums.isEmpty else { return nil }
         let normalizedQuery = trimmed.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
         if let exact = results.albums.first(where: {
@@ -45,20 +45,35 @@ enum PlaylistBrowserTapTargetResolver {
     ) async throws -> String? {
         let candidates = creditNames(name)
         guard let whole = candidates.first else { return nil }
-        let wholeResults = try await search(whole, 10)
+        let wholeResults = try await whatLoaded(search, whole)
         for run in creditRuns(whole).map(folded) {
             if let artist = wholeResults.artists.first(where: { folded($0.name) == run }) {
                 return artist.id
             }
         }
         for candidate in candidates.dropFirst() {
-            let results = try await search(candidate, 10)
+            let results = try await whatLoaded(search, candidate)
             let wanted = folded(candidate)
             if let exact = results.artists.first(where: { folded($0.name) == wanted }) {
                 return exact.id
             }
         }
         return nil
+    }
+
+    /// A search where one half failed still has the half that answered (#595): a saved artist
+    /// opens while the catalog is offline, a catalog one while the library read fails.
+    private static func whatLoaded(
+        _ search: (_ query: String, _ limit: Int) async throws -> MusicSearchResults,
+        _ query: String
+    ) async throws -> MusicSearchResults {
+        do {
+            return try await search(query, 10)
+        } catch let partial as MusicSearchPartialFailure {
+            // The provider logged what failed; the lookup goes on with what answered.
+            SpotiglassLog.debug(.browsing, "Name lookup uses the half of the search that answered")
+            return partial.results
+        }
     }
 
     /// The whole credit, then each single name in it, in order and without repeats.
