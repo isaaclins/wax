@@ -285,6 +285,9 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             XCTAssertTrue(swapped)
             await AppKitTestSupport.settle()
         }
+        // The player has a song now, so the session keeps reading it: stop it, or it goes on
+        // reading through every test after this one.
+        await playback.disconnect()
     }
 }
 
