@@ -82,7 +82,7 @@ final class LyricsOverlayControllerTests: XCTestCase {
 
         controller.isPresented = false
         controller.isPresented = true
-        AppKitTestSupport.settleRunLoopOnly()
+        AppKitTestSupport.settle()
         XCTAssertTrue(controller.chromePresentation.isPresented)
         XCTAssertEqual(chromeChanges, 1, "closing and opening again within one frame swapped the toolbar twice")
     }
