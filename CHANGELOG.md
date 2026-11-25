@@ -2,6 +2,13 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.66] - 2026-11-25
+
+### Fixed
+
+- Wax now tells you when Apple Music isn't signed in, instead of showing an empty library.
+- After signing in to Apple Music, your playlists and covers appear right away, without restarting Wax.
+
 ## [0.8.65] - 2026-11-25
 
 ### Fixed
