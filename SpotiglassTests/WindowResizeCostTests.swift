@@ -395,7 +395,7 @@ final class WindowResizeCostTests: XCTestCase {
     /// re-renders.
     func testOpeningAndClosingTheQueueReRendersOnlyTheQueueOnABigPlaylist() async throws {
         _ = try await hostBrowser(on: .bigPlaylist)
-        assertTogglingTheQueueReRendersOnlyTheQueue(
+        await assertTogglingTheQueueReRendersOnlyTheQueue(
             extraViews: ["PlaylistDetailContent"],
             rowsOnScreen: { $0.hasPrefix("TrackListRow:") }
         )
@@ -405,7 +405,7 @@ final class WindowResizeCostTests: XCTestCase {
         _ = try await hostBrowser(on: .home)
         // The queue covers the shelf's cards past the narrower page, so those leave and come back
         // into view each time; the first card stays on screen the whole time.
-        assertTogglingTheQueueReRendersOnlyTheQueue(
+        await assertTogglingTheQueueReRendersOnlyTheQueue(
             extraViews: ["HomeView"],
             rowsOnScreen: { $0 == "HomeMediaCardView:recent-album-0" || $0.hasPrefix("TrackListRow:top-") }
         )
@@ -416,34 +416,32 @@ final class WindowResizeCostTests: XCTestCase {
         rowsOnScreen: (String) -> Bool,
         file: StaticString = #filePath,
         line: UInt = #line
-    ) {
+    ) async {
         let flag = StoredFlag.queuePanelVisible
         flag.isOn = false
         defer { flag.isOn = false }
-        let toggle = { (visible: Bool) in
-            let panelBodies = { ViewBodyTally.counts?["QueuePanelView"] ?? 0 }
+        let panelBodies = { ViewBodyTally.counts?["QueuePanelView"] ?? 0 }
+        func toggle(_ visible: Bool) async {
             let before = panelBodies()
             flag.isOn = visible
             if visible {
                 // The queue has to show each time, so a toggle that does nothing can't pass.
-                XCTAssertTrue(
-                    AppKitTestSupport.pumpRunLoop(until: { panelBodies() > before }),
-                    "the queue panel never came on screen", file: file, line: line
-                )
+                let shown = await AppKitTestSupport.settle(until: { panelBodies() > before })
+                XCTAssertTrue(shown, "the queue panel never came on screen", file: file, line: line)
             }
-            // Past the open or close spring, which settles after about 0.8 s: opened again while
-            // it is still closing, SwiftUI keeps the panel it has instead of building a new one.
-            AppKitTestSupport.pumpRunLoop(for: 1.2)
+            // Every update the toggle started lands before the next press (the test host turns
+            // animations off, so the panel is fully in or out by then).
+            await AppKitTestSupport.settle()
         }
         // The first time the page takes the narrower width, its list measures its rows at that
         // width once; that is not what each press costs, so it isn't counted.
         waitUntilNothingRenders()
         ViewBodyTally.counts = [:]
-        toggle(true)
-        toggle(false)
+        await toggle(true)
+        await toggle(false)
         ViewBodyTally.counts = [:]
         for visible in [true, false, true, false, true, false] {
-            toggle(visible)
+            await toggle(visible)
         }
         let counts = ViewBodyTally.counts ?? [:]
         for container in [
