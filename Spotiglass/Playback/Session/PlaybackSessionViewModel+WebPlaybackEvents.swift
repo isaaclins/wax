@@ -108,7 +108,9 @@ extension PlaybackSessionViewModel {
             }
             hasTransferredPlaybackToCurrentDevice = false
             clearPendingSkipCommand()
+            endSkipPreview()
             sdkNextTracks = []
+            sdkPreviousTracks = []
             setConnectionState(.unavailable(LocalizedText(SpotiglassL10n.string("error.playback.deviceLost.message"))))
             playbackHostRecoveryTask?.cancel()
             playbackHostRecoveryTask = nil
@@ -125,7 +127,7 @@ extension PlaybackSessionViewModel {
                 }
                 await self.attemptPlaybackHostRecovery(cause: .notReady, generation: generation)
             }
-        case let .stateChanged(nowPlaying, isPaused, nextTracks):
+        case let .stateChanged(nowPlaying, isPaused, nextTracks, previousTracks):
             if isRemotePlaybackActive {
                 // The embedded SDK is intentionally idle while another
                 // Connect device owns playback. Its state_changed events must
@@ -142,6 +144,10 @@ extension PlaybackSessionViewModel {
             if let nowPlaying {
                 pageReportedPlayState = isPaused ? .paused(nowPlaying) : .playing(nowPlaying)
             }
+            // Still the song a skip left: the bar keeps the song it went to until Spotify has it.
+            if holdsReportForSkipPreview(nowPlaying, event: event) {
+                return
+            }
             // A report without a track (the player going away) always goes through.
             guard nowPlaying == nil || acceptsPushedPlayState(isPlaying: !isPaused) else {
                 heldBackPageReport = MusicPlaybackEventEnvelope(event: event, hostGeneration: playbackHostGeneration)
@@ -157,6 +163,7 @@ extension PlaybackSessionViewModel {
                 return
             }
             sdkNextTracks = nextTracks
+            sdkPreviousTracks = previousTracks
             let effectiveNowPlaying = applyPendingSeekSuppression(to: nowPlaying)
             if effectiveNowPlaying != nil, !isRemotePlaybackActive {
                 hasTransferredPlaybackToCurrentDevice = true

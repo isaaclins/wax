@@ -569,7 +569,12 @@ struct MusicPlaybackEventEnvelope: Equatable {
 enum MusicPlaybackEvent: Equatable {
     case ready(deviceID: String)
     case notReady(deviceID: String)
-    case stateChanged(PlaybackNowPlaying?, isPaused: Bool, nextTracks: [PlaybackNowPlaying])
+    case stateChanged(
+        PlaybackNowPlaying?,
+        isPaused: Bool,
+        nextTracks: [PlaybackNowPlaying],
+        previousTracks: [PlaybackNowPlaying] = []
+    )
     /// A player command finished (Spotify: the SDK's `runPlayerCommand` name, e.g. `togglePlay`).
     /// `id` is the play / pause press it answers, when the command carried one.
     case playerCommandFinished(command: String, id: UInt64? = nil)

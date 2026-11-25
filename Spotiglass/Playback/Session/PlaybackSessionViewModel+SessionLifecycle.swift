@@ -178,6 +178,8 @@ extension PlaybackSessionViewModel {
         hasTransferredPlaybackToCurrentDevice = false
         activePlaylistID = nil
         sdkNextTracks = []
+        sdkPreviousTracks = []
+        endSkipPreview()
         shuffleEnabled = false
         lastConfirmedShuffleEnabled = nil
         inFlightShuffleTarget = nil

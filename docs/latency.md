@@ -64,8 +64,8 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 |---|---|---|---|---|
 | `playback.toggle.key` | Space pauses or resumes | 38 | 40 | |
 | `playback.toggle.click` | Click the play/pause button | 36 | 38 | |
-| `playback.next` | ⇧⌘→ skips to the next song | never | never | #687 |
-| `playback.previous` | ⇧⌘← goes back a song | never | never | #687 |
+| `playback.next` | ⇧⌘→ skips to the next song | 38 | 39 | fixed in #687 (was never) |
+| `playback.previous` | ⇧⌘← goes back a song | 39 | 49 | fixed in #687 (was never) |
 | `playback.seek` | ⌘→ jumps ahead in the song | never | never | #677 |
 | `playback.shuffle` | ⌥⌘S turns shuffle on or off | never | never | #677 |
 | `playback.repeat` | ⌥⌘R changes repeat | never | never | #677 |
@@ -85,8 +85,10 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 \* Run on its own; after the palette has been opened and closed 8 times, the letters never reach
 the field (#671).
 "never" means nothing changed on screen within 3 s in any try. Next and previous count once the
-player bar names another song; screenshot mode's player can't change its song for a skip sent
-through the Web API, so there it never does (#687).
+player bar names another song. Since #687 the bar shows the song before or after at once, from the
+songs Spotify's page lists around the current one, and settles on what Spotify reports. Screenshot
+mode's player never moves for a skip, so it lists more songs around the current one than Spotify's
+two, and a run of skips keeps finding the next one.
 Play/pause was measured again with the probe's fixes (the clock starts at the first input, and a
 try's timer no longer ends a later try): every press showed, and one try in 8 reached 43-52 ms.
 Seek, shuffle and repeat never show on the Mac mini. On CI's runner they showed in every try of
@@ -101,8 +103,8 @@ probe's menu-bar path rather than Wax.
 - **Apple Music's screens.** The probe runs on screenshot mode's Spotify stand-in, because CI has
   no Apple Music account. The views are the same for both services; the data behind them isn't.
 - **A sidebar click on CI's runner.** There, clicking a sidebar playlist never shows, while it
-  works on a Mac, so CI can't yet tell when it gets slower (#688). Next, previous and ⌘[ never show
-  there either, as on a Mac, and seek, shuffle and repeat show in some runs and not others (#687,
+  works on a Mac, so CI can't yet tell when it gets slower (#688). ⌘[ never shows
+  there either, as on a Mac, next and previous have no CI time yet (#687 made them show), and seek, shuffle and repeat show in some runs and not others (#687,
   #677).
 - Drag and drop, context menus, the queue's own buttons, Settings changes, the service switcher,
   the scrubber and volume aren't in the list yet (#680). Add a `Step` to

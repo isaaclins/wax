@@ -251,6 +251,8 @@ extension PlaybackSessionViewModel {
         // A new play replaces whatever a skip moved past, and what a play / pause press waited
         // for: the new item's reports must show at once (#437).
         skipLeftItemURI = nil
+        // A play decides the song now, not a skip still on its way (#687).
+        endSkipPreview()
         clearPushedPlayStateExpectation()
         playPauseSupersededThrough = playPauseRequestSerial
         let hostGeneration = playbackHostGeneration

@@ -153,6 +153,7 @@
 		E50000000000000000000075 /* PlaybackSessionViewModel+Seek.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000005C /* PlaybackSessionViewModel+Seek.swift */; };
 		F451A2B1C5CDBFDCB2EAB110 /* PlaybackSessionViewModel+FailedCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4510F15E6892609D0B410FF /* PlaybackSessionViewModel+FailedCommand.swift */; };
 		E50000000000000000000076 /* PlaybackSessionViewModel+SkipAndPlayPause.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000005D /* PlaybackSessionViewModel+SkipAndPlayPause.swift */; };
+		A53FF4F7604B8F03B685FFEA /* PlaybackSessionViewModel+SkipPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A007826E6FB08922C730B2 /* PlaybackSessionViewModel+SkipPreview.swift */; };
 		E50000000000000000000077 /* PlaybackSessionViewModel+DeviceTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000000000000000000005E /* PlaybackSessionViewModel+DeviceTransfer.swift */; };
 		E50000000000000000000080 /* ImmersiveLyricsBackgroundLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000078 /* ImmersiveLyricsBackgroundLayer.swift */; };
 		E50000000000000000000081 /* ImmersiveLyricsMainLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000079 /* ImmersiveLyricsMainLayout.swift */; };
@@ -654,6 +655,7 @@
 		E5000000000000000000005C /* PlaybackSessionViewModel+Seek.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlaybackSessionViewModel+Seek.swift"; sourceTree = "<group>"; };
 		F4510F15E6892609D0B410FF /* PlaybackSessionViewModel+FailedCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlaybackSessionViewModel+FailedCommand.swift"; sourceTree = "<group>"; };
 		E5000000000000000000005D /* PlaybackSessionViewModel+SkipAndPlayPause.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlaybackSessionViewModel+SkipAndPlayPause.swift"; sourceTree = "<group>"; };
+		79A007826E6FB08922C730B2 /* PlaybackSessionViewModel+SkipPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlaybackSessionViewModel+SkipPreview.swift"; sourceTree = "<group>"; };
 		E5000000000000000000005E /* PlaybackSessionViewModel+DeviceTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlaybackSessionViewModel+DeviceTransfer.swift"; sourceTree = "<group>"; };
 		E50000000000000000000078 /* ImmersiveLyricsBackgroundLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersiveLyricsBackgroundLayer.swift; sourceTree = "<group>"; };
 		E50000000000000000000079 /* ImmersiveLyricsMainLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImmersiveLyricsMainLayout.swift; sourceTree = "<group>"; };
@@ -1495,6 +1497,7 @@
 				E5000000000000000000005C /* PlaybackSessionViewModel+Seek.swift */,
 				F4510F15E6892609D0B410FF /* PlaybackSessionViewModel+FailedCommand.swift */,
 				E5000000000000000000005D /* PlaybackSessionViewModel+SkipAndPlayPause.swift */,
+				79A007826E6FB08922C730B2 /* PlaybackSessionViewModel+SkipPreview.swift */,
 				E5000000000000000000005E /* PlaybackSessionViewModel+DeviceTransfer.swift */,
 				E50000000000000000000053 /* PlaybackSessionViewModel+Timers.swift */,
 				E500000000000000000000BF /* PlaybackSessionViewModel+ProgressAnchor.swift */,
@@ -1986,6 +1989,7 @@
 				E50000000000000000000075 /* PlaybackSessionViewModel+Seek.swift in Sources */,
 				F451A2B1C5CDBFDCB2EAB110 /* PlaybackSessionViewModel+FailedCommand.swift in Sources */,
 				E50000000000000000000076 /* PlaybackSessionViewModel+SkipAndPlayPause.swift in Sources */,
+				A53FF4F7604B8F03B685FFEA /* PlaybackSessionViewModel+SkipPreview.swift in Sources */,
 				E50000000000000000000077 /* PlaybackSessionViewModel+DeviceTransfer.swift in Sources */,
 				E50000000000000000000005 /* HiddenPlaybackWebView.swift in Sources */,
 				E50000000000000000000008 /* QueueViewModel.swift in Sources */,
