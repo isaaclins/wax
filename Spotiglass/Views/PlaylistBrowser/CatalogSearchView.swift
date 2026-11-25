@@ -25,7 +25,7 @@ struct CatalogSearchView: View {
     @State private var trackSelection = TrackStackSelection()
     /// The palette searches too: while it is open this page's field steps aside, so the window
     /// never shows two search fields stacked (#472). It keeps its place, so nothing moves.
-    @Environment(\.isCommandPalettePresented) private var isCommandPalettePresented
+    @Environment(\.commandPalettePresence) private var palettePresence
 
     private let cardColumns = [
         GridItem(.adaptive(minimum: SpotiglassDesign.Layout.cardWidth), spacing: SpotiglassDesign.spacingM, alignment: .leading)
@@ -52,8 +52,7 @@ struct CatalogSearchView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: SpotiglassDesign.spacingM) {
             queryField
-                .opacity(isCommandPalettePresented ? 0 : 1)
-                .accessibilityHidden(isCommandPalettePresented)
+                .modifier(SteppingAsideForPalette(presence: palettePresence))
             // With no query there is nothing to filter, so presenting the pills
             // as active filters was a lie about the state (#164).
             if !searchViewModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -402,5 +401,16 @@ struct CatalogSearchArtistCard: View {
         .buttonStyle(.plain)
         .hoverPressable(hoverScale: 1.03, pressScale: 0.97)
         .accessibilityLabel(artist.name)
+    }
+}
+
+/// Hides the Search page's field while the palette is open, keeping its place (#472).
+private struct SteppingAsideForPalette: ViewModifier {
+    @ObservedObject var presence: CommandPalettePresence
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(presence.isPresented ? 0 : 1)
+            .accessibilityHidden(presence.isPresented)
     }
 }

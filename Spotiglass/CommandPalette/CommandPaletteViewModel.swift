@@ -10,7 +10,11 @@ final class CommandPaletteViewModel: ObservableObject {
     /// Max rows shown per secondary section (artists, albums, playlists) in the unified **All** view.
     static let allSecondarySectionCap = 4
 
-    @Published var isPresented = false
+    @Published var isPresented = false {
+        didSet { presence.set(isPresented) }
+    }
+    /// Follows ``isPresented`` for the views behind the palette that change while it is open (#671).
+    let presence = CommandPalettePresence()
     @Published var query = ""
     /// Filters Spotify search sections when not in command (`>`) scope.
     @Published var searchCategoryFilter: CommandPaletteSearchCategory = .all
@@ -284,8 +288,23 @@ final class CommandPaletteViewModel: ObservableObject {
         refresh()
     }
 
+    /// Closes the panel. What it showed stays as it was while it fades out, and ``show()`` starts
+    /// the next one afresh: emptied here, the closing panel laid itself out again around an empty
+    /// field and list first, which held esc's frame back past 50 ms (#671). Signing out and
+    /// closing the window empty it too (``reset()``).
     func hide() {
         isPresented = false
+        searchTask?.cancel()
+        searchTask = nil
+        let restoreFocus = restoreFocus
+        self.restoreFocus = nil
+        restoreFocus?()
+    }
+
+    /// Closes the panel and forgets what was typed and found in it, for a sign-out or a window
+    /// that goes away: nothing from one account may show when the palette opens for the next.
+    func reset() {
+        hide()
         query = ""
         searchCategoryFilter = .all
         selectedIndex = 0
@@ -299,11 +318,6 @@ final class CommandPaletteViewModel: ObservableObject {
         suppressLegacyPrefixQueryRefresh = false
         rateLimitCooldownUntil = .distantPast
         rateLimitError = nil
-        searchTask?.cancel()
-        searchTask = nil
-        let restoreFocus = restoreFocus
-        self.restoreFocus = nil
-        restoreFocus?()
     }
 
     /// Replaces the current query (used by external commands like "filter by artist").

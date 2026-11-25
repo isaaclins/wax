@@ -17,18 +17,6 @@
       "issue": 675,
       "measuredMs": 66
     },
-    "palette.close": {
-      "issue": 671,
-      "measuredMs": 78
-    },
-    "palette.open": {
-      "issue": 671,
-      "measuredMs": 88
-    },
-    "palette.type": {
-      "issue": 671,
-      "measuredMs": null
-    },
     "playback.previous": {
       "issue": 704,
       "measuredMs": 53

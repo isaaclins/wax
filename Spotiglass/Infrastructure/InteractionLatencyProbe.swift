@@ -185,8 +185,11 @@ final class InteractionLatencyProbe {
                     return await probe.waitUntil { $0.palette.query.isEmpty }
                 },
                 start: { probe in
+                    // Any change counts: the field can still show the last try's letter after
+                    // the query was emptied under it, and then the letter makes "mm".
+                    let before = probe.palette.query
                     probe.press(.m)
-                    return { probe.palette.query == "m" }
+                    return { probe.palette.query != before }
                 }
             ),
             Step(
@@ -366,7 +369,8 @@ final class InteractionLatencyProbe {
         let page = browser?.sidebarSelection.map { "\($0)" } ?? "none"
         return "key window \(key), page \(page), palette \(palette.isPresented ? "open" : "closed"), "
             + "player \(isPlaying ? "playing" : "not playing"), skip pending \(playback.isSkipCommandPending), "
-            + "app active \(NSApp.isActive), menu items off: \(Self.disabledMenuShortcuts())"
+            + "app active \(NSApp.isActive), focus \(Self.focusDescription(NSApp.keyWindow)), "
+            + "menu items off: \(Self.disabledMenuShortcuts())"
     }
 
     private var isReady: Bool {
@@ -425,6 +429,13 @@ final class InteractionLatencyProbe {
     /// closed (unless the step works in it).
     private func resetBetweenSteps(keepPalette: Bool) async {
         for other in NSApp.windows where Self.isSettingsWindow(other) && other.isVisible { other.close() }
+        // Another app (a test run's window on a shared Mac) can take the keyboard between tries;
+        // keys would go nowhere then.
+        if !NSApp.isActive || NSApp.keyWindow == nil {
+            NSApp.activate()
+            window?.makeKeyAndOrderFront(nil)
+            await waitUntil(timeout: 1) { _ in NSApp.isActive && NSApp.keyWindow != nil }
+        }
         if NSApp.keyWindow !== window, !(keepPalette && palette.isPresented) {
             window?.makeKeyAndOrderFront(nil)
         }
@@ -626,6 +637,15 @@ final class InteractionLatencyProbe {
             if let view = element as? NSView { queue.append(contentsOf: view.subviews) }
         }
         return nil
+    }
+
+    /// What has keyboard focus in `window`: the text field being edited, or the responder.
+    private static func focusDescription(_ window: NSWindow?) -> String {
+        guard let responder = window?.firstResponder else { return "none" }
+        if let editor = responder as? NSTextView, editor.isFieldEditor, let field = editor.delegate as? NSTextField {
+            return "field \"\(field.placeholderString ?? "")\""
+        }
+        return "\(type(of: responder))"
     }
 
     /// The app's own menu bar items with a shortcut that are switched off.
