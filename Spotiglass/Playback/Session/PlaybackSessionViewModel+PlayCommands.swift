@@ -25,6 +25,8 @@ extension PlaybackSessionViewModel {
             SpotiglassLog.info(.playback, "play(uri:) deduped uri=\(uri)")
             return
         }
+        // However it ends, the play is no longer starting: the bar stops showing it (#679).
+        defer { finalizePlayCommandDispatchIfCurrent(dispatch) }
         activePlaylistID = nil
         beginPendingPlay(uri: uri, dispatch: dispatch)
 
@@ -82,6 +84,8 @@ extension PlaybackSessionViewModel {
         guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
         let commandKey = PlayCommandKey.contextURI(deviceID: commandDeviceID, contextURI: contextURI)
         guard let dispatch = beginPlayCommandDispatchIfNeeded(for: commandKey) else { return }
+        // However it ends, the play is no longer starting: the bar stops showing it (#679).
+        defer { finalizePlayCommandDispatchIfCurrent(dispatch) }
         activePlaylistID = playlistID
         beginPendingContextPlay(dispatch: dispatch)
 
@@ -158,6 +162,8 @@ extension PlaybackSessionViewModel {
             SpotiglassLog.info(.playback, "playFromPlaylist deduped clickedURI=\(clickedURI) queueCount=\(queue.count)")
             return
         }
+        // However it ends, the play is no longer starting: the bar stops showing it (#679).
+        defer { finalizePlayCommandDispatchIfCurrent(dispatch) }
         activePlaylistID = playlistID
         beginPendingPlay(uri: clickedURI, dispatch: dispatch)
 

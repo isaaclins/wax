@@ -97,7 +97,9 @@ final class PlaybackSessionViewModel: ObservableObject {
     /// pauses and resumes what you hear instead of starting this service's paused song.
     /// Otherwise it is this player.
     var audiblePlayer: PlaybackSessionViewModel {
-        guard isOtherServiceHeard,
+        // Something starting here is what the bar shows, though the other service is still heard
+        // until it has paused (#679).
+        guard isOtherServiceHeard, !isStartingPlay,
               !PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: connectionState),
               let otherServicePlayer
         else { return self }
@@ -592,7 +594,12 @@ final class PlaybackSessionViewModel: ObservableObject {
     }
     let playCommandDedupeWindow: Duration
     var inFlightPlayCommandKey: PlayCommandKey?
-    var inFlightPlayCommandID: UInt64?
+    var inFlightPlayCommandID: UInt64? {
+        didSet { isStartingPlay = inFlightPlayCommandID != nil }
+    }
+    /// A song, album or list was started and the player hasn't taken it yet (Apple Music still
+    /// looking it up, Spotify still answering): the bar shows it is starting (#679).
+    @PublishedWhenChanged var isStartingPlay = false
     var lastDispatchedPlayCommandKey: PlayCommandKey?
     var lastDispatchedPlayCommandInstant: ContinuousClock.Instant?
     var playCommandSequence: UInt64 = 0
