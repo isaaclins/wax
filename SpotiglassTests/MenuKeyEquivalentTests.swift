@@ -414,8 +414,9 @@ final class MenuKeyEquivalentTests: XCTestCase {
             guard item.submenu !== NSApp.servicesMenu else { return [MenuKeyEquivalentItem]() }
             // AppKit adds Start Dictation… and Emoji & Symbols to the Edit menu itself, each with a
             // hidden twin; once the menu has been updated (opened, or after a change since #677)
-            // the pair share one shortcut. They're the system's, like the Services menu's.
-            if let action = item.action, Self.systemEditActions.contains(action) { return [] }
+            // the pair share one shortcut. The hidden twin is the system's; the visible item is
+            // still checked against the app's own shortcuts.
+            if item.isHidden, let action = item.action, Self.systemEditActions.contains(action) { return [] }
             let path = parentPath.isEmpty ? item.title : "\(parentPath) > \(item.title)"
             let current = item.keyEquivalent.isEmpty
                 ? []
