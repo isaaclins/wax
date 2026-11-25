@@ -6,6 +6,8 @@ import os
 /// Memory only and bounded: a page opened again doesn't look it up again, and the page's header,
 /// releases and top songs, which ask at the same time, share one lookup.
 final class AppleMusicCatalogMatches: @unchecked Sendable {
+    /// The app's one set: an album page's Play reads the match its page found (#658).
+    static let shared = AppleMusicCatalogMatches()
     static let maxEntries = 500
     private let lock = NSLock()
     private var matches = LRUDictionary<String, String>(capacity: AppleMusicCatalogMatches.maxEntries)
@@ -170,8 +172,10 @@ extension AppleMusicBrowsingProvider {
                 let index = next
                 next += 1
                 group.addTask {
-                    guard let detailed = try await source.album(id: albums[index].id.rawValue) else { return nil }
-                    let tracks = try await source.tracks(of: detailed, limit: Self.maxLibraryAlbumTracks)
+                    // One saved album that can't be read is left out, not the whole section.
+                    guard let detailed = try await catalogItem({ try await source.album(id: albums[index].id.rawValue) }) ?? nil,
+                          let tracks = try await catalogItem({ try await source.tracks(of: detailed, limit: Self.maxLibraryAlbumTracks) })
+                    else { return nil }
                     editor.songReferences.remember(tracks)
                     await lookUpRatings(tracks)
                     return (index, detailed, tracks)
@@ -259,6 +263,12 @@ extension AppleMusicBrowsingProvider {
             if reference?.isInLibrary ?? true { ids.insert(match.id.rawValue) }
         }
         return ids
+    }
+
+    /// The songs of a saved album the page shows itself that are in the library; one that is
+    /// only in a playlist isn't (#401).
+    static func savedSongIDs(_ tracks: [Track], registry: AppleMusicSongReferenceRegistry) -> Set<String> {
+        Set(tracks.map(\.id.rawValue).filter { registry.reference(for: $0)?.isInLibrary ?? true })
     }
 
     /// A saved album's song read through the album names no catalog ID (only its persistent ID),

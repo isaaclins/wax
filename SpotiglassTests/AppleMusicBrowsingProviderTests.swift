@@ -3747,7 +3747,8 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         })
         var provider = AppleMusicBrowsingProvider(
             source: source,
-            editor: AppleMusicLibraryEditor(pending: AppleMusicPendingLibraryEdits(), songReferences: registry)
+            editor: AppleMusicLibraryEditor(pending: AppleMusicPendingLibraryEdits(), songReferences: registry),
+            catalogMatches: AppleMusicCatalogMatches()
         )
         provider.ratingsDeadline = {}
         return provider
@@ -3881,6 +3882,33 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         XCTAssertEqual(artist.uri, "\(AppleMusicItemMapping.uriScheme):artist:\(Self.catalogArtistID)")
         XCTAssertEqual(albums.map(\.name), ["Newer", "DATA", "Older"])
         XCTAssertFalse(source.calls.contains { $0.hasPrefix("catalogSearch(") })
+    }
+
+    /// One saved album that can't be read leaves the rest of the section.
+    func testTheLibrarySectionKeepsItsOtherAlbumsWhenOneCantBeRead() async throws {
+        let source = try dataSavedWithoutCatalogIDs()
+        let brokenID = "-4444444444444444444"
+        let broken = try AppleMusicFixtures.album(id: brokenID, title: "Broken", trackCount: 3)
+        source.extraAlbumsByArtistID[Self.savedArtistID, default: []].append(broken)
+        source.albumErrorsByID[brokenID] = AppleMusicBrowsingError.notFound
+        let provider = provider(source)
+
+        let read = try await provider.artistPageExtras(id: Self.savedArtistID)
+        let extras = try XCTUnwrap(read)
+
+        XCTAssertEqual(extras.libraryTracks.map(\.name), ["Track 4", "Track 12"])
+    }
+
+    /// An upload's page is the saved copy: every song on it is saved, except one only in a playlist.
+    func testASavedAlbumWithNoCatalogCopyMarksItsSavedSongs() async throws {
+        let source = try tainy()
+        source.catalogSongsByID = [:]
+        let provider = provider(source, playlistOnly: ["-900000000000000001"])
+
+        let tracks = try await provider.albumTracks(albumID: Self.savedAlbumID, market: nil, limit: 50)
+
+        XCTAssertEqual(tracks.map(\.name), ["Saved 0", "Saved 1"])
+        XCTAssertEqual(tracks.filter(\.isInLibrary).map(\.name), ["Saved 0"])
     }
 
     /// A card in "In your library" gives the count of the page it opens (#400): the whole album

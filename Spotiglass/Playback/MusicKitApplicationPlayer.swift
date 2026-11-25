@@ -82,8 +82,9 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             // MusicKit's batches (#465).
             let source = MusicKitContentSource()
             guard var album = try await Self.mapped({ try await source.album(id: id) }) else { throw Self.notFound(id) }
-            // A saved album's page shows the catalog album it names, so its Play plays that (#658).
-            if let catalogID = AppleMusicBrowsingProvider.catalogID(of: album) {
+            // A saved album's page shows its catalog album, so its Play plays that (#658): the
+            // one the page matched, else the one the saved album names.
+            if let catalogID = AppleMusicCatalogMatches.shared.catalogID(for: id) ?? AppleMusicBrowsingProvider.catalogID(of: album) {
                 do {
                     if let catalog = try await source.album(id: catalogID) { album = catalog }
                 } catch is CancellationError {

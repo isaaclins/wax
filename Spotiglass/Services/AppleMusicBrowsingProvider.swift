@@ -129,7 +129,7 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     let trackCountCache: AppleMusicPlaylistTrackCountCache
     let editor: AppleMusicLibraryEditor
     /// Saved artists and albums matched to their catalog copy (#658).
-    let catalogMatches = AppleMusicCatalogMatches()
+    let catalogMatches: AppleMusicCatalogMatches
     /// How long a list waits for its songs' ratings before it shows without them (#518). The
     /// lookups carry on, so the next read of the list has them. Tests replace it.
     var ratingsDeadline: @Sendable () async -> Void = { try? await Task.sleep(for: AppleMusicBrowsingProvider.ratingsWait) }
@@ -144,9 +144,11 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         source: any AppleMusicContentSource = MusicKitContentSource(),
         artistAlbumsCache: AppleMusicArtistAlbumsCache = AppleMusicArtistAlbumsCache(),
         trackCountCache: AppleMusicPlaylistTrackCountCache = AppleMusicPlaylistTrackCountCache(),
-        editor: AppleMusicLibraryEditor = AppleMusicLibraryEditor()
+        editor: AppleMusicLibraryEditor = AppleMusicLibraryEditor(),
+        catalogMatches: AppleMusicCatalogMatches = .shared
     ) {
         self.source = source
+        self.catalogMatches = catalogMatches
         self.artistAlbumsCache = artistAlbumsCache
         self.trackCountCache = trackCountCache
         self.editor = editor
@@ -414,7 +416,10 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         // A library album lists its songs under persistent IDs; edits on those rows need the
         // song's other details (#395).
         editor.songReferences.remember(tracks)
-        let savedSongIDs = savedCatalogSongIDs(Array(tracks), saved: try await savedRead)
+        // A page that shows the saved copy itself (an upload) lists only saved songs.
+        let savedSongIDs = MusicKitLibraryLookup.isCatalogID(album.id.rawValue)
+            ? savedCatalogSongIDs(Array(tracks), saved: try await savedRead)
+            : Self.savedSongIDs(Array(tracks), registry: editor.songReferences)
         await lookUpRatings(tracks.prefix(cap))
         return tracks.prefix(cap).map {
             var track = AppleMusicItemMapping.track($0, album: album)
