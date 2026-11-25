@@ -15,6 +15,10 @@ final class CommandPaletteViewModel: ObservableObject {
     }
     /// Follows ``isPresented`` for the views behind the palette that change while it is open (#671).
     let presence = CommandPalettePresence()
+    /// Counts the times the palette opened. An esc and a ⌘K handled in the same run-loop turn
+    /// change ``isPresented`` back to what it was, so the panel's field goes by this to take the
+    /// focus esc handed back to the page (#671).
+    @Published private(set) var openings = 0
     @Published var query = ""
     /// Filters Spotify search sections when not in command (`>`) scope.
     @Published var searchCategoryFilter: CommandPaletteSearchCategory = .all
@@ -131,6 +135,7 @@ final class CommandPaletteViewModel: ObservableObject {
         selectionToKeep = nil
         if !isPresented {
             restoreFocus = rememberFocus()
+            openings += 1
         }
         isPresented = true
         query = ""

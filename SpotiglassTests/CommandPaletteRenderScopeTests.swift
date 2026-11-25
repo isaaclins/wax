@@ -112,6 +112,13 @@ final class CommandPaletteRenderScopeTests: XCTestCase {
         await AppKitTestSupport.settle(passes: 1)
         palette.show()
         XCTAssertTrue(Self.settle(fieldHasFocus), "the field should have focus when the palette opens again at once")
+
+        // esc and ⌘K handled in the same run-loop turn (both keys queued while the app was busy):
+        // the panel never got to close, but esc handed focus back to the page. The field takes it
+        // again, or what you type next goes nowhere.
+        palette.hide()
+        palette.show()
+        XCTAssertTrue(Self.settle(fieldHasFocus), "the field should have focus after esc and ⌘K in one turn")
     }
 
     /// Runs the main run loop until `done` holds: focus moves a frame or two after the palette's

@@ -168,6 +168,11 @@ struct CommandPaletteView: View {
         .onChange(of: isEnabled) { _, isEnabled in
             if isEnabled { scheduleSearchFieldFocus() }
         }
+        // Opened again before it ever closed (esc and ⌘K in one turn): it stayed usable, but esc
+        // handed the focus to the page.
+        .onChange(of: viewModel.openings) {
+            if isEnabled { scheduleSearchFieldFocus() }
+        }
         .onChange(of: viewModel.isLoading) { _, isLoading in
             if !isLoading {
                 scheduleSearchFieldFocus()
