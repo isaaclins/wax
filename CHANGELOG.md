@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.78] - 2026-11-25
+
+### Fixed
+
+- Autoplay no longer jumps from song to song through a long playlist on its own.
+
 ## [0.8.77] - 2026-11-25
 
 ### Fixed
