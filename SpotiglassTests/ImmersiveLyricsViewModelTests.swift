@@ -672,6 +672,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         await vm.retry(track: track)
         XCTAssertEqual(fetchCount, 4)
         XCTAssertEqual(waits.count, 1)
+        vm = nil  // The wait closure holds `vm`; let it go so its connection wait ends with it.
     }
 
     /// Try again shows it arrived inside the press: loading is set before the first suspension,
@@ -712,6 +713,74 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         await vm.networkCameBack()
         XCTAssertEqual(fetchedTracks.count, 1, "The old song must not be fetched again: \(fetchedTracks)")
         XCTAssertEqual(vm.phase, .loading)
+    }
+
+    /// Lyrics reopened during a connection wait show the connection message from the wait; the
+    /// song must still load once the network is back.
+    func testReopeningDuringAConnectionWaitStillLoadsWhenTheNetworkIsBack() async {
+        var fetchCount = 0
+        let vm = ImmersiveLyricsViewModel { _ in
+            fetchCount += 1
+            if fetchCount == 1 { throw URLError(.notConnectedToInternet) }
+            return Self.syncedLyrics
+        }
+        let track = sampleTrack(spotifyID: "reopenDuringWait")
+        await vm.load(track: track)
+        await vm.load(track: track)
+        XCTAssertEqual(fetchCount, 1)
+        XCTAssertEqual(failedMessage(vm), SpotiglassL10n.string("lyrics.error.network"))
+
+        await vm.networkCameBack()
+        XCTAssertEqual(fetchCount, 2)
+        XCTAssertEqual(vm.phase, .ready(Self.syncedLyrics))
+    }
+
+    /// A timeout, DNS failure or firewall block leaves the network path up, so no network-back
+    /// signal comes: the song on screen tries again by itself once its wait ends.
+    func testTheSongOnScreenTriesAgainOnceItsConnectionWaitEnds() async {
+        var fetchCount = 0
+        var waits: [TimeInterval] = []
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                if fetchCount == 1 { throw URLError(.timedOut) }
+                return Self.syncedLyrics
+            },
+            connectionWait: { waits.append($0) }
+        )
+        let ready = expectation(description: "lyrics shown once the wait ended")
+        let observation = vm.$phase.sink { if $0 == .ready(Self.syncedLyrics) { ready.fulfill() } }
+        await vm.load(track: sampleTrack(spotifyID: "waitEnds"))
+        XCTAssertEqual(failedMessage(vm), SpotiglassL10n.string("lyrics.error.network"))
+
+        await fulfillment(of: [ready], timeout: 5)
+        observation.cancel()
+        XCTAssertEqual(fetchCount, 2)
+        XCTAssertEqual(waits.count, 1, "The end of the wait fetches; it must not find the wait still running: \(waits)")
+        XCTAssertEqual(waits.first ?? 0, 5, accuracy: 0.5)
+    }
+
+    /// Lyrics closed: the song stops waiting for the connection, so neither its wait ending
+    /// nor the network coming back fetches it.
+    func testClosingLyricsStopsWaitingForTheConnection() async {
+        var fetchCount = 0
+        let waitEnded = expectation(description: "the connection wait ended when lyrics closed")
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                throw URLError(.notConnectedToInternet)
+            },
+            connectionWait: { _ in
+                // Waits until cancelled: only closing lyrics ends it here.
+                do { try await Task.sleep(nanoseconds: UInt64.max / 2) } catch { waitEnded.fulfill() }
+            }
+        )
+        await vm.load(track: sampleTrack(spotifyID: "closedDuringWait"))
+        vm.stopWaitingForConnection()
+
+        await fulfillment(of: [waitEnded], timeout: 5)
+        await vm.networkCameBack()
+        XCTAssertEqual(fetchCount, 1)
     }
 
     func testTryAgainFetchesPastAPermanentWait() async {

@@ -55,11 +55,15 @@ final class ImmersiveLyricsViewModel: ObservableObject {
     private let diskCache: LyricsDiskCache?
     private let now: () -> Date
     private let sleep: (TimeInterval) async throws -> Void
+    private let connectionWait: (TimeInterval) async throws -> Void
     private var loadGeneration = 0
     /// The song whose lyrics failed for want of a connection, loaded again when it is back.
     private var trackWaitingForNetwork: PlaybackNowPlaying?
     private var lastManualFetch: (trackId: String, at: Date)?
     private var networkRecoveryTask: Task<Void, Never>?
+    /// Tries the song on screen again once its connection wait ends: a timeout, DNS failure or
+    /// firewall block leaves the network path up, so no network-back signal ever comes (#599).
+    private var connectionRetryTask: Task<Void, Never>?
 
     /// Lyrics kept in memory this session; older ones load from the disk cache again (#381).
     static let maxMemoryEntries = 200
@@ -70,19 +74,23 @@ final class ImmersiveLyricsViewModel: ObservableObject {
     private static var noLyricsCooldownUntil: [String: Date] = [:]
     private static var backoffMetadata: [String: LyricsDiskCache.TrackBackoffMetadata] = [:]
 
-    /// - Parameter networkRecovered: yields when the network comes back (or the Mac wakes);
-    ///   connection waits end and lyrics that failed for want of a connection load again.
+    /// - Parameters:
+    ///   - networkRecovered: yields when the network comes back (or the Mac wakes);
+    ///     connection waits end and lyrics that failed for want of a connection load again.
+    ///   - connectionWait: waits out a connection wait before the song on screen is tried again.
     init(
         fetchLyrics: @escaping (PlaybackNowPlaying) async throws -> FetchedLyrics,
         diskCache: LyricsDiskCache? = nil,
         networkRecovered: AsyncStream<Void>? = nil,
         now: @escaping () -> Date = Date.init,
-        sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
+        sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) },
+        connectionWait: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
     ) {
         self.fetch = fetchLyrics
         self.diskCache = diskCache
         self.now = now
         self.sleep = sleep
+        self.connectionWait = connectionWait
         if let networkRecovered {
             networkRecoveryTask = Task { [weak self] in
                 for await _ in networkRecovered {
@@ -104,6 +112,7 @@ final class ImmersiveLyricsViewModel: ObservableObject {
 
     deinit {
         networkRecoveryTask?.cancel()
+        connectionRetryTask?.cancel()
     }
 
     /// Fetches lyrics in the background without changing `phase` (for prefetch while the overlay is closed).
@@ -171,6 +180,10 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         if honoursBackoff, isWithinBackoffCooldown(trackId: tid) {
             SpotiglassLog.info(.api, "Lyrics not fetched: this song failed before and waits \(remainingCooldownDescription(trackId: tid)); showed that")
             phase = .failed(cooldownMessage(trackId: tid))
+            // Lyrics reopened during a connection wait: the song still loads once it ends or the network is back.
+            if let metadata = Self.backoffMetadata[tid], metadata.failureClass == .network {
+                waitForConnection(track: track, generation: generation, until: metadata.nextEligibleFetchAt)
+            }
             return
         }
 
@@ -193,8 +206,8 @@ final class ImmersiveLyricsViewModel: ObservableObject {
                 .api,
                 "Lyrics failed (network, \(SpotiglassLog.describe(error))) \(count) time(s) for this song; showed the connection error, no new fetch for \(Int(wait.rounded())) s or until the network is back"
             )
-            trackWaitingForNetwork = track
             phase = .failed(LocalizedText(SpotiglassL10n.string("lyrics.error.network")))
+            waitForConnection(track: track, generation: generation, until: now().addingTimeInterval(wait))
         } catch {
             guard isCurrentLoad(generation) else { return }
             // localizedDescription here is a system error dump, which is not a sentence
@@ -226,6 +239,33 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         }
         SpotiglassLog.info(.api, "Network is back; loading the lyrics that failed for want of a connection")
         await load(track: track)
+    }
+
+    /// The song on screen failed for want of a connection: it loads again when the network is
+    /// back, or by itself once its wait ends, unless anything else loaded or lyrics closed first.
+    private func waitForConnection(track: PlaybackNowPlaying, generation: Int, until: Date) {
+        trackWaitingForNetwork = track
+        connectionRetryTask?.cancel()
+        let wait = max(0, until.timeIntervalSince(now()))
+        let connectionWait = connectionWait
+        connectionRetryTask = Task { [weak self] in
+            // try?: the wait only throws when cancelled, and the generation check ends it then.
+            try? await connectionWait(wait)
+            guard let self, !Task.isCancelled, generation == self.loadGeneration,
+                  let waiting = self.trackWaitingForNetwork else { return }
+            SpotiglassLog.info(.api, "Lyrics connection wait ended; trying the song on screen again")
+            // Past the wait check: this is its end, and a timer that wakes a moment early must
+            // fetch, not find the wait still running and start another one at once.
+            await self.load(track: waiting, generation: self.beginLoad(), honoursBackoff: false)
+        }
+    }
+
+    /// Lyrics closed: nothing on screen waits for the connection any more, so neither the
+    /// network coming back nor a wait ending fetches anything (#599).
+    func stopWaitingForConnection() {
+        _ = beginLoad()
+        connectionRetryTask?.cancel()
+        connectionRetryTask = nil
     }
 
     /// Loading, for a song that is on its way: a play just started and the player has no song
