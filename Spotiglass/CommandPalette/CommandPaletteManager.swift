@@ -258,18 +258,12 @@ final class CommandPaletteManager: ObservableObject {
 
     func bindPlaybackReadiness(to playback: PlaybackSessionViewModel) {
         playbackReadinessCancellables.removeAll()
-        setPlaybackToggleAvailability(playback.isPlaybackToggleReady)
-        setLyricsToggleAvailability(playback.audiblePlayer.currentLyricTrack != nil)
-        setSkipAvailability(
-            playback.isOtherServiceHeard || playback.connectionState.hasTrackToSkipFrom
-        )
         // The browser binds again on every page change, so every published value is set only
         // when it changes: each set re-renders the window and rebuilds the menus, and a page
-        // change set some twenty of them to what they already were (#675).
-        setShuffleEnabled(playback.shuffleEnabled)
-        setRepeatMode(playback.repeatMode)
-        setPlaybackTransportMutability(playback.isTransportMutationReady)
-        setRepeatMutability(playback.audiblePlayer.isTransportMutationReady)
+        // change set some twenty of them to what they already were (#675). The subscriptions
+        // below set every value right away, from what each player holds now. They are the only
+        // place that sets them: a first guess from this service's player alone was wrong while
+        // the other service is heard, and the page change then announced the repeat twice.
 
         let playerPushesState = playback.playerPushesState
         Publishers.CombineLatest4(
