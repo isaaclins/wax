@@ -343,6 +343,10 @@ final class CommandPaletteViewModel: ObservableObject {
         await searchTask?.value
     }
 
+    /// Told the query of every song search once it has finished handling its answer, including
+    /// one a newer search replaced. Lets a test wait for exactly that instead of a delay.
+    var songSearchDidFinish: ((String) -> Void)?
+
     /// Re-filters the cached result set for `category` without hitting the network when the
     /// current query's results are already loaded; otherwise falls back to a fresh search.
     /// This is what makes the footer pills (and Tab) switch instantly instead of re-querying.
@@ -354,6 +358,7 @@ final class CommandPaletteViewModel: ObservableObject {
         if !trimmed.isEmpty,
            trimmed.count >= Self.minimumPaletteSearchQueryCharacters,
            cachedResultsQuery == trimmed,
+           lastSuccessfulSongSearchQuery == trimmed.lowercased(),
            cachedResults != nil {
             renderSectionsFromCache(trimmed: trimmed)
         } else {
@@ -490,6 +495,7 @@ final class CommandPaletteViewModel: ObservableObject {
     /// instant local matches already on screen. The category is applied at render time,
     /// not requested from the network, so switching pills never triggers another fetch.
     private func runSongScopeSearch(query: String) async {
+        defer { songSearchDidFinish?(query) }
         if Date() < rateLimitCooldownUntil {
             isLoading = false
             error = rateLimitError
@@ -523,8 +529,13 @@ final class CommandPaletteViewModel: ObservableObject {
         } catch is CancellationError {
             isLoading = false
         } catch let partial as CommandPalettePartialSearchFailure {
+            // A newer search replaced this one: its answer must not overwrite the newer rows.
+            guard !Task.isCancelled else {
+                SpotiglassLog.debug(.api, "palette search '\(query)' answered in part after a newer search started")
+                return
+            }
             // What did load shows, with a line for what didn't. Not marked as a finished search,
-            // so the next keystroke asks again (#595).
+            // so the same query, the next keystroke or a pill switch asks again (#595).
             SpotiglassLog.debug(.api, "palette search '\(query)' answered in part")
             cachedResults = partial.results
             cachedResultsQuery = query

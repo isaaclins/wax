@@ -81,7 +81,7 @@ extension PlaylistBrowserViewModel {
             ))
         } else {
             trackMutationToastText = LocalizedText(SpotiglassL10n.format(
-                "library.continuation.added",
+                collection.sourcesFailed ? "library.continuation.addedLoadFailed" : "library.continuation.added",
                 Int64(result.enqueued)
             ))
         }

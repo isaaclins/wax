@@ -175,19 +175,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Couldn't open “%@”. Check your connection and try again."
+            "value": "Couldn't open “%@”. Try again in a moment."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudo abrir «%@». Revisa tu conexión e inténtalo de nuevo."
+            "value": "No se pudo abrir «%@». Vuelve a intentarlo en un momento."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "„%@“ konnte nicht geöffnet werden. Prüfe deine Verbindung und versuche es erneut."
+            "value": "„%@“ konnte nicht geöffnet werden. Versuche es gleich noch einmal."
           }
         }
       }
@@ -18293,6 +18293,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deine Kontodaten wurden nicht geladen, daher kannst du deine Playlists erst nach der nächsten Aktualisierung umbenennen."
+          }
+        }
+      }
+    },
+    "library.continuation.addedLoadFailed": {
+      "comment": "Toast after continuation tracks were added while part of the library failed to load. %lld is the number of tracks added.",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added %lld tracks from your library to the queue. Part of your library didn't load, so try again in a moment for more."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se añadieron %lld canciones de tu biblioteca a la cola. Parte de tu biblioteca no se cargó; vuelve a intentarlo en un momento para más."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Titel aus deiner Bibliothek wurden zur Warteschlange hinzugefügt. Ein Teil deiner Bibliothek wurde nicht geladen. Versuche es gleich noch einmal für mehr."
           }
         }
       }

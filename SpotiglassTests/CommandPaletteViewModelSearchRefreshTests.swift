@@ -290,4 +290,87 @@ final class CommandPaletteViewModelSearchRefreshTests: XCTestCase {
         await viewModel.waitForSearchCompletion()
         XCTAssertEqual(callCount, 2, "a partial answer isn't kept as the finished search")
     }
+    /// A pill switch after a partial answer asks again instead of filtering the partial rows.
+    func testAPillSwitchAfterAPartialSearchAsksAgain() async {
+        let viewModel = CommandPaletteViewModel()
+        defer { viewModel.hide() }
+        var callCount = 0
+        viewModel.searchProvider = { _, _ in
+            callCount += 1
+            throw CommandPalettePartialSearchFailure(
+                results: CommandPaletteSearchResults(),
+                missing: MusicSearchPartialFailure(
+                    results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
+                    missing: .catalog,
+                    underlying: URLError(.notConnectedToInternet)
+                )
+            )
+        }
+        viewModel.show()
+        viewModel.query = "saved"
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+        XCTAssertEqual(callCount, 1)
+
+        viewModel.selectCategory(.artists)
+        await viewModel.waitForSearchCompletion()
+        XCTAssertEqual(callCount, 2)
+    }
+
+    /// A partial answer that arrives after a newer search started must not replace the newer
+    /// rows or put its note over them. The order is forced: the old answer is held until the
+    /// new search has finished.
+    func testALatePartialAnswerDoesNotOverwriteANewerSearch() async {
+        let viewModel = CommandPaletteViewModel()
+        defer { viewModel.hide() }
+        var releaseOld: CheckedContinuation<Void, Never>?
+        let oldAsked = expectation(description: "old search reached the provider")
+        let oldFinished = expectation(description: "old search finished handling its answer")
+        viewModel.songSearchDidFinish = { query in
+            if query == "old" { oldFinished.fulfill() }
+        }
+        viewModel.searchProvider = { query, _ in
+            if query == "old" {
+                await withCheckedContinuation { continuation in
+                    releaseOld = continuation
+                    oldAsked.fulfill()
+                }
+                throw CommandPalettePartialSearchFailure(
+                    results: CommandPaletteSearchResults(tracks: [
+                        CommandPaletteItem(
+                            id: "track-old", title: "Old", subtitle: nil,
+                            iconSystemName: "music.note", section: .tracks, keywords: []
+                        ) {}
+                    ]),
+                    missing: MusicSearchPartialFailure(
+                        results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
+                        missing: .catalog,
+                        underlying: URLError(.notConnectedToInternet)
+                    )
+                )
+            }
+            return CommandPaletteSearchResults(tracks: [
+                CommandPaletteItem(
+                    id: "track-new", title: "New", subtitle: nil,
+                    iconSystemName: "music.note", section: .tracks, keywords: []
+                ) {}
+            ])
+        }
+        viewModel.show()
+        viewModel.query = "old"
+        viewModel.refresh()
+        await fulfillment(of: [oldAsked], timeout: 10)
+
+        viewModel.query = "new"
+        viewModel.refresh()
+        await viewModel.waitForSearchCompletion()
+        XCTAssertTrue(viewModel.sections.contains { $0.items.contains { $0.id == "track-new" } })
+
+        releaseOld?.resume()
+        await fulfillment(of: [oldFinished], timeout: 10)
+
+        XCTAssertNil(viewModel.errorText, "the old search's note landed on the new results")
+        XCTAssertFalse(viewModel.sections.contains { $0.items.contains { $0.id == "track-old" } })
+        XCTAssertTrue(viewModel.sections.contains { $0.items.contains { $0.id == "track-new" } })
+    }
 }

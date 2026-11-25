@@ -256,6 +256,35 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         XCTAssertEqual(enqueued.count, matches.count)
     }
 
+    /// Enough tracks came back, but a source failed: the toast still says part of the library
+    /// didn't load, so a thin mix isn't taken for everything there is.
+    func testAFailedSourceIsMentionedEvenWhenEnoughTracksWereAdded() async {
+        struct SampleError: Error {}
+        let seed = track("seed", artistID: "artist")
+        let api = MockBrowsingAPI(
+            playlistResults: [],
+            trackResults: [:],
+            savedTracksResult: .success(MusicSavedTracksResult(
+                tracks: [item(seed)] + ["one", "two", "three", "four", "five"].map { item(track($0, artistID: "artist")) },
+                totalAvailable: 6
+            ))
+        )
+        api.topTracksHandler = { _, _ in throw SampleError() }
+        let viewModel = makeViewModel(api: api, cache: MockBrowsingCache())
+        var added = 0
+
+        await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
+            added = uris.count
+            return QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
+        }
+
+        XCTAssertGreaterThanOrEqual(added, 3, "enough for the ordinary toast, not the short one")
+        XCTAssertEqual(
+            viewModel.trackMutationToast,
+            SpotiglassL10n.format("library.continuation.addedLoadFailed", Int64(added))
+        )
+    }
+
     /// With every artist's top tracks failing, both breadth lists came out empty and the cache
     /// took that as a complete collection for 15 minutes (#595).
     func testFailedArtistTopTracksKeepTheCollectionOutOfTheCache() async {

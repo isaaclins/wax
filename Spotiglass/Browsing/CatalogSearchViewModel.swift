@@ -122,6 +122,9 @@ final class CatalogSearchViewModel: ObservableObject {
     private var cachedRawTracks: [MusicTrack] = []
     private var cachedHasMore: [CatalogSearchCategory: Bool] = [:]
     private var cachedNextOffsets: [CatalogSearchCategory: Int] = [:]
+    /// The half of the cached search that didn't answer (#595). Load More still pages the half
+    /// that did, but a pill switch or the same query asks the service again instead of reusing it.
+    private var cachedPartial: MusicSearchPartialFailure?
     @Published private(set) var isLoadingMore = false
 
     deinit {
@@ -167,6 +170,7 @@ final class CatalogSearchViewModel: ObservableObject {
         // A focused pill wants deeper paging than the `all` preview, so only
         // refetch when the cache cannot already satisfy the new page depth.
         if cachedQuery == trimmedQuery,
+           cachedPartial == nil,
            let cachedResults,
            cachedPageCount >= pageCount(for: newCategory) {
             searchGeneration += 1
@@ -240,9 +244,14 @@ final class CatalogSearchViewModel: ObservableObject {
             cachedRawTracks = tracks
             updatePagingState(from: page, offset: offset)
             cachedResults = merged
-            state = merged.isEmpty
-                ? .empty(LocalizedText(SpotiglassL10n.format("search.empty.noResults", queryToLoad)))
-                : .loaded(merged)
+            if let cachedPartial {
+                // The half that didn't answer is still missing: the note stays.
+                state = .staleCache(merged, BrowsingDisplayError.partialSearch(cachedPartial))
+            } else {
+                state = merged.isEmpty
+                    ? .empty(LocalizedText(SpotiglassL10n.format("search.empty.noResults", queryToLoad)))
+                    : .loaded(merged)
+            }
         } catch is CancellationError {
             return
         } catch {
@@ -277,7 +286,7 @@ final class CatalogSearchViewModel: ObservableObject {
         }
         if forceRefresh {
             resetCache()
-        } else if cachedQuery == trimmed, let cachedResults, cachedPageCount >= pageCount(for: category) {
+        } else if cachedQuery == trimmed, cachedPartial == nil, let cachedResults, cachedPageCount >= pageCount(for: category) {
             state = cachedResults.isEmpty
                 ? .empty(LocalizedText(SpotiglassL10n.format("search.empty.noResults", trimmed)))
                 : .loaded(cachedResults)
@@ -348,20 +357,12 @@ final class CatalogSearchViewModel: ObservableObject {
                     && results.artists.isEmpty
                     && results.albums.isEmpty
                     && results.playlists.isEmpty
-                if pageIsEmpty || partialFailure != nil || (category != .all && hasMoreByCategory[category] == false) {
+                if pageIsEmpty || (category != .all && hasMoreByCategory[category] == false) {
                     break
                 }
             }
             guard generation == searchGeneration, !Task.isCancelled else { return }
             merged.tracks = TrackRowViewModel.numberedTopTracks(tracks)
-
-            if let partialFailure {
-                // Half the search answered (#595): its rows show under a note with Retry. Not
-                // cached, so a pill switch or the same query again asks the service once more.
-                resetCache()
-                state = .staleCache(merged, BrowsingDisplayError.partialSearch(partialFailure))
-                return
-            }
 
             cachedQuery = trimmed
             cachedPageCount = pagesFetched
@@ -369,6 +370,14 @@ final class CatalogSearchViewModel: ObservableObject {
             cachedHasMore = hasMoreByCategory
             cachedNextOffsets = nextOffsets
             cachedResults = merged
+            cachedPartial = partialFailure
+            if let partialFailure {
+                // Half the search answered (#595): its rows show under a note with Retry, and
+                // Load More still pages the half that answered. Marked partial, so a pill
+                // switch or the same query asks the service again.
+                state = .staleCache(merged, BrowsingDisplayError.partialSearch(partialFailure))
+                return
+            }
             state = merged.isEmpty
                 ? .empty(LocalizedText(SpotiglassL10n.format("search.empty.noResults", trimmed)))
                 : .loaded(merged)
@@ -468,5 +477,6 @@ final class CatalogSearchViewModel: ObservableObject {
         cachedRawTracks = []
         cachedHasMore = [:]
         cachedNextOffsets = [:]
+        cachedPartial = nil
     }
 }
