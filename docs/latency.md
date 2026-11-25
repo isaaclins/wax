@@ -122,7 +122,7 @@ and each set re-rendered the window from its root and rebuilt the menus; the pla
 built again on every page change. What's left of a sidebar click is SwiftUI's sidebar list: it
 updates the browser twice for one selection.
 On CI's runner, over two runs, ⌘F to Search went from 370 to 48 ms, and the palette (open, type,
-close), the sidebar toggle and the lyrics toggle got 20-56% faster with it; their `ci` times are
+close), the sidebar toggle and the lyrics toggle got 23-56% faster with it; their `ci` times are
 set from those runs.
 
 ## The sound (Apple Music)
