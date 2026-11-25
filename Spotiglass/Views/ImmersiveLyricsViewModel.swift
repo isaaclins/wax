@@ -157,7 +157,6 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             phase = .failed(LocalizedText(SpotiglassL10n.string("lyrics.error.musicOnly")))
             return
         }
-        trackWaitingForNetwork = nil
 
         if let cached = Self.cache.value(forKey: tid) {
             diskCache?.markUsed(trackKey: tid)
@@ -208,8 +207,9 @@ final class ImmersiveLyricsViewModel: ObservableObject {
     }
 
     /// The network came back: connection waits end, and lyrics on screen that failed for
-    /// want of a connection load again without a press (#599).
-    private func networkCameBack() async {
+    /// want of a connection load again without a press (#599). Internal so a test can send it
+    /// without waiting for the signal to arrive.
+    func networkCameBack() async {
         let hadWaits = Self.backoffMetadata.values.contains { $0.failureClass == .network }
         Self.backoffMetadata = Self.backoffMetadata.filter { $0.value.failureClass != .network }
         guard let track = trackWaitingForNetwork else {
@@ -228,6 +228,8 @@ final class ImmersiveLyricsViewModel: ObservableObject {
     }
 
     private func beginLoad() -> Int {
+        // Whatever loads next replaces the song that waited for the network (also a new song on its way).
+        trackWaitingForNetwork = nil
         loadGeneration += 1
         return loadGeneration
     }

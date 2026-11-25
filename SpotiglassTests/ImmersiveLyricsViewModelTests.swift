@@ -638,6 +638,46 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         XCTAssertEqual(waits.count, 1)
     }
 
+    /// Try again shows it arrived inside the press: loading is set before the first suspension,
+    /// so `Task.immediate` in the button puts it on screen in the tap's own turn.
+    func testTryAgainShowsLoadingBeforeItSuspends() async {
+        let gate = LyricsFetchTestGate()
+        var fetchCount = 0
+        let vm = ImmersiveLyricsViewModel { _ in
+            fetchCount += 1
+            if fetchCount == 1 { throw URLError(.notConnectedToInternet) }
+            await gate.markFetchStarted()
+            await gate.waitUntilRelease()
+            return Self.syncedLyrics
+        }
+        let track = sampleTrack(spotifyID: "retryShowsLoadingAtOnce")
+        await vm.load(track: track)
+        XCTAssertEqual(failedMessage(vm), SpotiglassL10n.string("lyrics.error.network"))
+
+        let press = Task.immediate { await vm.retry(track: track) }
+        XCTAssertEqual(vm.phase, .loading, "Loading must show before the press waits on anything.")
+        await gate.waitUntilFetchStarted()
+        await gate.releaseFetch()
+        await press.value
+        XCTAssertEqual(vm.phase, .ready(Self.syncedLyrics))
+    }
+
+    /// A new song on its way replaces the one that waited for the network: the network coming
+    /// back must not put the old song's lyrics on screen for it.
+    func testNetworkBackDoesNotLoadTheOldSongWhileANewOneIsOnItsWay() async {
+        var fetchedTracks: [String] = []
+        let vm = ImmersiveLyricsViewModel { track in
+            fetchedTracks.append(track.lyricsTrackKey ?? "")
+            throw URLError(.networkConnectionLost)
+        }
+        await vm.load(track: sampleTrack(spotifyID: "oldSongOffline"))
+        vm.waitForTrack()
+
+        await vm.networkCameBack()
+        XCTAssertEqual(fetchedTracks.count, 1, "The old song must not be fetched again: \(fetchedTracks)")
+        XCTAssertEqual(vm.phase, .loading)
+    }
+
     func testTryAgainFetchesPastAPermanentWait() async {
         var fetchCount = 0
         let vm = ImmersiveLyricsViewModel { _ in

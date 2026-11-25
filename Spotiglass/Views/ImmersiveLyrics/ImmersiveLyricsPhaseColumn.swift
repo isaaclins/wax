@@ -32,7 +32,8 @@ struct ImmersiveLyricsLyricsPhaseColumn: View {
                         .foregroundStyle(.white.opacity(0.9))
                     if let track = currentTrack {
                         Button(SpotiglassL10n.string("lyrics.tryAgain")) {
-                            Task { await lyricsModel.retry(track: track) }
+                            // Immediate: loading shows in the tap's own turn, before any wait or fetch.
+                            Task.immediate { await lyricsModel.retry(track: track) }
                         }
                         .buttonStyle(.borderedProminent)
                     }
