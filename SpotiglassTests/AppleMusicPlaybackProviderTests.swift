@@ -814,46 +814,104 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertEqual(player.namedStarts, ["oh yeah?", nil])
     }
 
-    /// #736, from the log: song 13 of a 20-song album pressed. MusicKit refused the named start,
-    /// the retry set the 8 songs from the pressed one on, and MusicKit played it holding only
-    /// that one song, so Autoplay followed instead of the rest of the album. The start adds the
-    /// 7 songs it dropped back at the end and says how many the player really holds.
-    func testARetriedStartThatKeepsOnlyThePressedSongGetsTheRestOfTheAlbumBack() async throws {
-        let album = try (1...20).map { number in
+    private static func album(_ count: Int) throws -> [MusicPlayer.Queue.Entry] {
+        try (1...count).map { number in
             MusicPlayer.Queue.Entry(try AppleMusicFixtures.song(
                 id: "\(1_700_000_000 + number)", title: "Track \(number)", artist: "Artist",
                 album: "Album", durationMs: 200_000
             ))
         }
+    }
+
+    /// #736, from the log: song 13 of a 20-song album pressed. MusicKit refused the named start,
+    /// the retry set the 8 songs from the pressed one on, and MusicKit played it holding only
+    /// that one song, so Autoplay followed instead of the rest of the album. The 7 songs it
+    /// dropped are added back at the end, in one add, and the fill says what the player holds.
+    func testARetriedStartThatKeepsOnlyThePressedSongGetsTheRestOfTheAlbumBack() async throws {
         let player = RefusingQueueStarter()
         player.namedStartRefusalsLeft = 1
-        player.takesOnlyTheFirstSongOfARetriedQueue = true
+        player.keepsOnlyTheFirstSongOfARetriedQueue = true
+        let starts = Starts(player: player)
 
-        let started = try await Self.press(Starts(player: player), album, at: 12, rows: "album")
+        let started = try await Self.press(starts, try Self.album(20), at: 12, rows: "album")
+        XCTAssertEqual(player.entries.map(\.title), ["Track 13"], "what MusicKit held in the log")
+        let fill = await starts.fillIn(started)
 
         XCTAssertEqual(player.namedStarts, ["Track 13", nil], "refused named start, then the retry from the pressed song")
         XCTAssertEqual(player.currentEntry?.title, "Track 13")
         XCTAssertTrue(player.isPlaying)
         XCTAssertEqual(player.entries.map(\.title), (13...20).map { "Track \($0)" }, "the rest of the album follows the pressed song")
+        XCTAssertEqual(player.commands.filter { $0.hasPrefix("append") }, ["append 7"])
         XCTAssertEqual(started.leftOut, 12)
-        XCTAssertEqual(started.asked, 8)
-        XCTAssertEqual(started.holds, 8)
+        XCTAssertEqual(fill, Starts.Fill(holds: 8, asked: 8))
+    }
+
+    /// Measured on macOS 27 (#736): right after a start MusicKit takes plays, its queue shows
+    /// only the pressed song, and the rest of the album 200 to 500 ms later. Nothing is added:
+    /// an add read off that moment would have queued the rest of the album twice.
+    func testAStartMusicKitFillsInLaterGetsNothingAdded() async throws {
+        let player = RefusingQueueStarter()
+        player.showsOnlyThePressedSongUntilSettled = true
+        let starts = Starts(player: player)
+
+        let started = try await Self.press(starts, try Self.album(17), at: 12, rows: "album")
+        XCTAssertEqual(player.entries.map(\.title), ["Track 13"], "what MusicKit showed right after play")
+        let fill = await starts.fillIn(started)
+
+        XCTAssertEqual(player.entries.map(\.title), (1...17).map { "Track \($0)" })
+        XCTAssertFalse(player.commands.contains { $0.hasPrefix("append") })
+        XCTAssertEqual(fill, Starts.Fill(holds: 5, asked: 5))
     }
 
     /// The same start when adding the dropped songs fails: it still plays, and reports the one
-    /// song the player holds instead of the 8 asked for.
+    /// song the player holds instead of the 3 asked for.
     func testARetriedStartReportsWhatThePlayerHoldsWhenTheRestCantBeAdded() async throws {
-        let songs = try Self.refusedTopTracks()
         let player = RefusingQueueStarter()
         player.namedStartRefusalsLeft = 1
-        player.takesOnlyTheFirstSongOfARetriedQueue = true
+        player.keepsOnlyTheFirstSongOfARetriedQueue = true
         player.refusesAppends = true
+        let starts = Starts(player: player)
 
-        let started = try await Self.press(Starts(player: player), songs, at: 1, rows: "top tracks")
+        let started = try await Self.press(starts, try Self.refusedTopTracks(), at: 1, rows: "top tracks")
+        let fill = await starts.fillIn(started)
 
         XCTAssertEqual(player.currentEntry?.title, "Loca Playa")
-        XCTAssertEqual(started.asked, 3)
-        XCTAssertEqual(started.holds, 1)
+        XCTAssertTrue(player.isPlaying)
+        XCTAssertEqual(fill, Starts.Fill(holds: 1, asked: 3))
+    }
+
+    /// A player that holds songs after the pressed one that aren't the first ones asked for (here
+    /// a song added meanwhile) is left alone: adding the rest behind it would play them out of
+    /// order.
+    func testAQueueHoldingOtherSongsAfterThePressedOneIsLeftAlone() async throws {
+        let player = RefusingQueueStarter()
+        player.namedStartRefusalsLeft = 1
+        player.keepsOnlyTheFirstSongOfARetriedQueue = true
+        let starts = Starts(player: player)
+
+        let started = try await Self.press(starts, try Self.album(20), at: 12, rows: "album")
+        try await player.appendEntries([MusicPlayer.Queue.Entry(try AppleMusicFixtures.song(
+            id: "1799999999", title: "Added", artist: "Someone", album: "Other", durationMs: 180_000
+        ))])
+        let fill = await starts.fillIn(started)
+
+        XCTAssertEqual(player.entries.map(\.title), ["Track 13", "Added"])
+        XCTAssertEqual(fill, Starts.Fill(holds: 1, asked: 8))
+    }
+
+    /// A newer start replaced the queue before it was checked: the newer one is left alone.
+    func testAReplacedStartIsNotFilledIn() async throws {
+        let player = RefusingQueueStarter()
+        player.namedStartRefusalsLeft = 1
+        player.keepsOnlyTheFirstSongOfARetriedQueue = true
+        let starts = Starts(player: player)
+
+        let started = try await Self.press(starts, try Self.album(20), at: 12, rows: "album")
+        _ = try await Self.press(starts, try Self.refusedTopTracks(), at: 0, rows: "top tracks")
+        let fill = await starts.fillIn(started)
+
+        XCTAssertNil(fill)
+        XCTAssertFalse(player.commands.contains { $0.hasPrefix("append") })
     }
 
     /// A refusal goes into the log with its domain, code and description (#736).
@@ -2388,6 +2446,7 @@ final class RefusingQueueStarter: AppleMusicQueueStarting {
         commands.append("queue")
         namedStarts.append(entry?.title)
         self.entries = entries
+        filledInLater = nil
         // With shuffle on MusicKit starts a queue that doesn't name its start on a random song;
         // here always the last, so a test can tell.
         currentEntry = entry ?? (shuffles && entries.count > 1 ? entries.last : entries.first)
@@ -2404,7 +2463,10 @@ final class RefusingQueueStarter: AppleMusicQueueStarting {
             lastPlayRefused = true
             throw error
         }
-        if takesOnlyTheFirstSongOfARetriedQueue, lastPlayRefused, let currentEntry {
+        if keepsOnlyTheFirstSongOfARetriedQueue, lastPlayRefused, let currentEntry {
+            entries = [currentEntry]
+        } else if showsOnlyThePressedSongUntilSettled, let currentEntry {
+            filledInLater = entries
             entries = [currentEntry]
         }
         lastPlayRefused = false
@@ -2417,10 +2479,22 @@ final class RefusingQueueStarter: AppleMusicQueueStarting {
     }
 
     /// MusicKit on #736: the queue set after a refused one is played holding only its first song.
-    var takesOnlyTheFirstSongOfARetriedQueue = false
+    var keepsOnlyTheFirstSongOfARetriedQueue = false
+    /// MusicKit on macOS 27 (#736): right after a queue plays it shows only its current song,
+    /// and the rest once it settles.
+    var showsOnlyThePressedSongUntilSettled = false
+    private var filledInLater: [MusicPlayer.Queue.Entry]?
     /// Every add at the end fails.
     var refusesAppends = false
     private var lastPlayRefused = false
+
+    func settle(until done: () -> Bool) async {
+        commands.append("settle")
+        if let filledInLater {
+            entries = filledInLater
+            self.filledInLater = nil
+        }
+    }
 
     func appendEntries(_ entries: [MusicPlayer.Queue.Entry]) async throws {
         commands.append("append \(entries.count)")

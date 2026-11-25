@@ -30,6 +30,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     })
     /// Starts queues and gives back what last played when MusicKit refuses one (#476).
     private lazy var starts = AppleMusicQueueStarts<RestorePoint>(player: MusicKitQueueStarter(player: player))
+    /// Checks that the player took every song the last start asked for (#736).
+    private var fillInTask: Task<Void, Never>?
 
     /// What the player keeps about a queue, given back with it after a refused start.
     private struct RestorePoint {
@@ -194,7 +196,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         // meanwhile (a newer play, or a stop) owns the player, its book and its rows: leave
         // them alone.
         guard starts.holdsQueue(started) else { return }
-        SpotiglassLog.info(.playback, "Apple Music queue started: the player holds \(started.holds) of \(started.asked) songs from the pressed one on")
+        // After the modes and the carried songs, so its add never lands right next to theirs.
+        defer { fillInLater(started) }
         soundWatch.watch("play", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
         // The book is still this queue's when MusicKit took it at once (an add may have finished
         // meanwhile). When it only took it from the pressed song on, the queue was set again: an
@@ -225,6 +228,18 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         }
     }
 
+    /// MusicKit fills a started queue in after it plays (#736), so whether it took every song
+    /// is checked in the background: the first sound and the bar don't wait for it.
+    private func fillInLater(_ started: AppleMusicQueueStarts<RestorePoint>.Started) {
+        fillInTask?.cancel()
+        fillInTask = Task { [weak self] in
+            guard let fill = await self?.starts.fillIn(started) else { return }
+            SpotiglassLog.info(
+                .playback, "Apple Music queue started: the player holds \(fill.holds) of \(fill.asked) songs from the pressed one on"
+            )
+        }
+    }
+
     func pause() {
         PlaybackTrace.shared.command("pause")
         let sentAt = ContinuousClock.now
@@ -245,6 +260,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
 
     func stop() {
         soundWatch.cancel()
+        fillInTask?.cancel()
         starts.stop()
         book = AppleMusicQueueBook()
         uriByEntryKey = [:]
@@ -850,6 +866,8 @@ protocol AppleMusicQueueStarting: AnyObject {
     func prepareToPlay() async throws
     /// Adds `entries` after everything queued.
     func appendEntries(_ entries: [MusicPlayer.Queue.Entry]) async throws
+    /// Waits until `done`, or until MusicKit has had long enough to fill a started queue in.
+    func settle(until done: () -> Bool) async
     func pause()
     func stop()
 }
@@ -900,10 +918,16 @@ final class AppleMusicQueueStarts<Rows> {
     struct Started {
         let leftOut: Int
         fileprivate let queueSerial: Int
-        /// How many songs the player held from the pressed one on once the start was done, and
-        /// how many were asked for (#736: MusicKit took a retried queue with only its first song).
-        var holds = 0
-        var asked = 0
+        /// The pressed song and the songs asked to follow it.
+        fileprivate var pressed: MusicPlayer.Queue.Entry?
+        fileprivate var following: [MusicPlayer.Queue.Entry] = []
+        fileprivate var shuffles = false
+    }
+
+    /// How many songs the player holds from the pressed one on, of how many were asked for.
+    struct Fill: Equatable {
+        let holds: Int
+        let asked: Int
     }
 
     /// Set when a start was refused with nothing to give back: MusicKit still holds the refused
@@ -1011,8 +1035,7 @@ final class AppleMusicQueueStarts<Rows> {
         var mine = setQueue(entries, at: startIndex)
         do {
             try await player.play()
-            let started = played(Array(entries), at: startIndex, leftOut: 0, serial: mine, giveBack: giveBack, rowsPlayed: rowsPlayed)
-            return await fillingIn(started, entries: Array(entries), at: startIndex)
+            return played(Array(entries), at: startIndex, leftOut: 0, serial: mine, giveBack: giveBack, rowsPlayed: rowsPlayed)
         } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -1028,8 +1051,7 @@ final class AppleMusicQueueStarts<Rows> {
             do {
                 try await player.play()
                 if giveBack.pausedMeanwhile, mine == queueSerial { player.pause() }
-                let started = played(retry.entries, at: retry.index, leftOut: retry.leftOut, serial: mine, giveBack: giveBack, rowsPlayed: rowsPlayed)
-                return await fillingIn(started, entries: retry.entries, at: retry.index)
+                return played(retry.entries, at: retry.index, leftOut: retry.leftOut, serial: mine, giveBack: giveBack, rowsPlayed: rowsPlayed)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -1060,50 +1082,74 @@ final class AppleMusicQueueStarts<Rows> {
         return "\(nsError.domain) \(nsError.code): \(description)"
     }
 
-    /// A queue MusicKit played but took only partly: on #736 a retried queue of 8 songs from the
-    /// pressed one played with only that song in it, so Autoplay followed instead of the album.
-    /// The songs after the pressed one it doesn't hold are added at the end, in their order.
-    private func fillingIn(_ started: Started, entries: [MusicPlayer.Queue.Entry], at index: Int) async -> Started {
-        var started = started
-        let wanted = Array(entries[(index + 1)...])
-        started.asked = wanted.count + 1
-        guard holdsQueue(started) else { return started }
-        var missing = Self.missing(wanted, from: player)
-        started.holds = started.asked - missing.count
-        guard !missing.isEmpty else { return started }
+    /// Makes sure the player holds the songs `started` asked to follow the pressed one, once
+    /// MusicKit has filled the queue in. `nil` when another queue replaced it meanwhile.
+    ///
+    /// Measured on macOS 27 for #736: right after `play()` returns, MusicKit shows a started
+    /// queue holding only the pressed song, and takes the rest in 200 to 500 ms later. After a
+    /// refused start it kept only that song (a retried 8-song queue played holding 1), so
+    /// Autoplay followed instead of the album. So this waits until the player holds them all,
+    /// and then adds the ones still missing at the end, in their order. Only when what it holds
+    /// after the pressed song are the first songs asked for: anything else (an add meanwhile, a
+    /// song MusicKit left out in the middle) would put the rest out of order.
+    func fillIn(_ started: Started) async -> Fill? {
+        guard let pressed = started.pressed else { return nil }
+        let asked = started.following.count + 1
+        await player.settle { !holdsQueue(started) || Self.missing(started, from: player)?.isEmpty == true }
+        guard holdsQueue(started), !Task.isCancelled else { return nil }
+        guard let held = Self.following(in: player), player.currentEntry?.title == pressed.title,
+              let missing = Self.missing(started, from: player) else {
+            SpotiglassLog.error(.playback, "Apple Music isn't on the pressed song once the queue started; leaving its queue alone")
+            return Fill(holds: 0, asked: asked)
+        }
+        var holds = asked - missing.count
+        guard !missing.isEmpty else { return Fill(holds: holds, asked: asked) }
+        let inOrder = started.shuffles || held.map(\.title) == started.following.prefix(held.count).map(\.title)
+        guard inOrder else {
+            SpotiglassLog.error(
+                .playback,
+                "Apple Music started the queue holding \(holds) of \(asked) songs from the pressed one, not in the order asked; leaving it alone"
+            )
+            return Fill(holds: holds, asked: asked)
+        }
         SpotiglassLog.error(
             .playback,
-            "Apple Music started the queue holding \(started.holds) of \(started.asked) songs from the pressed one; adding the \(missing.count) missing at the end"
+            "Apple Music started the queue holding \(holds) of \(asked) songs from the pressed one; adding the \(missing.count) missing at the end"
         )
         do {
             try await player.appendEntries(Self.fresh(missing))
         } catch is CancellationError {
-            return started
+            return nil
         } catch {
             SpotiglassLog.error(.playback, "Adding the missing songs failed (\(Self.describeRefusal(error)))")
+            return Fill(holds: holds, asked: asked)
         }
-        guard holdsQueue(started) else { return started }
-        missing = Self.missing(wanted, from: player)
-        started.holds = started.asked - missing.count
-        if !missing.isEmpty {
-            SpotiglassLog.error(.playback, "Apple Music still holds only \(started.holds) of \(started.asked) songs from the pressed one")
+        await player.settle { !holdsQueue(started) || Self.missing(started, from: player)?.isEmpty == true }
+        guard holdsQueue(started) else { return nil }
+        holds = Self.missing(started, from: player).map { asked - $0.count } ?? 0
+        if holds < asked {
+            SpotiglassLog.error(.playback, "Apple Music still holds only \(holds) of \(asked) songs from the pressed one")
         }
-        return started
+        return Fill(holds: holds, asked: asked)
     }
 
-    /// The songs of `wanted` (the ones asked to follow the current song) the player doesn't hold
-    /// after its current entry, in their order. Matched by title, since MusicKit gives the
-    /// entries it takes new ids; shuffle may reorder what it holds.
-    private static func missing(
-        _ wanted: [MusicPlayer.Queue.Entry],
-        from player: any AppleMusicQueueStarting
-    ) -> [MusicPlayer.Queue.Entry] {
+    /// What the player holds after its current entry; `nil` when it has none.
+    private static func following(in player: any AppleMusicQueueStarting) -> ArraySlice<MusicPlayer.Queue.Entry>? {
         let held = player.entries
-        let currentIndex = player.currentEntry.flatMap { current in held.firstIndex { $0.id == current.id } }
-        guard let currentIndex else { return [] }
+        guard let current = player.currentEntry, let index = held.firstIndex(where: { $0.id == current.id }) else {
+            return nil
+        }
+        return held[(index + 1)...]
+    }
+
+    /// The songs `started` asked to follow the pressed one that the player doesn't hold after
+    /// its current entry, in their order; `nil` when it has no current entry. Matched by title,
+    /// since MusicKit gives the entries it takes new ids; shuffle may reorder what it holds.
+    private static func missing(_ started: Started, from player: any AppleMusicQueueStarting) -> [MusicPlayer.Queue.Entry]? {
+        guard let held = following(in: player) else { return nil }
         var heldTitles: [String: Int] = [:]
-        for entry in held[(currentIndex + 1)...] { heldTitles[entry.title, default: 0] += 1 }
-        return wanted.filter { entry in
+        for entry in held { heldTitles[entry.title, default: 0] += 1 }
+        return started.following.filter { entry in
             guard let count = heldTitles[entry.title], count > 0 else { return true }
             heldTitles[entry.title] = count - 1
             return false
@@ -1169,7 +1215,10 @@ final class AppleMusicQueueStarts<Rows> {
             giveBack.time = 0
             giveBack.rows = rowsPlayed(leftOut)
         }
-        return Started(leftOut: leftOut, queueSerial: serial)
+        return Started(
+            leftOut: leftOut, queueSerial: serial,
+            pressed: entries[index], following: Array(entries[(index + 1)...]), shuffles: shuffles
+        )
     }
 
     /// What the player holds now, as a give-back. A refused queue that is only hidden, or the
@@ -1285,6 +1334,19 @@ final class MusicKitQueueStarter: AppleMusicQueueStarting {
         PlaybackTrace.shared.command("appendToQueue", "\(entries.count) songs the started queue was missing")
         try await player.queue.insert(entries, position: .tail)
     }
+
+    func settle(until done: () -> Bool) async {
+        let start = ContinuousClock.now
+        while !done(), ContinuousClock.now - start < Self.settleLimit, !Task.isCancelled {
+            // try?: a cancelled sleep only ends the wait; the loop checks cancellation itself.
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        PlaybackTrace.shared.command("queue settled", "after \(ContinuousClock.now - start)\(done() ? "" : " (limit reached)")")
+    }
+
+    /// MusicKit took the rest of a started queue in within 500 ms (#736); Autoplay's own adds
+    /// come later, after it has looked up songs.
+    private static let settleLimit: Duration = .milliseconds(1500)
 
     func pause() {
         PlaybackTrace.shared.command("pause", "(queue start)")
