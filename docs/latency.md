@@ -85,8 +85,9 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 \* Run on its own; after the palette has been opened and closed 8 times, the letters never reach
 the field (#671).
 "never" means nothing changed on screen within 3 s in any try. Next and previous count once the
-player bar names another song. Since #687 the bar shows the song before or after at once, from the
-songs Spotify's page lists around the current one, and settles on what Spotify reports. Screenshot
+player bar names another song, or for a previous more than 3 s into a song, shows it again from
+its start. Since #687 the bar shows that at once, from the songs Spotify's page lists around the
+current one, and settles on what Spotify reports. Screenshot
 mode's player never moves for a skip, so it lists more songs around the current one than Spotify's
 two, and a run of skips keeps finding the next one.
 Play/pause was measured again with the probe's fixes (the clock starts at the first input, and a

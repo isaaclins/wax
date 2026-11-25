@@ -44,6 +44,16 @@ final class SkipPreviewTests: XCTestCase {
 
     private var shownURI: (PlaybackSessionViewModel) -> String? { { $0.currentNowPlaying?.uri } }
 
+    /// Two seconds into B: a previous goes back a song instead of starting B again.
+    private static func twoSecondsIn(_ session: PlaybackSessionViewModel) {
+        session.handle(.stateChanged(
+            song("b", position: 2_000),
+            isPaused: false,
+            nextTracks: [song("c"), song("d")],
+            previousTracks: [song("a")]
+        ))
+    }
+
     // The real failure: the skip is on its way to Spotify (its request hasn't answered) and
     // Spotify's page still reports the old song. Before, the bar kept B the whole time.
     func testNextShowsTheNextSongBeforeSpotifyAnswersAndKeepsItThroughStaleReports() async {
@@ -87,6 +97,7 @@ final class SkipPreviewTests: XCTestCase {
 
     func testPreviousShowsTheSongBeforeAtOnce() async {
         let fixture = makeSession()
+        Self.twoSecondsIn(fixture.session)
         let started = AsyncSignal()
         let release = AsyncSignal()
         fixture.api.onPrevious = {
@@ -101,32 +112,50 @@ final class SkipPreviewTests: XCTestCase {
         await skip.value
     }
 
-    // Spotify may answer a previous 40 s into a song by starting that song again, as its own app
-    // does. Its report of B back at the start is that answer, not a stale one: before, the bar
-    // kept A for the whole 5 s wait and then jumped back to B.
-    func testAPreviousThatRestartsTheSongShowsItAtOnce() async {
+    // A previous 40 s into a song starts it again, as Spotify's own app does: the bar shows B
+    // from its start at once. Before, it showed the song before until Spotify answered with B.
+    func testAPreviousMidSongShowsTheSongFromItsStart() async {
         let fixture = makeSession()
         await fixture.session.previous()
-        XCTAssertEqual(shownURI(fixture.session), "spotify:track:a")
+        XCTAssertEqual(shownURI(fixture.session), "spotify:track:b")
+        XCTAssertEqual(fixture.session.currentNowPlaying?.positionMilliseconds, 0)
 
         // A report sent before the press is still near 40 s: held back.
-        fixture.session.handle(.stateChanged(Self.song("b", position: 39_000), isPaused: false, nextTracks: []))
-        XCTAssertEqual(shownURI(fixture.session), "spotify:track:a")
+        fixture.session.handle(.stateChanged(Self.song("b", position: 41_000), isPaused: false, nextTracks: []))
+        XCTAssertEqual(fixture.session.currentNowPlaying?.positionMilliseconds, 0)
 
         fixture.session.handle(.stateChanged(Self.song("b", position: 200), isPaused: false, nextTracks: []))
         XCTAssertEqual(shownURI(fixture.session), "spotify:track:b")
         XCTAssertEqual(fixture.session.currentNowPlaying?.positionMilliseconds, 200)
         XCTAssertNil(fixture.session.skipPreview)
+        XCTAssertEqual(fixture.api.actions.filter { $0.hasPrefix("previous:") }, ["previous:device-1"])
+    }
+
+    // If Spotify goes back a song instead, its report of that song wins.
+    func testAPreviousMidSongFollowsSpotifyGoingBackASong() async {
+        let fixture = makeSession()
+        await fixture.session.previous()
+
+        fixture.session.handle(.stateChanged(Self.song("a", position: 100), isPaused: false, nextTracks: []))
+        XCTAssertEqual(shownURI(fixture.session), "spotify:track:a")
+        XCTAssertNil(fixture.session.skipPreview)
+    }
+
+    // A skip whose task is cancelled before its request goes out puts Spotify's song back.
+    func testASkipThatNeverWentOutPutsTheSongBack() async {
+        let fixture = makeSession()
+        let skip = Task { await fixture.session.next() }
+        skip.cancel()
+        await skip.value
+
+        XCTAssertEqual(shownURI(fixture.session), "spotify:track:b")
+        XCTAssertNil(fixture.session.skipPreview)
+        XCTAssertEqual(fixture.api.actions.filter { $0.hasPrefix("next:") }, [])
     }
 
     func testAPreviousAtTheStartOfASongStillHoldsItsOldReports() async {
         let fixture = makeSession()
-        fixture.session.handle(.stateChanged(
-            Self.song("b", position: 2_000),
-            isPaused: false,
-            nextTracks: [Self.song("c")],
-            previousTracks: [Self.song("a")]
-        ))
+        Self.twoSecondsIn(fixture.session)
         await fixture.session.previous()
         XCTAssertEqual(shownURI(fixture.session), "spotify:track:a")
 
@@ -173,6 +202,7 @@ final class SkipPreviewTests: XCTestCase {
         )
 
         let back = makeSession()
+        Self.twoSecondsIn(back.session)
         await back.session.previous()
         XCTAssertEqual(
             QueueViewModel.upcoming(spotifysList, followingSkipPreview: back.session.skipPreview).map(\.uri),
