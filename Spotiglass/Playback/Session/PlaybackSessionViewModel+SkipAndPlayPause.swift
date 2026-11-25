@@ -496,6 +496,9 @@ extension PlaybackSessionViewModel {
             guard !Task.isCancelled else { return }
             // The page never reported the last press: its latest report is its own last word.
             let held = self.heldBackPageReport
+            // This task is ending: clearing must not cancel it, or the rollback below stops at
+            // its cancellation check.
+            self.pushedPlayStateExpectationTask = nil
             self.clearPushedPlayStateExpectation()
             // With the generation it came with: a report from a page since replaced is dropped.
             // An error since then (sign in again, Premium) stays: it says what to do.
