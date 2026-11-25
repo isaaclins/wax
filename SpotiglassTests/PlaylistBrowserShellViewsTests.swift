@@ -100,8 +100,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
                 viewModel: browserVM,
                 playbackViewModel: playbackVM,
                 queueViewModel: queueVM,
-                pendingPlaylistListScrollRestoreID: .constant(nil),
-                detailLastVisibleTrackID: .constant(nil),
                 hasPlaybackDevice: false
             )
         } queueColumn: {
@@ -137,8 +135,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
             viewModel: browserVM,
             playbackViewModel: playbackVM,
             queueViewModel: queueVM,
-            pendingPlaylistListScrollRestoreID: .constant(nil),
-            detailLastVisibleTrackID: .constant(nil),
             hasPlaybackDevice: false
         )
         .environmentObject(LyricsOverlayController())
@@ -295,8 +291,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
             viewModel: browserVM,
             playbackViewModel: playbackVM,
             queueViewModel: queueVM,
-            pendingPlaylistListScrollRestoreID: .constant(nil),
-            detailLastVisibleTrackID: .constant(nil),
             hasPlaybackDevice: true
         )
         .environmentObject(LyricsOverlayController())

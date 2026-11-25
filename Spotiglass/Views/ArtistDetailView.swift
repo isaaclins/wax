@@ -125,8 +125,6 @@ struct ArtistDetailContent: View {
                 tracks: detail.tracks,
                 selection: selection,
                 rowBuilder: { track in trackRow(for: track, marks: marks, selectedRows: selectedRows) },
-                pendingScrollRestoreTrackID: .constant(nil),
-                onFirstVisibleTrackChanged: { _ in },
                 playSelection: { selectedIDs in
                     guard let track = detail.tracks.first(where: { selectedIDs.contains($0.id) }),
                           let uri = track.playableURI

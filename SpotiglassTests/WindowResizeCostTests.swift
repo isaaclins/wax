@@ -28,7 +28,10 @@ final class WindowResizeCostTests: XCTestCase {
 
     /// Hosts the real browser the way the app shows it: the library loaded once, both playlists
     /// in the sidebar and, for `.bigPlaylist`, a 500-song page with its rows drawn.
-    private func hostBrowser(on page: Page) async throws -> NSWindow {
+    private func hostBrowser(
+        on page: Page,
+        lyrics: LyricsOverlayController? = nil
+    ) async throws -> NSWindow {
         let tracks = (0..<500).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") }
         let api = MockBrowsingAPI(
             playlistResults: [.success([
@@ -43,7 +46,7 @@ final class WindowResizeCostTests: XCTestCase {
         api.recentlyPlayedHandler = { _ in Self.homeTracks(prefix: "recent", count: Self.recentAlbumCount) }
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         hostedBrowser = browserVM
-        hostedLyrics = LyricsOverlayController()
+        hostedLyrics = lyrics ?? LyricsOverlayController()
         // As the browser's own `.task` loads it, so the hosted view doesn't load it again.
         await browserVM.loadIfNeeded()
         switch page {
@@ -61,7 +64,9 @@ final class WindowResizeCostTests: XCTestCase {
         }
 
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
-        store.bind(userID: "u1")
+        // The stand-in account's id, so the browser doesn't bind the pins again (and render
+        // everything once more) at some moment after it opened.
+        store.bind(userID: "u")
         // The live player bar, driven by a stand-in Spotify player: no web page and no network,
         // whose answers would arrive whenever they like in a test that fails on any re-render.
         let playbackHost = SpotiglassPlaybackHost(
@@ -84,6 +89,7 @@ final class WindowResizeCostTests: XCTestCase {
         )
         .environmentObject(store)
         .environmentObject(hostedLyrics ?? LyricsOverlayController())
+        .environmentObject(try ViewTestHost.makeSettingsStore())
         ViewBodyTally.counts = [:]
         let controller = ViewTestHost.host(view, size: CGSize(width: 1_400, height: 900))
         let window = try XCTUnwrap(controller.view.window)
@@ -274,6 +280,75 @@ final class WindowResizeCostTests: XCTestCase {
         }
         await AppKitTestSupport.settle()
         XCTAssertNil(ViewBodyTally.counts?[farOff], "a resize built \(farOff) far outside the window", file: file, line: line)
+    }
+
+    /// ⌥⌘L took about 140 ms to show the lyrics or the page again, where the budget is 50 ms
+    /// (#674). The whole browser read whether the lyrics were open, so every toggle ran its body
+    /// again: the sidebar, the page under the lyrics with every song row on screen, and the player
+    /// bar; closing built the page and its rows from scratch. Only the lyrics layer, the toolbar,
+    /// the window's name and the bar's Lyrics buttons change; nothing else may run.
+    func testOpeningAndClosingTheLyricsReRendersNothingElse() async throws {
+        let lyrics = LyricsOverlayController()
+        let window = try await hostBrowser(on: .bigPlaylist, lyrics: lyrics)
+        XCTAssertNotNil(lyrics.lyricsModel, "the browser never attached the lyrics")
+        let lyricsTitle = SpotiglassL10n.string("playback.controls.lyrics")
+        let closeLyrics = SpotiglassL10n.string("browser.closeLyrics")
+        let toolbarLabels = {
+            (window.toolbar?.items ?? []).flatMap { item in
+                [item.label] + ((item as? NSToolbarItemGroup)?.subitems.map(\.label) ?? [])
+            }
+        }
+        // The lyrics' view in the window: built once, kept, hidden while they are closed.
+        let lyricsContainers = { () -> [NSView] in
+            var found: [NSView] = []
+            var queue = [window.contentView].compactMap { $0 }
+            while let view = queue.popLast() {
+                if String(describing: type(of: view)).hasPrefix("LyricsOverlayFocusContainerView") { found.append(view) }
+                queue.append(contentsOf: view.subviews)
+            }
+            return found
+        }
+        var container: NSView?
+        for (round, presented) in [true, false, true, false].enumerated() {
+            waitUntilNothingRenders()
+            ViewBodyTally.counts = [:]
+            lyrics.isPresented = presented
+            let action = (presented ? "opening" : "closing") + " (round \(round))"
+            // What does change still changes: the lyrics take over the window's name and trade
+            // Refresh for Close Lyrics in the toolbar.
+            XCTAssertTrue(
+                AppKitTestSupport.pumpRunLoop(until: {
+                    (window.title == lyricsTitle) == presented && toolbarLabels().contains(closeLyrics) == presented
+                }),
+                "\(action) the lyrics left the window named \(window.title) with \(toolbarLabels())"
+            )
+            await AppKitTestSupport.settle()
+            let counts = ViewBodyTally.counts ?? [:]
+            for container in [
+                "PlaylistBrowserView",
+                "BrowserTransportBar",
+                "PlaybackControlsView",
+                "PlaylistBrowserSidebar",
+                "PlaylistsSidebarSectionContent",
+                "PlaylistBrowserMainDetailColumn",
+                "PlaylistDetailContent",
+            ] {
+                XCTAssertNil(counts[container], "\(action) the lyrics re-rendered \(container) \(counts[container] ?? 0) times")
+            }
+            let rows = counts.keys.filter { name in ["TrackListRow:", "PlaylistListRow:"].contains(where: name.hasPrefix) }
+            XCTAssertTrue(rows.isEmpty, "\(action) the lyrics re-rendered rows: \(rows.sorted().prefix(5))")
+
+            let containers = lyricsContainers()
+            XCTAssertEqual(containers.count, 1, "\(action) the lyrics left \(containers.count) lyrics views in the window")
+            if let current = containers.first {
+                XCTAssertTrue(container == nil || current === container, "\(action) the lyrics built their view again")
+                container = current
+                XCTAssertTrue(
+                    AppKitTestSupport.pumpRunLoop(until: { current.isHidden == !presented }),
+                    "\(action) the lyrics left their view \(current.isHidden ? "hidden" : "showing")"
+                )
+            }
+        }
     }
 
     private func assertAnAnimatedResizeReRendersNothing(

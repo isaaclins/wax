@@ -1,30 +1,7 @@
 import Foundation
 
-/// Testable playback-derived values for playlist browser UI (scroll restore, lyrics prefetch, queue hooks).
+/// Testable playback-derived values for playlist browser UI (lyrics prefetch, queue hooks).
 enum PlaylistBrowserPlaybackHelpers {
-    static func anchorTrackIDForPlaylistListScrollRestore(
-        detailContent: BrowsingDetailContent?,
-        currentPlaybackURI: String?,
-        detailLastVisibleTrackID: String?
-    ) -> String? {
-        guard let content = detailContent else { return detailLastVisibleTrackID }
-        switch content {
-        case let .playlist(detail):
-            if let uri = currentPlaybackURI,
-               let row = detail.tracks.first(where: { $0.playableURI == uri }) {
-                return row.id
-            }
-        case let .artist(detail):
-            if let uri = currentPlaybackURI,
-               let row = detail.tracks.first(where: { $0.playableURI == uri }) {
-                return row.id
-            }
-        case .home, .search:
-            break
-        }
-        return detailLastVisibleTrackID
-    }
-
     static func lyricsPrefetchTrack(connectionState: PlaybackConnectionState) -> PlaybackNowPlaying? {
         switch connectionState {
         case let .playing(np):
@@ -66,20 +43,6 @@ enum PlaylistBrowserPlaybackHelpers {
             "unavailable:\(message.string)"
         case let .error(error):
             "error:\(error.title)"
-        }
-    }
-
-    /// The URI the rows of `detailContent` mark as playing (#396). Home and search hold their
-    /// rows elsewhere and match them with ``rowURI(markedAs:connectionState:rows:)``.
-    static func currentPlaybackURI(
-        connectionState: PlaybackConnectionState,
-        detailContent: BrowsingDetailContent?
-    ) -> String? {
-        let uri = currentPlaybackURI(connectionState: connectionState)
-        switch detailContent {
-        case let .playlist(detail)?: return rowURI(markedAs: uri, connectionState: connectionState, rows: detail.tracks)
-        case let .artist(detail)?: return rowURI(markedAs: uri, connectionState: connectionState, rows: detail.tracks)
-        case .home?, .search?, nil: return uri
         }
     }
 

@@ -337,12 +337,16 @@ struct PlaybackControlsView: View {
     /// Whether the lyrics show, as it was when the bar handed it in, and how to change it. Not a
     /// `Binding`: one built from a getter and a setter tells SwiftUI it changed every time SwiftUI
     /// looks, and on macOS 26 opening or closing the queue makes SwiftUI look at this view, so the
-    /// controls redrew with each press though nothing in them changed (#751). The bar builds this
-    /// view again when the lyrics open or close.
+    /// controls redrew with each press though nothing in them changed (#751). The Lyrics buttons
+    /// follow the lyrics through `lyricsPresentation`; this is what they show without it.
     private let isLyricsPresented: Bool
     /// Opens the lyrics when they're closed and closes them when they're open, read at the press.
     private let toggleLyrics: () -> Void
     let openArtist: (ArtistTapTarget) -> Void
+    /// Where the Lyrics buttons read whether the lyrics are open, observed by the buttons alone:
+    /// the whole bar laying itself out again on every ⌥⌘L held back the lyrics' first frame
+    /// (#674). Without it (previews, tests) they read `isLyricsPresented`.
+    let lyricsPresentation: LyricsPresentationState?
     /// Set while the bar shows the other service's player because that is what you hear (#396):
     /// the bar says which service plays, and its artists, which belong to the other library,
     /// aren't offered here. Its Lyrics button opens that song's lyrics (#486).
@@ -354,6 +358,7 @@ struct PlaybackControlsView: View {
         viewModel: PlaybackSessionViewModel,
         isLyricsPresented: Binding<Bool>,
         openArtist: @escaping (ArtistTapTarget) -> Void,
+        lyricsPresentation: LyricsPresentationState? = nil,
         otherService: MusicService? = nil,
         trace: PlaybackTrace = .shared
     ) {
@@ -361,6 +366,7 @@ struct PlaybackControlsView: View {
         self.isLyricsPresented = isLyricsPresented.wrappedValue
         toggleLyrics = { isLyricsPresented.wrappedValue.toggle() }
         self.openArtist = openArtist
+        self.lyricsPresentation = lyricsPresentation
         self.otherService = otherService
         self.trace = trace
     }
@@ -504,16 +510,26 @@ struct PlaybackControlsView: View {
         .accessibilityElement(children: .contain)
     }
 
-    var lyricsButtonTooltip: String {
-        isLyricsPresented
+    static func lyricsButtonTooltip(presented: Bool) -> String {
+        presented
             ? SpotiglassL10n.string("browser.closeLyrics")
             : SpotiglassL10n.string("tooltip.playback.lyrics")
     }
 
-    private var lyricsButtonHint: String {
-        isLyricsPresented
+    private static func lyricsButtonHint(presented: Bool) -> String {
+        presented
             ? SpotiglassL10n.string("browser.closeLyrics.hint")
             : SpotiglassL10n.string("playback.controls.lyrics.hint")
+    }
+
+    /// `content` with whether the lyrics are open, re-run on its own when they open or close.
+    @ViewBuilder
+    private func withLyricsPresented(@ViewBuilder _ content: @escaping (Bool) -> some View) -> some View {
+        if let lyricsPresentation {
+            LyricsPresentationReader(presentation: lyricsPresentation, content: content)
+        } else {
+            content(isLyricsPresented)
+        }
     }
 
     @ViewBuilder
@@ -526,18 +542,21 @@ struct PlaybackControlsView: View {
                             url: item.albumArtURL,
                             size: PlaybackTransportLayoutPolicy.nowPlayingArtworkSize
                         )
-                        PlaybackTransportButton(
-                            accessibilityLabel: isLyricsPresented
-                                ? SpotiglassL10n.string("browser.closeLyrics")
-                                : SpotiglassL10n.string("playback.controls.openLyrics"),
-                            accessibilityHint: lyricsButtonHint,
-                            size: CGSize(
-                                width: PlaybackTransportLayoutPolicy.nowPlayingArtworkSize,
-                                height: PlaybackTransportLayoutPolicy.nowPlayingArtworkSize
-                            ),
-                            action: toggleLyrics
-                        ) {
-                            EmptyView()
+                        withLyricsPresented { presented in
+                            PlaybackTransportButton(
+                                accessibilityLabel: presented
+                                    ? SpotiglassL10n.string("browser.closeLyrics")
+                                    : SpotiglassL10n.string("playback.controls.openLyrics"),
+                                accessibilityHint: Self.lyricsButtonHint(presented: presented),
+                                size: CGSize(
+                                    width: PlaybackTransportLayoutPolicy.nowPlayingArtworkSize,
+                                    height: PlaybackTransportLayoutPolicy.nowPlayingArtworkSize
+                                ),
+                                action: toggleLyrics
+                            ) {
+                                EmptyView()
+                            }
+                            .help(Self.lyricsButtonTooltip(presented: presented))
                         }
                     }
                     .frame(
@@ -546,7 +565,6 @@ struct PlaybackControlsView: View {
                     )
                     .id("artwork:\(item.uri ?? item.name)")
                     .transition(.opacity.combined(with: .scale(scale: 0.94)))
-                    .help(lyricsButtonTooltip)
                 } else {
                     ArtworkView(
                         url: item.albumArtURL,
@@ -597,22 +615,24 @@ struct PlaybackControlsView: View {
     /// The bar stays under the open lyrics (#438), so the button toggles them and
     /// shows when they are open, like Repeat shows its state.
     private var lyricsButton: some View {
-        PlaybackTransportButton(
-            accessibilityLabel: SpotiglassL10n.string("playback.controls.lyrics"),
-            accessibilityHint: lyricsButtonHint,
-            size: SpotiglassDesign.Layout.iconButtonFrame,
-            action: toggleLyrics
-        ) {
-            Image(systemName: "music.note.list")
-                .foregroundStyle(
-                    isLyricsPresented
-                        ? AnyShapeStyle(SpotiglassAccentStyle())
-                        : AnyShapeStyle(.secondary)
-                )
+        withLyricsPresented { presented in
+            PlaybackTransportButton(
+                accessibilityLabel: SpotiglassL10n.string("playback.controls.lyrics"),
+                accessibilityHint: Self.lyricsButtonHint(presented: presented),
+                size: SpotiglassDesign.Layout.iconButtonFrame,
+                action: toggleLyrics
+            ) {
+                Image(systemName: "music.note.list")
+                    .foregroundStyle(
+                        presented
+                            ? AnyShapeStyle(SpotiglassAccentStyle())
+                            : AnyShapeStyle(.secondary)
+                    )
+            }
+            .frame(width: SpotiglassDesign.Layout.iconButtonSize, height: SpotiglassDesign.Layout.iconButtonSize)
+            .accessibilityAddTraits(presented ? .isSelected : [])
+            .help(Self.lyricsButtonTooltip(presented: presented))
         }
-        .frame(width: SpotiglassDesign.Layout.iconButtonSize, height: SpotiglassDesign.Layout.iconButtonSize)
-        .accessibilityAddTraits(isLyricsPresented ? .isSelected : [])
-        .help(lyricsButtonTooltip)
     }
 
     private var controlsCluster: some View {
@@ -1545,5 +1565,16 @@ private struct PlaybackArtistLine: View {
             // Cancellation is the normal path when the user scrolls, the
             // track changes, the view disappears, or Reduce Motion is enabled.
         }
+    }
+}
+
+/// Hands `content` whether the lyrics are open and runs it again when that changes, so only the
+/// bar's Lyrics buttons follow the lyrics, not the whole bar (#674).
+private struct LyricsPresentationReader<Content: View>: View {
+    @ObservedObject var presentation: LyricsPresentationState
+    let content: (Bool) -> Content
+
+    var body: some View {
+        content(presentation.isPresented)
     }
 }

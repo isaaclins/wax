@@ -429,8 +429,8 @@ final class CrossServicePlaybackTests: XCTestCase {
         await ViewTestHost.renderPendingUpdates()
         XCTAssertTrue(lyricsOverlay.isPresented, "the lyrics closed when Piranguera paused")
         XCTAssertEqual(looked, ["Piranguera"], "the paused lyrics went to another song")
-        lyricsOverlay.presentedBinding {}.wrappedValue = false
-        lyricsOverlay.presentedBinding {}.wrappedValue = true
+        lyricsOverlay.presentedBinding.wrappedValue = false
+        lyricsOverlay.presentedBinding.wrappedValue = true
         XCTAssertTrue(lyricsOverlay.isPresented, "the bar's Lyrics button doesn't open Piranguera's paused lyrics")
 
         // View › Show Lyrics follows the bar too, even with no Spotify song to fall back on.
@@ -438,8 +438,8 @@ final class CrossServicePlaybackTests: XCTestCase {
         playback.setConnectionState(.paused(nil))
         XCTAssertTrue(playback.audiblePlayer === appleMusic)
         XCTAssertTrue(manager.canToggleLyrics, "Show Lyrics opens Piranguera's lyrics")
-        lyricsOverlay.presentedBinding {}.wrappedValue = false
-        lyricsOverlay.presentedBinding {}.wrappedValue = true
+        lyricsOverlay.presentedBinding.wrappedValue = false
+        lyricsOverlay.presentedBinding.wrappedValue = true
         XCTAssertTrue(lyricsOverlay.isPresented, "the bar's Lyrics button opens Piranguera's lyrics")
     }
 
@@ -484,7 +484,7 @@ final class CrossServicePlaybackTests: XCTestCase {
             let lyricsOverlay = try hostLyricsOverlay(onScreenPlayer: playback) { looked.append($0); lookups.send() }
             let manager = wirePalette(
                 to: playback,
-                lyricsPresented: lyricsOverlay.presentedBinding {}
+                lyricsPresented: lyricsOverlay.presentedBinding
             )
             manager.bindPlaybackReadiness(to: playback)
             await waitUntil("Piranguera's lyrics looked up, \(label)", changes: lookups) { looked == ["Piranguera"] }
@@ -502,7 +502,7 @@ final class CrossServicePlaybackTests: XCTestCase {
             }
             if ending == .fails {
                 await play.value
-                await waitUntil("the lyrics closed, \(label)", changes: lyricsOverlay.$isPresented) { !lyricsOverlay.isPresented }
+                await waitUntil("the lyrics closed, \(label)", changes: lyricsOverlay.presentation.$isPresented) { !lyricsOverlay.isPresented }
                 XCTAssertFalse(lyricsOverlay.isPresented, "the play failed: no song to show the lyrics of, \(label)")
                 ViewTestHost.tearDownAll()
                 continue
@@ -512,7 +512,7 @@ final class CrossServicePlaybackTests: XCTestCase {
             // song is coming. It ends on that, or at once on the lyrics closing, which fails below.
             await waitUntil(
                 "the lyrics waiting for the song, \(label)",
-                changes: lyricsModel.$phase.map { _ in }.merge(with: lyricsOverlay.$isPresented.map { _ in })
+                changes: lyricsModel.$phase.map { _ in }.merge(with: lyricsOverlay.presentation.$isPresented.map { _ in })
             ) { lyricsModel.phase == .loading || !lyricsOverlay.isPresented }
             await ViewTestHost.renderPendingUpdates()
             XCTAssertTrue(lyricsOverlay.isPresented, "the lyrics closed while Spotify's song was on its way, \(label)")
@@ -523,7 +523,7 @@ final class CrossServicePlaybackTests: XCTestCase {
             if ending == .timesOut {
                 // What the session does when no report came in time (`pendingPlayURITimeout`).
                 playback.clearPendingPlay()
-                await waitUntil("the lyrics closed, \(label)", changes: lyricsOverlay.$isPresented) { !lyricsOverlay.isPresented }
+                await waitUntil("the lyrics closed, \(label)", changes: lyricsOverlay.presentation.$isPresented) { !lyricsOverlay.isPresented }
                 XCTAssertFalse(lyricsOverlay.isPresented, "the wait for the song never ended, \(label)")
                 ViewTestHost.tearDownAll()
                 continue
@@ -547,10 +547,8 @@ final class CrossServicePlaybackTests: XCTestCase {
     ) throws -> LyricsOverlayController {
         let settings = try ViewTestHost.makeSettingsStore()
         let lyricsOverlay = LyricsOverlayController()
-        var willOpen = 0
-        lyricsOverlay.presentedBinding { willOpen += 1 }.wrappedValue = true
+        lyricsOverlay.presentedBinding.wrappedValue = true
         XCTAssertFalse(lyricsOverlay.isPresented, "the lyrics opened with no song to show")
-        XCTAssertEqual(willOpen, 0, "a refused open saved the playlist's scroll position")
         lyricsOverlay.attach(
             playback: playback,
             queue: QueueViewModel(provider: playback.provider, playbackSession: playback),
@@ -562,9 +560,8 @@ final class CrossServicePlaybackTests: XCTestCase {
             navigateToAlbum: { _, _, _ in }
         )
         // What the bar's Lyrics button and View › Show Lyrics toggle.
-        lyricsOverlay.presentedBinding { willOpen += 1 }.wrappedValue = true
-        lyricsOverlay.presentedBinding { willOpen += 1 }.wrappedValue = true
-        XCTAssertEqual(willOpen, 1, "opening the lyrics again saved the playlist's scroll position again")
+        lyricsOverlay.presentedBinding.wrappedValue = true
+        lyricsOverlay.presentedBinding.wrappedValue = true
         XCTAssertTrue(lyricsOverlay.isPresented, "the lyrics didn't open for the song in the bar")
         ViewTestHost.host(
             LyricsOverlayLayer(lyricsOverlay: lyricsOverlay, keymapStore: CommandPaletteKeymapStore(settingsStore: settings))
@@ -951,6 +948,16 @@ final class CrossServicePlaybackTests: XCTestCase {
         )
     }
 
+    /// The URI an open album's rows mark as playing, as each row's mark reads it.
+    private static func markedURI(_ state: PlaybackConnectionState, in content: BrowsingDetailContent) -> String? {
+        guard case let .playlist(detail) = content else { return nil }
+        return PlaylistBrowserPlaybackHelpers.rowURI(
+            markedAs: PlaylistBrowserPlaybackHelpers.currentPlaybackURI(connectionState: state),
+            connectionState: state,
+            rows: detail.tracks
+        )
+    }
+
     private static func album(_ tracks: [MusicTrack]) -> BrowsingDetailContent {
         .playlist(PlaylistDetailViewModel(
             playlist: PlaylistRowViewModel(
@@ -975,14 +982,14 @@ final class CrossServicePlaybackTests: XCTestCase {
         ])
 
         XCTAssertEqual(
-            PlaylistBrowserPlaybackHelpers.currentPlaybackURI(connectionState: playing, detailContent: album),
+            Self.markedURI(playing, in: album),
             "applemusic:song:-6046431734389870155"
         )
         // Same title by someone else, or another length (a remix, a live take): not this song.
         XCTAssertEqual(
-            PlaylistBrowserPlaybackHelpers.currentPlaybackURI(
-                connectionState: playing,
-                detailContent: Self.album([
+            Self.markedURI(
+                playing,
+                in: Self.album([
                     Self.row("Breakin' Dishes", uri: "applemusic:song:1", artists: ["Ely Oaks"]),
                     Self.row("Breakin' Dishes", uri: "applemusic:song:2", durationMilliseconds: 260_000),
                 ])
@@ -1043,7 +1050,7 @@ final class CrossServicePlaybackTests: XCTestCase {
             Self.row("Breakin' Dishes", uri: "applemusic:song:b"),
         ])
         XCTAssertEqual(
-            PlaylistBrowserPlaybackHelpers.currentPlaybackURI(connectionState: playing, detailContent: list),
+            Self.markedURI(playing, in: list),
             "applemusic:song:b"
         )
     }
@@ -1056,7 +1063,7 @@ final class CrossServicePlaybackTests: XCTestCase {
         ))
         let reloaded = Self.album([Self.row("Breakin' Dishes", uri: "spotify:track:reloaded")])
         XCTAssertEqual(
-            PlaylistBrowserPlaybackHelpers.currentPlaybackURI(connectionState: playing, detailContent: reloaded),
+            Self.markedURI(playing, in: reloaded),
             "spotify:track:original"
         )
     }

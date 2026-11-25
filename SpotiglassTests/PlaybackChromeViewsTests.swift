@@ -138,7 +138,7 @@ final class PlaybackChromeViewsTests: XCTestCase {
             ),
             openArtist: { _ in }
         )
-        XCTAssertEqual(view.lyricsButtonTooltip, SpotiglassL10n.string("browser.closeLyrics"))
+        XCTAssertEqual(PlaybackControlsView.lyricsButtonTooltip(presented: isPresented), SpotiglassL10n.string("browser.closeLyrics"))
 
         let controller = ViewTestHost.host(view, size: CGSize(width: 900, height: 120))
         let buttons = allNSButtons(in: controller.view)

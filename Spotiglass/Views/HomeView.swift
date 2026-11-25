@@ -57,8 +57,6 @@ struct HomeView: View {
                 rowBuilder: { track in
                     marks.row(for: track) { mark in topTrackRow(track, mark: mark, in: tracks, selectedRows: selectedRows) }
                 },
-                pendingScrollRestoreTrackID: .constant(nil),
-                onFirstVisibleTrackChanged: { _ in },
                 playSelection: { selectedIDs in
                     guard let uri = tracks.first(where: { selectedIDs.contains($0.id) })?.playableURI else { return }
                     play(uri, in: tracks)

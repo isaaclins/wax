@@ -103,12 +103,14 @@ final class LyricsOverlayFocusContainerView<Content: View>: NSView, FocusedKeyEv
     private var focusRequestScheduled = false
     /// Set once the keyboard is in the lyrics, so a later move elsewhere reads as the user's.
     private var didHoldKeyboardFocus = false
+    private var isHideScheduled = false
 
     init(content: Content, isActive: Bool, keymapStore: CommandPaletteKeymapStore) {
         hostingView = NSHostingView(rootView: content)
         self.keymapStore = keymapStore
         overlayIsActive = isActive
         super.init(frame: .zero)
+        isHidden = !isActive
 
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(hostingView)
@@ -140,6 +142,7 @@ final class LyricsOverlayFocusContainerView<Content: View>: NSView, FocusedKeyEv
     }
 
     func setActive(_ active: Bool) {
+        if active { isHidden = false } else { hideOnceFadedOut() }
         guard overlayIsActive != active else { return }
         overlayIsActive = active
         if active {
@@ -149,6 +152,24 @@ final class LyricsOverlayFocusContainerView<Content: View>: NSView, FocusedKeyEv
             restorePreviousFocus()
         }
     }
+
+    /// Closed, the container stays in the window (#674) but hidden, so it takes no clicks, keys
+    /// or VoiceOver; after the lyrics' fade, which plays inside it.
+    private func hideOnceFadedOut() {
+        guard !isHidden, !isHideScheduled else { return }
+        isHideScheduled = true
+        let timer = Timer(timeInterval: Self.fadeOutSeconds, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.isHideScheduled = false
+                guard !self.overlayIsActive else { return }
+                self.isHidden = true
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private static var fadeOutSeconds: TimeInterval { 0.3 }
 
     func deactivate() {
         guard overlayIsActive || capturedPreviousResponder else { return }
@@ -238,16 +259,10 @@ final class LyricsOverlayFocusContainerView<Content: View>: NSView, FocusedKeyEv
             !focusRequestScheduled
         else { return }
 
-        // Prefer an immediate handoff when the overlay is inserted during a
-        // key-window update. SwiftUI can otherwise leave the old responder in
-        // place until the next run-loop turn.
-        if window.makeFirstResponder(self) {
-            didHoldKeyboardFocus = true
-            return
-        }
-
+        // Right after the frame that shows the lyrics, not in it: moving the keyboard updates the
+        // focus of every view in the window, and that held back the lyrics' first frame (#674).
         focusRequestScheduled = true
-        DispatchQueue.main.async { [weak self, weak window] in
+        AfterThisFrame.run { [weak self, weak window] in
             guard let self else { return }
             self.focusRequestScheduled = false
             guard self.overlayIsActive,
@@ -255,7 +270,17 @@ final class LyricsOverlayFocusContainerView<Content: View>: NSView, FocusedKeyEv
                 self.window === window,
                 !self.isInResponderChain(window.firstResponder)
             else { return }
-            if window.makeFirstResponder(self) { self.didHoldKeyboardFocus = true }
+            if window.makeFirstResponder(self) {
+                self.didHoldKeyboardFocus = true
+                return
+            }
+            // SwiftUI can leave the old responder in place until the next run-loop turn.
+            DispatchQueue.main.async { [weak self, weak window] in
+                guard let self, self.overlayIsActive, let window, self.window === window,
+                    !self.isInResponderChain(window.firstResponder)
+                else { return }
+                if window.makeFirstResponder(self) { self.didHoldKeyboardFocus = true }
+            }
         }
     }
 
@@ -307,11 +332,68 @@ final class LyricsOverlayFocusContainerView<Content: View>: NSView, FocusedKeyEv
     }
 }
 
+/// Whether the lyrics are open, published on its own: only what looks different with them open
+/// observes it. When the whole browser observed it, each ⌥⌘L ran the browser's body again, with
+/// the sidebar, the page under the lyrics and every song row on screen, about 140 ms where the
+/// budget is 50 ms (#674).
+@MainActor
+final class LyricsPresentationState: ObservableObject {
+    @Published fileprivate(set) var isPresented = false
+}
+
+/// Runs `work` once, right after Core Animation commits the frame being built now.
+@MainActor
+enum AfterThisFrame {
+    static func run(_ work: @escaping @MainActor () -> Void) {
+        // Core Animation commits at `beforeWaiting` with order 2,000,000; this one comes after.
+        let observer = CFRunLoopObserverCreateWithHandler(
+            kCFAllocatorDefault,
+            CFRunLoopActivity.beforeWaiting.rawValue | CFRunLoopActivity.exit.rawValue,
+            false,
+            2_000_002
+        ) { _, _ in
+            MainActor.assumeIsolated { work() }
+        }
+        CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
+    }
+}
+
 /// Owns immersive lyrics presentation and holds references to the main-window playback session
 /// so ``ImmersiveLyricsView`` can be hosted above ``NavigationSplitView`` (full-window compositing).
+/// It publishes nothing itself, so the browser that holds it doesn't render again when the lyrics
+/// open or close (#674); ``presentation`` is what to observe.
 @MainActor
 final class LyricsOverlayController: ObservableObject {
-    @Published var isPresented = false
+    /// The lyrics themselves and the page under them: they change in the frame that answers ⌥⌘L.
+    let presentation = LyricsPresentationState()
+    /// What frames them (the toolbar's items, the window's name, the player bar's Lyrics buttons,
+    /// the menus) follows one frame later. Swapping the toolbar's items alone took 16-18 ms, the
+    /// menus and the bar another 12, and none of it is what you look at when the lyrics open, so
+    /// it no longer holds back their first frame (#674).
+    let chromePresentation = LyricsPresentationState()
+    private var isChromeUpdateScheduled = false
+
+    /// Opening and closing animate: the lyrics fade in while the page under them fades out.
+    var isPresented: Bool {
+        get { presentation.isPresented }
+        set {
+            guard newValue != presentation.isPresented else { return }
+            withAnimation(.easeOut(duration: 0.22)) { presentation.isPresented = newValue }
+            scheduleChromeUpdate()
+        }
+    }
+
+    private func scheduleChromeUpdate() {
+        guard !isChromeUpdateScheduled else { return }
+        isChromeUpdateScheduled = true
+        AfterThisFrame.run { [weak self] in
+            guard let self else { return }
+            isChromeUpdateScheduled = false
+            let presented = presentation.isPresented
+            guard chromePresentation.isPresented != presented else { return }
+            withAnimation(.easeOut(duration: 0.22)) { self.chromePresentation.isPresented = presented }
+        }
+    }
 
     private(set) var playbackViewModel: PlaybackSessionViewModel?
     private(set) var queueViewModel: QueueViewModel?
@@ -356,15 +438,11 @@ final class LyricsOverlayController: ObservableObject {
         isPresented = presented
     }
 
-    /// What the bar's Lyrics button and View › Show Lyrics toggle. `willOpen` runs when the
-    /// lyrics are about to open.
-    func presentedBinding(willOpen: @escaping () -> Void) -> Binding<Bool> {
+    /// What the bar's Lyrics button and View › Show Lyrics toggle.
+    var presentedBinding: Binding<Bool> {
         Binding(
             get: { self.isPresented },
-            set: { newValue in
-                if newValue, !self.isPresented, self.hasLyricsToShow { willOpen() }
-                self.setPresented(newValue)
-            }
+            set: { self.setPresented($0) }
         )
     }
 
@@ -378,28 +456,37 @@ final class LyricsOverlayController: ObservableObject {
 /// showing. The sidebar, the queue panel and the player bar stay where they are on every other
 /// screen (#438); the backdrop runs up under the toolbar so the bar reads as part of the lyrics.
 struct LyricsOverlayLayer: View {
-    @ObservedObject var lyricsOverlay: LyricsOverlayController
+    let lyricsOverlay: LyricsOverlayController
+    @ObservedObject private var presentation: LyricsPresentationState
     let keymapStore: CommandPaletteKeymapStore
     @EnvironmentObject private var settingsStore: SpotiglassSettingsStore
     @State private var keyboardFocus = LyricsKeyboardFocusProbe()
+    /// Set the first time the lyrics open; from then on their view stays built.
+    @State private var hasOpened = false
     /// How much of the column's bottom the player bar covers. The lyrics run behind the bar
     /// (#474), and the column doesn't get the bar's safe area (the split view hosts it), so
     /// the browser measures the bar and hands its height in.
-    var playerBarInset: CGFloat = 0
+    let playerBarInset: CGFloat
+
+    init(lyricsOverlay: LyricsOverlayController, keymapStore: CommandPaletteKeymapStore, playerBarInset: CGFloat = 0) {
+        self.lyricsOverlay = lyricsOverlay
+        _presentation = ObservedObject(wrappedValue: lyricsOverlay.presentation)
+        self.keymapStore = keymapStore
+        self.playerBarInset = playerBarInset
+    }
 
     /// Avoid blocking the column when `isPresented` is true before the browser has called `attach` (nil models).
     private var immersiveLyricsReady: Bool {
-        lyricsOverlay.isPresented
-            && lyricsOverlay.playbackViewModel != nil
-            && lyricsOverlay.queueViewModel != nil
-            && lyricsOverlay.lyricsModel != nil
-            && lyricsOverlay.navigateToArtist != nil
-            && lyricsOverlay.navigateToAlbum != nil
+        presentation.isPresented && lyricsOverlay.lyricsModel != nil
     }
 
     var body: some View {
         ZStack {
-            if immersiveLyricsReady,
+            // The container and its hosting view are built the first time the lyrics open, and
+            // stay: building them on every ⌥⌘L (a new view graph and a view added to the window)
+            // held back the lyrics' first frame (#674). Closed, it holds nothing and is hidden,
+            // so it takes no clicks, keys or VoiceOver.
+            if hasOpened || presentation.isPresented,
                 let playback = lyricsOverlay.playbackViewModel,
                 let queue = lyricsOverlay.queueViewModel,
                 let lyrics = lyricsOverlay.lyricsModel,
@@ -407,7 +494,8 @@ struct LyricsOverlayLayer: View {
                 let navigateAlbum = lyricsOverlay.navigateToAlbum
             {
                 LyricsOverlayFocusContainer(
-                    content: LyricsOverlayPlayerResolver(
+                    content: LyricsOverlayContent(
+                        isShowing: immersiveLyricsReady,
                         onScreenPlayer: playback,
                         queueViewModel: queue,
                         lyricsModel: lyrics,
@@ -425,10 +513,8 @@ struct LyricsOverlayLayer: View {
                     keyboardFocus: keyboardFocus
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
         }
-        .animation(.easeOut(duration: 0.22), value: lyricsOverlay.isPresented)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // The lines scroll unclipped for the edge fade; without this they would draw past the
         // column's edges (#438). The column runs behind the player bar, so the backdrop reaches
@@ -436,6 +522,40 @@ struct LyricsOverlayLayer: View {
         .clipped()
         .ignoresSafeArea(.container, edges: .top)
         .allowsHitTesting(immersiveLyricsReady)
+        .onChange(of: presentation.isPresented) { _, presented in
+            if presented, !hasOpened { hasOpened = true }
+        }
+    }
+}
+
+/// What the lyrics' hosting view shows: the lyrics while they are open, fading in and out, and
+/// nothing while they are closed. The hosting view has its own view graph, so the fade is set
+/// here rather than taken from the change that opened them.
+struct LyricsOverlayContent: View {
+    let isShowing: Bool
+    let onScreenPlayer: PlaybackSessionViewModel
+    let queueViewModel: QueueViewModel
+    let lyricsModel: ImmersiveLyricsViewModel
+    let navigateToArtist: (ArtistTapTarget) -> Void
+    let navigateToAlbum: (AlbumTapTarget, String, URL?) -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            if isShowing {
+                LyricsOverlayPlayerResolver(
+                    onScreenPlayer: onScreenPlayer,
+                    queueViewModel: queueViewModel,
+                    lyricsModel: lyricsModel,
+                    navigateToArtist: navigateToArtist,
+                    navigateToAlbum: navigateToAlbum,
+                    onDismiss: onDismiss
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeOut(duration: 0.22), value: isShowing)
     }
 }
 

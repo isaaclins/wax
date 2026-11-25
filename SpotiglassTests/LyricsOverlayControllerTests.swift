@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import XCTest
 @testable import Spotiglass
@@ -62,6 +63,28 @@ final class LyricsOverlayControllerTests: XCTestCase {
         XCTAssertNil(controller.queueViewModel)
         XCTAssertNil(controller.lyricsModel)
         XCTAssertFalse(controller.isPresented)
+    }
+
+    /// ⌥⌘L's first frame shows the lyrics and hides the page; the toolbar, the window's name, the
+    /// player bar's Lyrics buttons and the menus follow in the next one, so their 30 ms don't hold
+    /// it back (#674). A toggle back within the same frame leaves them as they were.
+    func testTheFrameAroundTheLyricsFollowsOneFrameLater() {
+        let controller = LyricsOverlayController()
+        var chromeChanges = 0
+        let watch = controller.chromePresentation.objectWillChange.sink { chromeChanges += 1 }
+        defer { watch.cancel() }
+
+        controller.isPresented = true
+        XCTAssertTrue(controller.presentation.isPresented)
+        XCTAssertFalse(controller.chromePresentation.isPresented, "the toolbar changed in the lyrics' own frame")
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { controller.chromePresentation.isPresented }), "the toolbar never followed")
+        XCTAssertEqual(chromeChanges, 1)
+
+        controller.isPresented = false
+        controller.isPresented = true
+        AppKitTestSupport.settleRunLoopOnly()
+        XCTAssertTrue(controller.chromePresentation.isPresented)
+        XCTAssertEqual(chromeChanges, 1, "closing and opening again within one frame swapped the toolbar twice")
     }
 
     func testLyricsFocusContainerRestoresTheResponderOnDismiss() {
