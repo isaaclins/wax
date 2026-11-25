@@ -152,9 +152,9 @@ final class LongListScrollCostTests: XCTestCase {
         // itself, which a test can't press. The table proposes the range and SwiftUI builds each
         // row it proposes, so this is still over 50 ms (#694).
         measure("shift-click 30", buildsEveryRow: true) {
-            table.selectRowIndexes(IndexSet(integersIn: (middle + 1)...(middle + 29)), byExtendingSelection: false)
+            table.selectRowIndexes(IndexSet(integersIn: (middle + 1)...(middle + 30)), byExtendingSelection: false)
         }
-        XCTAssertEqual(browser.selectedDetailTrackIDs.count, 29, "shift-click didn't select the range")
+        XCTAssertEqual(browser.selectedDetailTrackIDs.count, 30, "shift-click didn't select the range")
         measure("click one") { click(host, row: middle) }
         XCTAssertEqual(browser.selectedDetailTrackIDs, ["t\(middle)"])
 

@@ -68,8 +68,11 @@ struct TrackRowPlaybackMark: Equatable {
 struct TrackRowPlaybackSource {
     private let connectionState: @MainActor () -> PlaybackConnectionState
     private let connectionStateChanges: AnyPublisher<PlaybackConnectionState, Never>
+    /// The player session the marks follow.
+    let sessionID: ObjectIdentifier
 
     init(session: PlaybackSessionViewModel) {
+        sessionID = ObjectIdentifier(session)
         connectionState = { [weak session] in session?.connectionState ?? .disconnected }
         connectionStateChanges = session.connectionStatePublisher
     }
@@ -77,6 +80,25 @@ struct TrackRowPlaybackSource {
     /// The marks of the rows of one list. Build it once per list and hand it to each of its rows.
     func marks(in rows: [TrackRowViewModel]) -> TrackListPlaybackMarks {
         TrackListPlaybackMarks(rows: rows, connectionState: connectionState, connectionStateChanges: connectionStateChanges)
+    }
+}
+
+/// One ``TrackListPlaybackMarks`` per list, kept while its rows stay the same (#683). A list that
+/// keeps the rows it doesn't build again holds on to the marks those rows were built with; a new
+/// marks per body would leave several on screen, each looking for the playing row on every pause.
+@MainActor
+final class TrackListPlaybackMarksCache {
+    private var rows: [TrackRowViewModel] = []
+    private var sessionID: ObjectIdentifier?
+    private var cached: TrackListPlaybackMarks?
+
+    func marks(in rows: [TrackRowViewModel], from source: TrackRowPlaybackSource) -> TrackListPlaybackMarks {
+        if let cached, source.sessionID == sessionID, rows == self.rows { return cached }
+        let marks = source.marks(in: rows)
+        self.rows = rows
+        sessionID = source.sessionID
+        cached = marks
+        return marks
     }
 }
 

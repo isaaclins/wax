@@ -200,6 +200,8 @@ struct TrackListRow: View {
     var body: some View {
         #if DEBUG
         let _ = ViewBodyTally.record("TrackListRow:\(track.id)")
+        // What the row shows of the player, so a test can tell a row came in with the current state.
+        let _ = ViewBodyTally.record("TrackListRowMark:\(track.id):\(isPlaying ? "playing" : isCurrent ? "paused" : "none")")
         #endif
         HStack(spacing: SpotiglassDesign.spacingS) {
             leadingColumn

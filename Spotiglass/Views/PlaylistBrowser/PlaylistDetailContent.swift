@@ -68,6 +68,8 @@ struct PlaylistDetailContent: View {
     @EnvironmentObject private var pinnedStore: PinnedItemsStore
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.spotiglassLocale) private var spotiglassLocale
+    /// One marks per list for the rows the table keeps (#683).
+    @State private var marksCache = TrackListPlaybackMarksCache()
     @State private var isPromptingNewPlaylist = false
     @State private var newPlaylistName = ""
     @State private var newPlaylistInitialRows: [TrackRowViewModel] = []
@@ -179,7 +181,7 @@ struct PlaylistDetailContent: View {
             if detail.tracks.isEmpty {
                 EmptyStateView(title: SpotiglassL10n.string("browser.noTracks.title"), message: SpotiglassL10n.string("browser.noTracks.emptyPlaylist"))
             } else {
-                let marks = playback.marks(in: detail.tracks)
+                let marks = marksCache.marks(in: detail.tracks, from: playback)
                 DetailTrackSelectionReader(selection: browserViewModel.detailTrackSelection) { selection in
                     let selectedRows = browserViewModel.selectedRowsForMenus
                     TrackListView(
