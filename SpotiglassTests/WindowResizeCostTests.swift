@@ -411,6 +411,25 @@ final class WindowResizeCostTests: XCTestCase {
         )
     }
 
+    /// The window's minimum width watches the queue flag on its own (#673), so the app's scene no
+    /// longer has to: with the queue open it still keeps room for the page and the panel (#413).
+    func testWindowMinimumWidthFollowsTheQueueOpeningAndClosing() async {
+        let flag = StoredFlag.queuePanelVisible
+        flag.isOn = false
+        defer { flag.isOn = false }
+        let closed = SpotiglassApp.windowMinWidth
+        let open = SpotiglassDesign.detailAndQueueMinWidth
+        XCTAssertGreaterThan(open, closed, "opening the queue must widen the minimum for this test to mean anything")
+        let controller = ViewTestHost.host(Color.clear.modifier(QueuePanelWindowMinSize()))
+        let minimumWidth = { controller.sizeThatFits(in: .zero).width }
+        for visible in [false, true, false, true, false] {
+            flag.isOn = visible
+            let expected = visible ? open : closed
+            let followed = await AppKitTestSupport.settle(until: { abs(minimumWidth() - expected) < 0.5 })
+            XCTAssertTrue(followed, "with the queue \(visible ? "open" : "closed") the minimum width is \(minimumWidth()), not \(expected)")
+        }
+    }
+
     private func assertTogglingTheQueueReRendersOnlyTheQueue(
         extraViews: [String],
         rowsOnScreen: (String) -> Bool,
