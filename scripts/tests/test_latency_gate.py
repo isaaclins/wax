@@ -27,7 +27,6 @@ def report(*measurements):
 BASELINE = {
     "known": {
         "palette.open": {"issue": 671, "measuredMs": 88},
-        "playback.toggle.key": {"issue": 678, "measuredMs": 40},
         "playback.next": {"issue": 687, "measuredMs": None},
     },
     "ci": {"playback.toggle.key": 83, "palette.open": 291, "queue.toggle": 279, "playback.next": None},
@@ -74,6 +73,11 @@ class CIGateTests(unittest.TestCase):
     def test_one_that_never_showed_on_the_runner_is_only_reported(self):
         self.assertEqual(verdict("ci", m("playback.next", [], 8)), ([], []))
 
+    def test_once_it_shows_on_the_runner_the_gate_asks_for_its_time(self):
+        failed, fixed = verdict("ci", m("playback.next", [40, 42, 41, 39, 40, 43, 41, 40]))
+        self.assertEqual(failed, [])
+        self.assertEqual(fixed, ["playback.next (shows here now: set its ci time to 40)"])
+
 
 class MacGateTests(unittest.TestCase):
     def test_an_unlisted_interaction_over_50_ms_fails(self):
@@ -85,12 +89,16 @@ class MacGateTests(unittest.TestCase):
         self.assertEqual(len(verdict("mac", m("palette.open", [190, 200, 180, 185, 190, 195, 200, 210]))[0]), 1)
         self.assertEqual(len(verdict("mac", m("palette.open", [], 8))[0]), 1)
 
-    def test_listed_play_pause_at_41_ms_is_not_called_fixed_yet(self):
-        # My Mac mini's run: within 50 ms, but one click took 58 ms (#678).
-        failed, fixed = verdict("mac", m("playback.toggle.key", [43, 38, 42, 40, 50, 40, 43, 41]))
-        self.assertEqual((failed, fixed), ([], []))
-        _, fixed = verdict("mac", m("playback.toggle.key", [20, 22, 21, 23, 20, 22, 21, 24]))
-        self.assertEqual(fixed, ["playback.toggle.key (#678)"])
+    def test_play_pause_is_held_to_50_ms_once_off_the_list(self):
+        # My Mac mini's run: within 50 ms, one try at 50.
+        self.assertEqual(verdict("mac", m("playback.toggle.key", [43, 38, 42, 40, 50, 40, 43, 41])), ([], []))
+        # The same at 75 ms fails; while it was listed at 40 ms it would have passed up to 80.
+        self.assertEqual(verdict("mac", m("playback.toggle.key", [75, 74, 76, 75, 73, 77, 75, 74]))[0],
+                         ["playback.toggle.key"])
+
+    def test_a_listed_one_well_under_50_ms_is_called_fixed(self):
+        failed, fixed = verdict("mac", m("palette.open", [30, 31, 29, 32, 30, 31, 30, 33]))
+        self.assertEqual((failed, fixed), ([], ["palette.open (#671)"]))
 
     def test_the_median_matches_the_apps_report_for_an_even_count(self):
         self.assertEqual(latency_gate.median([10, 40, 20, 30]), 25)

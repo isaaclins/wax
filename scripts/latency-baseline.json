@@ -49,14 +49,6 @@
       "issue": 677,
       "measuredMs": null
     },
-    "playback.toggle.click": {
-      "issue": 678,
-      "measuredMs": 41
-    },
-    "playback.toggle.key": {
-      "issue": 678,
-      "measuredMs": 40
-    },
     "queue.toggle": {
       "issue": 673,
       "measuredMs": 77

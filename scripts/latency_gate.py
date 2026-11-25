@@ -65,6 +65,8 @@ def judge(report, baseline, mode):
                 why = "not in the ci list yet: add its median from this run"
             elif ref is None:
                 why = None
+                if m["timedOut"] == 0:
+                    fixed.append(f"{m['id']} (shows here now: set its ci time to {mid:.0f})")
             elif m["timedOut"] > 1:
                 why = f"{m['timedOut']} of {m['timedOut'] + len(m['milliseconds'])} tries never showed"
             elif mid > 2 * ref:
@@ -96,7 +98,9 @@ def judge(report, baseline, mode):
         )
 
     if fixed:
-        lines += ["", f"now under {FIXED_BELOW:.0f} ms, remove from scripts/latency-baseline.json: {', '.join(fixed)}"]
+        hint = "update scripts/latency-baseline.json" if mode == "ci" else (
+            f"now under {FIXED_BELOW:.0f} ms, remove from scripts/latency-baseline.json")
+        lines += ["", f"{hint}: {', '.join(fixed)}"]
     if failed:
         what = "got slower than before on this runner" if mode == "ci" else f"over {BUDGET:.0f} ms"
         lines += ["", f"{len(failed)} interaction(s) {what}: {', '.join(failed)}"]

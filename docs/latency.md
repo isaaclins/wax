@@ -62,8 +62,8 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 
 | Interaction | What you do | Median | Checked | Issue |
 |---|---|---|---|---|
-| `playback.toggle.key` | Space pauses or resumes | 40 | 40 | #678 |
-| `playback.toggle.click` | Click the play/pause button | 37 | 41 | #678 |
+| `playback.toggle.key` | Space pauses or resumes | 38 | 40 | |
+| `playback.toggle.click` | Click the play/pause button | 36 | 38 | |
 | `playback.next` | ⇧⌘→ skips to the next song | never | never | #687 |
 | `playback.previous` | ⇧⌘← goes back a song | never | never | #687 |
 | `playback.seek` | ⌘→ jumps ahead in the song | never | never | #677 |
@@ -87,8 +87,8 @@ the field (#671).
 "never" means nothing changed on screen within 3 s in any try. Next and previous count once the
 player bar names another song; screenshot mode's player can't change its song for a skip sent
 through the Web API, so there it never does (#687).
-Play/pause is within 50 ms, but one try in 8 still reaches 51-58 ms, so it stays listed until
-#678 gives it room.
+Play/pause was measured again with the probe's fixes (the clock starts at the first input, and a
+try's timer no longer ends a later try): every press showed, and one try in 8 reached 43-52 ms.
 Seek, shuffle and repeat never show on the Mac mini. On CI's runner they showed in every try of
 one run (36, 106 and 128 ms) and in none of the next, so they have no CI time and #677 may be the
 probe's menu-bar path rather than Wax.
