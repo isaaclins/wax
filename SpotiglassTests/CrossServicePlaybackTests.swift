@@ -334,6 +334,33 @@ final class CrossServicePlaybackTests: XCTestCase {
         XCTAssertTrue(playback.audiblePlayer === appleMusic, "the bar stays on the song you paused (#468)")
     }
 
+    /// Starting an Apple Music song while Spotify plays (#679): the song is still being looked
+    /// up. From the press the bar shows the song starting here, not Spotify's, and stays with
+    /// Apple Music's player once the start is done.
+    func testTheBarShowsASongStartingHereNotTheOtherServicesSong() async throws {
+        let (spotify, _) = pausedSpotify()
+        let midnightCity = Self.song("Midnight City", uri: "spotify:track:1", positionMilliseconds: 197_000)
+        spotify.playbackViewModel.setConnectionState(.playing(midnightCity))
+        let player = ScriptedAppleMusicPlayer()
+        let hosts = hosts(spotify: spotify, player: player)
+        hosts.gate(activeService: .appleMusic)
+        let appleMusic = hosts.appleMusic.playbackViewModel
+        appleMusic.handle(.ready(deviceID: AppleMusicPlaybackProvider.deviceID))
+        appleMusic.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
+        XCTAssertTrue(appleMusic.audiblePlayer === spotify.playbackViewModel, "before the press the bar shows what you hear")
+
+        player.holdLookups = true
+        let play = Task { await appleMusic.play(uri: "applemusic:song:piranguera") }
+        await waitUntil("the play looking up its song", changes: player.changes) { !player.waitingLookups.isEmpty }
+        XCTAssertTrue(appleMusic.isStartingPlay)
+        XCTAssertTrue(appleMusic.audiblePlayer === appleMusic, "the bar shows the song starting, not Midnight City")
+
+        player.releaseLookups()
+        await play.value
+        XCTAssertFalse(appleMusic.isStartingPlay)
+        XCTAssertTrue(appleMusic.audiblePlayer === appleMusic, "the bar stays with Apple Music's player")
+    }
+
     /// The report (#468): Apple Music played, Spotify was on screen, and pausing moved the bar to
     /// Spotify's paused song; Play then started Midnight City instead of resuming Piranguera.
     func testPlayAfterPausingResumesTheSongYouPausedNotTheOnScreenServicesSong() async throws {

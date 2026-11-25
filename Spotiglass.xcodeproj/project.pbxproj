@@ -49,6 +49,8 @@
 		SRC0000000000000000000036 /* AppleMusicArtworkRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080036 /* AppleMusicArtworkRegistry.swift */; };
 		SRC0000000000000000000034 /* AppleMusicSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080034 /* AppleMusicSession.swift */; };
 		E27906117DD61FFEA5656EB3 /* AppleMusicSongArtists.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9901693E116A2D462DC2CC7E /* AppleMusicSongArtists.swift */; };
+		777F82D8BDFDCB188DCAC31F /* AppleMusicSoundWatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE613C26544548F1E5C7059B /* AppleMusicSoundWatch.swift */; };
+		84FB6A3AEA6BF0FCAB460B6E /* AppleMusicSoundWatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6D7F36DF025AC0CC91A15A /* AppleMusicSoundWatchTests.swift */; };
 		SRC00000000000000000000A3 /* AppleMusicPlayableRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC00000000000000000800A3 /* AppleMusicPlayableRegistry.swift */; };
 		F51800000000000000000001 /* AppleMusicContentRatings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F51800000000000000000002 /* AppleMusicContentRatings.swift */; };
 		F48700000000000000000001 /* AppleMusicPinAliases.swift in Sources */ = {isa = PBXBuildFile; fileRef = F48700000000000000000002 /* AppleMusicPinAliases.swift */; };
@@ -552,6 +554,8 @@
 		SRC0000000000000000080036 /* AppleMusicArtworkRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicArtworkRegistry.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080034 /* AppleMusicSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicSession.swift; sourceTree = "<group>"; };
 		9901693E116A2D462DC2CC7E /* AppleMusicSongArtists.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicSongArtists.swift; sourceTree = "<group>"; };
+		DE613C26544548F1E5C7059B /* AppleMusicSoundWatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicSoundWatch.swift; sourceTree = "<group>"; };
+		7B6D7F36DF025AC0CC91A15A /* AppleMusicSoundWatchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicSoundWatchTests.swift; sourceTree = "<group>"; };
 		SRC00000000000000000800A3 /* AppleMusicPlayableRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicPlayableRegistry.swift; sourceTree = "<group>"; };
 		F51800000000000000000002 /* AppleMusicContentRatings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicContentRatings.swift; sourceTree = "<group>"; };
 		F48700000000000000000002 /* AppleMusicPinAliases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicPinAliases.swift; sourceTree = "<group>"; };
@@ -1165,6 +1169,7 @@
 				SRC00000000000000000800A2 /* MusicKitApplicationPlayer.swift */,
 				SRC00000000000000000800A1 /* AppleMusicPlaybackProvider.swift */,
 				9901693E116A2D462DC2CC7E /* AppleMusicSongArtists.swift */,
+				DE613C26544548F1E5C7059B /* AppleMusicSoundWatch.swift */,
 				SRC00000000000000000800A0 /* MusicPlaybackError.swift */,
 				E50000000000000000000012 /* SpotifyPlaybackBridge.swift */,
 				E50000000000000000000041 /* PlaybackOutputSFResolver.swift */,
@@ -1219,6 +1224,7 @@
 				F54300000000000000000004 /* PlaylistTrackReorderTests.swift */,
 				TST00000000000000000101B0 /* AppleMusicLibraryEditorTests.swift */,
 				TST00000000000000000100A0 /* AppleMusicPlaybackProviderTests.swift */,
+				7B6D7F36DF025AC0CC91A15A /* AppleMusicSoundWatchTests.swift */,
 				TST000000000000000001012E /* MusicPlaybackProviderTests.swift */,
 				TST000000000000000001012F /* AppleMusicBrowsingProviderTests.swift */,
 				TST000000000000000001012D /* MusicBrowsingProviderTests.swift */,
@@ -1851,6 +1857,7 @@
 				SRC0000000000000000000036 /* AppleMusicArtworkRegistry.swift in Sources */,
 				SRC0000000000000000000034 /* AppleMusicSession.swift in Sources */,
 				E27906117DD61FFEA5656EB3 /* AppleMusicSongArtists.swift in Sources */,
+				777F82D8BDFDCB188DCAC31F /* AppleMusicSoundWatch.swift in Sources */,
 				SRC00000000000000000000A3 /* AppleMusicPlayableRegistry.swift in Sources */,
 				F51800000000000000000001 /* AppleMusicContentRatings.swift in Sources */,
 				F48700000000000000000001 /* AppleMusicPinAliases.swift in Sources */,
@@ -2097,6 +2104,7 @@
 				F54300000000000000000003 /* PlaylistTrackReorderTests.swift in Sources */,
 				TST00000000000000000001B0 /* AppleMusicLibraryEditorTests.swift in Sources */,
 				TST00000000000000000000A0 /* AppleMusicPlaybackProviderTests.swift in Sources */,
+				84FB6A3AEA6BF0FCAB460B6E /* AppleMusicSoundWatchTests.swift in Sources */,
 				TST000000000000000000012E /* MusicPlaybackProviderTests.swift in Sources */,
 				TST000000000000000000012F /* AppleMusicBrowsingProviderTests.swift in Sources */,
 				TST000000000000000000012D /* MusicBrowsingProviderTests.swift in Sources */,

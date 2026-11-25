@@ -135,6 +135,15 @@ final class PlaybackTrace {
         }
     }
 
+    /// The bar shows that a song is starting (#679): once the window's update for it is done, how
+    /// long after the press that started it.
+    func barShowsStarting() {
+        let start = lastRequest?.at
+        afterDrawing { [self] in
+            write("bar updated to starting" + (start.map { " \(Self.milliseconds($0.duration(to: now()))) after the press" } ?? ""))
+        }
+    }
+
     /// The player reports something the app didn't just ask for or did: a new status, rate, song.
     func playerReported(_ what: String) {
         let at = now()
@@ -146,6 +155,18 @@ final class PlaybackTrace {
             line += " (no command sent since launch)"
         }
         write(line)
+    }
+
+    /// When the app was last asked for something, if that was recent enough to be what the command
+    /// going out now answers: the press a line about the sound is timed from (#679).
+    var recentRequestAt: ContinuousClock.Instant? {
+        guard let at = lastRequest?.at, at.duration(to: now()) <= AppleMusicSoundWatch.limit else { return nil }
+        return at
+    }
+
+    /// How long the player took to start or stop after a command (#679).
+    func sound(_ what: String) {
+        write("sound \(what)")
     }
 
     /// A line about the sound path (output device, sample rate, equalizer route).

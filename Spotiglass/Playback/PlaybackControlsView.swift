@@ -340,6 +340,8 @@ struct PlaybackControlsView: View {
     /// the bar says which service plays, and its artists, which belong to the other library,
     /// aren't offered here. Its Lyrics button opens that song's lyrics (#486).
     var otherService: MusicService? = nil
+    /// The playback log, where the bar says how long a press took to show (#645).
+    var trace: PlaybackTrace = .shared
     @Environment(\.openSettings) private var openSettingsAction
     @State private var isVolumePopoverPresented = false
 
@@ -624,15 +626,30 @@ struct PlaybackControlsView: View {
                 isEnabled: viewModel.isPlaybackToggleReady,
                 action: { viewModel.requestTogglePlayPause() }
             ) {
-                Image(systemName: playPauseIcon)
-                    .contentTransition(.symbolEffect(.replace))
-                    .animation(.smooth(duration: 0.18), value: playPauseIcon)
-                    // The log says how long a press took to show (#645).
-                    .onChange(of: playPauseIcon) { _, icon in
-                        PlaybackTrace.shared.barShows(icon == "pause.fill" ? "playing" : "paused")
+                ZStack {
+                    if viewModel.isStartingPlay {
+                        // A song that was started and isn't playing yet (still being looked
+                        // up) shows at once that it is on its way (#679).
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: playPauseIcon)
+                            .contentTransition(.symbolEffect(.replace))
+                            .animation(.smooth(duration: 0.18), value: playPauseIcon)
+                            // Apple Music's Play is off while nothing is loaded (#396): it must look off.
+                            .opacity(viewModel.isPlaybackToggleReady ? 1 : 0.45)
                     }
-                    // Apple Music's Play is off while nothing is loaded (#396): it must look off.
-                    .opacity(viewModel.isPlaybackToggleReady ? 1 : 0.45)
+                }
+                // The log says how long a press took to show (#645), the spinner too (#679).
+                // On the ZStack, which stays while the two take turns: the icon coming back after
+                // a start is a new view, and its own onChange wouldn't see it.
+                .onChange(of: playPauseShown) { _, shown in
+                    switch shown {
+                    case "starting": trace.barShowsStarting()
+                    case "pause.fill": trace.barShows("playing")
+                    default: trace.barShows("paused")
+                    }
+                }
             }
             .frame(width: SpotiglassDesign.Layout.iconButtonSize, height: SpotiglassDesign.Layout.iconButtonSize)
             // Label and tooltip agree here: the state and the next action are
@@ -1094,8 +1111,16 @@ struct PlaybackControlsView: View {
         }
     }
 
+    /// What Play/Pause shows: the spinner of a song starting (#679), else its icon.
+    private var playPauseShown: String {
+        viewModel.isStartingPlay ? "starting" : playPauseIcon
+    }
+
     private var playPauseAccessibilityLabel: String {
-        switch viewModel.connectionState {
+        if viewModel.isStartingPlay {
+            return SpotiglassL10n.string("playback.controls.starting")
+        }
+        return switch viewModel.connectionState {
         case .playing:
             SpotiglassL10n.string("playback.pause")
         default:

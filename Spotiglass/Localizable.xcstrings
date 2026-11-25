@@ -10722,6 +10722,30 @@
         }
       }
     },
+    "playback.controls.starting": {
+      "comment": "Accessibility label of the play button while a song that was started is still loading.",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird gestartet"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciando"
+          }
+        }
+      }
+    },
     "playback.controls.state.connecting.subtitle": {
       "comment": "Status copy shown while the SDK is connecting; it must not imply a Premium failure before Spotify reports one.",
       "extractionState": "stale",

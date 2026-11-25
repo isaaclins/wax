@@ -1432,6 +1432,63 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertEqual(session.currentNowPlaying?.uri, Self.uris[3])
     }
 
+    /// Starting a song MusicKit still has to look up took 1.4 s on a Mac mini before anything
+    /// changed on screen (#679). The bar's Play shows "Starting" from the press, before the
+    /// lookup returns, and goes back once the song plays, or once the play fails.
+    func testTheBarShowsAStartingSongAtOnceUntilItPlaysOrFails() async throws {
+        let (player, session) = try await Self.playingSession()
+        var logged: [String] = []
+        let trace = PlaybackTrace(write: { logged.append($0) }, afterDrawing: { drawn in MainActor.assumeIsolated { drawn() } })
+        let controller = ViewTestHost.host(
+            PlaybackControlsView(viewModel: session, isLyricsPresented: .constant(false), openArtist: { _ in }, trace: trace),
+            size: CGSize(width: 900, height: 120)
+        )
+        func barLines() -> [String] {
+            logged.filter { $0.hasPrefix("bar updated to") }.map { $0.components(separatedBy: " ").prefix(4).joined(separator: " ") }
+        }
+        defer { ViewTestHost.tearDownAll() }
+        func playButtonLabels() -> [String] {
+            func buttons(_ view: NSView) -> [NSButton] {
+                ((view as? NSButton).map { [$0] } ?? []) + view.subviews.flatMap(buttons)
+            }
+            let labels = [SpotiglassL10n.string("playback.controls.starting"), SpotiglassL10n.string("playback.pause"), SpotiglassL10n.string("playback.play")]
+            return buttons(controller.view).compactMap { $0.accessibilityLabel() }.filter(labels.contains)
+        }
+        let starting = SpotiglassL10n.string("playback.controls.starting")
+
+        player.holdLookups = true
+        let play = Task { await session.play(uri: Self.uris[3]) }
+        await waitUntil("the play looking up its song", changes: player.changes) { !player.waitingLookups.isEmpty }
+        XCTAssertTrue(session.isStartingPlay)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { playButtonLabels() == [starting] }),
+            "the bar didn't show the song starting: \(playButtonLabels())"
+        )
+
+        player.releaseLookups()
+        await play.value
+        XCTAssertFalse(session.isStartingPlay)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { playButtonLabels() == [SpotiglassL10n.string("playback.pause")] }),
+            "the bar kept showing the song starting: \(playButtonLabels())"
+        )
+        // The log says when the bar showed each: the spinner, and Pause again once it plays
+        // (the icon that comes back after the spinner is a new view, #645's line went missing).
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { barLines() == ["bar updated to starting", "bar updated to playing"] }),
+            "the log's bar lines: \(barLines())"
+        )
+
+        // A play MusicKit refuses doesn't leave the bar saying it is starting.
+        player.failure = MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "refused")
+        await session.play(uri: Self.uris[1])
+        XCTAssertFalse(session.isStartingPlay)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { !playButtonLabels().contains(starting) }),
+            "the bar kept showing the refused song starting: \(playButtonLabels())"
+        )
+    }
+
     /// Access turned off in System Settings or a lapsed subscription is not a passing
     /// failure: the bar keeps saying so instead of going back to controls that fail again.
     func testAppleMusicAccessAndSubscriptionErrorsStayOnScreen() async throws {
