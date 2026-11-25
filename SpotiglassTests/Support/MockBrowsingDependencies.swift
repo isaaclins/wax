@@ -108,6 +108,7 @@ final class MockBrowsingAPI: MusicBrowsingProvider {
         var topArtistsHandler: ((Int, String) async throws -> [MusicArtist])?
         var followedArtistsHandler: ((Int, Int?) async throws -> [MusicArtist])?
         var artistTopTracksHandler: ((String, String?) async throws -> [MusicTrack])?
+        var artistPageExtrasHandler: ((String) async throws -> MusicArtistPageExtras?)?
         var recentlyPlayedCallCount = 0
         var recentlyPlayedCacheModes: [MusicRequestCacheMode] = []
         var topTracksCallCount = 0
@@ -408,6 +409,16 @@ final class MockBrowsingAPI: MusicBrowsingProvider {
     var artistTopTracksHandler: ((String, String?) async throws -> [MusicTrack])? {
         get { locked { $0.artistTopTracksHandler } }
         set { locked { $0.artistTopTracksHandler = newValue } }
+    }
+    /// An artist page's top songs and saved items, as Apple Music gives them; `nil` (Spotify) by default.
+    var artistPageExtrasHandler: ((String) async throws -> MusicArtistPageExtras?)? {
+        get { locked { $0.artistPageExtrasHandler } }
+        set { locked { $0.artistPageExtrasHandler = newValue } }
+    }
+
+    func artistPageExtras(id: String) async throws -> MusicArtistPageExtras? {
+        guard let handler = artistPageExtrasHandler else { return nil }
+        return try await handler(id)
     }
     var recentlyPlayedCallCount: Int { locked { $0.recentlyPlayedCallCount } }
     var recentlyPlayedCacheModes: [MusicRequestCacheMode] { locked { $0.recentlyPlayedCacheModes } }

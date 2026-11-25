@@ -99,6 +99,66 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         XCTAssertEqual(viewModel.effectiveTrackTargets(forRowID: saved.id).map(\.id), [top.id, saved.id])
     }
 
+    private func apiWithOneAlbum(albumTracks: @escaping (String, String?, Int) async throws -> [MusicTrack]) -> MockBrowsingAPI {
+        MockBrowsingAPI(
+            playlistResults: [.success([])],
+            trackResults: [:],
+            artistAlbumsPageHandler: { _, _, _, _, _ in
+                MusicArtistAlbumsPage(
+                    items: [MusicArtistAlbum(id: "al1", name: "Album", imageURL: nil, releaseYear: "2024", totalTracks: 3, group: .album, uri: "applemusic:album:al1")],
+                    next: nil
+                )
+            },
+            albumTracksHandler: albumTracks
+        )
+    }
+
+    /// Apple Music's top songs are the page's songs; nothing else is asked for them (#658).
+    func testAnArtistPageUsesTheServicesTopSongs() async {
+        let api = apiWithOneAlbum { _, _, _ in XCTFail("no stand-in songs needed"); return [] }
+        let top = PlaylistBrowsingTestFixtures.fallbackTrack(id: "top-1", name: "Top", artistId: "a1")
+        api.artistPageExtrasHandler = { _ in MusicArtistPageExtras(topTracks: [top]) }
+        let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+
+        await vm.selectArtist(id: "a1")
+
+        guard case let .loaded(.artist(detail)) = vm.detailState else { return XCTFail("the page opens") }
+        XCTAssertEqual(detail.tracks.map(\.id), ["top-1"])
+    }
+
+    /// The service's extras failing leaves the page as it would be without them.
+    func testAnArtistPageOpensWhenItsExtrasCantBeRead() async {
+        let song = PlaylistBrowsingTestFixtures.fallbackTrack(id: "album-song", name: "Song", artistId: "a1")
+        let api = apiWithOneAlbum { _, _, _ in [song] }
+        api.artistPageExtrasHandler = { _ in throw URLError(.notConnectedToInternet) }
+        let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+
+        await vm.selectArtist(id: "a1")
+
+        guard case let .loaded(.artist(detail)) = vm.detailState else { return XCTFail("the page opens") }
+        XCTAssertEqual(detail.tracks.map(\.id), ["album-song"])
+        XCTAssertFalse(detail.hasLibrarySection)
+    }
+
+    /// With no top songs and no stand-in songs either, an Apple Music page opens without songs,
+    /// while Spotify's fails as before.
+    func testAnAppleMusicArtistPageOpensWithoutSongsWhenNoneCanBeFound() async {
+        let api = apiWithOneAlbum { _, _, _ in throw URLError(.timedOut) }
+        let saved = PlaylistBrowsingTestFixtures.fallbackTrack(id: "saved-1", name: "Saved", artistId: "a1")
+        api.artistPageExtrasHandler = { _ in MusicArtistPageExtras(libraryTracks: [saved]) }
+        let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+
+        await vm.selectArtist(id: "a1")
+
+        guard case let .loaded(.artist(detail)) = vm.detailState else { return XCTFail("the page opens") }
+        XCTAssertTrue(detail.tracks.isEmpty)
+        XCTAssertEqual(detail.libraryTracks.map(\.id), ["saved-1"])
+
+        let spotify = PlaylistBrowserViewModel(api: apiWithOneAlbum { _, _, _ in throw URLError(.timedOut) }, cache: MockBrowsingCache())
+        await spotify.selectArtist(id: "a1")
+        guard case .error = spotify.detailState else { return XCTFail("Spotify's page fails as before") }
+    }
+
     func testSelectArtistLoadsFromNetworkOnMiss() async {
         let api = MockBrowsingAPI(
             playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])],
