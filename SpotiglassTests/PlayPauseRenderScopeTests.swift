@@ -273,8 +273,10 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             // The player takes the press after MusicKit's measured lag, on its own clock: once
             // the press reached it, that time passes, so its reads report the new state.
             let command = press.isMultiple(of: 2) ? "resume" : "pause"
-            let sent = await AppKitTestSupport.settle(until: { player.commands.filter { $0 == command }.count == (press + 1) / 2 })
+            let sentSoFar = { player.commands.filter { $0 == command }.count }
+            let sent = await AppKitTestSupport.settle(until: { sentSoFar() >= (press + 1) / 2 })
             XCTAssertTrue(sent, "press \(press): the \(command) never reached the player")
+            XCTAssertEqual(sentSoFar(), (press + 1) / 2, "press \(press): the \(command) reached the player more than once")
             player.advance(by: ScriptedAppleMusicPlayer.lag[command] ?? 0)
             // The next press comes once this press's icon swap is over, as a person's would: the
             // swap is a 0.18 s animation on the wall clock (`PlaybackControlsView`), so its end is
