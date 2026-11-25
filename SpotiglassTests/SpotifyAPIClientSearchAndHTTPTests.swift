@@ -62,6 +62,31 @@ final class SpotifyAPIClientSearchAndHTTPTests: XCTestCase {
         XCTAssertEqual(httpClient.requests[1].url?.absoluteString, next)
     }
 
+    /// A `next` link back to a page already read is a broken response: the list read so far is
+    /// incomplete, so it fails instead of passing as every followed artist (#595).
+    func testFollowedArtistsFailWhenTheNextLinkRepeats() async {
+        let next = "https://api.spotify.com/v1/me/following?type=artist&limit=50&after=artist-1"
+        let httpClient = QueueHTTPClient([
+            .json("""
+            {"artists":{"items":[{"id":"artist-1","name":"Artist 1"}],"total":3,"limit":50,"next":"\(next)"}}
+            """),
+            .json("""
+            {"artists":{"items":[{"id":"artist-2","name":"Artist 2"}],"total":3,"limit":50,"next":"\(next)"}}
+            """),
+        ])
+        let client = SpotifyAPIClient(
+            tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"),
+            httpClient: httpClient
+        )
+
+        do {
+            _ = try await client.followedArtists(limit: 50, maxPages: nil)
+            XCTFail("a repeated page passed as the whole list")
+        } catch {
+            XCTAssertEqual(httpClient.requests.count, 2)
+        }
+    }
+
     func testArtistTopTracksMapsPlayableTracksAndMarket() async throws {
         let httpClient = QueueHTTPClient([
             .json("""

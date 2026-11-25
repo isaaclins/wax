@@ -131,7 +131,8 @@ extension PlaylistBrowserViewModel {
         let artistTopTrackCollection = try await continuationArtistTopTracks(
             seed: seed,
             stale: stale,
-            generation: generation
+            generation: generation,
+            failures: &failures
         )
 
         try checkLibraryContinuationIsCurrent(generation)
@@ -390,7 +391,8 @@ extension PlaylistBrowserViewModel {
     private func continuationArtistTopTracks(
         seed: MusicTrack,
         stale: LibraryContinuationLibrary?,
-        generation: Int
+        generation: Int,
+        failures: inout LibraryContinuationFailures
     ) async throws -> (tracks: [MusicTrack], artistIDs: [String]) {
         try checkLibraryContinuationIsCurrent(generation)
         let artistIDs = seedArtistIDs(for: seed)
@@ -432,8 +434,10 @@ extension PlaylistBrowserViewModel {
             } catch {
                 // One artist's optional breadth data should not prevent the
                 // other credited artists from contributing a signal. The
-                // failed ID is left out of the cache scope so it is retried.
-                SpotiglassLog.error(.browsing, "Library continuation: an artist's top tracks didn't load: \(SpotiglassLog.describe(error))")
+                // failed ID is left out of the cache scope so it is retried, and the
+                // collection isn't saved as fresh: with every artist failing, both
+                // lists came out empty and the cache took that as complete (#595).
+                failures.logFailure(error, source: "an artist's top tracks")
                 continue
             }
         }

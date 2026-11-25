@@ -995,20 +995,11 @@ final class PlaylistBrowserViewModelLibraryTests: XCTestCase {
         XCTAssertEqual(api.lastTracksLimit, 50, "Spotify's /v1/playlists/{id}/items endpoint caps limit at 50; passing more than 50 returns HTTP 400.")
         XCTAssertLessThanOrEqual(api.lastTracksLimit ?? Int.max, 50)
     }
-}
-
-private final class LockedEvents: @unchecked Sendable {
-    private let lock = NSLock()
-    private var events: [String] = []
-    var all: [String] { lock.withLock { events } }
-    func append(_ event: String) { lock.withLock { events.append(event) } }
-    func contains(_ event: String) -> Bool { lock.withLock { events.contains(event) } }
 
     // MARK: - #595: profile vs playlists
 
     /// The profile failing (a 503) no longer throws away the playlists that loaded. With no user
     /// known, own playlists can't be renamed, and a toast says so once, not on every refresh.
-    @MainActor
     func testAFailedProfileKeepsThePlaylistsAndSaysSoOnce() async {
         let rows = ["one", "two", "three"].map { PlaylistBrowsingTestFixtures.playlist(id: $0, name: $0.capitalized) }
         let api = MockBrowsingAPI(
@@ -1029,4 +1020,12 @@ private final class LockedEvents: @unchecked Sendable {
         XCTAssertEqual(api.currentUserPlaylistsCallCount, 2)
         XCTAssertNil(viewModel.trackMutationToast, "the same failure isn't announced again")
     }
+}
+
+private final class LockedEvents: @unchecked Sendable {
+    private let lock = NSLock()
+    private var events: [String] = []
+    var all: [String] { lock.withLock { events } }
+    func append(_ event: String) { lock.withLock { events.append(event) } }
+    func contains(_ event: String) -> Bool { lock.withLock { events.contains(event) } }
 }

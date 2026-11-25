@@ -351,4 +351,36 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
             XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
         }
     }
+
+    /// The catalog failed and the library half has no such artist: the catalog may have had
+    /// them, so the tap reports the failure instead of quietly opening nothing.
+    func testResolveArtistIDReportsTheFailureWhenTheHalfThatAnsweredHasNoMatch() async {
+        do {
+            _ = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Taylor Swift") { _, _ in
+                throw MusicSearchPartialFailure(
+                    results: MusicSearchResults(tracks: [], artists: [Self.artist("a9", "Someone Else")], albums: [], playlists: []),
+                    missing: .catalog,
+                    underlying: URLError(.notConnectedToInternet)
+                )
+            }
+            XCTFail("expected the catalog's failure")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+        }
+    }
+
+    func testResolveAlbumIDReportsTheFailureWhenTheHalfThatAnsweredHasNoAlbums() async {
+        do {
+            _ = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Midnights", artistHint: "Taylor Swift") { _, _ in
+                throw MusicSearchPartialFailure(
+                    results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
+                    missing: .catalog,
+                    underlying: URLError(.notConnectedToInternet)
+                )
+            }
+            XCTFail("expected the catalog's failure")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet)
+        }
+    }
 }

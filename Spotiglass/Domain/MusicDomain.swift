@@ -564,9 +564,9 @@ struct MusicSearchPartialFailure: Error, @unchecked Sendable {
     let missing: MissingPart
     let underlying: Error
 
-    /// What `search` found, with the half that answered when the other failed. For callers that
-    /// look something up rather than show a list (a name tap, an artist's tracks): a saved
-    /// artist still opens while the catalog is offline. A search that failed outright still throws.
+    /// What `search` found, with the half that answered when the other failed, for a caller that
+    /// has its own way on when nothing matches (an artist's tracks fall back to the albums). A
+    /// search that failed outright still throws.
     static func whatLoaded(_ search: () async throws -> MusicSearchResults) async throws -> MusicSearchResults {
         do {
             return try await search()

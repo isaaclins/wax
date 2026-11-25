@@ -256,6 +256,31 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         XCTAssertEqual(enqueued.count, matches.count)
     }
 
+    /// With every artist's top tracks failing, both breadth lists came out empty and the cache
+    /// took that as a complete collection for 15 minutes (#595).
+    func testFailedArtistTopTracksKeepTheCollectionOutOfTheCache() async {
+        struct SampleError: Error {}
+        let seed = track("seed", artistID: "artist")
+        let api = MockBrowsingAPI(
+            playlistResults: [],
+            trackResults: [:],
+            savedTracksResult: .success(MusicSavedTracksResult(
+                tracks: [item(seed)] + ["one", "two", "three", "four"].map { item(track($0, artistID: "artist")) },
+                totalAvailable: 5
+            ))
+        )
+        api.artistTopTracksHandler = { _, _ in throw SampleError() }
+        let cache = MockBrowsingCache()
+        let viewModel = makeViewModel(api: api, cache: cache)
+
+        await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
+            QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
+        }
+
+        XCTAssertEqual(api.artistTopTracksCallCount, 1)
+        XCTAssertNil(cache.savedLibraryContinuation, "a collection missing a failed source was saved as fresh")
+    }
+
     /// Some sources failed and too little came back: the note says the library didn't fully
     /// load instead of blaming the library's size.
     func testAShortContinuationAfterAFailedSourceSaysTheLibraryDidNotFullyLoad() async {

@@ -54,6 +54,9 @@ extension PlaylistBrowserViewModel {
                 if let url = nextURL {
                     let key = url.absoluteString
                     if seenNextURLs.contains(key) {
+                        // A broken response, not the end of the list: the albums read so far
+                        // still show, and the loop is logged (#595).
+                        SpotiglassLog.error(.browsing, "Artist albums linked back to a page already read; showing what loaded")
                         break
                     }
                     seenNextURLs.insert(key)

@@ -18,8 +18,9 @@ enum PlaylistBrowserTapTargetResolver {
             let artistEsc = firstArtist.replacingOccurrences(of: "\"", with: "")
             query = "album:\"\(escaped)\" artist:\"\(artistEsc)\""
         }
-        let results = try await MusicSearchPartialFailure.whatLoaded { try await search(query, 10) }
-        guard !results.albums.isEmpty else { return nil }
+        var lookup = PartialLookup()
+        let results = try await lookup.search(query, using: search)
+        guard !results.albums.isEmpty else { return try lookup.nothingFound() }
         let normalizedQuery = trimmed.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
         if let exact = results.albums.first(where: {
             $0.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current) == normalizedQuery
@@ -45,20 +46,48 @@ enum PlaylistBrowserTapTargetResolver {
     ) async throws -> String? {
         let candidates = creditNames(name)
         guard let whole = candidates.first else { return nil }
-        let wholeResults = try await MusicSearchPartialFailure.whatLoaded { try await search(whole, 10) }
+        var lookup = PartialLookup()
+        let wholeResults = try await lookup.search(whole, using: search)
         for run in creditRuns(whole).map(folded) {
             if let artist = wholeResults.artists.first(where: { folded($0.name) == run }) {
                 return artist.id
             }
         }
         for candidate in candidates.dropFirst() {
-            let results = try await MusicSearchPartialFailure.whatLoaded { try await search(candidate, 10) }
+            let results = try await lookup.search(candidate, using: search)
             let wanted = folded(candidate)
             if let exact = results.artists.first(where: { folded($0.name) == wanted }) {
                 return exact.id
             }
         }
-        return nil
+        return try lookup.nothingFound()
+    }
+
+    /// Searches for a lookup, keeping the half of an Apple Music search that answered when the
+    /// other failed (#595): a saved artist opens while the catalog is offline. When nothing
+    /// matches, the failure is reported instead of a quiet "not found", since the missing half
+    /// may have had it.
+    private struct PartialLookup {
+        private var failure: Error?
+
+        mutating func search(
+            _ query: String,
+            using search: (_ query: String, _ limit: Int) async throws -> MusicSearchResults
+        ) async throws -> MusicSearchResults {
+            do {
+                return try await search(query, 10)
+            } catch let partial as MusicSearchPartialFailure {
+                SpotiglassLog.debug(.browsing, "Name lookup goes on with the half of the search that answered")
+                failure = failure ?? partial.underlying
+                return partial.results
+            }
+        }
+
+        /// No match: nil when every search answered in full, else the failure.
+        func nothingFound() throws -> String? {
+            if let failure { throw failure }
+            return nil
+        }
     }
 
     /// The whole credit, then each single name in it, in order and without repeats.

@@ -105,7 +105,9 @@ extension SpotifyAPIClient {
             pagesFetched += 1
             if let pageCap, pagesFetched >= pageCap { break }
             guard let next = response.artists.next else { break }
-            guard seenNextURLs.insert(next.absoluteString).inserted else { break }
+            guard seenNextURLs.insert(next.absoluteString).inserted else {
+                throw Self.repeatedPageError(path: "/v1/me/following")
+            }
             after = Self.after(from: next)
             guard after != nil else { break }
         } while true
