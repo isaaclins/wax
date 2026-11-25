@@ -107,7 +107,8 @@ extension PlaybackSessionViewModel {
     func revertSkipPreview() {
         guard let preview = skipPreview else { return }
         endSkipPreview()
-        guard ownsPlaybackHostGeneration(preview.hostGeneration) else { return }
+        // A player whose state is only read (another device took over) decides the bar itself.
+        guard ownsPlaybackHostGeneration(preview.hostGeneration), !isPlayerStateRead else { return }
         if let held = preview.heldReport {
             handle(held)
         } else {

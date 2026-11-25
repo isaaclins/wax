@@ -130,6 +130,11 @@ final class PlaybackSessionViewModel: ObservableObject {
 
     func setActivePlaybackDeviceID(_ deviceID: String?) {
         activePlaybackDeviceID = deviceID
+        // Another device plays now: its reads decide the bar, not a skip Wax's own player had on
+        // its way (#687).
+        if isRemotePlaybackActive {
+            endSkipPreview()
+        }
     }
 
     /// Whether Spotify playback is currently routed away from the embedded SDK device.

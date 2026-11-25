@@ -134,7 +134,7 @@ final class SkipPreviewTests: XCTestCase {
         await fixture.session.next()
 
         XCTAssertNil(fixture.session.skipPreview)
-        XCTAssertEqual(fixture.session.failedCommand?.restoreState.nowPlayingURIForTests, "spotify:track:b")
+        XCTAssertEqual(fixture.session.failedCommand?.restoreState?.nowPlayingURIForTests, "spotify:track:b")
     }
 
     func testWithoutAnAnswerTheBarShowsWhatSpotifyLastReported() async {
@@ -149,6 +149,23 @@ final class SkipPreviewTests: XCTestCase {
         await wait?.value
         XCTAssertEqual(shownURI(fixture.session), "spotify:track:b", "after the wait the bar shows Spotify's own latest report")
         XCTAssertEqual(fixture.session.currentNowPlaying?.positionMilliseconds, 45_000)
+    }
+
+    func testAnotherDeviceTakingOverEndsThePreview() async {
+        let fixture = makeSession()
+        await fixture.session.next()
+        XCTAssertEqual(shownURI(fixture.session), "spotify:track:c")
+
+        // I move playback to my phone before Spotify reported the skip: from now on the phone's
+        // reads set the bar, and the preview's timeout mustn't put Wax's old song back over them.
+        let wait = fixture.session.skipPreviewTimeoutTask
+        fixture.session.setActivePlaybackDeviceID("phone")
+        fixture.session.setConnectionState(.playing(Self.song("p", position: 9_000)))
+        XCTAssertNil(fixture.session.skipPreview)
+
+        fixture.clock.advance(by: PlaybackSessionViewModel.skipPreviewTimeout)
+        await wait?.value
+        XCTAssertEqual(shownURI(fixture.session), "spotify:track:p")
     }
 
     func testNothingChangesWhenTheNextSongIsntKnown() async {

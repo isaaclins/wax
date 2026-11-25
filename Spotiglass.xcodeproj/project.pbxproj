@@ -203,6 +203,7 @@
 		RSV000000000000000000001 /* CommandPaletteReservedShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = RSV000000000000000000002 /* CommandPaletteReservedShortcuts.swift */; };
 		SBR436000000000000000001 /* CommandPaletteSidebarShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = SBR436000000000000000002 /* CommandPaletteSidebarShortcut.swift */; };
 		SBR436000000000000000003 /* SidebarShortcutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SBR436000000000000000004 /* SidebarShortcutTests.swift */; };
+		D015195B091D21F55E44EA36 /* SkipPreviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFFA54FFF1BA220BFE5CE964 /* SkipPreviewTests.swift */; };
 		G70000000000000000000004 /* CommandPaletteViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = G70000000000000000000014 /* CommandPaletteViewModel.swift */; };
 		G70000000000000000000005 /* CommandPaletteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G70000000000000000000015 /* CommandPaletteView.swift */; };
 		G70000000000000000000006 /* CommandPaletteManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = G70000000000000000000016 /* CommandPaletteManager.swift */; };
@@ -705,6 +706,7 @@
 		RSV000000000000000000002 /* CommandPaletteReservedShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteReservedShortcuts.swift; sourceTree = "<group>"; };
 		SBR436000000000000000002 /* CommandPaletteSidebarShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteSidebarShortcut.swift; sourceTree = "<group>"; };
 		SBR436000000000000000004 /* SidebarShortcutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarShortcutTests.swift; sourceTree = "<group>"; };
+		EFFA54FFF1BA220BFE5CE964 /* SkipPreviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkipPreviewTests.swift; sourceTree = "<group>"; };
 		G70000000000000000000014 /* CommandPaletteViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteViewModel.swift; sourceTree = "<group>"; };
 		G70000000000000000000015 /* CommandPaletteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteView.swift; sourceTree = "<group>"; };
 		G70000000000000000000016 /* CommandPaletteManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteManager.swift; sourceTree = "<group>"; };
@@ -1231,6 +1233,7 @@
 				E433EF452CC97A5003D17AF3 /* InteractionLatencyTests.swift */,
 				TST0000000000000000010124 /* MenuKeyEquivalentTests.swift */,
 				SBR436000000000000000004 /* SidebarShortcutTests.swift */,
+				EFFA54FFF1BA220BFE5CE964 /* SkipPreviewTests.swift */,
 				TST0000000000000000010123 /* RealUserDefaultsIsolationTests.swift */,
 				TST000000000000000001010D /* SettingsWindowChromeTests.swift */,
 				F07B276904C45D5C8DAD1670 /* ShelfScrollBehaviorTests.swift */,
@@ -2108,6 +2111,7 @@
 				64D76A75763C3C8C216D8865 /* InteractionLatencyTests.swift in Sources */,
 				TST0000000000000000000124 /* MenuKeyEquivalentTests.swift in Sources */,
 				SBR436000000000000000003 /* SidebarShortcutTests.swift in Sources */,
+				D015195B091D21F55E44EA36 /* SkipPreviewTests.swift in Sources */,
 				TST0000000000000000000123 /* RealUserDefaultsIsolationTests.swift in Sources */,
 				TST000000000000000000010D /* SettingsWindowChromeTests.swift in Sources */,
 				293E0B8E4EDD4E4E87C7C61F /* ShelfScrollBehaviorTests.swift in Sources */,
