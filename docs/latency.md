@@ -78,7 +78,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `page.search` | ⌘F opens Search | 86 | 89 | #675 |
 | `page.back` | ⌘[ goes back a page | never | never | #677 |
 | `page.sidebarClick` | Click a playlist in the sidebar | 60 | 66 | #675 |
-| `playback.toggle.longList` | Space with the 1000-song playlist open | | | |
+| `playback.toggle.longList` | Space with the 1000-song playlist open | 36 | 37 | |
 | `list.scroll` | Scrolling a 1000-song playlist | 30 | 37 | |
 | `settings.open` | ⌘, opens Settings | 99 | 113 | #676 |
 
@@ -89,8 +89,9 @@ player bar names another song; screenshot mode's player can't change its song fo
 through the Web API, so there it never does (#687).
 Play/pause is within 50 ms, but one try in 8 still reaches 51-58 ms, so it stays listed until
 #678 gives it room.
-Seek, shuffle and repeat never show on the Mac mini, while on CI's runner they do (36, 106 and
-128 ms), so #677 may be that Mac or the probe rather than Wax.
+Seek, shuffle and repeat never show on the Mac mini. On CI's runner they showed in every try of
+one run (36, 106 and 128 ms) and in none of the next, so they have no CI time and #677 may be the
+probe's menu-bar path rather than Wax.
 
 ## What isn't measured yet
 
@@ -101,7 +102,8 @@ Seek, shuffle and repeat never show on the Mac mini, while on CI's runner they d
   no Apple Music account. The views are the same for both services; the data behind them isn't.
 - **A sidebar click on CI's runner.** There, clicking a sidebar playlist never shows, while it
   works on a Mac, so CI can't yet tell when it gets slower (#688). Next, previous and ⌘[ never show
-  there either, as on a Mac (#687, #677).
+  there either, as on a Mac, and seek, shuffle and repeat show in some runs and not others (#687,
+  #677).
 - Drag and drop, context menus, the queue's own buttons, Settings changes, the service switcher,
   the scrubber and volume aren't in the list yet (#680). Add a `Step` to
   `InteractionLatencyProbe.steps` with what to press and how to tell it showed.

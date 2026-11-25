@@ -75,9 +75,9 @@
     "playback.toggle.click": 80,
     "playback.next": null,
     "playback.previous": null,
-    "playback.seek": 36,
-    "playback.shuffle": 106,
-    "playback.repeat": 128,
+    "playback.seek": null,
+    "playback.shuffle": null,
+    "playback.repeat": null,
     "palette.open": 291,
     "palette.type": 217,
     "palette.close": 254,
@@ -88,6 +88,7 @@
     "page.back": null,
     "page.sidebarClick": null,
     "list.scroll": 37,
-    "settings.open": 303
+    "settings.open": 303,
+    "playback.toggle.longList": 60
   }
 }
