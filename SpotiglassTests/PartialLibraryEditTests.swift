@@ -65,6 +65,33 @@ final class PartialLibraryEditTests: XCTestCase {
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 101, "the open source was read again")
     }
 
+    /// `DELETE /v1/playlists/X/items` answers 200, then 503: 100 of 101 songs left the playlist.
+    func testARemovalThatFailsAfterTheFirstBatchSaysHowManyWentAndReloadsThePlaylist() async {
+        let http = RoutedHTTPClient()
+        var deletes = 0
+        http.route = { request in
+            if request.httpMethod == "DELETE" {
+                deletes += 1
+                return deletes == 1 ? .json(#"{"snapshot_id": "s2"}"#) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+            }
+            return Self.listing(request, ids: ["t100"])
+        }
+        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: http)
+        let playlist = PlaylistBrowsingTestFixtures.playlist(id: "X", name: "Road Trip").with(trackCount: 101)
+        let viewModel = PlaylistBrowserViewModel(api: client, cache: DisabledBrowsingCache())
+        viewModel.playlistsByID = [playlist.id: playlist]
+        viewModel.playlistState = .loaded([PlaylistRowViewModel(playlist)])
+        viewModel.sidebarSelection = .playlist(playlist.id)
+        viewModel.detailSession = 1
+        let rows = TrackRowViewModel.numberedPlaylistRows((0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+
+        await viewModel.removeRowsFromPlaylist(rows, playlistID: playlist.id, playlistName: playlist.name)
+
+        XCTAssertEqual(deletes, 2)
+        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Removed 100 of 101 tracks from Road Trip."), true, viewModel.trackMutationToast ?? "no note")
+        XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 1, "the open playlist was read again")
+    }
+
     /// `PUT /v1/me/tracks` in batches of 50: the first goes in, the second fails.
     func testALikeThatFailsAfterTheFirstBatchMarksOnlyThoseLiked() async {
         let http = RoutedHTTPClient()
@@ -112,7 +139,7 @@ final class PartialLibraryEditTests: XCTestCase {
 
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["P"])
         XCTAssertEqual(viewModel.playlistsByID["P"]?.trackCount, 0)
-        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Created New Mix, but only 0 of 1 tracks could be added."), true,
+        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Created New Mix, but its tracks couldn't be added."), true,
                        viewModel.trackMutationToast ?? "no note")
     }
 

@@ -359,7 +359,7 @@ extension PlaylistBrowserViewModel {
         }
     }
 
-    private func logPartialEdit(_ partial: MusicLibraryPartialEditError, playlistID: String) {
+    func logPartialEdit(_ partial: MusicLibraryPartialEditError, playlistID: String) {
         SpotiglassLog.info(
             .browsing,
             "Reloading \(playlistID) after \(partial.step) stopped at \(partial.completed) of \(partial.total)"
@@ -419,13 +419,16 @@ extension PlaylistBrowserViewModel {
                 "Created playlist \(created.playlist.id) but added only \(created.added) of \(created.total) songs"
             )
             insertSidebarPlaylist(created.playlist, refreshedTrackCount: created.added)
-            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
-                "playlist.mutation.createdPlaylistWithMissingTracks",
-                created.playlist.name,
-                Int64(created.added),
-                Int64(created.total),
-                Self.describeFailure(created.underlying, operation: .createPlaylist)
-            ))
+            let reason = Self.describeFailure(created.underlying, operation: .createPlaylist)
+            trackMutationToastText = LocalizedText(created.added == 0
+                ? SpotiglassL10n.format("playlist.mutation.createdPlaylistWithoutTracks", created.playlist.name, reason)
+                : SpotiglassL10n.format(
+                    "playlist.mutation.createdPlaylistWithMissingTracks",
+                    created.playlist.name,
+                    Int64(created.added),
+                    Int64(created.total),
+                    reason
+                ))
         } catch {
             trackMutationToastText = Self.failureText(error, operation: .createPlaylist)
         }
