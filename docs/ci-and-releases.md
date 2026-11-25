@@ -15,14 +15,15 @@ The workflow **CI** lives at [.github/workflows/ci.yml](../.github/workflows/ci.
 
 | Aspect | Detail |
 |--------|--------|
-| Trigger | Every pull request, and every push to `main` |
+| Trigger | Every pull request, every push to `main`, and by hand (`gh workflow run ci.yml --ref <branch>`) |
+| macOS jobs on pull requests | `test` and `latency` run once, right before merging (started by hand, see below), not on every push to a branch of this repo. Fork pull requests run them right away. |
 | `static-checks` job | `ubuntu-latest`: microphone / process-tap audit, then the four-part localization audit |
 | `test` job | `macos-26`: resolve packages, full unit test suite with coverage, per-file coverage gate |
 | `latency` job | `macos-26`, Xcode 26.6: times every interaction in a Release build and fails when one gets clearly slower than its time on that runner or stops showing ([latency.md](latency.md)) |
 | On failure | The `.xcresult` bundle is uploaded as an artifact for 14 days; the latency job always uploads its report |
 | Concurrency | Superseded runs are cancelled per branch, except on `main` |
 
-The static audits run on Linux so an obvious violation fails in about a minute instead of waiting on a macOS runner. The `test` job is pinned to `macos-26` for the same deployment-target reason as the release workflow below.
+The static audits run on Linux so an obvious violation fails in about a minute instead of waiting on a macOS runner. macOS runners are few and shared with my other projects, and a pull request gets several pushes while it is reviewed: in November 2026 the macOS jobs waited about 50 minutes in the queue for 11 minutes of work, and about half the runs were cancelled by the next push before they finished. So a pull request from this repo gets the Linux audits on every push and the macOS jobs once, before it merges: bring the branch up to date with `main` (a manual run tests the branch itself, not the branch merged with `main` like a pull request run), then `gh workflow run ci.yml --ref <branch>`, and merge when that run is green. A macOS job skipped on a pull request counts as passed for the required checks, so the green manual run is what to look for before merging. Every push to `main` runs everything. The `test` job is pinned to `macos-26` for the same deployment-target reason as the release workflow below.
 
 CI does **not** publish a release. It has no access to the Developer ID identity
 or the notary profile, and no workflow reads the Sparkle private key (the

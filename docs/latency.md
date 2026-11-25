@@ -43,7 +43,7 @@ fix lands, its entry goes.
 
 ## In CI
 
-CI runs `scripts/latency-test.sh --ci` on every pull request (job "Interaction latency (Release)").
+CI runs `scripts/latency-test.sh --ci` on every push to `main` and once per pull request before it merges (job "Interaction latency (Release)", see [ci-and-releases.md](ci-and-releases.md)).
 GitHub's macOS runners are 2-4 times slower than a Mac: play/pause takes about 80 ms there and ⌘K
 200-290 ms, so the 50 ms line can't be checked on them. Instead every interaction has its median
 on that runner under `ci` in the baseline file, and the job fails when its median gets more than
