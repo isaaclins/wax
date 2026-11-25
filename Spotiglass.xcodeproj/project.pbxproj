@@ -445,6 +445,7 @@
 		TST0000000000000000000130 /* LayoutGridTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST0000000000000000010130 /* LayoutGridTests.swift */; };
 		TST00000000000000000800F0 /* CrossServicePlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000800F1 /* CrossServicePlaybackTests.swift */; };
 		SRC0000000000000000080B00 /* PlaybackPositionUpdateScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080B01 /* PlaybackPositionUpdateScopeTests.swift */; };
+		F67100000000000000000001 /* CommandPaletteRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67100000000000000000002 /* CommandPaletteRenderScopeTests.swift */; };
 		F42200000000000000000003 /* PlayPauseRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F42200000000000000000004 /* PlayPauseRenderScopeTests.swift */; };
 		TST00000000000000000800D0 /* ScrubberViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000800D1 /* ScrubberViewTests.swift */; };
 		TST00000000000000000800C0 /* MusicServiceStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000800C1 /* MusicServiceStoreTests.swift */; };
@@ -844,6 +845,7 @@
 		TST0000000000000000010130 /* LayoutGridTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayoutGridTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000800F1 /* CrossServicePlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossServicePlaybackTests.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080B01 /* PlaybackPositionUpdateScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPositionUpdateScopeTests.swift; sourceTree = "<group>"; };
+		F67100000000000000000002 /* CommandPaletteRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteRenderScopeTests.swift; sourceTree = "<group>"; };
 		F42200000000000000000004 /* PlayPauseRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayPauseRenderScopeTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000800D1 /* ScrubberViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrubberViewTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000800C1 /* MusicServiceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicServiceStoreTests.swift; sourceTree = "<group>"; };
@@ -1226,6 +1228,7 @@
 				TST0000000000000000010130 /* LayoutGridTests.swift */,
 				TST00000000000000000800F1 /* CrossServicePlaybackTests.swift */,
 				SRC0000000000000000080B01 /* PlaybackPositionUpdateScopeTests.swift */,
+				F67100000000000000000002 /* CommandPaletteRenderScopeTests.swift */,
 				F42200000000000000000004 /* PlayPauseRenderScopeTests.swift */,
 				TST00000000000000000800D1 /* ScrubberViewTests.swift */,
 				86D387C17B543FD31C6C6E27 /* ServiceNeutralBrowsingTests.swift */,
@@ -2114,6 +2117,7 @@
 				TST0000000000000000000130 /* LayoutGridTests.swift in Sources */,
 				TST00000000000000000800F0 /* CrossServicePlaybackTests.swift in Sources */,
 				SRC0000000000000000080B00 /* PlaybackPositionUpdateScopeTests.swift in Sources */,
+				F67100000000000000000001 /* CommandPaletteRenderScopeTests.swift in Sources */,
 				F42200000000000000000003 /* PlayPauseRenderScopeTests.swift in Sources */,
 				TST00000000000000000800D0 /* ScrubberViewTests.swift in Sources */,
 				86370D0FBE489A0D0A054DD9 /* ServiceNeutralBrowsingTests.swift in Sources */,

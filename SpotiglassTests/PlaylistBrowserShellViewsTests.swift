@@ -196,7 +196,7 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         store.bind(userID: "u1")
         let tokens = ShellTestTokenProvider()
-        let palette = PalettePresentation()
+        let palette = CommandPalettePresence()
         let view = PalettePresentationHost(presentation: palette) {
             PlaylistBrowserView(
                 viewModel: browserVM,
@@ -230,11 +230,11 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         let page = Set(closed.dropFirst().filter { !$0.hasSuffix(": ") && !$0.hasSuffix(": \(window.title)") })
         XCTAssertGreaterThan(page.count, 10, "The browser should have rendered: \(closed)")
 
-        palette.isPresented = true
+        palette.set(true)
         let open = try AppKitTestSupport.settledAccessibilityElements(in: window) { !$0.contains(where: page.contains) }
         XCTAssertEqual(open.filter(page.contains), [], "VoiceOver still reaches these behind the palette")
 
-        palette.isPresented = false
+        palette.set(false)
         let reopened = try AppKitTestSupport.settledAccessibilityElements(in: window, until: reachesToolbar)
         XCTAssertTrue(reachesToolbar(reopened), "The toolbar should be back after the palette closes: \(reopened)")
     }
@@ -672,17 +672,12 @@ private final class ShellTestTokenProvider: PlaybackAccessTokenProviding, Spotif
 }
 
 /// Stands in for the root view's palette state, applied the way the root view applies it.
-@MainActor
-private final class PalettePresentation: ObservableObject {
-    @Published var isPresented = false
-}
-
 private struct PalettePresentationHost<Content: View>: View {
-    @ObservedObject var presentation: PalettePresentation
+    let presentation: CommandPalettePresence
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        content().commandPaletteModal(isPresented: presentation.isPresented)
+        content().commandPaletteModal(presentation)
     }
 }
 

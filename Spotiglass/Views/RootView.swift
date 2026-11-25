@@ -445,6 +445,9 @@ struct RootView: View {
     }
 
     var body: some View {
+        #if DEBUG
+        let _ = ViewBodyTally.record("RootView")
+        #endif
         content
             // Every screen gives the window a toolbar, not only the libraries: a flexible space
             // is the least a screen can declare and still get one. Welcome and Spotify's sign-in
@@ -455,29 +458,12 @@ struct RootView: View {
             .toolbar {
                 ToolbarSpacer(.flexible)
             }
-            // The dimmed page is out of VoiceOver's reach while the palette is open (#501), and the
-            // Search page hides its own field then (#472). The overlay below is outside this.
-            .commandPaletteModal(isPresented: commandPaletteManager.viewModel.isPresented)
             // The lyrics surface lives in the browser's main column (`PlaylistBrowserView`), so the
             // sidebar, the toolbar and the player bar stay usable while it is open (#438).
             .environmentObject(lyricsOverlayController)
-            .overlay {
-                ZStack {
-                    if commandPaletteManager.viewModel.isPresented {
-                        CommandPaletteView(viewModel: commandPaletteManager.viewModel)
-                            .transition(
-                                .asymmetric(
-                                    insertion: .scale(scale: 0.96).combined(with: .opacity),
-                                    removal: .scale(scale: 0.98).combined(with: .opacity)
-                                )
-                            )
-                    }
-                }
-                .animation(
-                    .spring(response: 0.32, dampingFraction: 0.86),
-                    value: commandPaletteManager.viewModel.isPresented
-                )
-            }
+            // The palette over the page, and the page out of VoiceOver's reach while it is open
+            // (#501). It watches the palette itself, so this body doesn't run again for it (#671).
+            .commandPalettePresentation(commandPaletteManager.viewModel)
             .background {
                 CommandPaletteEventMonitor(manager: commandPaletteManager)
                     .frame(width: 0, height: 0)

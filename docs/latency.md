@@ -69,9 +69,9 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `playback.seek` | ⌘→ jumps ahead in the song | never | never | #677 |
 | `playback.shuffle` | ⌥⌘S turns shuffle on or off | never | never | #677 |
 | `playback.repeat` | ⌥⌘R changes repeat | never | never | #677 |
-| `palette.open` | ⌘K opens the command palette | 79 | 88 | #671 |
-| `palette.type` | Typing a letter in the palette | 71* | never | #671 |
-| `palette.close` | Esc closes the palette | 72 | 78 | #671 |
+| `palette.open` | ⌘K opens the command palette | 79 → 26 | 88 → 36 | #671 |
+| `palette.type` | Typing a letter in the palette | 71* → 41 | never → 44 | #671 |
+| `palette.close` | Esc closes the palette | 72 → 37 | 78 → 46 | #671 |
 | `sidebar.toggle` | ⌘S hides or shows the sidebar | 81 | 83 | #672 |
 | `queue.toggle` | ⌥⌘Q opens or closes the queue | 72 | 77 | #673 |
 | `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 114 | 123 | #674 |
@@ -82,8 +82,9 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `list.scroll` | Scrolling a 1000-song playlist | 30 | 37 | |
 | `settings.open` | ⌘, opens Settings | 99 | 113 | #676 |
 
-\* Run on its own; after the palette has been opened and closed 8 times, the letters never reach
-the field (#671).
+\* Run on its own; after the palette had been opened and closed 8 times, the letters never reached
+the field: ⌘K while the panel was still fading out brought that panel back without focusing its
+field. "→" is the time after #671, measured on 2026-11-25 in the same full run.
 "never" means nothing changed on screen within 3 s in any try. Next and previous count once the
 player bar names another song, or for a previous more than 3 s into a song, shows it again from
 its start. Since #687 the bar shows that at once, from the songs Spotify's page lists around the

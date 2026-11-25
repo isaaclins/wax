@@ -5,20 +5,63 @@ enum CommandPaletteSearchFocusField {
     case query
 }
 
+/// Whether this window's command palette is open, for the views behind it that change then: the
+/// toolbar items and the page step out of VoiceOver's reach (#501), the Search page hides its own
+/// field (#472). Those views observe it; the environment only carries the object, which stays the
+/// same. As an environment value that changed on open and close, every AppKit control in the
+/// window was updated each time (#671).
+@MainActor
+final class CommandPalettePresence: ObservableObject {
+    /// For views outside a window with a palette (previews, tests): never open.
+    static let none = CommandPalettePresence()
+
+    /// The panel on screen. Follows the palette at once: this is what ⌘K and esc show.
+    @Published private(set) var isShown = false
+    /// Everything else that follows the palette: the page hidden from VoiceOver, the Search page's
+    /// field stepped aside, the panel's own controls usable. It follows one run-loop turn after
+    /// ``isShown``, so that work lands after the frame that shows or hides the panel instead of
+    /// holding it back past 50 ms (#671). Nobody can tell a frame's difference in any of it.
+    @Published private(set) var isPresented = false
+
+    func set(_ presented: Bool) {
+        guard isShown != presented else { return }
+        isShown = presented
+        afterThisFrame { [weak self] in
+            // An open and a close in the same turn end where they started.
+            guard let self, self.isShown == presented, self.isPresented != presented else { return }
+            self.isPresented = presented
+        }
+    }
+}
+
+/// Runs `work` on the main run loop right after it commits the frame being built now. A timer due
+/// at once fires after the commit, in any run-loop mode and also inside a run loop run from
+/// main-queue work, where a main-queue block would have to wait for that work to end.
+@MainActor
+func afterThisFrame(_ work: @escaping @MainActor () -> Void) {
+    let timer = Timer(timeInterval: 0, repeats: false) { _ in
+        MainActor.assumeIsolated(work)
+    }
+    RunLoop.main.add(timer, forMode: .common)
+}
+
 extension EnvironmentValues {
-    /// True while this window's command palette is open. A surface with its own search field
-    /// (the Search page) hides that field so the palette never stacks a second one over it (#472).
-    @Entry var isCommandPalettePresented = false
+    @Entry var commandPalettePresence: CommandPalettePresence = MainActor.assumeIsolated { .none }
 }
 
 extension View {
     /// Makes the palette modal over this content: while it is open the dimmed page is out of
-    /// VoiceOver's reach until it closes, like a sheet (#501), and the page knows the palette is
-    /// open (the Search page hides its own field then, #472). The palette itself has to sit
-    /// outside this content, in an overlay, to stay reachable.
-    func commandPaletteModal(isPresented: Bool) -> some View {
-        accessibilityHidden(isPresented)
-            .environment(\.isCommandPalettePresented, isPresented)
+    /// VoiceOver's reach until it closes, like a sheet (#501), and the views in it that observe
+    /// `presence` know the palette is open (the Search page hides its own field then, #472). The
+    /// palette itself has to sit outside this content, in an overlay, to stay reachable.
+    func commandPaletteModal(_ presence: CommandPalettePresence) -> some View {
+        modifier(HiddenFromAccessibilityWhilePresented(presence: presence))
+            .environment(\.commandPalettePresence, presence)
+    }
+
+    /// Shows `viewModel`'s palette over this content, modal while it is open.
+    func commandPalettePresentation(_ viewModel: CommandPaletteViewModel) -> some View {
+        modifier(CommandPalettePresentation(viewModel: viewModel))
     }
 
     /// Takes a toolbar item out of VoiceOver's reach while the palette is open. The toolbar lives
@@ -29,11 +72,50 @@ extension View {
     }
 }
 
-private struct HiddenFromAccessibilityBehindPalette: ViewModifier {
-    @Environment(\.isCommandPalettePresented) private var isCommandPalettePresented
+/// The palette over the window's page. It observes only whether the palette is open, so typing
+/// in it runs only the palette's own views, and opening or closing it runs this and the palette:
+/// observed by the window's root, each of them ran the whole window's body and the menu bar's
+/// again first (#671).
+private struct CommandPalettePresentation: ViewModifier {
+    let viewModel: CommandPaletteViewModel
+    @ObservedObject var presence: CommandPalettePresence
+
+    init(viewModel: CommandPaletteViewModel) {
+        self.viewModel = viewModel
+        presence = viewModel.presence
+    }
 
     func body(content: Content) -> some View {
-        content.accessibilityHidden(isCommandPalettePresented)
+        content
+            .commandPaletteModal(presence)
+            .overlay {
+                // Built once and kept, hidden while closed: building it on each ⌘K (its field,
+                // materials and list) took the frame past 50 ms (#671).
+                CommandPaletteView(viewModel: viewModel)
+                    .opacity(presence.isShown ? 1 : 0)
+                    .scaleEffect(presence.isShown ? 1 : 0.97)
+                    .allowsHitTesting(presence.isShown)
+                    // Closed, its field can't take focus (Tab from a field on the page).
+                    .disabled(!presence.isPresented)
+                    .accessibilityHidden(!presence.isPresented)
+                    .animation(.spring(response: 0.32, dampingFraction: 0.86), value: presence.isShown)
+            }
+    }
+}
+
+private struct HiddenFromAccessibilityBehindPalette: ViewModifier {
+    @Environment(\.commandPalettePresence) private var presence
+
+    func body(content: Content) -> some View {
+        content.modifier(HiddenFromAccessibilityWhilePresented(presence: presence))
+    }
+}
+
+private struct HiddenFromAccessibilityWhilePresented: ViewModifier {
+    @ObservedObject var presence: CommandPalettePresence
+
+    func body(content: Content) -> some View {
+        content.accessibilityHidden(presence.isPresented)
     }
 }
 
@@ -45,6 +127,7 @@ struct CommandPaletteView: View {
 
     @FocusState private var focusedField: CommandPaletteSearchFocusField?
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.isEnabled) private var isEnabled
     /// Height the palette can use; starts tall so the first frame sits at the full inset.
     @State private var availableHeight: CGFloat = .infinity
 
@@ -81,8 +164,14 @@ struct CommandPaletteView: View {
             .padding(.horizontal, SpotiglassDesign.spacingXL)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { availableHeight = $0 }
         }
-        .onAppear {
-            scheduleSearchFieldFocus()
+        // The panel stays built between openings; its field takes focus once it is usable again.
+        .onChange(of: isEnabled) { _, isEnabled in
+            if isEnabled { scheduleSearchFieldFocus() }
+        }
+        // Opened again before it ever closed (esc and ⌘K in one turn): it stayed usable, but esc
+        // handed the focus to the page.
+        .onChange(of: viewModel.openings) {
+            if isEnabled { scheduleSearchFieldFocus() }
         }
         .onChange(of: viewModel.isLoading) { _, isLoading in
             if !isLoading {
@@ -101,10 +190,10 @@ struct CommandPaletteView: View {
     /// it just handed it to (#501).
     private func scheduleSearchFieldFocus() {
         let viewModel = viewModel
-        DispatchQueue.main.async {
+        afterThisFrame {
             guard viewModel.isPresented else { return }
             focusedField = .query
-            DispatchQueue.main.async {
+            afterThisFrame {
                 guard viewModel.isPresented else { return }
                 focusedField = .query
             }

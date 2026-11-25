@@ -171,14 +171,11 @@ final class CommandPaletteManager: ObservableObject {
             self?.prefetchAllPlaylists?()
         }
 
-        // SwiftUI only observes the outermost ObservableObject. Forward
-        // nested object changes so that views observing this manager
-        // re-render when viewModel/keymapStore mutate.
-        viewModel.objectWillChange
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &cancellables)
+        // SwiftUI only observes the outermost ObservableObject, so the keymap's changes are
+        // forwarded to views observing this manager. The palette's own aren't: the views that
+        // show it observe `viewModel` itself. Forwarded through the window's scene, opening the
+        // palette, closing it and every letter typed in it ran the whole window's and the menu
+        // bar's bodies again, 70-100 ms before the palette showed it (#671).
         self.keymapStore.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -606,7 +603,7 @@ final class CommandPaletteManager: ObservableObject {
     /// so a later scene cannot inherit a search task or a closure retaining the
     /// old browser.
     func detach() {
-        viewModel.hide()
+        viewModel.reset()
         viewModel.showAllResults = nil
         viewModel.setAvailableSearchCategories(
             CommandPaletteSearchCategory.footerOrder(includeThisPlaylist: false),
