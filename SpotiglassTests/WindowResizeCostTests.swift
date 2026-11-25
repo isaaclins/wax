@@ -490,6 +490,10 @@ final class WindowResizeCostTests: XCTestCase {
             await toggle(visible)
         }
         let counts = ViewBodyTally.counts ?? [:]
+        // What else drew, and at what size, so a failure on another machine says where to look.
+        let others = counts.filter { !$0.key.contains(":") }.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)x" }
+        let window = NSApp.windows.first { $0.contentView?.frame.width ?? 0 > 1_000 }
+        let context = "drew: \(others); window \(window.map { "\($0.frame.size)" } ?? "none"), screen \(NSScreen.main.map { "\($0.frame.size)" } ?? "none"), app active \(NSApp.isActive)"
         for container in [
             "PlaylistBrowserView",
             "BrowserTransportBar",
@@ -500,7 +504,7 @@ final class WindowResizeCostTests: XCTestCase {
         ] + extraViews {
             XCTAssertNil(
                 counts[container],
-                "\(container) re-rendered \(counts[container] ?? 0) times when the queue opened and closed three times",
+                "\(container) re-rendered \(counts[container] ?? 0) times when the queue opened and closed three times (\(context))",
                 file: file, line: line
             )
         }
