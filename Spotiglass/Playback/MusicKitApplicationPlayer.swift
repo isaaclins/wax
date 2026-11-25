@@ -1373,7 +1373,10 @@ final class MusicKitQueueStarter: AppleMusicQueueStarting {
         PlaybackTrace.shared.command(
             "addToQueue", "\(entries.count) songs the started queue was missing, \(afterCurrent ? "after current" : "at the end")"
         )
-        try await player.queue.insert(entries, position: afterCurrent ? .afterCurrentEntry : .tail)
+        try await CallLog.run(
+            .musicKit, "player queue.insert \(afterCurrent ? "after current" : "at end") (missing songs)",
+            describe: MusicKitContentSource.describe
+        ) { try await player.queue.insert(entries, position: afterCurrent ? .afterCurrentEntry : .tail) }
     }
 
     func settle(until done: () -> Bool) async {
