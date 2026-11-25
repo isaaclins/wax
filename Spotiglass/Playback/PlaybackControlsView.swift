@@ -370,12 +370,14 @@ struct PlaybackControlsView: View {
         self.otherService = otherService
         self.trace = trace
     }
-    @Environment(\.openWaxSettings) private var openSettingsAction
     @State private var isVolumePopoverPresented = false
 
     var body: some View {
         #if DEBUG
         let _ = ViewBodyTally.record("PlaybackControlsView")
+        // While a test counts renders, say what made this one run: the bar must not run for things
+        // it doesn't show (#422, #674), and CI's runner has caught renders a Mac doesn't.
+        let _ = ViewBodyTally.counts != nil ? Self._printChanges() : ()
         #endif
         GlassPanel {
             adaptiveTransportLayout
@@ -983,13 +985,17 @@ struct PlaybackControlsView: View {
                     action: { Task { await viewModel.retryAfterError() } }
                 )
             case .reauthenticate:
-                recoveryButton(
-                    title: SpotiglassL10n.string("auth.reconnect.button"),
-                    systemImage: "gear",
-                    accessibilityLabel: SpotiglassL10n.string("auth.reconnect.button"),
-                    accessibilityHint: error.message,
-                    action: { openSettingsAction() }
-                )
+                // Reads `openWaxSettings` itself: the bar's body reading it ran again whenever the
+                // window passed its environment down anew, as when the lyrics take the keyboard (#674).
+                OpenSettingsReader { openSettings in
+                    recoveryButton(
+                        title: SpotiglassL10n.string("auth.reconnect.button"),
+                        systemImage: "gear",
+                        accessibilityLabel: SpotiglassL10n.string("auth.reconnect.button"),
+                        accessibilityHint: error.message,
+                        action: { openSettings() }
+                    )
+                }
             case .none:
                 EmptyView()
             }
@@ -1576,5 +1582,15 @@ private struct LyricsPresentationReader<Content: View>: View {
 
     var body: some View {
         content(presentation.isPresented)
+    }
+}
+
+/// Hands `content` the Settings opener, so only the view that offers it depends on it (#674).
+private struct OpenSettingsReader<Content: View>: View {
+    @Environment(\.openWaxSettings) private var openSettings
+    let content: (OpenWaxSettingsAction) -> Content
+
+    var body: some View {
+        content(openSettings)
     }
 }
