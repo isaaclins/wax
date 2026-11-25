@@ -171,8 +171,8 @@ So 50 ms can't be reached for resume and skips with Apple Music. What Wax does i
 - **A sidebar click on CI's runner.** There, clicking a sidebar playlist never shows, while it
   works on a Mac, so CI can't yet tell when it gets slower (#688). Next and previous have no CI
   time yet, since they only show since #687. Seek, shuffle, repeat and ⌘[ have shown there since
-  #677; seek's CI time is the slowest median of two runs (27 and 41 ms), as one run is a thin base
-  for a 2x check.
+  #677; their CI times are the slower median of two runs each (seek 27 and 41 ms, ⌘[ 59 and 79),
+  as one run is a thin base for a 2x check.
 - Drag and drop, context menus, the queue's own buttons, Settings changes, the service switcher,
   the scrubber and volume aren't in the list yet (#680). Add a `Step` to
   `InteractionLatencyProbe.steps` with what to press and how to tell it showed.
