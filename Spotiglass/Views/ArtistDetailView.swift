@@ -210,7 +210,7 @@ struct ArtistDetailContent: View {
                 let selectedRows = browserViewModel.selectedRowsForMenus
                 VStack(spacing: 0) {
                     ForEach(detail.libraryTracks) { track in
-                        trackRow(for: track, marks: marks, selectedRows: selectedRows)
+                        marks.row(for: track) { mark in libraryTrackRow(for: track, mark: mark, selectedRows: selectedRows) }
                     }
                 }
                 .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
@@ -300,6 +300,43 @@ struct ArtistDetailContent: View {
             drawsRowHighlights: false,
             isKeyboardFocusable: false,
             handlesClicks: false
+        )
+    }
+
+    /// A song of the "In your library" section. It sits under the track table, not in it, so it
+    /// keeps its own double-click and menu (#658, #689).
+    private func libraryTrackRow(
+        for track: TrackRowViewModel,
+        mark: TrackRowPlaybackMark,
+        selectedRows: [TrackRowViewModel]
+    ) -> TrackListRow {
+        TrackListRow(
+            trackNumber: track.listPosition,
+            track: track,
+            playURI: playTrack,
+            togglePlayPause: togglePlayPause,
+            isCurrent: mark.isCurrent,
+            isPlaying: mark.isPlaying,
+            openArtist: openArtist,
+            tracksSurfaceID: tracksSurfaceID,
+            isSelected: browserViewModel.selectedDetailTrackIDs.contains(track.id),
+            drawsRowHighlights: false,
+            isKeyboardFocusable: false,
+            trackOpsMenuItems: {
+                AnyView(TrackOpsMenuItems(
+                    targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
+                    browserViewModel: browserViewModel,
+                    sourcePlaylistID: nil,
+                    onRequestCreatePlaylist: onRequestCreatePlaylist,
+                    onRequestLibraryContinuation: onRequestLibraryContinuation,
+                    openArtist: { target in
+                        if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
+                    },
+                    addToQueue: addToQueue,
+                    hasPlaybackDevice: hasPlaybackDevice,
+                    copyableURI: track.playableURI
+                ))
+            }
         )
     }
 
