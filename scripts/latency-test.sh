@@ -10,7 +10,7 @@
 # time means are in docs/latency.md.
 #
 # On a Mac, anything over 50 ms that isn't listed in scripts/latency-baseline.json fails. GitHub's
-# macOS runners are 3-4 times slower than a Mac, so no interaction gets near 50 ms there; with --ci
+# macOS runners are 2-4 times slower than a Mac, so no interaction gets near 50 ms there; with --ci
 # each one is checked against its own time on that runner instead, and fails when it got more than
 # twice as slow or stopped showing.
 set -euo pipefail

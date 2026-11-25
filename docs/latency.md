@@ -42,8 +42,8 @@ fix lands, its entry goes.
 ## In CI
 
 CI runs `scripts/latency-test.sh --ci` on every pull request (job "Interaction latency (Release)").
-GitHub's macOS runners are 3-4 times slower than a Mac: play/pause takes about 80 ms there and ⌘K
-about 290 ms, so the 50 ms line can't be checked on them. Instead every interaction has its median
+GitHub's macOS runners are 2-4 times slower than a Mac: play/pause takes about 80 ms there and ⌘K
+200-290 ms, so the 50 ms line can't be checked on them. Instead every interaction has its median
 on that runner under `ci` in the baseline file, and the job fails when one gets more than twice as
 slow, stops showing, or is new and has no time there yet. That catches a change like #645 (play/pause
 going from 50 to 610 ms). Whether something is within 50 ms is what the run on a Mac says, and a PR
@@ -83,8 +83,10 @@ the field (#671).
 "never" means nothing changed on screen within 3 s in any try. Next and previous count once the
 player bar names another song; screenshot mode's player can't change its song for a skip sent
 through the Web API, so there it never does (#687).
-Play/pause is within 50 ms on a quiet Mac, but its slower tries reach 50-59 ms on a busy one, so
-it stays listed until #678 gives it room.
+Play/pause is within 50 ms, but one try in 8 still reaches 51-58 ms, so it stays listed until
+#678 gives it room.
+Seek, shuffle and repeat never show on the Mac mini, while on CI's runner they do (36, 106 and
+128 ms), so #677 may be that Mac or the probe rather than Wax.
 
 ## What isn't measured yet
 
@@ -93,9 +95,9 @@ it stays listed until #678 gives it room.
   sees the screen. Apple Music's press-to-sound times are #679.
 - **Apple Music's screens.** The probe runs on screenshot mode's Spotify stand-in, because CI has
   no Apple Music account. The views are the same for both services; the data behind them isn't.
-- **Some interactions on CI's runner.** There, clicking a sidebar playlist never shows and ⌘F
-  misses about 3 tries in 8, while both work on a Mac, so CI can't yet tell when the first gets slower
-  (#688).
+- **A sidebar click on CI's runner.** There, clicking a sidebar playlist never shows, while it
+  works on a Mac, so CI can't yet tell when it gets slower (#688). Next, previous and ⌘[ never show
+  there either, as on a Mac (#687, #677).
 - Drag and drop, context menus, the queue's own buttons, Settings changes, the service switcher,
   the scrubber and volume aren't in the list yet (#680). Add a `Step` to
   `InteractionLatencyProbe.steps` with what to press and how to tell it showed.
