@@ -35,12 +35,10 @@ extension PlaylistBrowserViewModel {
     /// Rows the menu actions should apply to: the active table selection, or just the row the
     /// menu was opened on when no selection includes it.
     ///
-    /// Every row builds its menu each time the row is drawn, not only when the menu opens, so
-    /// this runs for each row that scrolls into view, and for every selected row when the
-    /// selection changes. Looking the row up in the whole list made that a pass over all of a
-    /// 2,000-song playlist per row: a flick stuttered, and ⌘A took seconds (#655). So the row the
-    /// menu is for is used as it is, and a selection of several is `selectedRows`, which the list
-    /// works out once per change of the selection (``selectedTrackRows``) and hands every row.
+    /// For the rows that carry their own menu: an artist page's "In your library" songs, which
+    /// sit under the track table rather than in it (#658). The table's own rows get theirs from
+    /// the table (#689). The row the menu is for is used as it is, and a selection of several is
+    /// `selectedRows`, worked out once per change of the selection and handed every row (#655).
     func effectiveTrackTargets(for row: TrackRowViewModel, selectedRows: [TrackRowViewModel]) -> [TrackRowViewModel] {
         let selection = selectedDetailTrackIDs
         if selection.count > 1, selection.contains(row.id), !selectedRows.isEmpty {
@@ -61,8 +59,8 @@ extension PlaylistBrowserViewModel {
 
     /// Rows for the current table selection, in list order.
     ///
-    /// The context menu uses ``effectiveTrackTargets(for:selectedRows:)`` because it has
-    /// a row to fall back on. A menu bar item has no row, only the selection, so
+    /// The right-click menu gets its rows from the table, which falls back on the row it was
+    /// opened on (#689). A menu bar item has no row, only the selection, so
     /// an empty selection means there is nothing to act on (#132).
     var selectedTrackRows: [TrackRowViewModel] {
         let selection = selectedDetailTrackIDs

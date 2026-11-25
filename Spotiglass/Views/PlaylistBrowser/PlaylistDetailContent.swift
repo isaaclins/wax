@@ -183,11 +183,10 @@ struct PlaylistDetailContent: View {
             } else {
                 let marks = marksCache.marks(in: detail.tracks, from: playback)
                 DetailTrackSelectionReader(selection: browserViewModel.detailTrackSelection) { selection in
-                    let selectedRows = browserViewModel.selectedRowsForMenus
                     TrackListView(
                         tracks: detail.tracks,
                         selection: selection,
-                        rowBuilder: { track in
+                        rowBuilder: { track, isSelected in
                             marks.row(for: track) { mark in
                                 TrackListRow(
                                     trackNumber: track.listPosition,
@@ -198,28 +197,10 @@ struct PlaylistDetailContent: View {
                                     isPlaying: mark.isPlaying,
                                     openArtist: openArtist,
                                     tracksSurfaceID: tracksSurfaceKey,
-                                    isSelected: browserViewModel.selectedDetailTrackIDs.contains(track.id),
+                                    isSelected: isSelected,
                                     drawsRowHighlights: false,
                                     isKeyboardFocusable: false,
-                                    trackOpsMenuItems: {
-                                        AnyView(TrackOpsMenuItems(
-                                            targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
-                                            browserViewModel: browserViewModel,
-                                            sourcePlaylistID: detail.playlist.isAlbumDetail ? nil : detail.playlist.id,
-                                            onRequestCreatePlaylist: { rows in
-                                                newPlaylistInitialRows = rows
-                                                newPlaylistName = ""
-                                                isPromptingNewPlaylist = true
-                                            },
-                                            onRequestLibraryContinuation: onRequestLibraryContinuation,
-                                            openArtist: { target in
-                                                if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
-                                            },
-                                            addToQueue: addToQueue,
-                                            hasPlaybackDevice: hasPlaybackDevice,
-                                            copyableURI: track.playableURI
-                                        ))
-                                    }
+                                    handlesClicks: false
                                 )
                             }
                         },
@@ -234,6 +215,30 @@ struct PlaylistDetailContent: View {
                             playURI(uri)
                         },
                         moveRows: moveRows,
+                        rowActions: TrackListRowActions(
+                            invocation: { TrackListRow.playbackInvocation(of: $0, mark: marks.mark(of: $0)) },
+                            playURI: playURI,
+                            togglePlayPause: togglePlayPause,
+                            menuItems: { targets in
+                                AnyView(TrackOpsMenuItems(
+                                    targets: targets,
+                                    browserViewModel: browserViewModel,
+                                    sourcePlaylistID: detail.playlist.isAlbumDetail ? nil : detail.playlist.id,
+                                    onRequestCreatePlaylist: { rows in
+                                        newPlaylistInitialRows = rows
+                                        newPlaylistName = ""
+                                        isPromptingNewPlaylist = true
+                                    },
+                                    onRequestLibraryContinuation: onRequestLibraryContinuation,
+                                    openArtist: { target in
+                                        if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
+                                    },
+                                    addToQueue: addToQueue,
+                                    hasPlaybackDevice: hasPlaybackDevice,
+                                    copyableURI: targets.count == 1 ? targets.first?.playableURI : nil
+                                ))
+                            }
+                        ),
                         rowContentKey: rowContentKey
                     )
                 }

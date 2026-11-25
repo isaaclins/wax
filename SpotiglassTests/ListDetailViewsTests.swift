@@ -985,7 +985,7 @@ private extension ListDetailViewsTests {
         TrackListView(
             tracks: tracks,
             selection: selection,
-            rowBuilder: TrackListTestRows.row(for:),
+            rowBuilder: { track, _ in TrackListTestRows.row(for: track) },
             pendingScrollRestoreTrackID: pendingScrollRestoreTrackID,
             onFirstVisibleTrackChanged: onFirstVisibleTrackChanged
         )
@@ -1038,7 +1038,7 @@ private struct TrackListScrollRestoreHarness: View {
         TrackListView(
             tracks: tracks,
             selection: $selection,
-            rowBuilder: TrackListTestRows.row(for:),
+            rowBuilder: { track, _ in TrackListTestRows.row(for: track) },
             pendingScrollRestoreTrackID: Binding(
                 get: { pending },
                 set: { newValue in

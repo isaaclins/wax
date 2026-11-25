@@ -50,12 +50,11 @@ struct HomeView: View {
         // with the arrow keys and read out to VoiceOver like every other track list, and the
         // selection is the one the menu bar acts on (#173).
         DetailTrackSelectionReader(selection: viewModel.detailTrackSelection) { selection in
-            let selectedRows = viewModel.selectedRowsForMenus
             TrackListView(
                 tracks: tracks,
                 selection: selection,
-                rowBuilder: { track in
-                    marks.row(for: track) { mark in topTrackRow(track, mark: mark, in: tracks, selectedRows: selectedRows) }
+                rowBuilder: { track, isSelected in
+                    marks.row(for: track) { mark in topTrackRow(track, mark: mark, isSelected: isSelected, in: tracks) }
                 },
                 pendingScrollRestoreTrackID: .constant(nil),
                 onFirstVisibleTrackChanged: { _ in },
@@ -63,6 +62,30 @@ struct HomeView: View {
                     guard let uri = tracks.first(where: { selectedIDs.contains($0.id) })?.playableURI else { return }
                     play(uri, in: tracks)
                 },
+                rowActions: TrackListRowActions(
+                    invocation: { TrackListRow.playbackInvocation(of: $0, mark: marks.mark(of: $0)) },
+                    playURI: { uri in play(uri, in: tracks) },
+                    togglePlayPause: { playbackViewModel.requestTogglePlayPause() },
+                    menuItems: { targets in
+                        AnyView(TrackOpsMenuItems(
+                            targets: targets,
+                            browserViewModel: viewModel,
+                            sourcePlaylistID: nil,
+                            onRequestCreatePlaylist: onRequestCreatePlaylist,
+                            onRequestLibraryContinuation: onRequestLibraryContinuation,
+                            openArtist: { target in
+                                if let id = target.id {
+                                    Task { await viewModel.selectArtist(id: id, origin: .extend, displayName: target.name) }
+                                }
+                            },
+                            addToQueue: { uri in
+                                await queueViewModel.addToQueue(uri: uri)
+                            },
+                            hasPlaybackDevice: hasPlaybackDevice,
+                            copyableURI: targets.count == 1 ? targets.first?.playableURI : nil
+                        ))
+                    }
+                ),
                 headerContent: AnyView(listHeader)
             )
         }
@@ -171,8 +194,8 @@ struct HomeView: View {
     private func topTrackRow(
         _ track: TrackRowViewModel,
         mark: TrackRowPlaybackMark,
-        in tracks: [TrackRowViewModel],
-        selectedRows: [TrackRowViewModel]
+        isSelected: Bool,
+        in tracks: [TrackRowViewModel]
     ) -> TrackListRow {
         TrackListRow(
             trackNumber: track.listPosition,
@@ -184,29 +207,12 @@ struct HomeView: View {
             isCurrent: mark.isCurrent,
             isPlaying: mark.isPlaying,
             openArtist: openArtist,
-            isSelected: viewModel.selectedDetailTrackIDs.contains(track.id),
-            // The table draws the selection and the hover, and takes the keyboard focus.
+            isSelected: isSelected,
+            // The table draws the selection and the hover, takes the keyboard focus, and
+            // handles the double-click and the menu.
             drawsRowHighlights: false,
             isKeyboardFocusable: false,
-            trackOpsMenuItems: {
-                AnyView(TrackOpsMenuItems(
-                    targets: viewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
-                    browserViewModel: viewModel,
-                    sourcePlaylistID: nil,
-                    onRequestCreatePlaylist: onRequestCreatePlaylist,
-                    onRequestLibraryContinuation: onRequestLibraryContinuation,
-                    openArtist: { target in
-                        if let id = target.id {
-                            Task { await viewModel.selectArtist(id: id, origin: .extend, displayName: target.name) }
-                        }
-                    },
-                    addToQueue: { uri in
-                        await queueViewModel.addToQueue(uri: uri)
-                    },
-                    hasPlaybackDevice: hasPlaybackDevice,
-                    copyableURI: track.playableURI
-                ))
-            }
+            handlesClicks: false
         )
     }
 

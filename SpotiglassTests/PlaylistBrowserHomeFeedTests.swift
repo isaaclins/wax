@@ -120,7 +120,6 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
 
         XCTAssertEqual(vm.selectedTrackRows.map(\.title), ["Track t1", "Track t3"])
         XCTAssertTrue(PlaylistBrowserView.canEnqueueTrackSelection(rows: vm.selectedTrackRows, hasPlaybackDevice: true))
-        XCTAssertEqual(vm.effectiveTrackTargets(for: rows[2], selectedRows: vm.selectedRowsForMenus).map(\.title), ["Track t1", "Track t3"])
 
         // Leaving Home drops the selection, like leaving any other list.
         await vm.selectSidebar(.playlist("one"))

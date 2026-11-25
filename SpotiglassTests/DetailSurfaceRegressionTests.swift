@@ -84,7 +84,7 @@ final class DetailSurfaceRegressionTests: XCTestCase {
                 get: { selection },
                 set: { selection = $0 }
             ),
-            rowBuilder: { row in
+            rowBuilder: { row, _ in
                 TrackListRow(
                     trackNumber: row.listPosition,
                     track: row,
@@ -331,6 +331,117 @@ final class DetailSurfaceRegressionTests: XCTestCase {
         }
     }
 
+    /// The track table handles the double-click and the song menu for all of its rows, and a
+    /// new selection builds again only the rows whose selection it changed (#689). Each row used to carry
+    /// its own double-click gesture and menu: the gesture took the click from the table, and the
+    /// menu was built on every mouse-down. And the selection reached the rows through the list,
+    /// so a click on a freshly opened 2,000-song playlist went through all of them.
+    func testTheTableDoubleClicksAndOpensTheSongMenuForItsRows() throws {
+        let tracks = TrackRowViewModel.numberedTopTracks((0..<6).map {
+            PlaylistBrowsingTestFixtures.fallbackTrack(id: "t\($0)", name: "Track \($0)", artistId: "a")
+        })
+        final class Record {
+            var selection: Set<String> = []
+            var activated: [String] = []
+            var builds: [String] = []
+        }
+        let record = Record()
+        let view = TrackListSelectionHarness(record: { record.selection = $0 }) { selection in
+            TrackListView(
+                tracks: tracks,
+                selection: selection,
+                rowBuilder: { row, isSelected in
+                    record.builds.append("\(row.id)\(isSelected ? "+" : "-")")
+                    return TrackListRow(
+                        trackNumber: row.listPosition, track: row, playURI: { _ in }, togglePlayPause: {},
+                        isCurrent: false, isPlaying: false, openArtist: { _ in }, isSelected: isSelected,
+                        drawsRowHighlights: false, isKeyboardFocusable: false, handlesClicks: false
+                    )
+                },
+                pendingScrollRestoreTrackID: .constant(nil),
+                onFirstVisibleTrackChanged: { _ in },
+                rowActions: TrackListRowActions(
+                    invocation: { .play(uri: $0.id) },
+                    playURI: { record.activated.append($0) },
+                    togglePlayPause: {},
+                    menuItems: { targets in AnyView(Button("Rows \(targets.map(\.id).joined(separator: ","))") {}) }
+                ),
+                rowContentKey: AnyHashable("list")
+            )
+        }
+        .environmentObject(pinnedStore())
+        let controller = ViewTestHost.host(view, size: CGSize(width: 700, height: 400), takesClicks: true)
+        let window = try XCTUnwrap(controller.view.window)
+        // Hosting sizes the window to the list, which wants next to no room.
+        window.setContentSize(NSSize(width: 700, height: 400))
+        window.orderFrontRegardless()
+        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        let table = try XCTUnwrap(Self.firstTableView(in: controller.view))
+        XCTAssertGreaterThan(table.visibleRect.height, table.rect(ofRow: tracks.count - 1).maxY - 1, "not every row is on screen")
+        let row = { (id: String) in try XCTUnwrap(tracks.firstIndex { $0.id == id }) }
+
+        func post(_ type: NSEvent.EventType, row index: Int, clickCount: Int = 1) {
+            let rect = table.rect(ofRow: index)
+            let point = table.convert(NSPoint(x: rect.minX + rect.width * 0.4, y: rect.midY), to: nil)
+            guard let event = NSEvent.mouseEvent(
+                with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: clickCount,
+                pressure: type == .leftMouseUp ? 0 : 1
+            ) else { return XCTFail("no \(type) event") }
+            NSApp.postEvent(event, atStart: false)
+            while let next = NSApp.nextEvent(matching: .any, until: Date(), inMode: .default, dequeue: true) {
+                NSApp.sendEvent(next)
+            }
+        }
+        func click(_ index: Int, count: Int = 1) {
+            for clickCount in 1...count {
+                post(.leftMouseDown, row: index, clickCount: clickCount)
+                post(.leftMouseUp, row: index, clickCount: clickCount)
+            }
+            AppKitTestSupport.pumpRunLoop(for: 0.1)
+        }
+        /// The titles of the menu a right-click on `index` opens.
+        func menuTitles(_ index: Int) throws -> [String] {
+            let rect = table.rect(ofRow: index)
+            let point = table.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil)
+            let event = try XCTUnwrap(NSEvent.mouseEvent(
+                with: .rightMouseDown, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+            ))
+            var view = window.contentView?.hitTest(point)
+            while let current = view {
+                if let menu = current.menu(for: event) {
+                    menu.delegate?.menuNeedsUpdate?(menu)
+                    return menu.items.map(\.title)
+                }
+                view = current.superview
+            }
+            return []
+        }
+
+        // A selection change as the table makes it on a click (the clicks themselves are in
+        // LongListScrollCostTests, on the real playlist page).
+        table.selectRowIndexes(IndexSet(integer: try row("t1")), byExtendingSelection: false)
+        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        XCTAssertEqual(record.selection, ["t1"])
+        record.builds = []
+        table.selectRowIndexes(IndexSet(integer: try row("t2")), byExtendingSelection: false)
+        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        XCTAssertEqual(record.selection, ["t2"])
+        XCTAssertEqual(Set(record.builds), ["t1-", "t2+"], "a new selection built rows it didn't change, or missed one")
+
+        click(try row("t4"), count: 2)
+        XCTAssertEqual(record.activated, ["t4"], "a double-click didn't play its row")
+
+        // A right-click on a row of a selection acts on the selection, anywhere else on that row.
+        table.selectRowIndexes(IndexSet([try row("t1"), try row("t3")]), byExtendingSelection: false)
+        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        XCTAssertEqual(record.selection, ["t1", "t3"])
+        XCTAssertTrue(try menuTitles(try row("t3")).contains("Rows t1,t3"), "the menu on a selected row isn't for the selection")
+        XCTAssertTrue(try menuTitles(try row("t5")).contains("Rows t5"), "the menu on another row isn't for that row")
+        XCTAssertTrue(try menuTitles(try row("t5")).contains(SpotiglassL10n.string("browser.track.play")), "the menu has no Play")
+    }
+
     private static func firstTableView(in view: NSView) -> NSTableView? {
         if let table = view as? NSTableView { return table }
         for subview in view.subviews {
@@ -381,5 +492,17 @@ final class DetailSurfaceRegressionTests: XCTestCase {
             openArtist: { _ in },
             loadMoreAlbums: {}
         )
+    }
+}
+
+/// A selection kept in view state, as the app's lists keep theirs, reported to the test.
+private struct TrackListSelectionHarness<Content: View>: View {
+    let record: (Set<String>) -> Void
+    @ViewBuilder let content: (Binding<Set<String>>) -> Content
+    @State private var selection: Set<String> = []
+
+    var body: some View {
+        content($selection)
+            .onChange(of: selection) { record(selection) }
     }
 }

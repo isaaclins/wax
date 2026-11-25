@@ -120,11 +120,10 @@ struct ArtistDetailContent: View {
     var body: some View {
         let marks = playback.marks(in: detail.tracks)
         DetailTrackSelectionReader(selection: browserViewModel.detailTrackSelection) { selection in
-            let selectedRows = browserViewModel.selectedRowsForMenus
             TrackListView(
                 tracks: detail.tracks,
                 selection: selection,
-                rowBuilder: { track in trackRow(for: track, marks: marks, selectedRows: selectedRows) },
+                rowBuilder: { track, isSelected in trackRow(for: track, marks: marks, isSelected: isSelected) },
                 pendingScrollRestoreTrackID: .constant(nil),
                 onFirstVisibleTrackChanged: { _ in },
                 playSelection: { selectedIDs in
@@ -133,6 +132,26 @@ struct ArtistDetailContent: View {
                     else { return }
                     playTrack(uri)
                 },
+                rowActions: TrackListRowActions(
+                    invocation: { TrackListRow.playbackInvocation(of: $0, mark: marks.mark(of: $0)) },
+                    playURI: playTrack,
+                    togglePlayPause: togglePlayPause,
+                    menuItems: { targets in
+                        AnyView(TrackOpsMenuItems(
+                            targets: targets,
+                            browserViewModel: browserViewModel,
+                            sourcePlaylistID: nil,
+                            onRequestCreatePlaylist: onRequestCreatePlaylist,
+                            onRequestLibraryContinuation: onRequestLibraryContinuation,
+                            openArtist: { target in
+                                if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
+                            },
+                            addToQueue: addToQueue,
+                            hasPlaybackDevice: hasPlaybackDevice,
+                            copyableURI: targets.count == 1 ? targets.first?.playableURI : nil
+                        ))
+                    }
+                ),
                 headerContent: AnyView(listHeader),
                 footerContent: AnyView(listFooter)
             )
@@ -255,17 +274,17 @@ struct ArtistDetailContent: View {
     private func trackRow(
         for track: TrackRowViewModel,
         marks: TrackListPlaybackMarks,
-        selectedRows: [TrackRowViewModel]
+        isSelected: Bool
     ) -> PlaybackValueReader<TrackRowPlaybackMark, TrackListRow> {
         marks.row(for: track) { mark in
-            trackRow(for: track, mark: mark, selectedRows: selectedRows)
+            trackRow(for: track, mark: mark, isSelected: isSelected)
         }
     }
 
     private func trackRow(
         for track: TrackRowViewModel,
         mark: TrackRowPlaybackMark,
-        selectedRows: [TrackRowViewModel]
+        isSelected: Bool
     ) -> TrackListRow {
         TrackListRow(
             trackNumber: track.listPosition,
@@ -276,24 +295,10 @@ struct ArtistDetailContent: View {
             isPlaying: mark.isPlaying,
             openArtist: openArtist,
             tracksSurfaceID: tracksSurfaceID,
-            isSelected: browserViewModel.selectedDetailTrackIDs.contains(track.id),
+            isSelected: isSelected,
             drawsRowHighlights: false,
             isKeyboardFocusable: false,
-            trackOpsMenuItems: {
-                AnyView(TrackOpsMenuItems(
-                    targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
-                    browserViewModel: browserViewModel,
-                    sourcePlaylistID: nil,
-                    onRequestCreatePlaylist: onRequestCreatePlaylist,
-                    onRequestLibraryContinuation: onRequestLibraryContinuation,
-                    openArtist: { target in
-                        if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
-                    },
-                    addToQueue: addToQueue,
-                    hasPlaybackDevice: hasPlaybackDevice,
-                    copyableURI: track.playableURI
-                ))
-            }
+            handlesClicks: false
         )
     }
 

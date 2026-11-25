@@ -136,16 +136,26 @@ final class LongListScrollCostTests: XCTestCase {
             if !buildsEveryRow {
                 XCTAssertLessThan(rowBodies(), 50, "\(name) built \(rowBodies()) rows", file: file, line: line)
             }
+            // The rows follow the selection by themselves. Building the list of rows again made the
+            // table go through all 2,000 of them, the most of a first click's 55 ms (#689).
+            XCTAssertNil(counts["TrackListRows"], "\(name) built the list of rows again", file: file, line: line)
         }
 
         // Clicks go through the app's event queue the way the mouse's do. In the app the table
-        // doesn't have the keyboard before the first click (the sidebar does), so neither does it
-        // here, and the first click includes the table taking the keyboard (#689). Whether it does
-        // isn't checked: taking the keyboard away from outside SwiftUI leaves its focus state
-        // behind, and the click then sometimes doesn't hand the keyboard back (#748).
+        // doesn't have the keyboard before the first click (the sidebar does), so neither does
+        // it here; that click selects the row and gives the table the keyboard (#628). It is the
+        // one that was slow: about 55 ms against 20 for every later click (#689). The table takes
+        // the keyboard from AppKit now: SwiftUI's own focus state stayed behind when the keyboard
+        // left outside SwiftUI, and then a click sometimes didn't hand it back (#748).
         host.window.makeFirstResponder(nil)
         measure("click") { click(host, row: middle) }
         XCTAssertEqual(browser.selectedDetailTrackIDs, ["t\(middle)"], "the click didn't select its row")
+        XCTAssertNotNil(ViewBodyTally.counts?["TrackListRow:t\(middle)"], "the clicked row didn't show it is selected")
+        // The keyboard comes with the click itself, so only a machine that hands the window its
+        // clicks can tell.
+        if clicksReachTheWindow {
+            XCTAssertTrue(host.window.firstResponder === table, "the click left the table without the keyboard")
+        }
         measure("click another") { click(host, row: middle + 1) }
         XCTAssertEqual(browser.selectedDetailTrackIDs, ["t\(middle + 1)"])
         // A shift-click, as the table makes it: SwiftUI reads the shift key from the keyboard

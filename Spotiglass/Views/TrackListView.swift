@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// Native track collection used by playlist-like detail surfaces.
@@ -27,7 +28,9 @@ struct TrackListView<Row: View>: View {
     /// so a click the table makes is read back before the page has built this view again. It is
     /// kept inside a closure on purpose: kept as a `Binding` it would bring #751 back.
     private let liveSelection: () -> Binding<Set<String>>
-    let rowBuilder: (TrackRowViewModel) -> Row
+    /// Builds a row from its track and whether it is selected. A click changes the second only for
+    /// the rows it selects or leaves, and only those are built again (#689).
+    let rowBuilder: (TrackRowViewModel, Bool) -> Row
     /// Optional content rendered above the track rows in the native list.
     let headerContent: AnyView?
     /// Optional content rendered below the track rows in the native list.
@@ -47,6 +50,8 @@ struct TrackListView<Row: View>: View {
     /// rows moving together. `nil` offers no reordering at all (Liked Songs, albums, other
     /// people's playlists). Rows stay draggable to the sidebar either way.
     var moveRows: ((IndexSet, Int) -> Void)? = nil
+    /// Double-click and the right-click menu of the rows (#689). `nil` offers neither.
+    var rowActions: TrackListRowActions? = nil
     /// Everything the rows are built from besides their own track and selection: the list they
     /// belong to and what the row builder's closures read. While it stays the same, a row whose
     /// track and selection didn't change keeps the row it has instead of being built again.
@@ -61,11 +66,12 @@ struct TrackListView<Row: View>: View {
     init(
         tracks: [TrackRowViewModel],
         selection: Binding<Set<String>>,
-        rowBuilder: @escaping (TrackRowViewModel) -> Row,
+        rowBuilder: @escaping (TrackRowViewModel, Bool) -> Row,
         pendingScrollRestoreTrackID: Binding<String?>,
         onFirstVisibleTrackChanged: @escaping (String) -> Void,
         playSelection: ((Set<String>) -> Void)? = nil,
         moveRows: ((IndexSet, Int) -> Void)? = nil,
+        rowActions: TrackListRowActions? = nil,
         rowContentKey: AnyHashable? = nil,
         headerContent: AnyView? = nil,
         footerContent: AnyView? = nil
@@ -81,6 +87,7 @@ struct TrackListView<Row: View>: View {
         self.onFirstVisibleTrackChanged = onFirstVisibleTrackChanged
         self.playSelection = playSelection
         self.moveRows = moveRows
+        self.rowActions = rowActions
         self.rowContentKey = rowContentKey
     }
 
@@ -89,16 +96,21 @@ struct TrackListView<Row: View>: View {
     /// view state would invalidate the body on each report, re-walking the whole
     /// track array to redraw nothing. Nobody observes this bookkeeping.
     @State private var realizedRows = TrackListRealizedRows()
-    /// A click selects a row but left the table without keyboard focus: the row's own tap
-    /// gestures take the mouse-down, so the selection stayed grey (the inactive look) and the
-    /// arrow keys, Delete and ⌘A never reached the table (#628). A new selection focuses it.
+    /// The selection as the rows read it. A row follows it by itself, so a click builds again
+    /// only the rows it selects or leaves, not the list of all of them (#689).
+    @State private var selectionFeed = TrackListSelectionFeed()
+    /// A click selects a row but left the table without keyboard focus, so the selection stayed
+    /// grey (the inactive look) and the arrow keys, Delete and ⌘A never reached the table (#628).
+    /// The list selects through its own click recognizer, which doesn't focus the table, even
+    /// with no gesture on the rows (#689). A new selection focuses it.
     @FocusState private var isListFocused: Bool
 
     var body: some View {
         #if DEBUG
         let _ = ViewBodyTally.record("TrackListView")
         #endif
-        let generations = realizedRows.generations(tracks: tracks, selection: selection)
+        let tracksGeneration = realizedRows.generation(of: tracks)
+        let _ = selectionFeed.store(selection)
         ScrollViewReader { proxy in
             List(selection: liveSelection()) {
                 if let headerContent {
@@ -111,8 +123,8 @@ struct TrackListView<Row: View>: View {
                 // table runs it on about every frame of a scroll) doesn't walk all of them.
                 TrackListRows(
                     tracks: tracks,
-                    selection: selection,
-                    generations: generations,
+                    tracksGeneration: tracksGeneration,
+                    selectionFeed: selectionFeed,
                     rowContentKey: rowContentKey,
                     rowBuilder: rowBuilder,
                     moveRows: moveRows,
@@ -131,7 +143,11 @@ struct TrackListView<Row: View>: View {
             .onChange(of: selection) {
                 // A click already gave the table focus; asking again runs this view again.
                 if !selection.isEmpty, !isListFocused { isListFocused = true }
+                selectionFeed.announce()
             }
+            // The table's own double-click and menu, not each row's: a row's menu was built on
+            // every mouse-down to find out whether the row wanted the click (#689).
+            .modifier(TrackListRowActionsModifier(tracks: tracks, actions: rowActions))
             .onKeyPress(.return) {
                 guard let playSelection, !selection.isEmpty else { return .ignored }
                 playSelection(selection)
@@ -182,40 +198,103 @@ final class TrackListRealizedRows {
     var positionByTrackID: [String: Int] = [:]
     var lastReportedFirstVisibleTrackID: String?
 
-    /// Counters that move on when the list's rows or its selection change, so a row can tell
-    /// either changed without comparing all of it.
-    struct Generations: Equatable {
-        var tracks = 0
-        var selection = 0
-    }
-
-    private var generations = Generations()
+    /// A counter that moves on when the list's rows change, so a row can tell they did without
+    /// comparing all of them.
+    private var tracksGeneration = 0
     private var lastTracks: [TrackRowViewModel] = []
-    private var lastSelection: Set<String> = []
 
-    /// The counters for `tracks` and `selection`, moved on for whichever is new.
-    func generations(tracks: [TrackRowViewModel], selection: Set<String>) -> Generations {
+    /// The counter for `tracks`, moved on if they are new.
+    func generation(of tracks: [TrackRowViewModel]) -> Int {
         if tracks != lastTracks {
             lastTracks = tracks
-            generations.tracks &+= 1
+            tracksGeneration &+= 1
         }
-        if selection != lastSelection {
-            lastSelection = selection
-            generations.selection &+= 1
-        }
-        return generations
+        return tracksGeneration
     }
 }
 
-/// The track rows of ``TrackListView``. Built again only when the rows, the selection or the
-/// list's ``TrackListView/rowContentKey`` changed, and then each row only when its own
-/// ``TrackListRowKey`` did (#655).
+/// The selection of a ``TrackListView`` as its rows read it (#689). Each row listens for its own
+/// part, so a click builds again the row it selects and the one it leaves. Handed to the rows
+/// through the list's own view, every click built the list of all rows again, and the table then
+/// went through all 2,000 of them.
+@MainActor
+final class TrackListSelectionFeed {
+    private(set) var ids: Set<String> = []
+    private let changes = PassthroughSubject<Set<String>, Never>()
+
+    /// Keeps the selection the list was built with, so a row built now reads it.
+    func store(_ selection: Set<String>) {
+        ids = selection
+    }
+
+    /// Tells the rows built earlier that the selection changed.
+    func announce() {
+        changes.send(ids)
+    }
+
+    func isSelected(_ id: String) -> Bool {
+        ids.contains(id)
+    }
+
+    func selectedChanges(of id: String) -> AnyPublisher<Bool, Never> {
+        changes.map { $0.contains(id) }.eraseToAnyPublisher()
+    }
+}
+
+/// What double-clicking a row of a ``TrackListView`` and its right-click menu do (#689). The table
+/// handles both for all of its rows.
+struct TrackListRowActions {
+    /// Whether the row plays, pauses or can't play: the menu's first item and the double-click.
+    let invocation: (TrackRowViewModel) -> TrackRowPlaybackInvocation
+    let playURI: (String) -> Void
+    let togglePlayPause: () -> Void
+    /// The rest of the menu, for the rows it acts on in list order: the selection when the
+    /// right-click was on a selected row, else that row.
+    let menuItems: ([TrackRowViewModel]) -> AnyView
+
+    func activate(_ track: TrackRowViewModel) {
+        TrackListRow.perform(invocation(track), playURI: playURI, togglePlayPause: togglePlayPause)
+    }
+}
+
+/// Puts ``TrackListRowActions`` on the table.
+private struct TrackListRowActionsModifier: ViewModifier {
+    let tracks: [TrackRowViewModel]
+    let actions: TrackListRowActions?
+
+    func body(content: Content) -> some View {
+        if let actions {
+            content.contextMenu(forSelectionType: String.self) { ids in
+                menu(for: ids, actions: actions)
+            } primaryAction: { ids in
+                guard let first = tracks.first(where: { ids.contains($0.id) }) else { return }
+                actions.activate(first)
+            }
+        } else {
+            content
+        }
+    }
+
+    @ViewBuilder
+    private func menu(for ids: Set<String>, actions: TrackListRowActions) -> some View {
+        let targets = tracks.filter { ids.contains($0.id) }
+        if let first = targets.first {
+            TrackRowMenuContent(invocation: actions.invocation(first), activate: { actions.activate(first) }) {
+                actions.menuItems(targets)
+            }
+        }
+    }
+}
+
+/// The track rows of ``TrackListView``. Built again only when the rows or the list's
+/// ``TrackListView/rowContentKey`` changed, and then each row only when its own
+/// ``TrackListRowKey`` did (#655). A change of the selection doesn't build them again (#689).
 private struct TrackListRows<Row: View>: View, Equatable {
     let tracks: [TrackRowViewModel]
-    let selection: Set<String>
-    let generations: TrackListRealizedRows.Generations
+    let tracksGeneration: Int
+    let selectionFeed: TrackListSelectionFeed
     let rowContentKey: AnyHashable?
-    let rowBuilder: (TrackRowViewModel) -> Row
+    let rowBuilder: (TrackRowViewModel, Bool) -> Row
     let moveRows: ((IndexSet, Int) -> Void)?
     let setRowRealized: (Bool, TrackRowViewModel) -> Void
 
@@ -228,12 +307,17 @@ private struct TrackListRows<Row: View>: View, Equatable {
             // isn't known to be one view, so on every play / pause the table walked
             // every song of the list to collect the rows' ids, 20 ms with 2,543 songs (#645).
             HStack(spacing: 0) {
-                TrackListRowSlot(
-                    key: rowKey(for: track),
-                    track: track,
-                    content: rowBuilder
-                )
-                .equatable()
+                PlaybackValueReader(
+                    value: { selectionFeed.isSelected(track.id) },
+                    changes: selectionFeed.selectedChanges(of: track.id)
+                ) { isSelected in
+                    TrackListRowSlot(
+                        key: TrackListRowKey(trackID: track.id, isSelected: isSelected, tracks: tracksGeneration, list: rowContentKey),
+                        track: track,
+                        content: rowBuilder
+                    )
+                    .equatable()
+                }
             }
             .frame(height: TrackListRow.listRowHeight)
             // With the list's own inset the row's edge lands on the
@@ -260,22 +344,10 @@ private struct TrackListRows<Row: View>: View, Equatable {
         .onMove(perform: moveRows)
     }
 
-    private func rowKey(for track: TrackRowViewModel) -> TrackListRowKey {
-        let isSelected = selection.contains(track.id)
-        return TrackListRowKey(
-            trackID: track.id,
-            isSelected: isSelected,
-            // A row in a selection of several acts on all of it, so it follows the selection.
-            selection: isSelected && selection.count > 1 ? generations.selection : 0,
-            tracks: generations.tracks,
-            list: rowContentKey
-        )
-    }
-
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.rowContentKey != nil
             && lhs.rowContentKey == rhs.rowContentKey
-            && lhs.generations == rhs.generations
+            && lhs.tracksGeneration == rhs.tracksGeneration
             && (lhs.moveRows == nil) == (rhs.moveRows == nil)
     }
 }
@@ -286,14 +358,12 @@ private struct TrackListRows<Row: View>: View, Equatable {
 struct TrackListRowKey: Equatable {
     var trackID: String
     var isSelected: Bool
-    var selection: Int
     var tracks: Int
     var list: AnyHashable?
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.trackID == rhs.trackID
             && lhs.isSelected == rhs.isSelected
-            && lhs.selection == rhs.selection
             && lhs.tracks == rhs.tracks
             && lhs.list == rhs.list
     }
@@ -304,10 +374,10 @@ struct TrackListRowKey: Equatable {
 private struct TrackListRowSlot<Row: View>: View, Equatable {
     let key: TrackListRowKey
     let track: TrackRowViewModel
-    let content: (TrackRowViewModel) -> Row
+    let content: (TrackRowViewModel, Bool) -> Row
 
     var body: some View {
-        content(track)
+        content(track, key.isSelected)
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
