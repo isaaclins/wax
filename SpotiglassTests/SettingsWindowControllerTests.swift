@@ -120,6 +120,33 @@ final class SettingsWindowControllerTests: XCTestCase {
         XCTAssertFalse(window.styleMask.contains(.resizable))
     }
 
+    /// Shown once on a desktop and closed, the kept window came back on that desktop: ⌘, over a
+    /// main window in full screen switched away from it. The Settings scene's new window opened
+    /// on the Space in use, so a closed window has to come back there too.
+    func testAClosedWindowComesBackOnTheSpaceInUseAndAnOpenOneStaysPut() async throws {
+        var shownWithMoveToActiveSpace: [Bool] = []
+        let controller = SettingsWindowController(frameAutosaveName: nil) { window in
+            shownWithMoveToActiveSpace.append(window.collectionBehavior.contains(.moveToActiveSpace))
+            window.setFrameOrigin(NSPoint(x: -30_000, y: -30_000))
+            window.orderBack(nil)
+        }
+        controllers.append(controller)
+
+        controller.show { Text(verbatim: "Settings") }
+        let window = try XCTUnwrap(controller.window)
+        await AppKitTestSupport.settle()
+        XCTAssertFalse(
+            window.collectionBehavior.contains(.moveToActiveSpace),
+            "only for the show: an open window doesn't follow the user to other desktops"
+        )
+
+        controller.show { Text(verbatim: "Settings") }
+        window.performClose(nil)
+        controller.show { Text(verbatim: "Settings") }
+
+        XCTAssertEqual(shownWithMoveToActiveSpace, [true, false, true], "closed: on the Space in use; open: stays where it is")
+    }
+
     func testOnlyItsOwnWindowCountsAsSettings() throws {
         let controller = makeController()
         controller.show { Text(verbatim: "Settings") }

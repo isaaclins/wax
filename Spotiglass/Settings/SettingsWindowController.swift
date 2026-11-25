@@ -41,7 +41,18 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let window = window ?? makeWindow(content: content())
         // Read each time, so it follows a language change made while the window was closed.
         window.title = SpotiglassL10n.string("settings.window.title")
+        // A closed window comes back on the Space in use, as the Settings scene's new window did:
+        // over a main window in full screen too, instead of switching to the desktop Settings was
+        // last shown on. Only for this show: one still open on another desktop switches there, as
+        // before, and an open window doesn't follow the user from desktop to desktop.
+        guard !window.isVisible else {
+            present(window)
+            return
+        }
+        window.collectionBehavior.insert(.moveToActiveSpace)
         present(window)
+        // After `present`'s own turn of the run loop, which makes the window key.
+        DispatchQueue.main.async { window.collectionBehavior.remove(.moveToActiveSpace) }
     }
 
     /// Builds the window and lays it out without showing it, so the first ⌘, after launch only
