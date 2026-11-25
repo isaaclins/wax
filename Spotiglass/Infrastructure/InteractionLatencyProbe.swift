@@ -48,6 +48,7 @@ final class InteractionLatencyProbe {
     private let scene: SpotiglassSceneHost
     private let playbackHosts: SpotiglassPlaybackHosts
     private var pending: PendingFrame?
+    private var nextPendingID = 0
 
     private init(reportURL: URL, scene: SpotiglassSceneHost, playbackHosts: SpotiglassPlaybackHosts) {
         self.reportURL = reportURL
@@ -72,14 +73,6 @@ final class InteractionLatencyProbe {
         case let .playing(song): song.uri
         case let .paused(song): song?.uri
         default: nil
-        }
-    }
-
-    private var position: Int {
-        switch playback.connectionState {
-        case let .playing(song): song.positionMilliseconds
-        case let .paused(song): song?.positionMilliseconds ?? 0
-        default: 0
         }
     }
 
@@ -136,9 +129,16 @@ final class InteractionLatencyProbe {
                 finish: { await $0.endSkipWait() }
             ),
             Step(id: "playback.seek", title: "⌘→ jumps ahead in the song") { probe in
-                let anchor = probe.playback.progressAnchor
+                // The player re-anchors the position on every update it gets, so a new anchor alone
+                // says nothing: shown once the position is well ahead of where playing on would be.
+                guard let before = probe.playback.progressAnchor else { return nil }
                 probe.press(.rightArrow, [.command])
-                return { probe.playback.progressAnchor != anchor && probe.position != 0 }
+                return {
+                    guard let now = probe.playback.progressAnchor else { return false }
+                    let date = Date()
+                    return now.interpolatedPositionMs(at: date) - before.interpolatedPositionMs(at: date)
+                        >= PlaybackSeekStep.milliseconds * 3 / 5
+                }
             },
             Step(id: "playback.shuffle", title: "⌥⌘S turns shuffle on or off") { probe in
                 let was = probe.playback.shuffleEnabled
@@ -422,6 +422,7 @@ final class InteractionLatencyProbe {
     // MARK: - Frames
 
     private struct PendingFrame {
+        let id: Int
         let shown: () -> Bool
         let resume: (CFTimeInterval?) -> Void
     }
@@ -456,10 +457,14 @@ final class InteractionLatencyProbe {
                 finished = true
                 continuation.resume(returning: value)
             }
-            pending = PendingFrame(shown: shown, resume: resume)
+            nextPendingID += 1
+            let id = nextPendingID
+            pending = PendingFrame(id: id, shown: shown, resume: resume)
             DispatchQueue.main.asyncAfter(deadline: .now() + Self.timeoutSeconds) { [weak self] in
                 MainActor.assumeIsolated {
-                    self?.pending = nil
+                    // A try that showed in time leaves this timer running: it may only end its own
+                    // try, never a later one that is waiting by then.
+                    if self?.pending?.id == id { self?.pending = nil }
                     resume(nil)
                 }
             }

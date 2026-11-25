@@ -51,11 +51,11 @@
     },
     "playback.toggle.click": {
       "issue": 678,
-      "measuredMs": 51
+      "measuredMs": 41
     },
     "playback.toggle.key": {
       "issue": 678,
-      "measuredMs": 49
+      "measuredMs": 40
     },
     "queue.toggle": {
       "issue": 673,
