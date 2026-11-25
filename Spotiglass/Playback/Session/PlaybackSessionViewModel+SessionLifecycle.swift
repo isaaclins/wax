@@ -197,6 +197,7 @@ extension PlaybackSessionViewModel {
         setTransportStateKnown(false)
         latestPlayerSnapshot = nil
         connectDevices = []
+        connectDevicesRefreshFailed = false
         lastConnectDevicesRefreshAt = nil
         connectDevicesRefreshTask?.cancel()
         connectDevicesRefreshTask = nil

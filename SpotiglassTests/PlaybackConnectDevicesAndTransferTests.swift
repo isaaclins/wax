@@ -70,6 +70,25 @@ final class PlaybackConnectDevicesAndTransferTests: XCTestCase {
         XCTAssertFalse(viewModel.connectDevicesRefreshFailed)
     }
 
+    /// Disconnecting empties the device list; the "may be out of date" heading has to go with it,
+    /// or the next session's menu starts out marked stale.
+    func testDisconnectClearsTheOutOfDateMark() async {
+        let playbackAPI = MockPlaybackAPI()
+        playbackAPI.availableDevices = [
+            MusicPlaybackDevice(deviceID: "phone", isActive: false, isRestricted: false, name: "Phone", type: "smartphone")
+        ]
+        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()))
+        await viewModel.refreshConnectDevices(force: true)
+        playbackAPI.fetchAvailableDevicesErrors = [SpotifyAPIError.unauthorized]
+        await viewModel.refreshConnectDevices(force: true)
+        XCTAssertTrue(viewModel.connectDevicesRefreshFailed)
+
+        await viewModel.disconnect()
+
+        XCTAssertTrue(viewModel.connectDevices.isEmpty)
+        XCTAssertFalse(viewModel.connectDevicesRefreshFailed, "the stale mark outlived the list it described")
+    }
+
     /// Auto-resume read a failed device list as "no Wax device playing" and gave up (#598): it
     /// now asks once more and moves playback here when the second list loads.
     func testAutoResumeAsksForTheDeviceListAgainAfterAFetchError() async {
