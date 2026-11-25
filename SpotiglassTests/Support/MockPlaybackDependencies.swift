@@ -70,6 +70,8 @@ final class MockWebPlaybackCommander: WebPlaybackCommanding {
     var onSendWithPayload: ((PlaybackBridgeCommand, [String: Any]) async -> Void)?
     var onGenerationSend: ((PlaybackBridgeCommand, PlaybackHostGeneration) async -> Void)?
     var onLoadHost: ((PlaybackHostGeneration) -> Void)?
+    /// Thrown by every send of this command after it is recorded (the page's script failing).
+    var failingCommands: [PlaybackBridgeCommand: Error] = [:]
 
     func loadHost(generation: PlaybackHostGeneration) {
         stateLock.lock()
@@ -85,6 +87,7 @@ final class MockWebPlaybackCommander: WebPlaybackCommanding {
         record(command: command, payload: payload)
         await onSendWithPayload?(command, payload)
         await onSend?(command)
+        if let error = failingCommands[command] { throw error }
     }
 
     func send(
@@ -326,6 +329,7 @@ final class MockPlaybackAPI: SpotifyPlaybackControlling {
         var onSetShuffle: ((Bool) async -> Void)?
         var setRepeatError: Error?
         var fetchPlayerSnapshotError: Error?
+        var fetchAvailableDevicesErrors: [Error] = []
         var seekError: Error?
         var nextError: Error?
         var previousError: Error?
@@ -421,6 +425,11 @@ final class MockPlaybackAPI: SpotifyPlaybackControlling {
     var fetchPlayerSnapshotError: Error? {
         get { locked { $0.fetchPlayerSnapshotError } }
         set { locked { $0.fetchPlayerSnapshotError = newValue } }
+    }
+    /// FIFO of errors thrown by `fetchAvailableDevices`. Empty queue means the list loads.
+    var fetchAvailableDevicesErrors: [Error] {
+        get { locked { $0.fetchAvailableDevicesErrors } }
+        set { locked { $0.fetchAvailableDevicesErrors = newValue } }
     }
     var playErrors: [Error] {
         get { locked { $0.playErrors } }
@@ -631,6 +640,9 @@ final class MockPlaybackAPI: SpotifyPlaybackControlling {
         actionRecorder.append("fetchAvailableDevices")
         await onFetchAvailableDevices?()
         await fetchAvailableDevicesHold?.pass()
+        if let error = locked({ $0.fetchAvailableDevicesErrors.isEmpty ? nil : $0.fetchAvailableDevicesErrors.removeFirst() }) {
+            throw error
+        }
         return availableDevices
     }
 

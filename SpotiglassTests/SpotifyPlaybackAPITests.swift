@@ -511,11 +511,13 @@ final class SpotifyPlaybackAPITests: XCTestCase {
             (500, [:], { if case .server = $0 { true } else { false } })
         ]
         for (status, headers, validate) in cases {
-            let (api, _, _) = makeAPI([.json(
+            let response = QueueHTTPClient.Response.json(
                 #"{"error":{"status":\#(status),"message":"oops"}}"#,
                 statusCode: status,
                 headers: headers
-            )])
+            )
+            // A 401 is sent once more with a refreshed token; it maps when that one is refused too.
+            let (api, _, _) = makeAPI(status == 401 ? [response, response] : [response])
             do {
                 try await api.next(deviceID: "d")
                 XCTFail("expected throw for \(status)")
@@ -670,6 +672,55 @@ final class SpotifyPlaybackAPITests: XCTestCase {
     }
 }
 
+// MARK: - 401 refresh (#598)
+
+extension SpotifyPlaybackAPITests {
+    /// The player poll got a 401 when the token ran out between refreshes: it went to the player
+    /// as is and the bar kept reading every 2 s. Now the token is refreshed once and the read
+    /// sent again, like the rest of the API does.
+    func testPlayerRead401RefreshesTheTokenOnceAndAsksAgain() async throws {
+        let http = QueueHTTPClient([
+            .json(#"{"error":{"status":401,"message":"The access token expired"}}"#, statusCode: 401),
+            .json(#"{"shuffle_state":false,"repeat_state":"off","is_playing":true,"device":null,"item":null}"#)
+        ])
+        let token = RefreshingPlaybackTokenProvider()
+        let api = SpotifyPlaybackAPI(tokenProvider: token, httpClient: http)
+
+        let snapshot = try await api.fetchPlayerSnapshot()
+
+        XCTAssertEqual(snapshot?.isPlaying, true)
+        XCTAssertEqual(token.rejectedTokens, ["old"])
+        XCTAssertEqual(http.requests.map { $0.value(forHTTPHeaderField: "Authorization") }, ["Bearer old", "Bearer new"])
+    }
+
+    func testPlayerCommand401RefreshesTheTokenOnceAndSendsAgain() async throws {
+        let http = QueueHTTPClient([
+            .json(#"{"error":{"status":401,"message":"The access token expired"}}"#, statusCode: 401),
+            .json("", statusCode: 204)
+        ])
+        let token = RefreshingPlaybackTokenProvider()
+        let api = SpotifyPlaybackAPI(tokenProvider: token, httpClient: http)
+
+        try await api.pause(deviceID: "d")
+
+        XCTAssertEqual(token.rejectedTokens, ["old"])
+        XCTAssertEqual(http.requests.map { $0.value(forHTTPHeaderField: "Authorization") }, ["Bearer old", "Bearer new"])
+    }
+
+    /// A second 401 means the sign-in itself is gone: no third request, and the player hears
+    /// "unauthorized" (shown as "sign in again").
+    func testPlayerRead401TwiceThrowsUnauthorizedWithoutAThirdRequest() async {
+        let refused = QueueHTTPClient.Response.json(#"{"error":{"status":401,"message":"Invalid access token"}}"#, statusCode: 401)
+        let http = QueueHTTPClient([refused, refused, refused])
+        let token = RefreshingPlaybackTokenProvider()
+        let api = SpotifyPlaybackAPI(tokenProvider: token, httpClient: http)
+
+        await XCTAssertThrowsSpotifyAPIError(try await api.fetchPlayerSnapshot(), .unauthorized)
+        XCTAssertEqual(http.requests.count, 2)
+        XCTAssertEqual(token.rejectedTokens, ["old"])
+    }
+}
+
 // MARK: - Test support
 
 @MainActor
@@ -678,6 +729,22 @@ private final class StaticPlaybackTokenProvider: PlaybackAccessTokenProviding {
     init(token: String) { self.token = token }
     func playbackAccessToken() async throws -> String { token }
     func refreshedPlaybackAccessToken() async throws -> String { token }
+}
+
+/// Hands out "old" until a 401 asks for a refresh, then "new".
+@MainActor
+private final class RefreshingPlaybackTokenProvider: PlaybackAccessTokenProviding {
+    private var token = "old"
+    private(set) var rejectedTokens: [String] = []
+    func playbackAccessToken() async throws -> String { token }
+    func refreshedPlaybackAccessToken() async throws -> String {
+        token = "new"
+        return token
+    }
+    func refreshedPlaybackAccessToken(afterRejecting rejectedToken: String) async throws -> String {
+        rejectedTokens.append(rejectedToken)
+        return try await refreshedPlaybackAccessToken()
+    }
 }
 
 private final class FlakyThenJSONHTTPClient: HTTPClient, @unchecked Sendable {

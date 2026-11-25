@@ -877,11 +877,6 @@
     "code": "try? await provider.disconnectPlayer(generation: generation)"
   },
   {
-    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SessionLifecycle.swift",
-    "rule": "try-reason",
-    "code": "try? await self.provider.connectPlayer(generation: generation)"
-  },
-  {
     "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+ShuffleRepeat.swift",
     "rule": "catch-drops-error",
     "code": "} catch {"
@@ -922,22 +917,6 @@
     "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SkipAndPlayPause.swift",
     "rule": "try-reason",
     "code": "try? await self.clock.sleep("
-  },
-  {
-    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SkipAndPlayPause.swift",
-    "rule": "try-reason",
-    "code": "try? await self?.provider.setInAppPlayerPlaying(!later.shouldPause, commandID: later.serial)"
-  },
-  {
-    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SkipAndPlayPause.swift",
-    "rule": "try-reason",
-    "code": "try? await sendReadPlayerCommand(later, deviceID: deviceID)"
-  },
-  {
-    "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+SpotifyTransportRead.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }",
-    "count": 3
   },
   {
     "file": "Spotiglass/Playback/Session/PlaybackSessionViewModel+Timers.swift",

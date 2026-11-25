@@ -1508,6 +1508,40 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         XCTAssertTrue(Self.isPlaying(session))
     }
 
+    /// The page never answers a pause and never reports a state: once the waits end, the
+    /// controls go back to the playing it last confirmed and the bar says the pause didn't
+    /// happen, instead of keeping a pause icon for music that may still play (#598).
+    func testSpotifyAPauseThePageNeverAnswersGoesBackToTheConfirmedState() async {
+        let clock = ManualPlaybackClock()
+        let (_, session) = playingSpotify(clock: clock)
+        session.inAppCommandAckTimeout = .milliseconds(20)
+        session.pushedPlayStateExpectationTimeout = .milliseconds(20)
+
+        await session.requestTogglePlayPause()?.value
+        XCTAssertTrue(Self.isPaused(session))
+        let reportWait = session.pushedPlayStateExpectationTask
+        await Self.endAckWait(session, on: clock)
+        await Self.endReportWait(reportWait, of: session, on: clock)
+
+        XCTAssertTrue(Self.isPlaying(session), "the pause nobody answered stayed on screen")
+        XCTAssertEqual(session.refusedPlayPause?.title, SpotiglassL10n.string("playback.refused.pause"))
+    }
+
+    /// A pause the page answered (finished) but never reported keeps the pause: the page
+    /// confirmed it ran.
+    func testSpotifyAPauseThePageRanButNeverReportedStaysPaused() async {
+        let clock = ManualPlaybackClock()
+        let (_, session) = playingSpotify(clock: clock)
+        session.pushedPlayStateExpectationTimeout = .milliseconds(20)
+
+        await session.requestTogglePlayPause()?.value
+        session.handle(.playerCommandFinished(command: "pause", id: session.playPauseRequestSerial))
+        await Self.endReportWait(session.pushedPlayStateExpectationTask, of: session, on: clock)
+
+        XCTAssertTrue(Self.isPaused(session))
+        XCTAssertNil(session.refusedPlayPause)
+    }
+
     /// Any other command the page fails still shows the error, as before.
     func testSpotifyPageFailingAnotherCommandShowsTheError() {
         let (_, session) = playingSpotify()

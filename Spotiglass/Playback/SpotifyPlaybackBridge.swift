@@ -5,6 +5,15 @@ import WebKit
 protocol PlaybackAccessTokenProviding: AnyObject {
     func playbackAccessToken() async throws -> String
     func refreshedPlaybackAccessToken() async throws -> String
+    /// Called after Spotify answered 401 for `rejectedToken`. A provider that already holds a
+    /// newer token (another request's 401 refreshed it) returns that one instead of refreshing again.
+    func refreshedPlaybackAccessToken(afterRejecting rejectedToken: String) async throws -> String
+}
+
+extension PlaybackAccessTokenProviding {
+    func refreshedPlaybackAccessToken(afterRejecting rejectedToken: String) async throws -> String {
+        try await refreshedPlaybackAccessToken()
+    }
 }
 
 final class PlaybackTokenBridge {

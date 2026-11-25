@@ -218,6 +218,9 @@ final class PlaybackSessionViewModel: ObservableObject {
     @PublishedWhenChanged private(set) var isTransportStateKnown = false
     /// Spotify Connect devices from `GET /v1/me/player/devices`.
     @PublishedWhenChanged var connectDevices: [MusicPlaybackDevice] = []
+    /// True while the last `connectDevices` refresh failed: the list above is the last one that
+    /// loaded and may be out of date (#598).
+    @PublishedWhenChanged var connectDevicesRefreshFailed = false
     /// Core Audio output-capable devices (system default output picker).
     @PublishedWhenChanged var macAudioOutputDevices: [MacAudioOutputDevice] = []
     /// Current HAL default output device id (for menu checkmarks).
@@ -487,6 +490,8 @@ final class PlaybackSessionViewModel: ObservableObject {
     var connectDevicesRefreshGeneration: PlaybackHostGeneration?
     var lastConnectDevicesRefreshAt: ContinuousClock.Instant?
     let connectDevicesFreshnessWindow: Duration
+    /// How long auto-resume waits before asking for the device list once more after it failed.
+    let autoResumeDeviceListRetryDelay: Duration
     let playbackHostHardReloadCooldown: Duration
     let playbackHostHardReloadWindow: Duration
     let playbackHostHardReloadWindowMax: Int
@@ -787,6 +792,7 @@ final class PlaybackSessionViewModel: ObservableObject {
         seekMatchToleranceMilliseconds: Int = 1_250,
         playCommandDedupeWindow: Duration = .milliseconds(400),
         connectDevicesFreshnessWindow: Duration = .seconds(3),
+        autoResumeDeviceListRetryDelay: Duration = .seconds(2),
         skipCommandMinimumSpacing: Duration = .milliseconds(350),
         skipCommandLockoutTimeout: Duration = .seconds(2),
         autoTransferRollingWindow: Duration = .seconds(60),
@@ -820,6 +826,7 @@ final class PlaybackSessionViewModel: ObservableObject {
         self.volumeMatchTolerance = volumeMatchTolerance
         self.playCommandDedupeWindow = playCommandDedupeWindow
         self.connectDevicesFreshnessWindow = connectDevicesFreshnessWindow
+        self.autoResumeDeviceListRetryDelay = autoResumeDeviceListRetryDelay
         self.skipCommandMinimumSpacing = skipCommandMinimumSpacing
         self.skipCommandLockoutTimeout = skipCommandLockoutTimeout
         self.autoTransferRollingWindow = autoTransferRollingWindow

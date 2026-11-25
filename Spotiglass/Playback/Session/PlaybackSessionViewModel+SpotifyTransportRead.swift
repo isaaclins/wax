@@ -106,11 +106,17 @@ extension PlaybackSessionViewModel {
                 if Self.isBenignTransportSyncCancellation(error) {
                     break
                 }
-                if Self.isMissingPlaybackScope(error) {
+                if Self.isMissingPlaybackScope(error) || Self.isSignInExpired(error) {
                     // A stale OAuth grant is actionable: stop polling the same
                     // denied request and put the existing Account ▸ Reconnect
                     // path in front of the user instead of leaving an empty
-                    // transport behind.
+                    // transport behind. A 401 lands here only after the API
+                    // already refreshed the token once (#598): without this the
+                    // bar kept the last song as playing and read it every 2 s.
+                    SpotiglassLog.error(
+                        .playback,
+                        "Player read failed endpoint=GET /v1/me/player error=\(SpotiglassLog.describe(error)); showing the error and stopping reads"
+                    )
                     setConnectionState(.error(Self.displayError(for: error, service: service)))
                     transportTransientErrorCount = 0
                     transportRateLimitedUntil = nil
@@ -305,6 +311,10 @@ extension PlaybackSessionViewModel {
         MusicPlaybackError.from(error)?.reason == .missingPermission
     }
 
+    private static func isSignInExpired(_ error: Error) -> Bool {
+        MusicPlaybackError.from(error)?.reason == .signInExpired
+    }
+
     private static func isBenignTransportSyncCancellation(_ error: Error) -> Bool {
         if error is CancellationError { return true }
         if let urlError = error as? URLError, urlError.code == .cancelled { return true }
@@ -328,18 +338,21 @@ extension PlaybackSessionViewModel {
         }
     }
 
+    /// Returns false when the list couldn't be read; `connectDevices` then still holds the last
+    /// list that loaded and `connectDevicesRefreshFailed` is set.
+    @discardableResult
     func refreshConnectDevices(
         force: Bool = false,
         generation: PlaybackHostGeneration? = nil
-    ) async {
+    ) async -> Bool {
         let generation = generation ?? playbackHostGeneration
-        guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
+        guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return true }
         // Services without device transfer have no device list to show.
-        guard let deviceTransfer = provider.deviceTransfer else { return }
+        guard let deviceTransfer = provider.deviceTransfer else { return true }
         if !force,
            let lastConnectDevicesRefreshAt,
            clock.now < lastConnectDevicesRefreshAt.advanced(by: connectDevicesFreshnessWindow) {
-            return
+            return true
         }
 
         if let inFlight = connectDevicesRefreshTask,
@@ -347,15 +360,17 @@ extension PlaybackSessionViewModel {
             isRefreshingConnectDevices = true
             do {
                 let devices = try await inFlight.value
-                guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
-                connectDevices = devices
-                lastConnectDevicesRefreshAt = clock.now
-                refreshTrayOutputSymbol()
+                guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return true }
+                applyRefreshedConnectDevices(devices)
             } catch {
-                guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
-                connectDevices = []
+                if !(error is CancellationError) {
+                    SpotiglassLog.error(.playback, Self.connectDevicesRefreshFailureLine(error, kept: connectDevices.count))
+                }
+                guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return false }
+                connectDevicesRefreshFailed = true
+                return false
             }
-            return
+            return true
         }
 
         if connectDevicesRefreshTask != nil {
@@ -379,14 +394,30 @@ extension PlaybackSessionViewModel {
         }
         do {
             let devices = try await refreshTask.value
-            guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
-            connectDevices = devices
-            lastConnectDevicesRefreshAt = clock.now
-            refreshTrayOutputSymbol()
+            guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return true }
+            applyRefreshedConnectDevices(devices)
+            return true
         } catch {
-            guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
-            connectDevices = []
+            if !(error is CancellationError) {
+                SpotiglassLog.error(.playback, Self.connectDevicesRefreshFailureLine(error, kept: connectDevices.count))
+            }
+            guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return false }
+            connectDevicesRefreshFailed = true
+            return false
         }
+    }
+
+    private func applyRefreshedConnectDevices(_ devices: [MusicPlaybackDevice]) {
+        connectDevices = devices
+        connectDevicesRefreshFailed = false
+        lastConnectDevicesRefreshAt = clock.now
+        refreshTrayOutputSymbol()
+    }
+
+    /// A failed refresh keeps the last list it had (marked out of date in the menu) instead of
+    /// emptying it, so the menu and auto-resume still have the devices that were there (#598).
+    private static func connectDevicesRefreshFailureLine(_ error: Error, kept: Int) -> String {
+        "Connect device refresh failed endpoint=GET /v1/me/player/devices error=\(SpotiglassLog.describe(error)); kept the last \(kept) devices"
     }
 
     func noteLocalPlaybackMutation(

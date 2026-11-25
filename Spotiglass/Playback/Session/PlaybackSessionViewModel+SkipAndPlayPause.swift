@@ -271,7 +271,15 @@ extension PlaybackSessionViewModel {
               later.serial > playPauseSupersededThrough,
               let deviceID = later.deviceID else { return }
         SpotiglassLog.info(.playback, "togglePlayPause sending the latest press again after an earlier one finished late")
-        try? await sendReadPlayerCommand(later, deviceID: deviceID)
+        do {
+            try await sendReadPlayerCommand(later, deviceID: deviceID)
+        } catch {
+            SpotiglassLog.error(
+                .playback,
+                "togglePlayPause re-send of \(later.shouldPause ? "pause" : "resume") deviceID=\(deviceID) failed: \(SpotiglassLog.describe(error))"
+            )
+            refusePlayPause(later, error: error)
+        }
     }
 
     /// The bar's line for a refused press, in place of the artist: "Couldn't pause" as the
@@ -366,7 +374,16 @@ extension PlaybackSessionViewModel {
         SpotiglassLog.info(.playback, "Spotify playback SDK answered \(request.inAppCommand) late; sending the latest press again")
         pageReportedPlayState = later.stateAfter
         Task { @MainActor [weak self] in
-            try? await self?.provider.setInAppPlayerPlaying(!later.shouldPause, commandID: later.serial)
+            guard let self else { return }
+            do {
+                try await self.provider.setInAppPlayerPlaying(!later.shouldPause, commandID: later.serial)
+            } catch {
+                SpotiglassLog.error(
+                    .playback,
+                    "Spotify playback SDK re-send of \(later.inAppCommand) failed: \(SpotiglassLog.describe(error))"
+                )
+                self.inAppPressFailed(later, error: error)
+            }
         }
     }
 
@@ -421,6 +438,24 @@ extension PlaybackSessionViewModel {
 
     static let inAppCommandsUnansweredLimit = 4
 
+    /// The page neither answered the latest press nor reported any state while it waited: the
+    /// controls go back to what the player last confirmed, as for a refusal, instead of keeping
+    /// the icon of a press that may never have landed (#598).
+    private func rollBackUnansweredInAppPress() {
+        guard let latest = lastSentInAppPress,
+              latest.serial == playPauseRequestSerial,
+              latest.sendsRequestedState,
+              ownsPlaybackHostGeneration(latest.generation),
+              inAppCommandInFlight?.serial == latest.serial
+                || inAppCommandsUnanswered.contains(where: { $0.serial == latest.serial })
+        else { return }
+        SpotiglassLog.error(
+            .playback,
+            "Spotify playback SDK never answered \(latest.inAppCommand) and reported no state after \(Self.durationSeconds(pushedPlayStateExpectationTimeout))s; going back to the last confirmed state"
+        )
+        refusePlayPause(latest, error: MusicPlaybackError(service: .spotify, reason: .failed, detail: "no answer to \(latest.inAppCommand)"))
+    }
+
     /// A new player page: nothing the old one owed earlier presses counts any more, and a new
     /// press doesn't queue behind one still stuck on the old page (its result is fenced by the
     /// generation anyway).
@@ -467,6 +502,8 @@ extension PlaybackSessionViewModel {
             if case .error = self.connectionState { return }
             if let held {
                 self.handle(held)
+            } else {
+                self.rollBackUnansweredInAppPress()
             }
         }
     }

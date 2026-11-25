@@ -294,6 +294,56 @@ final class PlaybackRecoveryAndPlaylistContextTests: XCTestCase {
         XCTAssertEqual(error.recoveryAction, .reconnect)
     }
 
+    /// Retry in the bar with no device started a new player without the connect timeout that
+    /// `start()` arms: a page that never said ready left the bar on a spinner with no button
+    /// until the app was quit (#598).
+    func testRetryWithoutADeviceEndsInARetryableErrorWhenThePlayerNeverConnects() async {
+        let clock = ManualPlaybackClock()
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()),
+            clock: clock,
+            playbackHostConnectTimeout: .milliseconds(20)
+        )
+        viewModel.setConnectionState(.error(Self.retryTransferError))
+        XCTAssertNil(viewModel.deviceID)
+
+        await viewModel.retryAfterError()
+        XCTAssertEqual(viewModel.connectionState, .connecting)
+        await Self.endConnectTimeout(of: viewModel, on: clock)
+
+        guard case let .error(error) = viewModel.connectionState else {
+            return XCTFail("Retry without a device stayed on \(viewModel.connectionState)")
+        }
+        XCTAssertEqual(error, PlaybackSessionViewModel.playbackHostConnectionTimedOutError())
+        XCTAssertNotNil(error.recoveryAction, "the error has no Retry")
+    }
+
+    /// The same retry when the page's connect call itself fails: it was dropped by `try?`.
+    func testRetryWithoutADeviceShowsTheErrorWhenConnectFails() async {
+        let commander = MockWebPlaybackCommander()
+        commander.failingCommands[.connect] = URLError(.cannotConnectToHost)
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: commander),
+            clock: ManualPlaybackClock()
+        )
+        viewModel.setConnectionState(.error(Self.retryTransferError))
+
+        await viewModel.retryAfterError()
+        await viewModel.playbackHostConnectTask?.value
+
+        guard case let .error(error) = viewModel.connectionState else {
+            return XCTFail("A failed connect on retry stayed on \(viewModel.connectionState)")
+        }
+        XCTAssertNotNil(error.recoveryAction, "the error has no Retry")
+        XCTAssertNil(viewModel.playbackHostConnectTimeoutTask, "the timeout outlived the error")
+    }
+
+    private static let retryTransferError = PlaybackDisplayError(
+        title: "Playback error",
+        message: "Moving playback here failed.",
+        recoveryAction: .retryTransfer
+    )
+
     /// Lets the connect timeout run out on the session's stepped clock, once it is armed (#510).
     private static func endConnectTimeout(of viewModel: PlaybackSessionViewModel, on clock: ManualPlaybackClock) async {
         let armed = await clock.waitForSleepers()
