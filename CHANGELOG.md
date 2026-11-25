@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.71] - 2026-11-25
+
+### Fixed
+
+- Next and previous now show the new song right away instead of waiting for Spotify to report it.
+
 ## [0.8.70] - 2026-11-25
 
 ### Fixed
