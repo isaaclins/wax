@@ -41,12 +41,6 @@ enum AppKitTestSupport {
         }
     }
 
-    /// The synchronous barrier, callable from an async test too, for the one test that has to
-    /// keep the main actor's own work held off (#693). Everything else uses ``settle(passes:)``.
-    static func settleRunLoopOnly(passes: Int = 3) {
-        settleRunLoop(passes: passes)
-    }
-
     private static func settleRunLoop(passes: Int) {
         for _ in 0..<passes {
             for window in NSApp?.windows ?? [] {
