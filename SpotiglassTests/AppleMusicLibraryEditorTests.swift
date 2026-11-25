@@ -3213,9 +3213,9 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
     }
 
     /// The same sequence: the late read shows [C, A], with C as a copy it doesn't list yet. A
-    /// newer read had C at the top, where the Music app has it, so this older read can't say
-    /// where it is: removing that C from what the late read showed is refused, and the Music app
-    /// is told nothing.
+    /// newer read placed C among the rows, and this older read only counts from its own rows, so
+    /// it would guess where the Music app has it (here the guess happens to be right). Removing
+    /// that C from what the late read showed is refused, and the Music app is told nothing.
     func testRemovingACopyANewerReadPlacedFromAnOlderViewIsRefused() async throws {
         knowSongB()
         knowSongCOnlyByItsPersistentID()
