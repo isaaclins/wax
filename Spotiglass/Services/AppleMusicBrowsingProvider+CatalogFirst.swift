@@ -162,7 +162,11 @@ extension AppleMusicBrowsingProvider {
     /// The songs and albums saved from the artist, for the page's "In your library" section;
     /// empty when nothing is saved.
     private func artistLibrarySection(id: String) async throws -> ([MusicTrack], [MusicArtistAlbum]) {
-        guard let saved = try await savedArtist(forPageID: id) else { return ([], []) }
+        // A page that shows the saved artist itself (Apple Music has no copy) already lists what
+        // was saved; the section would only repeat it.
+        guard try await catalogArtistID(forPageID: id) != nil,
+              let saved = try await savedArtist(forPageID: id)
+        else { return ([], []) }
         let albums = try await source.albums(of: saved, limit: Self.maxLibrarySectionAlbums)
         // The saved albums' songs, read a few albums at a time and kept in the albums' order.
         var songsByAlbum = [(album: Album, tracks: [Track])?](repeating: nil, count: albums.count)

@@ -3963,6 +3963,11 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
 
         XCTAssertEqual(artist.name, "Tainy")
         XCTAssertEqual(albums.map(\.id), [Self.savedAlbumID])
+        // The page is the saved artist's, so "In your library" would only repeat it.
+        let read = try await provider.artistPageExtras(id: Self.savedArtistID)
+        let extras = try XCTUnwrap(read)
+        XCTAssertTrue(extras.libraryTracks.isEmpty)
+        XCTAssertTrue(extras.libraryAlbums.isEmpty)
     }
 
     /// The page asks for its header, its releases and its top songs at once; finding the saved
