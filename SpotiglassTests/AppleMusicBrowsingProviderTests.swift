@@ -3800,8 +3800,6 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         // What was saved has its own section and doesn't replace the catalog's.
         XCTAssertEqual(extras.libraryTracks.map(\.name), ["Saved 0", "Saved 1"])
         XCTAssertEqual(extras.libraryAlbums.map(\.id), [Self.savedAlbumID])
-        // The card counts the whole album, as the page it opens does.
-        XCTAssertEqual(extras.libraryAlbums.first?.totalTracks, 14)
     }
 
     func testAnArtistOpenedFromSearchShowsTheCatalogAndWhatIsSaved() async throws {
@@ -3883,6 +3881,25 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         XCTAssertEqual(artist.uri, "\(AppleMusicItemMapping.uriScheme):artist:\(Self.catalogArtistID)")
         XCTAssertEqual(albums.map(\.name), ["Newer", "DATA", "Older"])
         XCTAssertFalse(source.calls.contains { $0.hasPrefix("catalogSearch(") })
+    }
+
+    /// A card in "In your library" gives the count of the page it opens (#400): the whole album
+    /// for a saved album that names its catalog album, the saved songs for an upload.
+    func testLibrarySectionCardsCountWhatTheirPageShows() async throws {
+        let source = try dataSavedWithoutCatalogIDs()
+        let uploadID = "-2222222222222222222"
+        let upload = try AppleMusicFixtures.album(id: uploadID, title: "Demo", trackCount: 10)
+        source.extraAlbumsByArtistID[Self.savedArtistID, default: []].append(upload)
+        source.albumsByID[uploadID] = upload
+        source.libraryAlbumsByID[uploadID] = upload
+        source.extraTracksByAlbumID[uploadID] = [Track.song(try AppleMusicFixtures.song(id: "-3333333333333333333", title: "Demo 1", artist: "Tainy", album: "Demo"))]
+        let provider = provider(source)
+
+        let read = try await provider.artistPageExtras(id: Self.savedArtistID)
+        let counts = Dictionary(uniqueKeysWithValues: try XCTUnwrap(read).libraryAlbums.map { ($0.id, $0.totalTracks) })
+
+        XCTAssertEqual(counts[Self.savedAlbumID], 14)
+        XCTAssertEqual(counts[uploadID], 1)
     }
 
     func testAnAlbumDoesntMarkASongOfTheSavedAlbumThatIsOnlyInAPlaylist() async throws {

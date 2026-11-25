@@ -190,10 +190,14 @@ extension AppleMusicBrowsingProvider {
                 tracks.append(AppleMusicItemMapping.track(track, album: album))
             }
         }
-        // The cards give the whole album's count, as its page does (it opens the catalog album, #400).
+        // A card gives the count its page shows (#400): the whole album for one that names its
+        // catalog album, which its page opens, else the saved songs (an upload, say).
         let ratings = albums.isEmpty ? [:] : await savedAlbumRatings(albums).known
         let mapped = albums.map { AppleMusicItemMapping.artistAlbum($0, catalogExplicit: ratings[$0.id.rawValue]) }
-        return (tracks, Self.newestFirst(mapped, dates: albums))
+        let withCatalogCopy = Set(albums.filter { Self.catalogID(of: $0) != nil }.map(\.id.rawValue))
+        let counted = try await Self.libraryCounted(mapped.filter { !withCatalogCopy.contains($0.id) }, source: source)
+        let countedByID = Dictionary(counted.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return (tracks, Self.newestFirst(mapped.map { countedByID[$0.id] ?? $0 }, dates: albums))
     }
 
     /// The saved copy of the artist a page was opened with, by either ID, else by name.

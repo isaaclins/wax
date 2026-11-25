@@ -75,6 +75,30 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         XCTAssertTrue(viewModel.selectedTrackRows.isEmpty)
     }
 
+    /// A selection across the top songs and the "In your library" section acts on all of it (#658).
+    func testASelectionIncludingLibrarySectionSongsTargetsThemToo() async {
+        let api = MockBrowsingAPI(playlistResults: [.success([])], trackResults: [:])
+        let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        let artist = MusicArtistDetail(
+            id: "artist-library-selection", name: "Library Selection", imageURL: nil,
+            followersTotal: nil, genres: [], uri: "applemusic:artist:artist-library-selection"
+        )
+        let top = PlaylistBrowsingTestFixtures.fallbackTrack(id: "top-1", name: "Top", artistId: artist.id)
+        let saved = PlaylistBrowsingTestFixtures.fallbackTrack(id: "saved-1", name: "Saved", artistId: artist.id)
+        viewModel.cachedArtistSnapshots[artist.id] = PlaylistBrowserViewModel.CachedArtistSnapshot(
+            snapshot: PlaylistBrowserViewModel.ArtistDetailSnapshot(
+                artistDetail: artist, albums: [], tracks: [top], usedStaleCache: false, paging: nil,
+                extras: MusicArtistPageExtras(topTracks: [top], libraryTracks: [saved])
+            ),
+            fetchedAt: Date()
+        )
+        await viewModel.selectArtist(id: artist.id)
+
+        XCTAssertEqual(viewModel.effectiveTrackTargets(forRowID: saved.id).map(\.id), [saved.id])
+        viewModel.selectedDetailTrackIDs = [top.id, saved.id]
+        XCTAssertEqual(viewModel.effectiveTrackTargets(forRowID: saved.id).map(\.id), [top.id, saved.id])
+    }
+
     func testSelectArtistLoadsFromNetworkOnMiss() async {
         let api = MockBrowsingAPI(
             playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])],

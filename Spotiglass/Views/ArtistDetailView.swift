@@ -78,6 +78,7 @@ struct ArtistDetailContent: View {
             && detail.appearsOn.isEmpty
             && !detail.canLoadMoreAlbums
             && !detail.isLoadingMoreAlbums
+            && !detail.hasLibrarySection
     }
 
     init(
