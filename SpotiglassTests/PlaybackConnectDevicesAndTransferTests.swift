@@ -48,6 +48,83 @@ final class PlaybackConnectDevicesAndTransferTests: XCTestCase {
         releaseTransfer.signal()
     }
 
+    /// A 401 or a longer outage on the device list emptied the menu without a word (#598): the
+    /// last list stays, marked as possibly out of date, until a refresh works again.
+    func testAFailedDeviceRefreshKeepsTheLastDevicesAndMarksThemOutOfDate() async {
+        let playbackAPI = MockPlaybackAPI()
+        playbackAPI.availableDevices = [
+            MusicPlaybackDevice(deviceID: "phone", isActive: false, isRestricted: false, name: "Phone", type: "smartphone")
+        ]
+        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()))
+        await viewModel.refreshConnectDevices(force: true)
+        XCTAssertEqual(viewModel.connectDevices.map(\.deviceID), ["phone"])
+
+        playbackAPI.fetchAvailableDevicesErrors = [SpotifyAPIError.unauthorized]
+        let listed = await viewModel.refreshConnectDevices(force: true)
+
+        XCTAssertFalse(listed)
+        XCTAssertEqual(viewModel.connectDevices.map(\.deviceID), ["phone"], "the failed refresh emptied the device menu")
+        XCTAssertTrue(viewModel.connectDevicesRefreshFailed)
+
+        await viewModel.refreshConnectDevices(force: true)
+        XCTAssertFalse(viewModel.connectDevicesRefreshFailed)
+    }
+
+    /// Disconnecting empties the device list; the "may be out of date" heading has to go with it,
+    /// or the next session's menu starts out marked stale.
+    func testDisconnectClearsTheOutOfDateMark() async {
+        let playbackAPI = MockPlaybackAPI()
+        playbackAPI.availableDevices = [
+            MusicPlaybackDevice(deviceID: "phone", isActive: false, isRestricted: false, name: "Phone", type: "smartphone")
+        ]
+        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()))
+        await viewModel.refreshConnectDevices(force: true)
+        playbackAPI.fetchAvailableDevicesErrors = [SpotifyAPIError.unauthorized]
+        await viewModel.refreshConnectDevices(force: true)
+        XCTAssertTrue(viewModel.connectDevicesRefreshFailed)
+
+        await viewModel.disconnect()
+
+        XCTAssertTrue(viewModel.connectDevices.isEmpty)
+        XCTAssertFalse(viewModel.connectDevicesRefreshFailed, "the stale mark outlived the list it described")
+    }
+
+    /// Auto-resume read a failed device list as "no Wax device playing" and gave up (#598): it
+    /// now asks once more and moves playback here when the second list loads.
+    func testAutoResumeAsksForTheDeviceListAgainAfterAFetchError() async {
+        let playbackAPI = MockPlaybackAPI()
+        playbackAPI.availableDevices = [
+            MusicPlaybackDevice(
+                deviceID: "stale-spotiglass",
+                isActive: true,
+                isRestricted: false,
+                name: SpotifyPlaybackHost.deviceName,
+                type: "computer"
+            )
+        ]
+        playbackAPI.fetchAvailableDevicesErrors = [SpotifyAPIError.unauthorized]
+        let transferRecorded = AsyncSignal()
+        playbackAPI.onTransferPlaybackCompleted = { _, _ in transferRecorded.signal() }
+        let clock = ManualPlaybackClock()
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()),
+            clock: clock
+        )
+
+        let resume = Task {
+            await viewModel.autoResumeFromStaleSpotiglassDeviceIfNeeded(targetDeviceID: "new-spotiglass")
+        }
+        let waiting = await clock.waitForSleepers()
+        XCTAssertTrue(waiting, "auto-resume gave up after the failed device list")
+        clock.advance(by: viewModel.autoResumeDeviceListRetryDelay)
+        await resume.value
+        let transferred = await transferRecorded.wait(timeout: .seconds(5))
+
+        XCTAssertTrue(transferred)
+        XCTAssertEqual(playbackAPI.actions.filter { $0 == "fetchAvailableDevices" }.count, 2)
+        XCTAssertTrue(playbackAPI.actions.contains { $0.hasPrefix("transfer:new-spotiglass") })
+    }
+
     func testDisconnectDuringAutoResumeDeviceRefreshSuppressesLateRefreshAndTransfer() async {
         let playbackAPI = MockPlaybackAPI()
         let staleDevice = MusicPlaybackDevice(

@@ -1508,6 +1508,86 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         XCTAssertTrue(Self.isPlaying(session))
     }
 
+    /// The page never answers a pause and never reports a state: once the waits end, the
+    /// controls go back to the playing it last confirmed and the bar says the pause didn't
+    /// happen, instead of keeping a pause icon for music that may still play (#598).
+    func testSpotifyAPauseThePageNeverAnswersGoesBackToTheConfirmedState() async {
+        let clock = ManualPlaybackClock()
+        let (_, session) = playingSpotify(clock: clock)
+        session.inAppCommandAckTimeout = .milliseconds(20)
+        session.pushedPlayStateExpectationTimeout = .milliseconds(20)
+
+        await session.requestTogglePlayPause()?.value
+        XCTAssertTrue(Self.isPaused(session))
+        let reportWait = session.pushedPlayStateExpectationTask
+        await Self.endAckWait(session, on: clock)
+        await Self.endReportWait(reportWait, of: session, on: clock)
+
+        XCTAssertTrue(Self.isPlaying(session), "the pause nobody answered stayed on screen")
+        XCTAssertEqual(session.refusedPlayPause?.title, SpotiglassL10n.string("playback.refused.pause"))
+    }
+
+    /// A pause the bar went back from because nobody answered, answered after all: the pause
+    /// landed, so the bar shows it again instead of playing over a paused player.
+    func testSpotifyAPauseAnsweredAfterTheBarWentBackShowsThePause() async {
+        let clock = ManualPlaybackClock()
+        let (_, session) = playingSpotify(clock: clock)
+        session.inAppCommandAckTimeout = .milliseconds(20)
+        session.pushedPlayStateExpectationTimeout = .milliseconds(20)
+
+        await session.requestTogglePlayPause()?.value
+        let reportWait = session.pushedPlayStateExpectationTask
+        await Self.endAckWait(session, on: clock)
+        await Self.endReportWait(reportWait, of: session, on: clock)
+        XCTAssertTrue(Self.isPlaying(session))
+
+        session.handle(.playerCommandFinished(command: "pause", id: session.playPauseRequestSerial))
+
+        XCTAssertTrue(Self.isPaused(session), "the late answer left the bar playing over a paused player")
+        XCTAssertNil(session.refusedPlayPause)
+    }
+
+    /// A pause the bar went back from, then pause and play pressed again, then the first pause
+    /// answered late: it may have landed after the play, so the play is sent again and wins.
+    func testSpotifyALateAnswerToARolledBackPauseIsFollowedByTheLatestPlayAgain() async {
+        let clock = ManualPlaybackClock()
+        let (commander, session) = playingSpotify(clock: clock)
+        session.inAppCommandAckTimeout = .milliseconds(20)
+        session.pushedPlayStateExpectationTimeout = .milliseconds(20)
+
+        await session.requestTogglePlayPause()?.value
+        let rolledBack = session.playPauseRequestSerial
+        let reportWait = session.pushedPlayStateExpectationTask
+        await Self.endAckWait(session, on: clock)
+        await Self.endReportWait(reportWait, of: session, on: clock)
+        XCTAssertTrue(Self.isPlaying(session))
+
+        await session.requestTogglePlayPause()?.value
+        session.handle(.playerCommandFinished(command: "pause", id: session.playPauseRequestSerial))
+        await session.requestTogglePlayPause()?.value
+        session.handle(.playerCommandFinished(command: "resume", id: session.playPauseRequestSerial))
+        session.handle(.playerCommandFinished(command: "pause", id: rolledBack))
+        await waitUntil("four commands on the page", changes: commander.changes) { Self.playPauseCommands(commander).count >= 4 }
+
+        XCTAssertEqual(Self.playPauseCommands(commander), [.pause, .pause, .resume, .resume], "the late pause had the last word")
+        XCTAssertTrue(Self.isPlaying(session))
+    }
+
+    /// A pause the page answered (finished) but never reported keeps the pause: the page
+    /// confirmed it ran.
+    func testSpotifyAPauseThePageRanButNeverReportedStaysPaused() async {
+        let clock = ManualPlaybackClock()
+        let (_, session) = playingSpotify(clock: clock)
+        session.pushedPlayStateExpectationTimeout = .milliseconds(20)
+
+        await session.requestTogglePlayPause()?.value
+        session.handle(.playerCommandFinished(command: "pause", id: session.playPauseRequestSerial))
+        await Self.endReportWait(session.pushedPlayStateExpectationTask, of: session, on: clock)
+
+        XCTAssertTrue(Self.isPaused(session))
+        XCTAssertNil(session.refusedPlayPause)
+    }
+
     /// Any other command the page fails still shows the error, as before.
     func testSpotifyPageFailingAnotherCommandShowsTheError() {
         let (_, session) = playingSpotify()

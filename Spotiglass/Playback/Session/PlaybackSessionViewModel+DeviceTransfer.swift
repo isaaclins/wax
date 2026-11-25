@@ -222,7 +222,26 @@ extension PlaybackSessionViewModel {
         let generation = generation ?? playbackHostGeneration
         guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
         guard !hasTransferredPlaybackToCurrentDevice else { return }
-        await refreshConnectDevices(force: true, generation: generation)
+        if await !refreshConnectDevices(force: true, generation: generation) {
+            guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
+            // A failed list used to read as "no Wax device playing" and auto-resume gave up
+            // without a word (#598). Ask once more; then go on with the last list that loaded.
+            SpotiglassLog.info(
+                .playback,
+                "Auto-resume couldn't read the device list; asking again in \(Self.durationSeconds(autoResumeDeviceListRetryDelay))s"
+            )
+            // try?: the sleep only throws when the task is cancelled, and the guard below stops then.
+            try? await clock.sleep(until: clock.now.advanced(by: autoResumeDeviceListRetryDelay), tolerance: nil)
+            guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
+            guard !hasTransferredPlaybackToCurrentDevice else { return }
+            if await !refreshConnectDevices(force: true, generation: generation) {
+                guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
+                SpotiglassLog.error(
+                    .playback,
+                    "Auto-resume couldn't read the device list twice; deciding from the last \(connectDevices.count) known devices"
+                )
+            }
+        }
         guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
         let devices = connectDevices
         guard let staleSpotiglass = devices.first(where: { device in

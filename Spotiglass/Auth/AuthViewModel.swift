@@ -754,6 +754,12 @@ extension AuthViewModel: PlaybackAccessTokenProviding {
     }
 }
 
+extension AuthViewModel {
+    func refreshedPlaybackAccessToken(afterRejecting rejectedToken: String) async throws -> String {
+        try await refreshAccessTokenAfterUnauthorized(rejectedToken: rejectedToken)
+    }
+}
+
 extension AuthViewModel: SpotifyScopeProviding {
     func grantedScopes() async -> Set<String> {
         if let currentSession {

@@ -356,7 +356,25 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
         request.httpMethod = "GET"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
 
+        let (data, response) = try await performGETWithRetry(request: request, path: path)
+        guard response.statusCode == 401 else { return (data, response) }
+        // The player's token ran out between refreshes: refresh it once, like the rest of the
+        // API does, and ask again. A second 401 goes to the player as "sign in again" (#598).
+        let refreshedToken = try await refreshedTokenAfterUnauthorized(accessToken, method: "GET", path: path)
+        request.setValue("Bearer \(refreshedToken)", forHTTPHeaderField: "Authorization")
         return try await performGETWithRetry(request: request, path: path)
+    }
+
+    private func refreshedTokenAfterUnauthorized(_ rejectedToken: String, method: String, path: String) async throws -> String {
+        SpotiglassLog.info(.api, "Spotify \(method) \(path) -> status=401; refreshing the token once and sending it again")
+        do {
+            return try await tokenProvider.refreshedPlaybackAccessToken(afterRejecting: rejectedToken)
+        } catch {
+            if !(error is CancellationError) {
+                SpotiglassLog.error(.api, "Spotify \(method) \(path) token refresh after 401 failed: \(SpotiglassLog.describe(error)); passed to the player")
+            }
+            throw error
+        }
     }
 
     private func performGETWithRetry(request: URLRequest, path: String) async throws -> (Data, HTTPURLResponse) {
@@ -449,6 +467,18 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
 
         let queryString = queryItems.map { "\($0.name)=\($0.value ?? "")" }.joined(separator: "&")
         SpotiglassLog.info(.api, "Spotify \(method) \(path)\(queryString.isEmpty ? "" : "?\(queryString)") body=\(bodyPreview)")
+        var (data, response) = try await performSend(request: request, method: method, path: path)
+        if response.statusCode == 401 {
+            let refreshedToken = try await refreshedTokenAfterUnauthorized(accessToken, method: method, path: path)
+            request.setValue("Bearer \(refreshedToken)", forHTTPHeaderField: "Authorization")
+            (data, response) = try await performSend(request: request, method: method, path: path)
+        }
+        guard (200..<300).contains(response.statusCode) || response.statusCode == 204 else {
+            throw mapPlaybackError(statusCode: response.statusCode, data: data, response: response)
+        }
+    }
+
+    private func performSend(request: URLRequest, method: String, path: String) async throws -> (Data, HTTPURLResponse) {
         let data: Data
         let response: HTTPURLResponse
         do {
@@ -460,9 +490,7 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
             throw error
         }
         SpotiglassLog.info(.api, "Spotify \(method) \(path) -> status=\(response.statusCode)")
-        guard (200..<300).contains(response.statusCode) || response.statusCode == 204 else {
-            throw mapPlaybackError(statusCode: response.statusCode, data: data, response: response)
-        }
+        return (data, response)
     }
 
     private func mapPlaybackError(statusCode: Int, data: Data, response: HTTPURLResponse) -> SpotifyAPIError {

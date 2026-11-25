@@ -100,6 +100,13 @@ extension PlaybackSessionViewModel {
         setActivePlaybackDeviceID(nil)
         setConnectionState(.connecting)
         deviceID = nil
+        connectPlaybackHost(generation: generation)
+    }
+
+    /// Loads and connects a fresh player for `generation` and arms the connect timeout.
+    /// Every way into `.connecting` goes through here, so none of them can spin forever:
+    /// the timeout is the only thing that ends `.connecting` when the SDK never says ready (#598).
+    private func connectPlaybackHost(generation: PlaybackHostGeneration) {
         SpotiglassLog.info(
             .playback,
             "Starting Spotify playback SDK connect generation=\(generation.rawValue) timeout=\(Self.durationSeconds(playbackHostConnectTimeout))s"
@@ -190,6 +197,7 @@ extension PlaybackSessionViewModel {
         setTransportStateKnown(false)
         latestPlayerSnapshot = nil
         connectDevices = []
+        connectDevicesRefreshFailed = false
         lastConnectDevicesRefreshAt = nil
         connectDevicesRefreshTask?.cancel()
         connectDevicesRefreshTask = nil
@@ -283,17 +291,7 @@ extension PlaybackSessionViewModel {
             setActivePlaybackDeviceID(nil)
             setConnectionState(.connecting)
             self.deviceID = nil
-            let generation = beginPlaybackHostLifecycle()
-            provider.loadPlayer(generation: generation)
-            playbackHostConnectTask = Task { [weak self] in
-                guard let self, self.ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
-                defer {
-                    if self.ownsPlaybackHostGeneration(generation) {
-                        self.playbackHostConnectTask = nil
-                    }
-                }
-                try? await self.provider.connectPlayer(generation: generation)
-            }
+            connectPlaybackHost(generation: beginPlaybackHostLifecycle())
             return
         }
         hasTransferredPlaybackToCurrentDevice = false

@@ -10285,6 +10285,29 @@
         }
       }
     },
+    "playback.controls.connectDevices.stale": {
+      "comment": "Heading for the Spotify Connect device group when the last refresh of the list failed and the devices shown may be out of date.",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect-Geräte (evtl. veraltet)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect devices (may be out of date)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dispositivos Connect (pueden estar desactualizados)"
+          }
+        }
+      }
+    },
     "playback.controls.macAudioOutputs": {
       "comment": "Heading for the Mac audio output selection group in the playback device menu.",
       "localizations": {

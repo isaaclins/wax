@@ -732,7 +732,12 @@ struct PlaybackControlsView: View {
                                 .disabled(device.isRestricted)
                             }
                         } label: {
-                            Text(SpotiglassL10n.string("playback.controls.connectDevices"))
+                            // A failed refresh keeps the last list; the heading says it may be old (#598).
+                            Text(SpotiglassL10n.string(
+                                viewModel.connectDevicesRefreshFailed
+                                    ? "playback.controls.connectDevices.stale"
+                                    : "playback.controls.connectDevices"
+                            ))
                         }
                         .pickerStyle(.inline)
 

@@ -225,6 +225,39 @@ final class PlaybackTransportPollingTests: XCTestCase {
         XCTAssertFalse(viewModel.isPlaybackTransportReady)
     }
 
+    /// Music playing on another Connect device, then the player read gets a 401 the API's one
+    /// token refresh couldn't fix: the bar kept the old song as playing and read again every
+    /// 2 s (#598). It now says "sign in again" and stops reading.
+    func testA401OnThePlayerReadSaysSignInAgainAndStopsReading() async {
+        let playbackAPI = MockPlaybackAPI()
+        playbackAPI.snapshotResponses = [MusicPlaybackSnapshot(
+            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+            activeDevice: MusicPlaybackDevice(deviceID: "phone-device", isActive: true, isRestricted: false, name: "Phone", type: "smartphone"),
+            isPlaying: true,
+            item: .track(PlaylistBrowsingTestFixtures.fallbackTrack(id: "remote", name: "Remote song", artistId: "a")),
+            progressMilliseconds: 42_000
+        )]
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()))
+        viewModel.deviceID = "local-device"
+        viewModel.setConnectionState(.ready(deviceID: "local-device"))
+        await viewModel.syncTransportFromSpotify()
+        guard case .playing = viewModel.connectionState else {
+            return XCTFail("Expected the remote song playing, got \(viewModel.connectionState)")
+        }
+        XCTAssertEqual(viewModel.currentTransportPollDelay(), .seconds(2))
+
+        playbackAPI.fetchPlayerSnapshotError = SpotifyAPIError.unauthorized
+        await viewModel.syncTransportFromSpotify()
+
+        guard case let .error(error) = viewModel.connectionState else {
+            return XCTFail("The 401 left the bar on \(viewModel.connectionState)")
+        }
+        XCTAssertEqual(error.recoveryAction, .reauthenticate)
+        XCTAssertEqual(error.title, SpotiglassL10n.string("error.playback.signInAgain.title"))
+        XCTAssertFalse(viewModel.shouldRunTransportPolling(), "the player is still read after the 401")
+    }
+
     func testRemoteSnapshotDrivesPlayingTransportWithInterpolatedProgress() async {
         let playbackAPI = MockPlaybackAPI()
         let remoteDevice = MusicPlaybackDevice(

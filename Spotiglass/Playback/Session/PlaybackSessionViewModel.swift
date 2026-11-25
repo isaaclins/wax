@@ -218,6 +218,9 @@ final class PlaybackSessionViewModel: ObservableObject {
     @PublishedWhenChanged private(set) var isTransportStateKnown = false
     /// Spotify Connect devices from `GET /v1/me/player/devices`.
     @PublishedWhenChanged var connectDevices: [MusicPlaybackDevice] = []
+    /// True while the last `connectDevices` refresh failed: the list above is the last one that
+    /// loaded and may be out of date (#598).
+    @PublishedWhenChanged var connectDevicesRefreshFailed = false
     /// Core Audio output-capable devices (system default output picker).
     @PublishedWhenChanged var macAudioOutputDevices: [MacAudioOutputDevice] = []
     /// Current HAL default output device id (for menu checkmarks).
@@ -487,6 +490,8 @@ final class PlaybackSessionViewModel: ObservableObject {
     var connectDevicesRefreshGeneration: PlaybackHostGeneration?
     var lastConnectDevicesRefreshAt: ContinuousClock.Instant?
     let connectDevicesFreshnessWindow: Duration
+    /// How long auto-resume waits before asking for the device list once more after it failed.
+    let autoResumeDeviceListRetryDelay: Duration
     let playbackHostHardReloadCooldown: Duration
     let playbackHostHardReloadWindow: Duration
     let playbackHostHardReloadWindowMax: Int
@@ -728,6 +733,9 @@ final class PlaybackSessionViewModel: ObservableObject {
     var lastSentReadPress: PlayPauseRequest?
     /// For Spotify's page: the latest press sent to it.
     var lastSentInAppPress: PlayPauseRequest?
+    /// The press the bar went back from because the page never answered it: if the page's answer
+    /// still comes, the press did land and the bar shows it after all (#598).
+    var inAppPressRolledBackSerial: UInt64?
     /// Until then, a read that disagrees with the last pause or resume doesn't use up the
     /// settle window: the service can report the old state for a few seconds (#437).
     var playPauseReadHoldUntil: ContinuousClock.Instant?
@@ -787,6 +795,7 @@ final class PlaybackSessionViewModel: ObservableObject {
         seekMatchToleranceMilliseconds: Int = 1_250,
         playCommandDedupeWindow: Duration = .milliseconds(400),
         connectDevicesFreshnessWindow: Duration = .seconds(3),
+        autoResumeDeviceListRetryDelay: Duration = .seconds(2),
         skipCommandMinimumSpacing: Duration = .milliseconds(350),
         skipCommandLockoutTimeout: Duration = .seconds(2),
         autoTransferRollingWindow: Duration = .seconds(60),
@@ -820,6 +829,7 @@ final class PlaybackSessionViewModel: ObservableObject {
         self.volumeMatchTolerance = volumeMatchTolerance
         self.playCommandDedupeWindow = playCommandDedupeWindow
         self.connectDevicesFreshnessWindow = connectDevicesFreshnessWindow
+        self.autoResumeDeviceListRetryDelay = autoResumeDeviceListRetryDelay
         self.skipCommandMinimumSpacing = skipCommandMinimumSpacing
         self.skipCommandLockoutTimeout = skipCommandLockoutTimeout
         self.autoTransferRollingWindow = autoTransferRollingWindow
