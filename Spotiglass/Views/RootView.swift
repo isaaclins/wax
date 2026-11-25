@@ -167,8 +167,49 @@ final class SpotiglassSceneRegistry: ObservableObject {
         guard let scene else { return }
         activeSceneCancellable = scene.objectWillChange
             .sink { [weak self] _ in
-                self?.objectWillChange.send()
+                self?.forwardAfterThisFrame()
             }
+    }
+
+    private var forwardIsScheduled = false
+
+    /// The menu bar and the app's scenes follow the active scene, and rebuilding them is slow. Done
+    /// in the frame that shows a change itself, it held that frame back: ⌥⌘S lit the shuffle button
+    /// after 65 ms instead of 29 (#677). So they hear of it once, right after that frame is drawn.
+    ///
+    /// SwiftUI then brings the menu bar's items up to date only when they are next needed, which
+    /// was the next shortcut: ⌥⌘S spent 25 ms on that before its action ran. Updating the menus
+    /// once SwiftUI has rebuilt them leaves the next shortcut nothing to catch up on.
+    private func forwardAfterThisFrame() {
+        guard !forwardIsScheduled else { return }
+        forwardIsScheduled = true
+        Self.afterThisFrame { [weak self] in
+            guard let self else { return }
+            forwardIsScheduled = false
+            objectWillChange.send()
+            Self.afterThisFrame {
+                func update(_ menu: NSMenu) {
+                    menu.update()
+                    for item in menu.items { item.submenu.map(update) }
+                }
+                NSApp?.mainMenu.map(update)
+            }
+        }
+    }
+
+    /// Runs `work` once, after the frame being built now is committed. Core Animation commits it in
+    /// a run loop observer at order 2000000 before the run loop sleeps; this one runs after it.
+    private static func afterThisFrame(_ work: @escaping @MainActor () -> Void) {
+        let observer = CFRunLoopObserverCreateWithHandler(
+            kCFAllocatorDefault,
+            CFRunLoopActivity.beforeWaiting.rawValue | CFRunLoopActivity.exit.rawValue,
+            false,
+            2_000_001
+        ) { observer, _ in
+            CFRunLoopObserverInvalidate(observer)
+            MainActor.assumeIsolated { work() }
+        }
+        CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
     }
 }
 
