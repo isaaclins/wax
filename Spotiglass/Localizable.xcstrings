@@ -12411,6 +12411,28 @@
         }
       }
     },
+    "queue.autoplay.status.heldAfterJumps": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausiert: Nach jedem Hinzufügen sprang der Titel weiter"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paused: songs skipped ahead after each add"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa: cada canción añadida hizo saltar la actual"
+          }
+        }
+      }
+    },
     "queue.autoplay.status.noMatches": {
       "localizations": {
         "de": {

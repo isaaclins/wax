@@ -159,10 +159,14 @@ enum QueueAutoplayRanking {
 }
 
 /// Autoplay for the queue (#613), like Autoplay in the Music app: while it is on, the queue
-/// never runs out. It fills the queue up to ``fillTarget`` songs from the recent queue's style,
-/// then adds one new song at the end each time a new song starts. Songs only ever go at the
-/// end, so what the listener queued stays where it was, and turning it off leaves the queue
-/// as it is. Each service's playback host owns one (``forService(_:session:provider:)``).
+/// never runs out. It keeps ``fillTarget`` songs queued after the current one, from the recent
+/// queue's style: each new song that leaves fewer than that ahead adds one at the end. While a
+/// long list is still ahead it leaves the queue alone (#735: on macOS 27 each add to a long
+/// library playlist was followed by the player jumping to the next song). If the player still
+/// moves on right after its adds, it stops adding until it is turned off and on again. Songs
+/// only ever go at the end, so what the listener queued stays where it was, and turning it off
+/// leaves the queue as it is. Each service's playback host owns one
+/// (``forService(_:session:provider:)``).
 @MainActor
 final class QueueAutoplay: ObservableObject {
     enum Status: Equatable {
@@ -175,6 +179,9 @@ final class QueueAutoplay: ObservableObject {
         case noMatches
         /// Reading the queue or adding failed; the next song tries again.
         case failed
+        /// The player moved to the next song right after Autoplay's adds again and again (#735),
+        /// so it stopped adding until it is turned off and on.
+        case heldAfterJumps
     }
 
     @Published private(set) var status: Status
@@ -212,8 +219,22 @@ final class QueueAutoplay: ObservableObject {
     private var knownTracks: [String: MusicTrack] = [:]
     private let historyLimit = 200
 
-    /// New songs that started and are each owed one added song.
+    /// New songs that started since the last look at the queue.
     private var owed = 0
+    /// When Autoplay's last add finished, to tell a song the player jumped to right after it
+    /// (#735) from one that started because the song before ended or was skipped.
+    private var lastAddAt: ContinuousClock.Instant?
+    /// New songs in a row that started within ``jumpWindow`` of an add.
+    private var jumpsAfterAdds = 0
+    private let now: () -> ContinuousClock.Instant
+    /// Whether Wax itself just moved the player to another song (a skip, a new play), so a new
+    /// song then is no jump.
+    private let songCommandSent: @MainActor () -> Bool
+    /// A new song this soon after an add is one the add made the player jump to: Autoplay adds
+    /// right after a song starts, and a song this short doesn't end on its own that soon.
+    static let jumpWindow: Duration = .milliseconds(1500)
+    /// After this many such jumps in a row Autoplay stops adding (#735).
+    static let jumpLimit = 2
     /// Set when Autoplay is turned on: fill up to ``fillTarget`` even if no song started yet.
     private var needsFill = false
     /// The running fill, if any; tests wait for it.
@@ -225,9 +246,15 @@ final class QueueAutoplay: ObservableObject {
         flag: StoredFlag = .queueAutoplay,
         fillTarget: Int = 8,
         windowSize: Int = 20,
-        addedSongWeight: Double = 0.5
+        addedSongWeight: Double = 0.5,
+        now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now },
+        songCommandSent: @escaping @MainActor () -> Bool = {
+            PlaybackTrace.shared.songCommand(within: AppleMusicSongChange.commandWindow) != nil
+        }
     ) {
         self.source = source
+        self.now = now
+        self.songCommandSent = songCommandSent
         self.flag = flag
         self.fillTarget = fillTarget
         self.windowSize = windowSize
@@ -289,6 +316,8 @@ final class QueueAutoplay: ObservableObject {
         guard isAvailable, enabled != flag.isOn else { return }
         objectWillChange.send()
         flag.isOn = enabled
+        jumpsAfterAdds = 0
+        lastAddAt = nil
         if enabled {
             status = .on
             needsFill = true
@@ -315,7 +344,27 @@ final class QueueAutoplay: ObservableObject {
         heardKeys.formUnion(keys)
         if let currentSeed { played.append(currentSeed) }
         if played.count > historyLimit { played.removeFirst(played.count - historyLimit) }
-        guard isEnabled else { return }
+        guard isEnabled, status != .heldAfterJumps else { return }
+        if let lastAddAt, lastAddAt.duration(to: now()) < Self.jumpWindow, !songCommandSent() {
+            jumpsAfterAdds += 1
+            SpotiglassLog.info(
+                .playback,
+                "Autoplay: a new song started \(lastAddAt.duration(to: now())) after my last add (\(jumpsAfterAdds) in a row)"
+            )
+            if jumpsAfterAdds >= Self.jumpLimit {
+                SpotiglassLog.error(
+                    .playback,
+                    "Autoplay stopped adding: the player moved to the next song right after each of my last \(jumpsAfterAdds) adds"
+                )
+                stopWorker()
+                owed = 0
+                needsFill = false
+                status = .heldAfterJumps
+                return
+            }
+        } else {
+            jumpsAfterAdds = 0
+        }
         owed += 1
         kick()
     }
@@ -342,12 +391,14 @@ final class QueueAutoplay: ObservableObject {
         currentSeed = nil
         knownTracks = [:]
         owed = 0
+        lastAddAt = nil
+        jumpsAfterAdds = 0
         needsFill = isEnabled
         if isEnabled { status = .on }
     }
 
     private func kick() {
-        guard worker == nil, isEnabled, player != nil else { return }
+        guard worker == nil, isEnabled, status != .heldAfterJumps, player != nil else { return }
         workerGeneration &+= 1
         let generation = workerGeneration
         worker = Task { @MainActor [weak self] in
@@ -387,7 +438,9 @@ final class QueueAutoplay: ObservableObject {
             guard isEnabled, !Task.isCancelled else { return }
             // Only queued songs can start next, so the table holds no more than the queue.
             knownTracks = Dictionary(upcoming.map { ($0.uri, $0) }, uniquingKeysWith: { first, _ in first })
-            let want = max(owedNow, fillTarget - upcoming.count)
+            // Only what keeps ``fillTarget`` songs ahead: a long list still ahead gets nothing
+            // added, so the player's queue isn't touched while it plays (#735).
+            let want = fillTarget - upcoming.count
             guard want > 0 else {
                 owed = max(0, owed - owedNow)
                 continue
@@ -435,6 +488,7 @@ final class QueueAutoplay: ObservableObject {
                 }
                 do {
                     try await player.autoplayAppend(track, isWanted: isWanted)
+                    lastAddAt = now()
                     addedKeys.formUnion(QueueAutoplayIdentity.keys(track))
                     knownTracks[track.uri] = track
                     spread.queued(track)
