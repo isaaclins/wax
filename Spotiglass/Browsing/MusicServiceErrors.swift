@@ -191,7 +191,7 @@ struct MusicLibraryPartialEditError: Error {
     let total: Int
     let underlying: Error
 
-    /// Runs `send` for each batch in order and logs a failure with how far the edit got. A
+    /// Runs `send` for each batch in order and logs a partial stop with how far the edit got. A
     /// failure after a batch went through throws this error; one before any did throws the
     /// request's own error, since nothing changed.
     static func sendingBatches<Item>(
@@ -206,11 +206,12 @@ struct MusicLibraryPartialEditError: Error {
             do {
                 try await send(batch)
             } catch {
+                // A failure before any batch went through is an ordinary failed request.
+                guard completed > 0 else { throw error }
                 SpotiglassLog.error(
                     .api,
                     "Library edit stopped at \(step): \(completed) of \(total) items done — \(error.localizedDescription)"
                 )
-                guard completed > 0 else { throw error }
                 throw MusicLibraryPartialEditError(step: step, completed: completed, total: total, underlying: error)
             }
             completed += count(batch)
