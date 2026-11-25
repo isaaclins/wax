@@ -347,7 +347,10 @@ final class WindowResizeCostTests: XCTestCase {
                 "PlaylistBrowserMainDetailColumn",
                 "PlaylistDetailContent",
             ] {
-                XCTAssertNil(counts[container], "\(action) the lyrics re-rendered \(container) \(counts[container] ?? 0) times")
+                XCTAssertNil(
+                    counts[container],
+                    "\(action) the lyrics re-rendered \(container) \(counts[container] ?? 0) times, with \(counts.keys.sorted())"
+                )
             }
             let rows = counts.keys.filter { name in ["TrackListRow:", "PlaylistListRow:"].contains(where: name.hasPrefix) }
             XCTAssertTrue(rows.isEmpty, "\(action) the lyrics re-rendered rows: \(rows.sorted().prefix(5))")
