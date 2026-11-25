@@ -14,10 +14,50 @@ enum AppKitTestSupport {
         }
     }
 
-    static func pumpRunLoop(for duration: TimeInterval = 0.12) {
-        let deadline = Date().addingTimeInterval(duration)
-        while Date() < deadline {
-            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.01))
+    /// Lets every window catch up with what the test just changed, without waiting for a fixed
+    /// time (#567): lays out and draws each window (which runs the pending SwiftUI updates and
+    /// starts the `.task`s they changed), then turns the main run loop until a turn finds nothing
+    /// left to handle, main-queue work included. Each pass ends the moment its work is done,
+    /// however busy the machine, so a check that something did NOT happen runs after the view had
+    /// its chance. It doesn't wait for timers or animations: wait for those with
+    /// ``pumpRunLoop(until:timeout:)`` and the condition the test needs.
+    ///
+    /// It asks the run loop whether it handled anything rather than queueing a marker on the main
+    /// queue: an async test already runs inside a main-queue job, and the main queue doesn't drain
+    /// nested inside one, so a marker would never run there.
+    static func settle(passes: Int = 3) {
+        settleRunLoop(passes: passes)
+    }
+
+    /// ``settle(passes:)`` for async tests. Their body runs inside a main-actor job, and the
+    /// synchronous barrier never lets other main-actor work (or the main queue) run however long
+    /// it turns: this one suspends after each pass so that work runs too, before a check that
+    /// something did NOT happen. Swift picks it in every async context, so an async test can't
+    /// settle without it by accident.
+    static func settle(passes: Int = 3) async {
+        for _ in 0..<passes {
+            settleRunLoop(passes: 1)
+            await ViewTestHost.renderPendingUpdates(passes: 1)
+        }
+    }
+
+    /// The synchronous barrier, callable from an async test too, for the one test that has to
+    /// keep the main actor's own work held off (#693). Everything else uses ``settle(passes:)``.
+    static func settleRunLoopOnly(passes: Int = 3) {
+        settleRunLoop(passes: passes)
+    }
+
+    private static func settleRunLoop(passes: Int) {
+        for _ in 0..<passes {
+            for window in NSApp?.windows ?? [] {
+                window.contentView?.layoutSubtreeIfNeeded()
+                window.displayIfNeeded()
+            }
+            // Bounded by turns, not time: a run loop that never goes idle stops here instead of
+            // hanging the test.
+            for _ in 0..<10_000 {
+                guard CFRunLoopRunInMode(.defaultMode, 0, true) == .handledSource else { break }
+            }
         }
     }
 
@@ -37,11 +77,24 @@ enum AppKitTestSupport {
         return true
     }
 
+    /// ``pumpRunLoop(until:timeout:)`` for async tests. Their body runs inside a main-actor job,
+    /// so a synchronous loop never lets other main-actor work (or the main queue) run however long
+    /// it spins: this one turns the run loop, then suspends so that work runs, until `condition`
+    /// holds. Returns whether it held before `timeout`, which is no time window either.
+    static func settle(until condition: () -> Bool, timeout: TimeInterval = mustHappenTimeout) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() {
+            guard Date() < deadline else { return false }
+            await settle(passes: 1)
+        }
+        return true
+    }
+
     @discardableResult
     static func makeFirstResponder(_ view: NSView, in window: NSWindow) -> Bool {
         activateAppIfNeeded()
         window.makeKeyAndOrderFront(nil)
-        pumpRunLoop()
+        settle()
         return window.makeFirstResponder(view)
     }
 
@@ -164,7 +217,7 @@ enum ViewTestHost {
         window.isReleasedWhenClosed = false
         windows.append(window)
         controller.view.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         return controller
     }
 
@@ -294,7 +347,7 @@ extension AppKitTestSupport {
         let deadline = Date().addingTimeInterval(mustHappenTimeout)
         var elements = try voiceOverReachableElements(in: window)
         while !done(elements), Date() < deadline {
-            pumpRunLoop(for: 0.02)
+            settle(passes: 1)
             elements = try voiceOverReachableElements(in: window)
         }
         return elements

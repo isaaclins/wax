@@ -10,7 +10,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         Self.suiteLock.lock()
         ImmersiveLyricsViewModel.resetSharedStateForTesting()
         super.setUp()
-        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        AppKitTestSupport.settle()
     }
 
     override func tearDown() {

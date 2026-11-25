@@ -247,7 +247,7 @@ final class AccountSettingsViewTests: XCTestCase {
 
         try view.inspect().find(button: SpotiglassL10n.string("settings.account.appleMusic.add")).tap()
         await waitUntil("access refused", changes: session.$state) { session.state == .denied }
-        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        await AppKitTestSupport.settle()
 
         XCTAssertEqual(store.services, [.spotify])
         XCTAssertNil(store.pendingAddition)

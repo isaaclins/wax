@@ -153,22 +153,33 @@ final class PlaybackPositionUpdateScopeTests: XCTestCase {
         playback.setConnectionState(.playing(track(at: 0)))
         let counter = RenderCounter()
         ViewTestHost.host(RenderProbe(playback: playback, counter: counter), size: CGSize(width: 320, height: 120))
-        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        AppKitTestSupport.settle()
         let outerBefore = counter.outer
         let progressBefore = counter.progress
         XCTAssertEqual(counter.lastPosition, 0)
 
+        // Each reading waits until the progress reader rendered that position, however late a
+        // busy machine gets to it, so SwiftUI never folds two readings into one render.
         for reading in 1...5 {
             playback.setConnectionState(.playing(track(at: reading * 1_000)))
-            AppKitTestSupport.pumpRunLoop(for: 0.05)
+            XCTAssertTrue(
+                AppKitTestSupport.pumpRunLoop(until: { counter.lastPosition == reading * 1_000 }),
+                "the progress reader never rendered reading \(reading)"
+            )
         }
+        // Anything else the readings caused renders before the outer view's count is checked.
+        AppKitTestSupport.settle()
 
         XCTAssertEqual(counter.outer, outerBefore, "the view around the progress must not re-render for a new position")
         XCTAssertGreaterThanOrEqual(counter.progress - progressBefore, 5)
         XCTAssertEqual(counter.lastPosition, 5_000)
 
         playback.setConnectionState(.paused(track(at: 5_100)))
-        AppKitTestSupport.pumpRunLoop(for: 0.05)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { counter.lastPosition == 5_100 }),
+            "the progress reader never rendered the pause"
+        )
+        AppKitTestSupport.settle()
         XCTAssertEqual(counter.outer, outerBefore + 1, "pausing re-renders what shows the play state")
         XCTAssertEqual(counter.lastPosition, 5_100)
     }
@@ -213,11 +224,11 @@ final class ScrubberTickCostTests: XCTestCase {
         window.orderFrontRegardless()
         windows.append(window)
         hosting.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        AppKitTestSupport.settle()
         return hosting
     }
 
-    func testAPlayingBarDoesNotLayOutTheWindowOnEveryTick() {
+    func testAPlayingBarDoesNotLayOutTheWindowOnEveryTick() throws {
         let hosting = host(
             PlaybackProgressScrubberGroup(
                 progressAnchor: playingAnchor(),
@@ -237,19 +248,36 @@ final class ScrubberTickCostTests: XCTestCase {
         )
 
         // The two time labels change once a second each, which still lays out the window: about 2
-        // passes a second. The track alone ticked 5 times a second here (600 pt, 4:00). The window
-        // runs at least 3 s and until the labels ticked again inside it, so it always measured
-        // ticks; a busy machine only fires both late, so the allowance follows the time that
-        // really passed.
+        // passes a second. The track alone ticks 5 times a second here (600 pt, 4:00), and each of
+        // its ticks schedules the next with a new timer. The measurement runs until the track
+        // itself ticked 12 times, not for a fixed time, so it always measured ticks however late a
+        // busy machine fires them; the labels' allowance follows the time that really passed.
+        let track = try XCTUnwrap(Self.trackView(in: hosting), "no scrubber track in the bar")
+        var lastTimer = track.tickTimer.map(ObjectIdentifier.init)
+        var trackTicks = 0
         hosting.layoutCount = 0
         let start = Date()
-        AppKitTestSupport.pumpRunLoop(for: 3)
         XCTAssertTrue(
-            AppKitTestSupport.pumpRunLoop(until: { hosting.layoutCount >= 1 }),
-            "the labels stopped ticking, so nothing was measured"
+            AppKitTestSupport.pumpRunLoop(until: {
+                let timer = track.tickTimer.map(ObjectIdentifier.init)
+                if timer != lastTimer {
+                    lastTimer = timer
+                    trackTicks += 1
+                }
+                return trackTicks >= 12
+            }),
+            "the track stopped ticking, so nothing was measured"
         )
         let seconds = Date().timeIntervalSince(start).rounded(.up)
         XCTAssertLessThanOrEqual(hosting.layoutCount, 2 * Int(seconds) + 3, "the moving track must not lay out the window")
+    }
+
+    private static func trackView(in view: NSView) -> ScrubberTrackCanvasView? {
+        if let track = view as? ScrubberTrackCanvasView { return track }
+        for subview in view.subviews {
+            if let track = trackView(in: subview) { return track }
+        }
+        return nil
     }
 
     func testTheTrackWakesOnlyWhilePlaying() throws {

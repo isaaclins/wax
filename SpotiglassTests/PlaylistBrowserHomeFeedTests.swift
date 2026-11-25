@@ -223,7 +223,9 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         refresh?.resume()
         await reload.value
         XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { browserVM.homeTopTracks.value == nil }))
-        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        // The failed refresh's last updates get their turn before the check that nothing turned
+        // Add to Queue back on.
+        await AppKitTestSupport.settle()
         XCTAssertFalse(palette.canEnqueueTrackSelection, "Add to Queue came back on after the refresh failed")
     }
 

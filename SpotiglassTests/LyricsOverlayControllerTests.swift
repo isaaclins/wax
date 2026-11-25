@@ -94,7 +94,7 @@ final class LyricsOverlayControllerTests: XCTestCase {
 
         XCTAssertTrue(AppKitTestSupport.makeFirstResponder(previousResponder, in: window))
         focusContainer.setActive(true)
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertTrue(
             window.firstResponder === focusContainer,
             "expected lyrics focus, got \(String(describing: window.firstResponder))"
@@ -140,7 +140,7 @@ final class LyricsOverlayControllerTests: XCTestCase {
         XCTAssertTrue(focusContainer.performKeyEquivalent(with: plainX))
 
         focusContainer.setActive(false)
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertTrue(
             window.firstResponder === previousResponder,
             "expected restored focus, got \(String(describing: window.firstResponder))"
@@ -181,7 +181,7 @@ final class LyricsOverlayControllerTests: XCTestCase {
 
         XCTAssertTrue(AppKitTestSupport.makeFirstResponder(previousResponder, in: window))
         focusContainer.setActive(true)
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertTrue(focusContainer.hasKeyboardFocus)
         XCTAssertFalse(focusContainer.keyboardFocusMovedAway)
 
@@ -206,7 +206,7 @@ final class LyricsOverlayControllerTests: XCTestCase {
         )
 
         focusContainer.setActive(false)
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertTrue(
             window.firstResponder === sidebar,
             "closing the lyrics moved the keyboard out of the sidebar to \(String(describing: window.firstResponder))"
@@ -256,7 +256,7 @@ final class LyricsOverlayControllerTests: XCTestCase {
         XCTAssertTrue(responder.isDescendant(of: focusContainer), "focus is outside the lyrics: \(responder)")
 
         focusContainer.setActive(false)
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertTrue(window.firstResponder === previousResponder, "closing the lyrics did not give focus back")
     }
 
@@ -301,7 +301,7 @@ final class LyricsOverlayControllerTests: XCTestCase {
         }
 
         focusContainer.setActive(true)
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertTrue(window.firstResponder === focusContainer)
         focusContainer.keyDown(with: keyDown(keyCode: 48, characters: "\t", windowNumber: window.windowNumber))
         XCTAssertTrue(

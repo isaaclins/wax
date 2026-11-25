@@ -161,7 +161,7 @@ final class CommandPaletteListRefreshTests: XCTestCase {
     private func settle(_ controller: NSHostingController<AnyView>) {
         for _ in 0 ..< 4 {
             controller.view.layoutSubtreeIfNeeded()
-            AppKitTestSupport.pumpRunLoop()
+            AppKitTestSupport.settle(passes: 1)
         }
     }
 

@@ -100,11 +100,7 @@ final class BrowserChromeViewsTests: XCTestCase {
         bars.update(color: CGColor(red: 0, green: 0.5, blue: 1, alpha: 1), isAnimating: false)
         for (index, bar) in layers.enumerated() {
             XCTAssertNil(bar.animation(forKey: WaveformBarsView.animationKey))
-            let frozen = PlayingWaveformIcon.barScale(
-                index: index,
-                baseFraction: PlayingWaveformIcon.bars[index].baseFraction,
-                isAnimating: false
-            )
+            let frozen = pausedScale(index)
             XCTAssertEqual(bar.transform.m22, frozen, accuracy: 0.0001)
         }
     }
@@ -129,18 +125,24 @@ final class BrowserChromeViewsTests: XCTestCase {
 
         let color = CGColor(red: 0, green: 0.5, blue: 1, alpha: 1)
         bars.update(color: color, isAnimating: true)
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        let layers = try XCTUnwrap(bars.layer?.sublayers)
+        // Pause once a bar has swung away from its paused height, however late a busy machine
+        // gets there, instead of after a fixed time (#567).
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: {
+                layers.enumerated().contains { index, bar in
+                    guard let scale = bar.presentation()?.value(forKeyPath: "transform.scale.y") as? CGFloat else { return false }
+                    return abs(scale - pausedScale(index)) > 0.01
+                }
+            }),
+            "the bars never swung"
+        )
         bars.update(color: color, isAnimating: false)
 
-        let layers = try XCTUnwrap(bars.layer?.sublayers)
         var eased = 0
         for (index, bar) in layers.enumerated() {
             XCTAssertNil(bar.animation(forKey: WaveformBarsView.animationKey))
-            let frozen = PlayingWaveformIcon.barScale(
-                index: index,
-                baseFraction: PlayingWaveformIcon.bars[index].baseFraction,
-                isAnimating: false
-            )
+            let frozen = pausedScale(index)
             XCTAssertEqual(bar.transform.m22, frozen, accuracy: 0.0001, "the bar rests at its paused height")
             guard let settle = bar.animation(forKey: WaveformBarsView.settleKey) as? CABasicAnimation else { continue }
             eased += 1
@@ -149,7 +151,7 @@ final class BrowserChromeViewsTests: XCTestCase {
             XCTAssertEqual(settle.repeatCount, 0)
             XCTAssertLessThanOrEqual(settle.duration, 0.3)
         }
-        // 0.3 s into the swing at least one bar is away from its paused height.
+        // Mid-swing at least one bar is away from its paused height.
         XCTAssertGreaterThan(eased, 0, "pausing mid-swing snapped every bar")
 
         // Playing again drops the ease and swings from the paused heights.
@@ -166,9 +168,9 @@ final class BrowserChromeViewsTests: XCTestCase {
         ViewTestHost.host(view, size: CGSize(width: 48, height: 32))
 
         driver.isPlaying = true
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         driver.isPlaying = false
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
 
         XCTAssertNoThrow(try view.inspect())
     }
@@ -483,7 +485,12 @@ final class BrowserWindowTitleTests: XCTestCase {
         window.setContentSize(CGSize(width: 1_100, height: 700))
         window.isReleasedWhenClosed = false
         self.window = window
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        // The bar's items come over from SwiftUI on a later turn of the run loop, however late.
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { self.queueButtonFrame(in: window) != nil }),
+            "the browser's bar never got its buttons"
+        )
+        AppKitTestSupport.settle()
         return window
     }
 
@@ -508,7 +515,8 @@ final class BrowserWindowTitleTests: XCTestCase {
         let homeQueue = try XCTUnwrap(queueButtonFrame(in: window))
 
         await viewModel.selectSidebar(.playlist("p1"))
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { window.title == "Focus" }), "the window never took the playlist's name")
+        await AppKitTestSupport.settle()
         XCTAssertEqual(window.title, "Focus")
         XCTAssertEqual(window.titleVisibility, .visible)
         // Without the title the bar's buttons slid over next to the sidebar button on Home and
@@ -518,7 +526,8 @@ final class BrowserWindowTitleTests: XCTestCase {
         XCTAssertGreaterThan(homeQueue.minX, window.frame.width / 2, "the bar's buttons left the trailing edge on Home")
 
         await viewModel.navigateBack()
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { window.title == home }), "the window never went back to Home's name")
+        await AppKitTestSupport.settle()
         XCTAssertEqual(viewModel.sidebarSelection, .home)
         XCTAssertEqual(window.title, home)
         XCTAssertEqual(window.titleVisibility, .hidden)
@@ -541,7 +550,11 @@ final class BrowserWindowTitleTests: XCTestCase {
         let playlistQueue = try XCTUnwrap(queueButtonFrame(in: window))
 
         await viewModel.selectSidebar(.home)
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { window.titleVisibility == .hidden }),
+            "the bar kept the playlist's title on Home"
+        )
+        await AppKitTestSupport.settle()
         XCTAssertTrue(viewModel.canNavigateBack, "Home should have somewhere to go back to")
         XCTAssertEqual(window.titleVisibility, .hidden)
         let backLabel = NavigationToolbarChrome.destinationDescription(for: viewModel, locale: SpotiglassL10n.locale)
@@ -568,12 +581,16 @@ final class BrowserWindowTitleTests: XCTestCase {
 
         // A pinned track selects its row while it starts playing, with Home still on screen.
         await viewModel.selectSidebar(.pinnedItem("pinned-track"))
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        await AppKitTestSupport.settle()
         XCTAssertEqual(window.title, ViewTestHost.localizedString("browser.home"))
         XCTAssertEqual(window.titleVisibility, .hidden)
 
         await viewModel.selectSidebar(nil)
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { window.title != ViewTestHost.localizedString("browser.home") }),
+            "the empty page kept Home's name"
+        )
+        await AppKitTestSupport.settle()
         XCTAssertNil(viewModel.sidebarSelection)
         XCTAssertNotEqual(window.title, ViewTestHost.localizedString("browser.home"))
         XCTAssertFalse(window.title.isEmpty, "the window keeps a real name (#161)")
@@ -599,7 +616,7 @@ final class BrowserWindowTitleTests: XCTestCase {
         window.setContentSize(CGSize(width: 900, height: 600))
         window.isReleasedWhenClosed = false
         self.window = window
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        AppKitTestSupport.settle()
 
         XCTAssertEqual(window.titleVisibility, .hidden)
         XCTAssertEqual(window.title, AppMetadata.displayName)
@@ -611,4 +628,13 @@ private final class TitleTestTokenProvider: PlaybackAccessTokenProviding, Spotif
     func refreshedPlaybackAccessToken() async throws -> String { "title-token" }
     func accessToken() async throws -> String { "title-token" }
     func refreshAccessTokenAfterUnauthorized(rejectedToken: String) async throws -> String { "title-token" }
+}
+
+/// The height a waveform bar rests at while paused.
+private func pausedScale(_ index: Int) -> CGFloat {
+    PlayingWaveformIcon.barScale(
+        index: index,
+        baseFraction: PlayingWaveformIcon.bars[index].baseFraction,
+        isAnimating: false
+    )
 }

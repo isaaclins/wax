@@ -123,7 +123,9 @@ final class MenuKeyEquivalentTests: XCTestCase {
 
     func testMenuKeyEquivalentsAreUniqueAcrossMenuTree() throws {
         AppKitTestSupport.activateAppIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 0.25)
+        // The app sets up its menus and AppKit hands it the Services menu on a later turn of the
+        // run loop: wait for both, however late that is.
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { NSApp.mainMenu != nil && NSApp.servicesMenu != nil }))
         let menu = try XCTUnwrap(NSApp.mainMenu)
         XCTAssertNotNil(
             NSApp.servicesMenu,

@@ -17,6 +17,9 @@ final class PlayPauseRenderScopeTests: XCTestCase {
 
     private static let trackIDs = (1...20).map { "t\($0)" }
 
+    /// How long the play/pause icon's swap animates (`PlaybackControlsView`).
+    private static let iconSwap = Duration.milliseconds(180)
+
     private static func nowPlaying(_ trackID: String) -> PlaybackNowPlaying {
         PlaybackNowPlaying(
             name: "Track \(trackID)",
@@ -44,13 +47,17 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         playing state: PlaybackConnectionState,
         provider: (any MusicPlaybackProvider)? = nil
     ) async throws -> PlaybackSessionViewModel {
+        let playlists = [
+            PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Focus"),
+            PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
+            PlaylistBrowsingTestFixtures.playlist(id: "p3", name: "Gym"),
+        ]
+        // The same library every time it's asked, as the service answers: the browser loads it
+        // again once the window is up.
         let api = MockBrowsingAPI(
-            playlistResults: [.success([
-                PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Focus"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p3", name: "Gym"),
-            ])],
-            trackResults: ["p1": [.success(tracks)]]
+            playlistResults: [],
+            trackResults: ["p1": [.success(tracks)]],
+            playlistsHandler: { playlists }
         )
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await browserVM.load()
@@ -72,23 +79,28 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         .environmentObject(store)
         .environmentObject(LyricsOverlayController())
         let controller = ViewTestHost.host(view, size: CGSize(width: 1_600, height: 1_400))
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        await AppKitTestSupport.settle()
         // The browser starts at a width of zero and collapses the sidebar; a widening brings it
         // back, as it does when a real window opens.
         controller.view.window?.setContentSize(NSSize(width: 1_700, height: 1_400))
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        await AppKitTestSupport.settle()
 
         playback.activePlaylistID = "p1"
         playback.setConnectionState(state)
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        await AppKitTestSupport.settle()
         return playback
     }
 
-    /// Runs `change` and returns which counted bodies ran because of it.
-    private func bodies(after change: () -> Void) -> [String: Int] {
+    /// Runs `change` and returns which counted bodies ran because of it: it waits until the
+    /// change rendered, however late a busy machine gets to it, then until everything the change
+    /// queued has run, so a body that runs late still counts and one that never runs had its chance.
+    /// Async, so the main-actor work the change starts runs while it waits, as it does in the app.
+    private func bodies(file: StaticString = #filePath, line: UInt = #line, after change: () -> Void) async -> [String: Int] {
         ViewBodyTally.counts = [:]
         change()
-        AppKitTestSupport.pumpRunLoop(for: 0.5)
+        let rendered = await AppKitTestSupport.settle(until: { !(ViewBodyTally.counts ?? [:]).isEmpty })
+        XCTAssertTrue(rendered, "the change rendered nothing", file: file, line: line)
+        await AppKitTestSupport.settle()
         defer { ViewBodyTally.counts = nil }
         return ViewBodyTally.counts ?? [:]
     }
@@ -123,21 +135,21 @@ final class PlayPauseRenderScopeTests: XCTestCase {
 
     func testPlayPauseRerendersOnlyThePlayingRowAndThePlayingPlaylist() async throws {
         let playback = try await hostBrowserPlaying()
-        let paused = bodies { playback.setConnectionState(.paused(Self.nowPlaying("t3"))) }
+        let paused = await bodies { playback.setConnectionState(.paused(Self.nowPlaying("t3"))) }
         assertOnlyTheRowsChanged(paused, tracks: ["t3"], playlists: ["p1"])
 
-        let resumed = bodies { playback.setConnectionState(.playing(Self.nowPlaying("t3"))) }
+        let resumed = await bodies { playback.setConnectionState(.playing(Self.nowPlaying("t3"))) }
         assertOnlyTheRowsChanged(resumed, tracks: ["t3"], playlists: ["p1"])
     }
 
     func testANewTrackRerendersOnlyTheOldAndTheNewPlayingRow() async throws {
         let playback = try await hostBrowserPlaying()
 
-        let next = bodies { playback.setConnectionState(.playing(Self.nowPlaying("t4"))) }
+        let next = await bodies { playback.setConnectionState(.playing(Self.nowPlaying("t4"))) }
         assertOnlyTheRowsChanged(next, tracks: ["t3", "t4"], playlists: [])
 
         // Starting another playlist moves the sidebar's playing mark from one row to the other.
-        let otherPlaylist = bodies {
+        let otherPlaylist = await bodies {
             playback.activePlaylistID = "p2"
             playback.setConnectionState(.playing(Self.nowPlaying("t5")))
         }
@@ -183,7 +195,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         let playback = try await hostBrowser(tracks: (0..<rowCount).map(song), playing: state(playing: true))
 
         for playing in [false, true] {
-            let counts = bodies { playback.setConnectionState(state(playing: playing)) }
+            let counts = await bodies { playback.setConnectionState(state(playing: playing)) }
             XCTAssertEqual(counts["TrackListPlaybackMarks.markedURI"], 1, "searches for the playing row")
             XCTAssertEqual(trackRows(in: counts), ["r\(matched)"], "the row found by title shows the change")
         }
@@ -223,13 +235,16 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         playback.deviceID = AppleMusicPlaybackProvider.deviceID
         playback.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
         playback.setConnectionState(.playing(nowPlaying))
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        // This test keeps the main actor's own work held off between presses, as it always has:
+        // with that work running, a press here reaches more rows and can stop redrawing (#693).
+        AppKitTestSupport.settleRunLoopOnly()
         let window = try XCTUnwrap(ViewTestHost.windows.last)
         // The table keeps a few rows ready above and below the window, so allow a margin.
         let rowsThatFit = Int((window.contentLayoutRect.height / TrackListRow.listRowHeight).rounded(.up))
 
         for press in 1...6 {
             ViewBodyTally.counts = [:]
+            let pressedAt = ContinuousClock.now
             playback.requestTogglePlayPause()
             XCTAssertEqual(PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: playback.connectionState), press.isMultiple(of: 2))
             let drawn = AppKitTestSupport.pumpRunLoop(until: {
@@ -248,8 +263,11 @@ final class PlayPauseRenderScopeTests: XCTestCase {
                 "press \(press) reached \(rowsReached) of \(rowCount) rows, though about \(rowsThatFit) fit in the window"
             )
             ViewBodyTally.counts = nil
-            // Presses as far apart as a person makes them: the icon's 0.18 s swap is over.
-            AppKitTestSupport.pumpRunLoop(for: 0.4)
+            // The next press comes once this press's icon swap is over, as a person's would: the
+            // swap is a 0.18 s animation on the wall clock (`PlaybackControlsView`), so its end is
+            // that time after the press, and its last frame has drawn once the window settled.
+            XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { pressedAt.duration(to: .now) >= Self.iconSwap }))
+            AppKitTestSupport.settleRunLoopOnly()
         }
     }
 }

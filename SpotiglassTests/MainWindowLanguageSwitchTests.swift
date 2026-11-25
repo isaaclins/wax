@@ -31,7 +31,7 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
         for language in [AppLanguage.german, .spanish, .english, .german] {
             try store.mutate { $0.appearance.language = language }
             controller.view.layoutSubtreeIfNeeded()
-            AppKitTestSupport.pumpRunLoop()
+            AppKitTestSupport.settle()
 
             let locale = Locale(identifier: language.rawValue)
             XCTAssertEqual(WindowStateProbe.created, 1, "Switching to \(language) rebuilt the window's content")
@@ -232,7 +232,7 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
 
         try store.mutate { $0.appearance.language = .german }
         controller.view.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertEqual(titles(), expected("de"), "The open palette kept the old language's names")
         XCTAssertEqual(viewModel.selectedIndex, 1, "A switch moved the highlight off its row")
     }
@@ -571,12 +571,12 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
 
         try store.mutate { $0.appearance.colorScheme = .dark }
         controller.view.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertEqual(WindowStateProbe.storeTextRenders, rendersBefore)
 
         try store.mutate { $0.appearance.language = .german }
         controller.view.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
         XCTAssertGreaterThan(WindowStateProbe.storeTextRenders, rendersBefore)
     }
 }

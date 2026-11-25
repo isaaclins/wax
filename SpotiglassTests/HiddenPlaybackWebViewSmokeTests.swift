@@ -95,7 +95,7 @@ final class HiddenPlaybackWebViewSmokeTests: XCTestCase {
         ViewTestHost.host(view, size: CGSize(width: 8, height: 8))
 
         try settingsStore.mutate { $0.appearance.language = .german }
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
 
         XCTAssertTrue(host.playbackViewModel === playbackViewModel)
         XCTAssertEqual(playbackViewModel.connectionState, initialState)

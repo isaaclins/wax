@@ -531,7 +531,7 @@ final class LyricsPopOutTests: XCTestCase {
         XCTAssertTrue(adopted, "the content never adopted its window")
         controller.view.layoutSubtreeIfNeeded()
         controller.view.displayIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        AppKitTestSupport.settle()
         XCTAssertEqual(controller.view.frame.size, size)
         return window
     }
@@ -589,10 +589,10 @@ final class LyricsPopOutTests: XCTestCase {
         XCTAssertTrue(LyricsPopOutWindow.isPopOut(window))
 
         NSApp.postEvent(keyDown(keyCode: 49, characters: " ", window: window), atStart: false)
-        while pauses(commander) == 0 {
-            AppKitTestSupport.pumpRunLoop(for: 0.05)
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        let paused = await AppKitTestSupport.settle(until: { self.pauses(commander) > 0 })
+        XCTAssertTrue(paused, "Space in the pop-out never reached its player")
+        // Whatever else the press set off has run, so a second pause would be counted.
+        await AppKitTestSupport.settle()
         XCTAssertEqual(pauses(commander), 1, "Space in the pop-out pauses what it shows")
     }
 
@@ -771,7 +771,7 @@ final class LyricsPopOutTests: XCTestCase {
             LyricsPopOutRoot(playbackHosts: hosts, serviceStore: services, keymapStore: keymap),
             size: LyricsPopOutWindow.defaultSize
         )
-        AppKitTestSupport.pumpRunLoop(for: 0.2)
+        AppKitTestSupport.settle()
         XCTAssertEqual(created, 0)
         XCTAssertNil(hosts.appleMusicIfCreated)
     }
@@ -795,7 +795,7 @@ final class LyricsPopOutTests: XCTestCase {
                 LyricsPopOutView(player: playback, keymapStore: keymap, makeLyricsModel: { lyrics }),
                 size: size
             )
-            AppKitTestSupport.pumpRunLoop(for: 0.2)
+            AppKitTestSupport.settle()
         }
         XCTAssertEqual(lookups, 0)
         XCTAssertEqual(lyrics.phase, .idle)

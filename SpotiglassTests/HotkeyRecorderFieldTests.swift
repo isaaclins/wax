@@ -31,7 +31,7 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         Self.suiteLock.lock()
         super.setUp()
         AppKitTestSupport.activateAppIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 0.03)
+        AppKitTestSupport.settle()
     }
 
     override func tearDown() {
@@ -47,7 +47,7 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         windows.removeAll()
         harnessRoots.removeAll()
         ViewTestHost.tearDownAll()
-        AppKitTestSupport.pumpRunLoop(for: 0.05)
+        AppKitTestSupport.settle()
         super.tearDown()
         Self.suiteLock.unlock()
     }

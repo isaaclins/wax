@@ -27,7 +27,7 @@ final class SettingsLanguageSwitchTests: XCTestCase {
         for language in [AppLanguage.english, .spanish, .german, .english] {
             try store.mutate { $0.appearance.language = language }
             controller.view.layoutSubtreeIfNeeded()
-            AppKitTestSupport.pumpRunLoop()
+            AppKitTestSupport.settle()
             assertSegmentLabels(in: controller.view, for: language)
         }
     }
@@ -47,7 +47,7 @@ final class SettingsLanguageSwitchTests: XCTestCase {
 
         try store.mutate { $0.appearance.language = .english }
         controller.view.layoutSubtreeIfNeeded()
-        AppKitTestSupport.pumpRunLoop()
+        AppKitTestSupport.settle()
 
         let pickerAfter = try XCTUnwrap(languagePicker(in: controller.view))
         XCTAssertTrue(pickerAfter === picker, "The language picker was rebuilt by the switch")

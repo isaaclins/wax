@@ -185,7 +185,7 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
 
         AppKitTestSupport.activateAppIfNeeded()
         window.makeKeyAndOrderFront(nil)
-        AppKitTestSupport.pumpRunLoop(for: 0.03)
+        AppKitTestSupport.settle()
         XCTAssertTrue(window.makeFirstResponder(owner))
         let space = keyDown(
             keyCode: 49,

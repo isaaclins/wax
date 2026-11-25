@@ -509,7 +509,13 @@ final class ListDetailViewsTests: XCTestCase {
         .frame(width: 800, height: 600)
         .environmentObject(store)
         let controller = ViewTestHost.host(view, size: CGSize(width: 800, height: 600))
-        AppKitTestSupport.pumpRunLoop(for: 0.4)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: {
+                ((Self.firstScrollView(in: controller.view)?.documentView as? NSTableView)?.numberOfRows ?? 0) == 1000
+            }),
+            "the list never took its 1000 rows"
+        )
+        AppKitTestSupport.settle()
 
         let scrollView = try XCTUnwrap(Self.firstScrollView(in: controller.view))
         let table = try XCTUnwrap(scrollView.documentView as? NSTableView)
@@ -554,7 +560,13 @@ final class ListDetailViewsTests: XCTestCase {
         scrollView.contentView.scroll(to: NSPoint(x: 0, y: TrackListRow.listRowHeight * 40))
         scrollView.reflectScrolledClipView(scrollView.contentView)
         scrollView.displayIfNeeded()
-        AppKitTestSupport.pumpRunLoop(for: 1.2)
+        // The rows that scrolled into view report themselves as they appear, however late a busy
+        // machine lays them out; then let the rest of that pass land before comparing.
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { reported.last != "sc1" }),
+            "the list never reported a new topmost track after scrolling"
+        )
+        AppKitTestSupport.settle()
 
         let table = try XCTUnwrap(scrollView.documentView as? NSTableView)
         let topmostVisibleRow = table.rows(in: table.visibleRect).location

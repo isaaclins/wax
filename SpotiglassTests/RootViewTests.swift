@@ -166,10 +166,14 @@ final class RootViewTests: XCTestCase {
         ))
         .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
         ViewTestHost.host(root, size: CGSize(width: 720, height: 520))
-        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        await AppKitTestSupport.settle()
 
         try root.inspect().find(button: SpotiglassL10n.string("auth.disconnect.button")).tap()
-        AppKitTestSupport.pumpRunLoop(for: 0.1)
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { services.services == [.appleMusic] }),
+            "Disconnect never took Spotify out"
+        )
+        await AppKitTestSupport.settle()
 
         XCTAssertEqual(services.services, [.appleMusic])
         XCTAssertEqual(services.active, .appleMusic)
@@ -498,13 +502,14 @@ final class RootViewPinsAfterAddingTests: XCTestCase {
         return pinned
     }
 
-    /// Lets the window and its tasks run until `done` holds, however long a busy machine takes.
+    /// Lets the window and its tasks run until `done` holds, however long a busy machine takes,
+    /// then until what that change queued has run too, so a late overwrite would still show.
     private func settle(until done: () -> Bool) async throws {
         while !done() {
-            AppKitTestSupport.pumpRunLoop(for: 0.05)
-            try await Task.sleep(for: .milliseconds(50))
+            await AppKitTestSupport.settle(passes: 1)
+            try await Task.sleep(for: .milliseconds(10))
         }
-        AppKitTestSupport.pumpRunLoop(for: 0.3)
+        await AppKitTestSupport.settle()
     }
 
     func testAddingAppleMusicShowsItsPins() async throws {
@@ -661,11 +666,12 @@ final class RootViewToolbarLayoutTests: XCTestCase {
     /// switch that never comes runs into the per-test limit.
     private func settle(until done: () -> Bool) async throws {
         while !done() {
-            AppKitTestSupport.pumpRunLoop(for: 0.05)
+            await AppKitTestSupport.settle(passes: 1)
             try await Task.sleep(for: .milliseconds(10))
         }
-        // One more pass, so a layout the switch scheduled for the next display cycle runs while watched.
-        AppKitTestSupport.pumpRunLoop(for: 0.05)
+        // Until what the switch queued has run, so a layout it scheduled for the next display
+        // cycle runs while watched.
+        await AppKitTestSupport.settle()
     }
 }
 
