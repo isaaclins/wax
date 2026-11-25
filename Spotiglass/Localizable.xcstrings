@@ -12416,19 +12416,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pausiert: Nach jedem Hinzufügen sprang der Titel weiter"
+            "value": "Fügt nichts mehr hinzu: Titel sprangen immer weiter"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Paused: songs skipped ahead after each add"
+            "value": "Stopped adding: songs kept skipping ahead"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "En pausa: cada canción añadida hizo saltar la actual"
+            "value": "Ya no añade: las canciones saltaban solas"
           }
         }
       }
