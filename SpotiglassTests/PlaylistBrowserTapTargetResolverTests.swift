@@ -222,7 +222,7 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
                 ],
             ],
         ])
-        guard case let .stateChanged(nowPlaying, _, nextTracks) = event else {
+        guard case let .stateChanged(nowPlaying, _, nextTracks, _) = event else {
             return XCTFail("Expected state changed")
         }
         XCTAssertEqual(

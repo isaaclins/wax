@@ -92,7 +92,7 @@ final class QueuePanelTests: XCTestCase {
             ]
         ])
 
-        guard case let .stateChanged(nowPlaying, isPaused, nextTracks) = event else {
+        guard case let .stateChanged(nowPlaying, isPaused, nextTracks, _) = event else {
             return XCTFail("Expected state changed")
         }
         XCTAssertFalse(isPaused)

@@ -29,13 +29,9 @@
       "issue": 671,
       "measuredMs": null
     },
-    "playback.next": {
-      "issue": 687,
-      "measuredMs": null
-    },
     "playback.previous": {
-      "issue": 687,
-      "measuredMs": null
+      "issue": 704,
+      "measuredMs": 53
     },
     "playback.repeat": {
       "issue": 677,

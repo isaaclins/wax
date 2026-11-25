@@ -124,10 +124,19 @@ final class InteractionLatencyProbe {
                 id: "playback.previous",
                 title: "⇧⌘← goes back a song",
                 prepare: { await $0.waitUntil { !$0.playback.isSkipCommandPending } },
+                // Shown once the bar names another song or, a few seconds into a song, shows it
+                // again from its start (#687).
                 start: { probe in
                     let uri = probe.nowPlayingURI
+                    let restartsBelow = min(
+                        probe.playback.currentNowPlaying?.positionMilliseconds ?? 0,
+                        PlaybackSessionViewModel.previousRestartsAfterMilliseconds
+                    )
                     probe.press(.leftArrow, [.command, .shift])
-                    return { probe.nowPlayingURI != uri }
+                    return {
+                        probe.nowPlayingURI != uri
+                            || (probe.playback.currentNowPlaying?.positionMilliseconds ?? .max) < restartsBelow
+                    }
                 },
                 finish: { await $0.endSkipWait() }
             ),

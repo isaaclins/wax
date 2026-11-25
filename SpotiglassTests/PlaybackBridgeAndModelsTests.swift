@@ -84,7 +84,7 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
             ]
         ])
 
-        guard case let .stateChanged(nowPlaying, isPaused, nextTracks) = event else {
+        guard case let .stateChanged(nowPlaying, isPaused, nextTracks, _) = event else {
             return XCTFail("Expected state changed")
         }
         XCTAssertFalse(isPaused)
@@ -206,7 +206,7 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
             "name": "state_changed",
             "payload": ["paused": true, "track": NSNull(), "nextTracks": []]
         ])
-        guard case let .stateChanged(nowPlaying, isPaused, nextTracks) = event else {
+        guard case let .stateChanged(nowPlaying, isPaused, nextTracks, _) = event else {
             return XCTFail("Expected state changed")
         }
         XCTAssertNil(nowPlaying)
@@ -229,7 +229,7 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
                 ]]
             ]
         ])
-        guard case let .stateChanged(_, _, nextTracks) = event else {
+        guard case let .stateChanged(_, _, nextTracks, _) = event else {
             return XCTFail("expected state changed")
         }
         XCTAssertEqual(nextTracks.count, 1)
@@ -295,7 +295,7 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
                 ]
             ]
         ])
-        guard case let .stateChanged(nowPlaying, _, _) = event else {
+        guard case let .stateChanged(nowPlaying, _, _, _) = event else {
             return XCTFail("expected state")
         }
         XCTAssertNil(nowPlaying?.albumName)

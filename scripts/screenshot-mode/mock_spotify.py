@@ -169,6 +169,11 @@ class Library:
         i = self.tracks.index(self.now_playing)
         return (self.tracks[i + 1:] + self.tracks[:i])[:14]
 
+    def played(self):
+        """The songs before the current one, oldest first."""
+        i = self.tracks.index(self.now_playing)
+        return (self.tracks[i + 1:] + self.tracks[:i])[-10:]
+
 
 DEVICE = {"id": "spotiglass-screenshot", "name": "Wax", "type": "Computer", "is_active": True,
           "is_private_session": False, "is_restricted": False, "volume_percent": 72, "supports_volume": True}
@@ -207,7 +212,7 @@ FAKE_SDK = r"""(function () {
       const position = this.paused ? this.position : this.position + (Date.now() - this.startedAt);
       return { paused: this.paused, position: position % S.duration, duration: S.duration, loading: false,
         shuffle: false, repeat_mode: 0, timestamp: Date.now(), context: { uri: S.context, metadata: {} },
-        disallows: {}, track_window: { current_track: S.current, previous_tracks: [], next_tracks: S.next } };
+        disallows: {}, track_window: { current_track: S.current, previous_tracks: S.previous, next_tracks: S.next } };
     }
     connect() {
       try { this.options.getOAuthToken(() => {}); } catch (_) {}
@@ -285,7 +290,12 @@ def make_handler(lib):
                     {"code": "screenshot-mode", "state": q.get("state", [""])[0]})
                 return self.send(302, headers={"Location": location})
             if path == "/sdk/spotify-player.js":
-                state = {"current": sdk_track(lib.now_playing), "next": [sdk_track(t) for t in lib.queue()[:3]],
+                # The songs around the current one, as Spotify's page lists them. This player never
+                # moves for a skip sent through the Web API, so the lists are longer than Spotify's
+                # (it sends two each and a new pair once it has the skip): a run of skips keeps
+                # showing the songs Wax lists, as it would with Spotify answering (#687).
+                state = {"current": sdk_track(lib.now_playing), "next": [sdk_track(t) for t in lib.queue()[:10]],
+                         "previous": [sdk_track(t) for t in lib.played()],
                          "duration": lib.now_playing["duration_ms"], "position": 111000,
                          "context": lib.playlists[0]["uri"], "device": DEVICE["id"]}
                 return self.send(200, FAKE_SDK.replace("__STATE__", json.dumps(state)).encode(),

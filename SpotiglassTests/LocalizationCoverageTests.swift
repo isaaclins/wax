@@ -491,7 +491,7 @@ final class LocalizationCoverageTests: XCTestCase {
             )
         ]
         let realArtist = MusicArtistRef(id: "a4", name: "Unknown Artist")
-        guard case let .stateChanged(playerBarTrack?, _, _) = try SpotifyPlaybackBridgeParser.parse([
+        guard case let .stateChanged(playerBarTrack?, _, _, _) = try SpotifyPlaybackBridgeParser.parse([
             "name": "state_changed",
             "payload": ["paused": false, "track": ["artists": [String](), "uri": "spotify:track:t1"]]
         ]) else { return XCTFail("expected a playing track") }
@@ -619,7 +619,7 @@ final class LocalizationCoverageTests: XCTestCase {
         let soloTrack = try XCTUnwrap(try JSONDecoder().decode(SpotifyTrackDTO.self, from: Data(#"""
         {"id":"t2","name":"Solo","uri":"spotify:track:t2","artists":[{"id":"a5"}]}
         """#.utf8)).domainModel())
-        guard case let .stateChanged(episode?, _, _) = try SpotifyPlaybackBridgeParser.parse([
+        guard case let .stateChanged(episode?, _, _, _) = try SpotifyPlaybackBridgeParser.parse([
             "name": "state_changed",
             "payload": ["paused": false, "track": ["name": "", "artists": [String](), "uri": "spotify:episode:e1"]]
         ]) else { return XCTFail("expected a playing episode") }

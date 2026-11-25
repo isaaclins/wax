@@ -249,7 +249,35 @@ extension QueueViewModel {
         } else {
             rawUpcoming = sdkProjection
         }
-        upcomingItems = Self.applyRepeatOneGate(rawUpcoming, repeatMode: playbackSession.repeatMode)
+        let upcoming = Self.upcoming(rawUpcoming, followingSkipPreview: playbackSession.skipPreview)
+        upcomingItems = Self.applyRepeatOneGate(upcoming, repeatMode: playbackSession.repeatMode)
+    }
+
+    /// While a skip's song is on the player bar before Spotify reported it (#687), Spotify's lists
+    /// still start after the song it is on. Up next follows the bar instead: it continues after
+    /// the song shown, and after a previous it starts with the song the previous left.
+    static func upcoming(
+        _ upcoming: [QueueItem],
+        followingSkipPreview preview: PlaybackSessionViewModel.SkipPreview?
+    ) -> [QueueItem] {
+        guard let preview else { return upcoming }
+        var items = upcoming
+        if let shown = items.firstIndex(where: { $0.uri == preview.shownURI }) {
+            items.removeFirst(shown + 1)
+        }
+        // The songs the preview knows come before the list's first one (only where the two meet,
+        // so a song queued meanwhile isn't listed twice).
+        let lead: ArraySlice<PlaybackNowPlaying>
+        if let first = items.first {
+            guard let meet = preview.upcoming.firstIndex(where: { $0.uri == first.uri }) else { return items }
+            lead = preview.upcoming[..<meet]
+        } else {
+            lead = preview.upcoming[...]
+        }
+        let leading = lead.enumerated().map { index, song in
+            QueueItem.from(playback: song, id: "queue:skip-preview:occurrence:\(index)")
+        }
+        return leading + items
     }
 
     /// Keeps optimistic queue visible until Spotify queue confirms the target

@@ -100,11 +100,12 @@
 
       function normalizeState(state) {
         if (!state || !state.track_window) {
-          return { track: null, paused: true, nextTracks: [] };
+          return { track: null, paused: true, nextTracks: [], previousTracks: [] };
         }
         const nextTracks = (state.track_window.next_tracks || []).map(mapNextTrack);
+        const previousTracks = (state.track_window.previous_tracks || []).map(mapNextTrack);
         if (!state.track_window.current_track) {
-          return { track: null, paused: Boolean(state.paused), nextTracks };
+          return { track: null, paused: Boolean(state.paused), nextTracks, previousTracks };
         }
         const track = state.track_window.current_track;
         const albumName = track.album && track.album.name ? String(track.album.name) : null;
@@ -112,6 +113,7 @@
         return {
           paused: Boolean(state.paused),
           nextTracks,
+          previousTracks,
           track: {
             name: track.name || '',
             artists: (track.artists || []).map(artist => artist.name).filter(Boolean),

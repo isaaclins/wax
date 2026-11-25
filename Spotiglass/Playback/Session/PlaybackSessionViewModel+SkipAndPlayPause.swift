@@ -562,12 +562,14 @@ extension PlaybackSessionViewModel {
             id: skipCommandSequence,
             hostGeneration: playbackHostGeneration,
             kind: kind,
-            expectedPreviousURI: currentNowPlayingURI,
+            expectedPreviousURI: skipLeavesURI,
             startedAt: now,
             playWasPending: pendingPlayTransition != nil || inFlightPlayCommandID != nil
         )
         pendingSkipDispatch = dispatch
         isSkipCommandPending = true
+        // The bar names the song it goes to right away (#687).
+        showSkipPreview(kind)
         let succeeded = await sendDeviceCommand(dispatch: dispatch) { [provider] deviceID in
             try await performPrioritizedControlCommand {
                 switch kind {
@@ -653,8 +655,9 @@ extension PlaybackSessionViewModel {
     }
 
     private func hasObservedSkipAdvance(_ dispatch: SkipCommandDispatch) -> Bool {
+        // The song on the bar may be the skip's own preview, not anything Spotify reported.
         dispatch.observedAdvance
-            || isSkipURIAdvance(
+            || skipPreview == nil && isSkipURIAdvance(
                 expectedPreviousURI: dispatch.expectedPreviousURI,
                 currentURI: currentNowPlayingURI
             )
@@ -685,8 +688,13 @@ extension PlaybackSessionViewModel {
         guard isCurrentSkipCommandDispatch(dispatch),
               ownsPlaybackHostGeneration(dispatch.hostGeneration),
               !Task.isCancelled
-        else { return false }
+        else {
+            // Never sent: the bar goes back to the song Spotify has, unless a newer skip owns it.
+            if isCurrentSkipCommandDispatch(dispatch) { revertSkipPreview() }
+            return false
+        }
         guard let commandDeviceID else {
+            endSkipPreview()
             setConnectionState(.error(Self.playbackDeviceReconnectRequiredError()))
             return false
         }
@@ -721,6 +729,9 @@ extension PlaybackSessionViewModel {
                 noteLocalPlaybackMutation()
                 return true
             }
+            // The skip moved nothing: the bar goes back to the song Spotify has, which is also
+            // what Retry restores.
+            revertSkipPreview()
             // Retry skips again; the failed skip moved nothing, so it doesn't count toward the
             // spacing between skips.
             showFailedCommand(error) { viewModel in

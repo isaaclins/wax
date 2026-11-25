@@ -130,6 +130,11 @@ final class PlaybackSessionViewModel: ObservableObject {
 
     func setActivePlaybackDeviceID(_ deviceID: String?) {
         activePlaybackDeviceID = deviceID
+        // Another device plays now: its reads decide the bar, not a skip Wax's own player had on
+        // its way (#687).
+        if isRemotePlaybackActive {
+            endSkipPreview()
+        }
     }
 
     /// Whether Spotify playback is currently routed away from the embedded SDK device.
@@ -195,6 +200,12 @@ final class PlaybackSessionViewModel: ObservableObject {
     @PublishedWhenChanged var activePlaylistID: String?
     /// Upcoming tracks from Web Playback SDK `track_window.next_tracks` (immediate UI).
     @PublishedWhenChanged var sdkNextTracks: [PlaybackNowPlaying] = []
+    /// Songs played before the current one, oldest first, from `track_window.previous_tracks`:
+    /// what a previous skip shows at once (#687).
+    var sdkPreviousTracks: [PlaybackNowPlaying] = []
+    /// The song a skip put on the player bar while Spotify hasn't reported it (#687).
+    var skipPreview: SkipPreview?
+    var skipPreviewTimeoutTask: Task<Void, Never>?
     /// Web Playback SDK output gain (`player.setVolume`), 0...1. Persisted between launches.
     @PublishedWhenChanged private(set) var playbackVolume: Double
     /// From `GET /v1/me/player` for the active Spotify player (may be this device or another).

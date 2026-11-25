@@ -102,7 +102,8 @@ enum SpotifyPlaybackBridgeParser {
             return .stateChanged(
                 parseNowPlaying(from: payload["track"]),
                 isPaused: isPaused,
-                nextTracks: parseNowPlayingArray(from: payload["nextTracks"])
+                nextTracks: parseNowPlayingArray(from: payload["nextTracks"]),
+                previousTracks: parseNowPlayingArray(from: payload["previousTracks"])
             )
         case "player_command_finished":
             guard let command = payload["command"] as? String, !command.isEmpty else {
