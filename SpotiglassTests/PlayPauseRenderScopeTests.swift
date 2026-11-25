@@ -9,6 +9,8 @@ import XCTest
 /// track and playlist row, though only the playing ones looked any different.
 @MainActor
 final class PlayPauseRenderScopeTests: XCTestCase {
+    private var hostedWindow: NSWindow?
+
     override func tearDown() {
         ViewBodyTally.counts = nil
         ViewTestHost.tearDownAll()
@@ -79,6 +81,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         .environmentObject(store)
         .environmentObject(LyricsOverlayController())
         let controller = ViewTestHost.host(view, size: CGSize(width: 1_600, height: 1_400))
+        hostedWindow = controller.view.window
         await AppKitTestSupport.settle()
         // The browser starts at a width of zero and collapses the sidebar; a widening brings it
         // back, as it does when a real window opens.
@@ -193,6 +196,13 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             return playing ? .playing(nowPlaying) : .paused(nowPlaying)
         }
         let playback = try await hostBrowser(tracks: (0..<rowCount).map(song), playing: state(playing: true))
+        // The matched row is the list's last: on screen, as when someone looks at it. A row off
+        // screen isn't built again on a pause; it shows the player's state when it comes into
+        // view (#655).
+        let table = try XCTUnwrap(AppKitTestSupport.tables(in: hostedWindow?.contentView).first { $0.numberOfRows >= rowCount })
+        table.scrollRowToVisible(matched)
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { table.rows(in: table.visibleRect).contains(matched) }))
+        await AppKitTestSupport.settle()
 
         for playing in [false, true] {
             let counts = await bodies { playback.setConnectionState(state(playing: playing)) }

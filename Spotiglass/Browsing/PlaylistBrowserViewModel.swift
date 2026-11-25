@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 @MainActor
@@ -27,7 +28,16 @@ final class PlaylistBrowserViewModel: ObservableObject {
     /// `List` selection, so the table owns click, shift and command behavior and
     /// this stays the value the context-menu actions read. Empty means "no
     /// selection, context-menu acts on the row alone".
-    @Published var selectedDetailTrackIDs: Set<String> = []
+    ///
+    /// Kept in ``detailTrackSelection`` rather than published here: everything that observes the
+    /// browser ran again on each click, the window, the sidebar and the player bar with it,
+    /// and a click on a song in a long playlist took 40 to 80 ms to show (#655).
+    var selectedDetailTrackIDs: Set<String> {
+        get { detailTrackSelection.ids }
+        set { if detailTrackSelection.ids != newValue { detailTrackSelection.ids = newValue } }
+    }
+    /// The detail table's selection, observed only by the views that show it.
+    let detailTrackSelection = DetailTrackSelection()
     /// Saved state keyed by the service's track ID. Context menus fill this lazily from
     /// `savedTrackStatuses` when a surface needs it.
     @Published internal(set) var savedTrackStates: [String: Bool] = [:]
@@ -376,3 +386,17 @@ struct DisabledBrowsingCache: MusicBrowsingCache {
     func saveTracks(_ tracks: [MusicPlaylistTrackItem], playlistID: String, snapshotID: String, cachedAt: Date) throws {}
     func invalidateTracks(playlistID: String) throws {}
 }
+
+/// The rows selected in the detail table (``PlaylistBrowserViewModel/selectedDetailTrackIDs``),
+/// observed on its own so a click re-runs only the table and the menu bar items that follow it
+/// (#655).
+@MainActor
+final class DetailTrackSelection: ObservableObject {
+    @Published var ids: Set<String> = [] {
+        didSet { changed.send() }
+    }
+
+    /// Fires after each change, once the new selection is stored (`$ids` fires before).
+    let changed = PassthroughSubject<Void, Never>()
+}
+

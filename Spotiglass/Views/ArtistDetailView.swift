@@ -119,21 +119,24 @@ struct ArtistDetailContent: View {
 
     var body: some View {
         let marks = playback.marks(in: detail.tracks)
-        TrackListView(
-            tracks: detail.tracks,
-            selection: $browserViewModel.selectedDetailTrackIDs,
-            rowBuilder: { track in trackRow(for: track, marks: marks) },
-            pendingScrollRestoreTrackID: .constant(nil),
-            onFirstVisibleTrackChanged: { _ in },
-            playSelection: { selectedIDs in
-                guard let track = detail.tracks.first(where: { selectedIDs.contains($0.id) }),
-                      let uri = track.playableURI
-                else { return }
-                playTrack(uri)
-            },
-            headerContent: AnyView(listHeader),
-            footerContent: AnyView(listFooter)
-        )
+        DetailTrackSelectionReader(selection: browserViewModel.detailTrackSelection) { selection in
+            let selectedRows = browserViewModel.selectedRowsForMenus
+            TrackListView(
+                tracks: detail.tracks,
+                selection: selection,
+                rowBuilder: { track in trackRow(for: track, marks: marks, selectedRows: selectedRows) },
+                pendingScrollRestoreTrackID: .constant(nil),
+                onFirstVisibleTrackChanged: { _ in },
+                playSelection: { selectedIDs in
+                    guard let track = detail.tracks.first(where: { selectedIDs.contains($0.id) }),
+                          let uri = track.playableURI
+                    else { return }
+                    playTrack(uri)
+                },
+                headerContent: AnyView(listHeader),
+                footerContent: AnyView(listFooter)
+            )
+        }
     }
 
     private var listHeader: some View {
@@ -184,9 +187,10 @@ struct ArtistDetailContent: View {
                 .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
             if !detail.libraryTracks.isEmpty {
                 let marks = playback.marks(in: detail.libraryTracks)
+                let selectedRows = browserViewModel.selectedRowsForMenus
                 VStack(spacing: 0) {
                     ForEach(detail.libraryTracks) { track in
-                        trackRow(for: track, marks: marks)
+                        trackRow(for: track, marks: marks, selectedRows: selectedRows)
                     }
                 }
                 .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
@@ -250,14 +254,19 @@ struct ArtistDetailContent: View {
 
     private func trackRow(
         for track: TrackRowViewModel,
-        marks: TrackListPlaybackMarks
+        marks: TrackListPlaybackMarks,
+        selectedRows: [TrackRowViewModel]
     ) -> PlaybackValueReader<TrackRowPlaybackMark, TrackListRow> {
         marks.row(for: track) { mark in
-            trackRow(for: track, mark: mark)
+            trackRow(for: track, mark: mark, selectedRows: selectedRows)
         }
     }
 
-    private func trackRow(for track: TrackRowViewModel, mark: TrackRowPlaybackMark) -> TrackListRow {
+    private func trackRow(
+        for track: TrackRowViewModel,
+        mark: TrackRowPlaybackMark,
+        selectedRows: [TrackRowViewModel]
+    ) -> TrackListRow {
         TrackListRow(
             trackNumber: track.listPosition,
             track: track,
@@ -272,7 +281,7 @@ struct ArtistDetailContent: View {
             isKeyboardFocusable: false,
             trackOpsMenuItems: {
                 AnyView(TrackOpsMenuItems(
-                    targets: browserViewModel.effectiveTrackTargets(forRowID: track.id),
+                    targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
                     browserViewModel: browserViewModel,
                     sourcePlaylistID: nil,
                     onRequestCreatePlaylist: onRequestCreatePlaylist,

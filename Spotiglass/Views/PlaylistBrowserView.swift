@@ -493,7 +493,7 @@ struct PlaylistBrowserView: View {
         }
         // The menu bar dims and re-titles its selection items from this, so it
         // has to follow both the selection and the pinned set (#132).
-        .onChange(of: viewModel.selectedDetailTrackIDs) { _, _ in
+        .onReceive(viewModel.detailTrackSelection.changed) { _ in
             syncTrackSelectionMenuState()
         }
         // On Home the selection is read against the top tracks, which go away while a refresh

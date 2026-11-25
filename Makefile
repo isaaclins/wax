@@ -4,7 +4,7 @@
 #        make release         — unsigned Release bundle (matches CI layout)
 #        make test            — unit tests on macOS
 
-.PHONY: all build run release test test-make-targets coverage coverage-check format lint scan clean sign-out list help audit-eq-permission audit-error-handling build-driver embed-driver sign-driver install-driver
+.PHONY: all build run release test test-speed test-make-targets coverage coverage-check format lint scan clean sign-out list help audit-eq-permission audit-error-handling build-driver embed-driver sign-driver install-driver
 
 # Prefer a standalone install, then fall back to the copy inside the active
 # Xcode toolchain so `make lint` works without `brew install swift-format`.
@@ -14,6 +14,7 @@ PROJECT       := Spotiglass.xcodeproj
 SCHEME        := Spotiglass
 DESTINATION   := platform=macOS
 DERIVED_DATA  := build/DerivedData
+SPEED_DERIVED_DATA := build/DerivedData-speed
 DEBUG_APP     := $(DERIVED_DATA)/Build/Products/Debug/Wax.app
 RELEASE_APP   := $(DERIVED_DATA)/Build/Products/Release/Wax.app
 
@@ -205,6 +206,24 @@ test: audit-eq-permission audit-error-handling test-make-targets
 		$(XCODE_EXTRA) \
 		test
 
+# Times the long-list tests (#655) in an optimized build, where they mean what someone using
+# the app sees, and fails on any frame or click over 50 ms. `make test` runs the same tests in
+# Debug and checks only what made the list slow, not the times.
+test-speed:
+	xcodebuild \
+		-project $(PROJECT) \
+		-scheme $(SCHEME) \
+		-configuration Release \
+		-destination '$(DESTINATION)' \
+		-derivedDataPath $(SPEED_DERIVED_DATA) \
+		-parallel-testing-enabled NO \
+		ENABLE_TESTABILITY=YES \
+		SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG \
+		$(CODE_SIGN_FLAGS) \
+		$(XCODE_EXTRA) \
+		-only-testing:SpotiglassTests/LongListScrollCostTests \
+		test
+
 coverage:
 	./scripts/coverage.sh
 
@@ -238,7 +257,7 @@ scan:
 # Build output only. The stored Spotify login is not build output, so
 # cleaning must never sign anyone out (#383); that is `make sign-out`.
 clean:
-	rm -rf "$(DERIVED_DATA)"
+	rm -rf "$(DERIVED_DATA)" "$(SPEED_DERIVED_DATA)"
 
 # Deletes every stored Spotify refresh token, so the next launch starts signed out.
 # Stops at errSecItemNotFound (44); any other error fails loudly instead of
@@ -265,6 +284,7 @@ help:
 	@echo "  make run           — build and open Debug app"
 	@echo "  make release       — unsigned Release → $(RELEASE_APP)"
 	@echo "  make test          — unit tests"
+	@echo "  make test-speed    — long-list frame and click times in an optimized build (50 ms budget)"
 	@echo "  make coverage      — unit tests with code coverage report"
 	@echo "  make coverage-check — coverage + per-file gate (see scripts/coverage-allowlist.json)"
 	@echo "  make format        — in-place swift-format (requires brew install swift-format)"

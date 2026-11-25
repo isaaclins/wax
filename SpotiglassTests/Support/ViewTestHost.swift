@@ -14,6 +14,12 @@ enum AppKitTestSupport {
         }
     }
 
+    /// The native tables (`List` on macOS) inside `view`, outermost first.
+    static func tables(in view: NSView?) -> [NSTableView] {
+        guard let view else { return [] }
+        return (view as? NSTableView).map { [$0] } ?? view.subviews.flatMap { tables(in: $0) }
+    }
+
     /// Lets every window catch up with what the test just changed, without waiting for a fixed
     /// time (#567): lays out and draws each window (which runs the pending SwiftUI updates and
     /// starts the `.task`s they changed), then turns the main run loop until a turn finds nothing
@@ -108,7 +114,7 @@ private let offscreenTestWindowOrigin = NSPoint(x: -30_000, y: -30_000)
 /// A window for tests that need one on screen. It behaves like `NSWindow` but is placed
 /// outside every display, and AppKit is not allowed to pull it back onto one.
 class OffscreenTestWindow: NSWindow {
-    override init(
+    required override init(
         contentRect: NSRect,
         styleMask style: NSWindow.StyleMask,
         backing backingStoreType: NSWindow.BackingStoreType,
@@ -121,6 +127,13 @@ class OffscreenTestWindow: NSWindow {
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
         frameRect
     }
+}
+
+/// Reports itself key without taking focus from whatever is in front: SwiftUI hands mouse events
+/// to gestures only in the key window, and a test run can't always make its process active.
+final class KeyOffscreenTestWindow: OffscreenTestWindow {
+    override var canBecomeKey: Bool { true }
+    override var isKeyWindow: Bool { true }
 }
 
 /// Panel counterpart of ``OffscreenTestWindow``.
@@ -180,11 +193,15 @@ enum ViewTestHost {
     /// resize animated, and on a busy machine read a frame part-way through it. With it on, the
     /// window keeps `size` and nothing in the hosted tree animates, so every layout pass lands on
     /// the final frames, however late the run loop gets to it.
+    ///
+    /// - Parameter takesClicks: The window reports itself key, as `ClickableTestWindow` does, so
+    ///   SwiftUI hands its clicks to gestures and selection (it does only in the key window).
     @discardableResult
     static func host<V: View>(
         _ view: V,
         size: CGSize = CGSize(width: 640, height: 480),
-        measuresLayout: Bool = false
+        measuresLayout: Bool = false,
+        takesClicks: Bool = false
     ) -> NSHostingController<AnyView> {
         hostLock.lock()
         defer { hostLock.unlock() }
@@ -197,7 +214,8 @@ enum ViewTestHost {
         if measuresLayout {
             controller.sizingOptions = []
         }
-        let window = OffscreenTestWindow(
+        let windowClass: OffscreenTestWindow.Type = takesClicks ? KeyOffscreenTestWindow.self : OffscreenTestWindow.self
+        let window = windowClass.init(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.titled, .closable],
             backing: .buffered,

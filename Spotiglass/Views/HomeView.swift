@@ -49,20 +49,23 @@ struct HomeView: View {
         // greeting, quick access and the shelf above the rows, so the top tracks select, move
         // with the arrow keys and read out to VoiceOver like every other track list, and the
         // selection is the one the menu bar acts on (#173).
-        TrackListView(
-            tracks: tracks,
-            selection: $viewModel.selectedDetailTrackIDs,
-            rowBuilder: { track in
-                marks.row(for: track) { mark in topTrackRow(track, mark: mark, in: tracks) }
-            },
-            pendingScrollRestoreTrackID: .constant(nil),
-            onFirstVisibleTrackChanged: { _ in },
-            playSelection: { selectedIDs in
-                guard let uri = tracks.first(where: { selectedIDs.contains($0.id) })?.playableURI else { return }
-                play(uri, in: tracks)
-            },
-            headerContent: AnyView(listHeader)
-        )
+        DetailTrackSelectionReader(selection: viewModel.detailTrackSelection) { selection in
+            let selectedRows = viewModel.selectedRowsForMenus
+            TrackListView(
+                tracks: tracks,
+                selection: selection,
+                rowBuilder: { track in
+                    marks.row(for: track) { mark in topTrackRow(track, mark: mark, in: tracks, selectedRows: selectedRows) }
+                },
+                pendingScrollRestoreTrackID: .constant(nil),
+                onFirstVisibleTrackChanged: { _ in },
+                playSelection: { selectedIDs in
+                    guard let uri = tracks.first(where: { selectedIDs.contains($0.id) })?.playableURI else { return }
+                    play(uri, in: tracks)
+                },
+                headerContent: AnyView(listHeader)
+            )
+        }
     }
 
     private var listHeader: some View {
@@ -165,7 +168,12 @@ struct HomeView: View {
         }
     }
 
-    private func topTrackRow(_ track: TrackRowViewModel, mark: TrackRowPlaybackMark, in tracks: [TrackRowViewModel]) -> TrackListRow {
+    private func topTrackRow(
+        _ track: TrackRowViewModel,
+        mark: TrackRowPlaybackMark,
+        in tracks: [TrackRowViewModel],
+        selectedRows: [TrackRowViewModel]
+    ) -> TrackListRow {
         TrackListRow(
             trackNumber: track.listPosition,
             track: track,
@@ -182,7 +190,7 @@ struct HomeView: View {
             isKeyboardFocusable: false,
             trackOpsMenuItems: {
                 AnyView(TrackOpsMenuItems(
-                    targets: viewModel.effectiveTrackTargets(forRowID: track.id),
+                    targets: viewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
                     browserViewModel: viewModel,
                     sourcePlaylistID: nil,
                     onRequestCreatePlaylist: onRequestCreatePlaylist,
