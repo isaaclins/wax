@@ -22,7 +22,7 @@ struct AppleMusicBrowserRoot: View {
     /// Kept by the scene while Spotify is on screen, so switching back returns to the same place.
     let viewModel: PlaylistBrowserViewModel
     /// Where the library's search, artists and albums are read from (MusicKit unless a test says so).
-    var catalog: () -> any MusicBrowsingProvider = { AppleMusicBrowsingProvider() }
+    var catalog: () -> any MusicBrowsingProvider = { AppleMusicBrowsingProvider(catalogMatches: .shared) }
     /// Apple Music is being added ("Add a service…" or the welcome screen): ask for access at once.
     var isAdding = false
     /// Clears every window's browser state. Access is app-wide, so losing it affects all windows.

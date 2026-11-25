@@ -304,7 +304,7 @@ struct RootView: View {
             storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
         ))
         _appleMusicSession = ObservedObject(wrappedValue: AppleMusicSession())
-        appleMusicCatalog = { AppleMusicBrowsingProvider() }
+        appleMusicCatalog = { AppleMusicBrowsingProvider(catalogMatches: .shared) }
     }
 
     init(
@@ -314,7 +314,7 @@ struct RootView: View {
         serviceStore: MusicServiceStore,
         appleMusicSession: AppleMusicSession,
         recentSearches: CommandPaletteRecentSearches = .inMemory(),
-        appleMusicCatalog: @escaping () -> any MusicBrowsingProvider = { AppleMusicBrowsingProvider() }
+        appleMusicCatalog: @escaping () -> any MusicBrowsingProvider = { AppleMusicBrowsingProvider(catalogMatches: .shared) }
     ) {
         _sceneHost = StateObject(
             wrappedValue: SpotiglassSceneHost(

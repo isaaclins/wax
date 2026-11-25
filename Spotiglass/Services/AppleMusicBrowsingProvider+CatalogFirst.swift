@@ -6,7 +6,8 @@ import os
 /// Memory only and bounded: a page opened again doesn't look it up again, and the page's header,
 /// releases and top songs, which ask at the same time, share one lookup.
 final class AppleMusicCatalogMatches: @unchecked Sendable {
-    /// The app's one set: an album page's Play reads the match its page found (#658).
+    /// The app's one set, which its providers are given: an album page's Play reads the match its
+    /// page found (#658). Tests give each provider its own.
     static let shared = AppleMusicCatalogMatches()
     static let maxEntries = 500
     private let lock = NSLock()
@@ -177,7 +178,6 @@ extension AppleMusicBrowsingProvider {
                           let tracks = try await catalogItem({ try await source.tracks(of: detailed, limit: Self.maxLibraryAlbumTracks) })
                     else { return nil }
                     editor.songReferences.remember(tracks)
-                    await lookUpRatings(tracks)
                     return (index, detailed, tracks)
                 }
             }
@@ -189,17 +189,20 @@ extension AppleMusicBrowsingProvider {
         }
         // Only songs in the library: a saved album also lists songs that are only in a playlist
         // (#401), and an album with none of them isn't saved.
-        var tracks: [MusicTrack] = []
+        var shown: [(track: Track, album: Album)] = []
         var seen: Set<String> = []
         var savedAlbumIDs: Set<String> = []
         for case let (album, albumTracks)? in songsByAlbum {
             let saved = Self.savedSongIDs(albumTracks, registry: editor.songReferences)
             if !saved.isEmpty { savedAlbumIDs.insert(album.id.rawValue) }
             for track in albumTracks where saved.contains(track.id.rawValue)
-                && tracks.count < Self.maxLibrarySectionTracks && seen.insert(track.id.rawValue).inserted {
-                tracks.append(AppleMusicItemMapping.track(track, album: album))
+                && shown.count < Self.maxLibrarySectionTracks && seen.insert(track.id.rawValue).inserted {
+                shown.append((track, album))
             }
         }
+        // One ratings lookup for the songs shown, so the section waits for it once, not per album.
+        await lookUpRatings(shown.map(\.track))
+        let tracks = shown.map { AppleMusicItemMapping.track($0.track, album: $0.album) }
         let savedAlbums = albums.filter { savedAlbumIDs.contains($0.id.rawValue) }
         // A card gives the count its page shows (#400): the whole album for one that names its
         // catalog album, which its page opens, else the saved songs (an upload, say).

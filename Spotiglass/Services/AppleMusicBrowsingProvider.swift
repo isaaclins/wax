@@ -145,7 +145,7 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         artistAlbumsCache: AppleMusicArtistAlbumsCache = AppleMusicArtistAlbumsCache(),
         trackCountCache: AppleMusicPlaylistTrackCountCache = AppleMusicPlaylistTrackCountCache(),
         editor: AppleMusicLibraryEditor = AppleMusicLibraryEditor(),
-        catalogMatches: AppleMusicCatalogMatches = .shared
+        catalogMatches: AppleMusicCatalogMatches = AppleMusicCatalogMatches()
     ) {
         self.source = source
         self.catalogMatches = catalogMatches
