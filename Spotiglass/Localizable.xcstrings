@@ -12527,19 +12527,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fügt nach der Warteschlange Titel von Künstlern aus deiner Warteschlange und deinen Playlists hinzu"
+            "value": "Danach Künstler aus Warteschlange und Playlists"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Adds songs once the queue ends, by artists from your queue and playlists"
+            "value": "Then artists from your queue and playlists"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Al acabar la cola añade canciones de artistas de tu cola y tus listas"
+            "value": "Luego artistas de tu cola y tus listas"
           }
         }
       }
