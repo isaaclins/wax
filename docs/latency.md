@@ -121,11 +121,9 @@ A page change set some twenty of the palette's and the lyrics' values to what th
 and each set re-rendered the window from its root and rebuilt the menus; the player bar was also
 built again on every page change. What's left of a sidebar click is SwiftUI's sidebar list: it
 updates the browser twice for one selection.
-On CI's runner ⌘F to Search went from 370 ms to 46-69 ms (median of three runs), and the palette
-got faster with it. The runner's speed swings between runs (the lyrics toggle's median went from
-351 to 793 ms with the same code), so each `ci` time is the slowest median of those three runs,
-and never looser than before: `page.search` 69, `palette.open` 246, `palette.type` 175,
-`palette.close` 227 ms.
+On CI's runner ⌘F to Search went from 370 ms to 46-69 ms (median of three runs). The runner's
+speed swings between runs (the lyrics toggle's median went from 351 to 793 ms with the same code),
+so its `ci` time is the slowest of those medians with half again on top, 104 ms.
 
 ## The sound (Apple Music)
 
