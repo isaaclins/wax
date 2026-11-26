@@ -33,8 +33,13 @@ Release bundles, and coverage gates.
 Run formatting locally when you touch Swift files:
 
 ```sh
-make format         # requires swift-format (see docs/building-and-testing.md)
+make format         # rewrites the files in place
+make lint           # what CI's format check runs; it must pass before a PR merges
 ```
+
+Both use the swift-format that ships with Xcode (or a standalone install) and the
+repo's `.swift-format` rules. CI pins the formatter version, so if your local
+result ever differs from CI's, CI is the one that counts.
 
 Avoid drive-by reformatting of unrelated files in the same change.
 
