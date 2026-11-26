@@ -1300,6 +1300,26 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertEqual(output.current, output.originalID)
     }
 
+    /// A device picked during the start moves the sound once the start is up. Quitting right after
+    /// the pick released the output before that move, which then put the sound back on the EQ device.
+    @MainActor
+    func testQuittingRightAfterPickingAnOutputDuringTheStartLeavesTheSoundOnThatOutput() async throws {
+        let rig = makeTwoOutputRig()
+        let starting = Task { try await rig.engine.start() }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.viewModel.setSystemDefaultOutputDevice(rig.selectedID)
+        let quitCanGoOn = expectation(description: "the quit went on")
+        XCTAssertTrue(rig.engine.releaseOutputForQuitAfterRouteChange { quitCanGoOn.fulfill() })
+        rig.installer.letItFinish()
+        try await starting.value
+        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, errorMessage: nil) }
+        await fulfillment(of: [quitCanGoOn], timeout: 5)
+        rig.engine.releaseOutputForQuit()
+
+        XCTAssertEqual(rig.output.current, rig.selectedID, "the sound was left on the EQ device after quitting")
+    }
+
     /// The player's output menu stays usable while the equalizer starts. A device picked there
     /// meanwhile was dropped, and the sound went to the old device once the equalizer was up.
     @MainActor

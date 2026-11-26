@@ -130,7 +130,7 @@ final class AudioEqualizerEngine: ObservableObject {
     /// Control Center or another app.
     private var forwardingTargetPickedDuringRouteChange: String?
     private var outputDevicePickedDuringRouteChange: AudioObjectID?
-    /// Set once quitting has put the output back from the route queue, so the quit's own release doesn't run again.
+    /// Set once quitting has put the output back, so the release at the very end of the quit doesn't run it again.
     private var outputReleasedForQuit = false
     /// Waiting for the running route change to end, such as a driver removal pressed during "Starting…".
     private var routeChangeEndWaiters: [CheckedContinuation<Void, Never>] = []
@@ -434,28 +434,22 @@ final class AudioEqualizerEngine: ObservableObject {
         let released = pluginController.releaseOutputFromEqualizerDevice(
             fallbackUID: routeState.targetUID ?? pluginController.currentForwardingTargetUID()
         )
+        outputReleasedForQuit = true
         SpotiglassLog.info(.playback, "Quitting with the equalizer on; output restored: \(released)")
     }
 
-    /// Quitting while a route change still runs on the route queue (#604). Releasing the output on
-    /// the main actor would run next to it, and the change could put the sound back on the EQ device
-    /// right after. The release goes onto the route queue behind the change instead, and `done` runs
-    /// on the main actor once it has. Returns false when no route change runs, so quitting can go on.
+    /// Quitting while a route change still runs (#604). Releasing the output right away would run
+    /// next to it, and the change could put the sound back on the EQ device just before Wax quits.
+    /// The release waits until no route change runs any more (one started by a pick made meanwhile
+    /// included), then runs on the main actor like any other quit, and `done` follows it. Returns
+    /// false when no route change runs, so quitting can go on.
     func releaseOutputForQuitAfterRouteChange(_ done: @escaping @MainActor () -> Void) -> Bool {
         guard isStarting else { return false }
-        let controller = pluginController
-        let targetUID = routeState.targetUID
-        routeQueue.async {
-            // The change has ended here: on the EQ device when it went live, released already when it failed.
-            let released = !controller.outputIsOnEqualizerDevice
-                || controller.releaseOutputFromEqualizerDevice(fallbackUID: targetUID ?? controller.currentForwardingTargetUID())
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated { [weak self] in
-                    self?.outputReleasedForQuit = true
-                    SpotiglassLog.info(.playback, "Quitting while the equalizer was starting; output restored: \(released)")
-                    done()
-                }
-            }
+        Task { @MainActor [weak self] in
+            guard let self else { return done() }
+            while isStarting { await withCheckedContinuation { routeChangeEndWaiters.append($0) } }
+            releaseOutputForQuit()
+            done()
         }
         return true
     }
