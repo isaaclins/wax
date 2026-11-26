@@ -72,6 +72,13 @@ struct CommandPaletteKeyBinding: Codable, Equatable {
     var when: CommandPaletteContext?
     var args: [String: JSONValue]?
 
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case keystrokes, command, when, args
+    }
+
+    /// The fields this build reads in a keybind row of `settings.json` (#627).
+    static let jsonKeySchema = JSONKeySchema(known: Set(CodingKeys.allCases.map(\.stringValue)))
+
     func validate() throws {
         guard !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw KeymapValidationError.missingCommand

@@ -66,6 +66,14 @@ struct PinnedItem: Identifiable, Equatable, Codable, Hashable {
         self.subtitleKey = subtitleKey
     }
 
+    private enum CodingKeys: String, CodingKey, CaseIterable {
+        case id, kind, title, subtitle, artworkURL, spotifyURI, isStale
+        case playlistOwnerID, playlistTrackCount, playlistSnapshotID, aliasIDs, subtitleKey
+    }
+
+    /// The fields this build reads; a pins file row keeps any other field when saved (#627).
+    static let jsonKeySchema = JSONKeySchema(known: Set(CodingKeys.allCases.map(\.stringValue)))
+
     /// ID for the Liked Songs virtual row. Stable across processes / accounts;
     /// duplicated only when the same row is pinned for the same account.
     static let likedSongsID = "likedSongs"
