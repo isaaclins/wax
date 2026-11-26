@@ -160,14 +160,6 @@
     ]
   },
   {
-    "file": "Spotiglass/Services/SpotifyAPIClient+Search.swift",
-    "kind": "function.method.instance",
-    "name": "searchTracks(query:limit:)",
-    "hints": [
-      "unused"
-    ]
-  },
-  {
     "file": "Spotiglass/Settings/SpotiglassSettingsModel.swift",
     "kind": "var.static",
     "name": "large",

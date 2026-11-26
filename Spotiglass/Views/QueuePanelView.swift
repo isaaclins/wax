@@ -347,8 +347,17 @@ struct QueueAutoplayButton: View {
             }
             .accessibilityLabel(SpotiglassL10n.string("queue.autoplay.label"))
             .accessibilityValue(SpotiglassL10n.string(autoplay.isEnabled ? "queue.autoplay.on" : "queue.autoplay.off"))
-            .help(SpotiglassL10n.string(autoplay.isEnabled ? "queue.autoplay.help.on" : "queue.autoplay.help.off"))
+            .help(SpotiglassL10n.string(Self.helpKey(isEnabled: autoplay.isEnabled, service: autoplay.service)))
         }
+    }
+}
+
+extension QueueAutoplayButton {
+    /// Spotify's Autoplay says what it is built from, since it can't use Spotify's own
+    /// suggestions, and where its songs go (#617).
+    static func helpKey(isEnabled: Bool, service: MusicService?) -> String {
+        let key = isEnabled ? "queue.autoplay.help.on" : "queue.autoplay.help.off"
+        return service == .spotify ? key + ".spotify" : key
     }
 }
 
@@ -358,7 +367,7 @@ struct QueueAutoplayStatusLine: View {
     @ObservedObject var autoplay: QueueAutoplay
 
     var body: some View {
-        if let key = Self.key(for: autoplay.status), autoplay.isEnabled {
+        if let key = Self.key(for: autoplay.status, service: autoplay.service), autoplay.isEnabled {
             let text = SpotiglassL10n.string(key)
             Text(text)
                 .font(.caption)
@@ -369,10 +378,10 @@ struct QueueAutoplayStatusLine: View {
         }
     }
 
-    static func key(for status: QueueAutoplay.Status) -> String? {
+    static func key(for status: QueueAutoplay.Status, service: MusicService? = nil) -> String? {
         switch status {
         case .off: nil
-        case .on: "queue.autoplay.status.on"
+        case .on: service == .spotify ? "queue.autoplay.status.on.spotify" : "queue.autoplay.status.on"
         case .finding: "queue.autoplay.status.finding"
         case .noMatches: "queue.autoplay.status.noMatches"
         case .failed: "queue.autoplay.status.failed"

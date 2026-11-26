@@ -263,8 +263,11 @@ final class SpotiglassPlaybackHost: ObservableObject {
     private weak var attachedContainer: SpotiglassPlaybackHostContainer?
     private var mountedContainers: [ObjectIdentifier: WeakContainer] = [:]
 
+    /// `catalogTokenProvider` lets Spotify's Autoplay search the catalog (#617); without one
+    /// Spotify has no Autoplay.
     init(
         tokenProvider: PlaybackAccessTokenProviding,
+        catalogTokenProvider: (any SpotifyAccessTokenProviding)? = nil,
         equalizerEngine: AudioEqualizerEngine? = nil
     ) {
         let commander = WebPlaybackViewCommander()
@@ -292,7 +295,18 @@ final class SpotiglassPlaybackHost: ObservableObject {
         self.playbackProvider = playbackProvider
         self.commander = commander
         self.webView = webView
-        queueAutoplay = .forService(playbackProvider.service, session: playbackViewModel, provider: playbackProvider)
+        queueAutoplay = .forService(
+            playbackProvider.service,
+            session: playbackViewModel,
+            provider: playbackProvider,
+            spotifyCatalog: catalogTokenProvider.map {
+                SpotifyAutoplayReads(
+                    api: SpotifyAPIClient(tokenProvider: $0, getResponseCache: .shared),
+                    // try?: without a cache folder Autoplay uses search alone.
+                    cache: try? SpotifyLocalCache()
+                )
+            }
+        )
     }
 
     /// A host for a service whose player runs without a web view (Apple Music's
