@@ -315,9 +315,9 @@ final class QueueAutoplayTests: XCTestCase {
         XCTAssertEqual(h.autoplay.status, .on)
     }
 
-    /// #626: the best suggestion fails to add with a plain failure every time. The first failure
-    /// stops the round like any hiccup; the second rules it out for the session and the next
-    /// suggestions fill the queue right away, so it no longer blocks Autoplay.
+    /// #626: the best suggestion fails to add with a plain failure every time. Each time the
+    /// next suggestions take its place right away; once it failed like that twice it is skipped
+    /// for the session, so it no longer comes first and stops a round.
     func testASongThatFailsTheSameWayTwiceIsSkippedForTheSession() async throws {
         let h = makeHarness()
         let failing = "applemusic:song:new-1"
@@ -326,23 +326,49 @@ final class QueueAutoplayTests: XCTestCase {
         try await notePlaying(h)
         h.autoplay.setEnabled(true)
         await h.autoplay.settle()
-        XCTAssertEqual(h.player.appendAttempts, 1)
-        XCTAssertEqual(h.autoplay.status, .failed)
-        let before = try await upcoming(h)
-        XCTAssertEqual(before, Array(seeds.dropFirst()), "nothing went in yet")
-
-        try await next(h)
-        let queue = try await upcoming(h)
-        XCTAssertEqual(queue.count, 8)
-        XCTAssertFalse(queue.contains(failing))
+        let first = try await upcoming(h)
+        XCTAssertEqual(first.count, 8, "the next suggestions filled the queue")
+        XCTAssertFalse(first.contains(failing))
         XCTAssertEqual(h.autoplay.status, .on)
-        let attempts = h.player.appendAttempts
+        XCTAssertEqual(h.player.appendAttempts, 6, "the failing song, then the 5 that filled the queue")
+
+        // The next song tries it once more (it still ranks first), it fails again and is out.
+        try await next(h)
+        XCTAssertEqual(h.player.appendAttempts, 8)
+        let second = try await upcoming(h)
+        XCTAssertEqual(second.count, 8)
+        XCTAssertFalse(second.contains(failing))
+        XCTAssertEqual(h.autoplay.status, .on)
 
         // Later songs don't try it again.
         try await next(h)
-        XCTAssertEqual(h.player.appendAttempts, attempts + 1)
+        XCTAssertEqual(h.player.appendAttempts, 9)
         let later = try await upcoming(h)
         XCTAssertFalse(later.contains(failing))
+    }
+
+    /// An outage MusicKit doesn't name as one (#626): every add fails plainly. Two in a row stop
+    /// the round and count against no song, so once it works again the best song still goes in.
+    func testPlainFailuresOverSeveralSongsRuleNothingOut() async throws {
+        let h = makeHarness()
+        try await h.provider.play(.items(uris: seeds, startURI: nil), deviceID: deviceID)
+        try await notePlaying(h)
+        h.player.appendError = MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "add failed")
+        h.autoplay.setEnabled(true)
+        await h.autoplay.settle()
+        XCTAssertEqual(h.player.appendAttempts, 2, "a second plain failure in a row stops the round")
+        XCTAssertEqual(h.autoplay.status, .failed)
+        try await next(h)
+        try await next(h)
+        XCTAssertEqual(h.player.appendAttempts, 6)
+        XCTAssertEqual(h.autoplay.status, .failed)
+
+        h.player.appendError = nil
+        try await next(h)
+        let queue = try await upcoming(h)
+        XCTAssertEqual(queue.count, 8)
+        XCTAssertTrue(queue.contains("applemusic:song:new-1"), "the song that failed is still a candidate")
+        XCTAssertEqual(h.autoplay.status, .on)
     }
 
     /// A network outage over several songs still rules nothing out (#626): every round stops on

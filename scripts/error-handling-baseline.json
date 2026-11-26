@@ -788,11 +788,6 @@
   },
   {
     "file": "Spotiglass/Playback/QueueAutoplay.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … guard !Task.isCancelled, !(error is CancellationError) else { return }"
-  },
-  {
-    "file": "Spotiglass/Playback/QueueAutoplay.swift",
     "rule": "try-reason",
     "code": "if let queuedNow = try? await player.autoplayUpcomingTracks() {"
   },

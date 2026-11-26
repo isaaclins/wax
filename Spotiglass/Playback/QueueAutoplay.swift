@@ -227,9 +227,10 @@ final class QueueAutoplay: ObservableObject {
     private var addedKeys: Set<String> = []
     /// Songs that could not be added (not in the storefront, blocked as explicit).
     private var failedKeys: Set<String> = []
-    /// How often each song failed to add with a plain failure, by identity key (#626). Such a
-    /// failure may be the song or a passing hiccup, so the song is ruled out only once it fails
-    /// like that ``plainFailureLimit`` times; otherwise it would rank first and stop every round.
+    /// How often each song failed to add with a plain failure while the next song went in, by
+    /// identity key (#626). Such a failure may be the song or a passing hiccup, so the song is
+    /// ruled out only once it fails like that ``plainFailureLimit`` times; otherwise it would
+    /// rank first and stop every round.
     private var plainFailures: [String: Int] = [:]
     /// Plain failures of one song after which Autoplay skips it for the session (#626).
     static let plainFailureLimit = 2
@@ -508,6 +509,11 @@ final class QueueAutoplay: ObservableObject {
             var added = 0
             var spread = QueueAutoplayRanking.ArtistSpread(lastArtistKey: lastArtist)
             var stalled = false
+            // A song that just failed plainly (#626). It counts against the song only once the
+            // next one goes in: then the connection works and it was that song. A second plain
+            // failure in a row is likely the connection (MusicKit doesn't always say it is
+            // offline), so the round stops and nothing counts.
+            var plainlyFailed: MusicTrack?
             while added < want, let index = spread.nextIndex(in: remaining) {
                 let track = remaining.remove(at: index)
                 guard isEnabled, !Task.isCancelled else { return }
@@ -527,17 +533,26 @@ final class QueueAutoplay: ObservableObject {
                     knownTracks[track.uri] = track
                     spread.queued(track)
                     added += 1
+                    if let failed = plainlyFailed {
+                        plainlyFailed = nil
+                        countPlainFailure(of: failed)
+                    }
                 } catch {
                     guard !Task.isCancelled, !(error is CancellationError) else { return }
-                    // A refusal of this song rules it out, and so does the same plain failure
-                    // again (#626). Anything else (no network, a server error) stops here and
-                    // the next song tries again, the same songs included, instead of running
-                    // through every suggestion.
-                    guard Self.refusesSong(error) || (Self.isPlainFailure(error) && ruledOutAfterPlainFailure(track, error)) else {
+                    // A refusal of this song rules it out. A plain failure tries the next
+                    // suggestion (#626). Anything else (no network, a server error), or a second
+                    // plain failure in a row, stops here and the next song tries again, the same
+                    // songs included, instead of running through every suggestion.
+                    if Self.refusesSong(error) {
+                        failedKeys.formUnion(QueueAutoplayIdentity.keys(track))
+                        continue
+                    }
+                    guard Self.isPlainFailure(error), plainlyFailed == nil else {
                         stalled = true
                         break
                     }
-                    failedKeys.formUnion(QueueAutoplayIdentity.keys(track))
+                    SpotiglassLog.error(.playback, "Autoplay couldn't add \(track.uri), trying the next suggestion: \(String(describing: error))")
+                    plainlyFailed = track
                 }
             }
             if added > 0 { queueChanged.send() }
@@ -572,18 +587,15 @@ final class QueueAutoplay: ObservableObject {
         (error as? MusicPlaybackError)?.reason == .failed
     }
 
-    /// Counts a plain failure against `track`. Whether that was its ``plainFailureLimit``th: it
-    /// is then skipped for the session and the next suggestion takes its place right away.
-    private func ruledOutAfterPlainFailure(_ track: MusicTrack, _ error: Error) -> Bool {
+    /// Counts a plain failure against `track`. At its ``plainFailureLimit``th the song is
+    /// skipped for the rest of the session.
+    private func countPlainFailure(of track: MusicTrack) {
         let keys = QueueAutoplayIdentity.keys(track)
         let count = (keys.compactMap { plainFailures[$0] }.max() ?? 0) + 1
         for key in keys { plainFailures[key] = count }
-        guard count >= Self.plainFailureLimit else { return false }
-        SpotiglassLog.error(
-            .playback,
-            "Autoplay skips \(track.uri) for this session: adding it failed \(count) times (\(String(describing: error)))"
-        )
-        return true
+        guard count >= Self.plainFailureLimit else { return }
+        failedKeys.formUnion(keys)
+        SpotiglassLog.error(.playback, "Autoplay skips \(track.uri) for this session: adding it failed \(count) times")
     }
 
     /// The last ``windowSize`` songs of played, playing and queued, in order. A song the
