@@ -21,13 +21,12 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         hostedWindow = nil
         hostedTrackIDs = []
         hostedBrowser = nil
+        hostedLyrics = nil
         super.tearDown()
     }
 
     private static let trackIDs = (1...20).map { "t\($0)" }
 
-    /// The browser `hostBrowser` put on screen.
-    private var hostedBrowser: PlaylistBrowserViewModel?
     /// The lyrics overlay of the browser `hostBrowser` put on screen.
     private var hostedLyrics: LyricsOverlayController?
 
