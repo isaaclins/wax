@@ -202,6 +202,11 @@ final class SpotiglassLogTests: XCTestCase {
             ("ERROR", "api", "Spotify GET /v1/users/isaac.lins/playlists failed: NSURLErrorDomain -1009: The Internet connection appears to be offline."),
             ("INFO", "interaction", "#12 click in window “Wax” row 3 of 40 on cell “Let It Happen” in row; first frame after 6.1 ms"),
             ("INFO", "interaction", "#13 key T in window “Wax” on focus NSTextView; first frame after 4.0 ms"),
+            ("INFO", "interaction", "#15 key ⇧Q in window “Wax” on focus NSTextView; first frame after 3.9 ms"),
+            ("INFO", "interaction", "#16 key SS in window “Wax” on focus NSTextView; first frame after 3.7 ms"),
+            ("INFO", "interaction", "#17 key ↓ in window “Wax” on focus NSTableView; first frame after 2.1 ms"),
+            ("INFO", "interaction", "#18 key Return in window “Wax” on focus NSTableView; first frame after 2.4 ms"),
+            ("INFO", "interaction", "#19 key in a password field in window “Wax”; first frame after 2.2 ms"),
             ("INFO", "interaction", "#14 shortcut ⌘K in window “Wax” on button “Next”; first frame after 3.2 ms"),
             ("INFO", "persistence", "Cache folder /Users/isaac/Library/Caches/Spotiglass unreadable"),
             ("INFO", "calls", "→ #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg"),
@@ -221,6 +226,8 @@ final class SpotiglassLogTests: XCTestCase {
         // An outside text with a newline stays on its own line and can't fake one.
         XCTAssertFalse(full.contains("\n2026-11-25T16:00:00.000Z [INFO] [auth] Signed in"))
         XCTAssertTrue(full.contains("access_denied\\n2026-11-25T16:00:00.000Z"))
+        // Nor with a line separator or a character that turns the text around.
+        XCTAssertEqual(FileLogSink.oneLine("a\u{2028}b\u{202E}c"), "a\\u{2028}b\\u{202e}c")
 
         let destination = directory.appendingPathComponent("report.txt")
         try BugReportLogCopy.write(from: directory, to: destination, keeping: ["Wax", "Next"])
@@ -229,7 +236,7 @@ final class SpotiglassLogTests: XCTestCase {
         for personal in [
             "tame impala", "tame%20impala", "Let It Happen", "isaac.lins", "/Users/isaac/",
             "4651336237147474264", "1718416633700638354", "69022FF1-C55C-4807-9D44-AB5C2C770DCD",
-            "b7aXaLAhy::5GlvfRUeI", deviceID, "6rqhFgbbKwnb9MLmUQDhG6", "The access token expired", "key T",
+            "b7aXaLAhy::5GlvfRUeI", deviceID, "6rqhFgbbKwnb9MLmUQDhG6", "The access token expired", "key T", "key ⇧Q", "key SS",
             "20UMGIM03371", "Currents", "Tame Impala", "Pond", "909253", "Eventually",
         ] {
             XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
@@ -239,18 +246,18 @@ final class SpotiglassLogTests: XCTestCase {
             "position 9 of 440", "first frame after 6.1 ms", "row 3 of 40", "button “Next”", "window “Wax”",
             "shortcut ⌘K", "/v1/search?<query>", "applemusic:song:#", "spotify:track:#", "currentURI=<nil>",
             "/Users/<user>/Library/Caches", "access_denied", "https://is1-ssl.mzstatic.com/#", "status 200, 114795 bytes",
-            "album search for a pin (“#", "catalog artist #", "top songs done after 120.4 ms", "” by “#",
+            "album search for a pin (“#", "key ⇧·", "key ↓", "key Return", "key in a password field", "catalog artist #", "top songs done after 120.4 ms", "” by “#",
         ] {
             XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
         }
         // The same device is the same stand-in in both lines, so the story still reads.
         let standIns = copy.split(separator: "\n").filter { $0.contains("deviceID=") }.compactMap { line in
-            line.range(of: #"deviceID=#[0-9a-f]{6}"#, options: .regularExpression).map { String(line[$0]) }
+            line.range(of: #"deviceID=#[0-9a-f]{8}"#, options: .regularExpression).map { String(line[$0]) }
         }
         XCTAssertEqual(standIns.count, 2)
         XCTAssertEqual(Set(standIns).count, 1)
         let covers = copy.split(separator: "\n").filter { $0.contains("mzstatic") }.compactMap { line in
-            line.range(of: #"mzstatic\.com/#[0-9a-f]{6}"#, options: .regularExpression).map { String(line[$0]) }
+            line.range(of: #"mzstatic\.com/#[0-9a-f]{8}"#, options: .regularExpression).map { String(line[$0]) }
         }
         XCTAssertEqual(covers.count, 2)
         XCTAssertEqual(Set(covers).count, 1)
@@ -270,19 +277,20 @@ final class SpotiglassLogTests: XCTestCase {
             "2026-11-25T15:17:06.100Z [INFO] [calls] → #10 MusicKit album search for a pin (Lonerism / Tame Impala)",
             "2026-11-25T15:17:08.000Z [ERROR] [performance] MAIN THREAD BLOCKED for 2000.0 ms; calls running: MusicKit album search for a pin (Innerspeaker / Tame Impala) (#10, 1.9 s); MusicKit autoplay artist search (Melody's Echo Chamber) (#9, 2.0 s)",
             "2026-11-25T15:17:09.000Z [INFO] [playback] player status paused -> playing at 0:00.0",
+            "2026-11-25T15:17:10.000Z [ERROR] [browsing] Looking up \"Mystery Playlist\" to open it failed: NSURLErrorDomain -1009",
         ]
         try Data((older.joined(separator: "\n") + "\n").utf8).write(to: directory.appendingPathComponent(FileLogSink.previousFileName))
         let destination = directory.appendingPathComponent("report.txt")
         try BugReportLogCopy.write(from: directory, to: destination, keeping: ["Pin"])
         let copy = try String(contentsOf: destination, encoding: .utf8)
         for personal in [
-            "bad bunny", "Let It Happen", "Tame Impala", "Currents", "Pond", "Khruangbin", "Lonerism", "Innerspeaker", "Melody's Echo Chamber",
+            "bad bunny", "Let It Happen", "Tame Impala", "Currents", "Pond", "Khruangbin", "Lonerism", "Innerspeaker", "Melody's Echo Chamber", "Mystery Playlist",
         ] {
             XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
         }
         for kept in [
             "provider 412ms", "answered in part", "(position 9 of 440): after play", "button “Pin”", "done after 120.4 ms",
-            "(#10, 1.9 s); MusicKit autoplay artist search (“#", "(#9, 2.0 s)", "player status paused -> playing",
+            "(#10, 1.9 s); MusicKit autoplay artist search (“#", "(#9, 2.0 s)", "player status paused -> playing", "to open it failed: NSURLErrorDomain -1009",
         ] {
             XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
         }

@@ -353,9 +353,17 @@ final class FileLogSink {
 
     /// Every entry is one line: a newline or other control character in a message (a response
     /// body, an error from outside) is written escaped, so it can't start a line of its own that
-    /// looks like Wax wrote it (#603, #594).
+    /// looks like Wax wrote it (#603, #594). Line and paragraph separators and the characters that
+    /// turn text around are escaped too: some viewers show them as a new line or reversed text.
+    private static func needsEscape(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.value {
+        case 0x2028, 0x2029, 0x200E, 0x200F, 0x202A ... 0x202E, 0x2066 ... 0x2069: true
+        default: scalar.properties.generalCategory == .control
+        }
+    }
+
     static func oneLine(_ message: String) -> String {
-        guard message.unicodeScalars.contains(where: { $0.properties.generalCategory == .control }) else { return message }
+        guard message.unicodeScalars.contains(where: needsEscape) else { return message }
         var result = ""
         result.reserveCapacity(message.utf8.count + 8)
         for scalar in message.unicodeScalars {
@@ -364,7 +372,7 @@ final class FileLogSink {
             case "\r": result += "\\r"
             case "\t": result += "\\t"
             default:
-                if scalar.properties.generalCategory == .control {
+                if needsEscape(scalar) {
                     result += "\\u{\(String(scalar.value, radix: 16))}"
                 } else {
                     result.unicodeScalars.append(scalar)
@@ -454,8 +462,8 @@ final class FileLogSink {
 /// log's quotes (``SpotiglassLog/personal(_:)``: searches, names, bodies), song, album, playlist,
 /// library and queue IDs, Connect and other device IDs, the query of every address, the user in
 /// a Spotify path, typed keys and the home folder's name. Each value gets a stand-in like
-/// `#3f2a9c` that is the same everywhere in one copy, so "the player went from #3f2a9c to
-/// #9c1d04" still reads; a new copy uses new stand-ins, so two reports can't be matched up.
+/// `#3f2a9c1d` that is the same everywhere in one copy, so "the player went from #3f2a9c1d to
+/// #9c1d04e7" still reads; a new copy uses new stand-ins, so two reports can't be matched up.
 enum BugReportLogCopy {
     /// The log files in the order they were written: the previous session, then this one.
     static func sourceFiles(in folder: URL) -> [URL] {
@@ -469,7 +477,7 @@ enum BugReportLogCopy {
     /// the value and this copy's salt, so the pieces agree on it.
     static func write(from folder: URL, to destination: URL, keeping ownWords: Set<String> = appWords()) throws {
         let salt = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) })
-        var output = Data("=== Wax log for a bug report, saved \(ISO8601DateFormatter().string(from: Date())). Searches, names, IDs and addresses are replaced by stand-ins like #3f2a9c. ===\n".utf8)
+        var output = Data("=== Wax log for a bug report, saved \(ISO8601DateFormatter().string(from: Date())). Searches, names, IDs and addresses are replaced by stand-ins like #3f2a9c1d. ===\n".utf8)
         for file in sourceFiles(in: folder) {
             let text = try String(contentsOf: file, encoding: .utf8)
             output.append(Data("=== \(file.lastPathComponent) ===\n".utf8))
@@ -564,7 +572,7 @@ enum BugReportLogCopy {
                 guard let equals = match.firstIndex(of: "=") else { return match }
                 let key = match[..<equals]
                 let value = String(match[match.index(after: equals)...])
-                // A service URI already carries its stand-in (`applemusic:song:#3f2a9c`) and keeps its kind.
+                // A service URI already carries its stand-in (`applemusic:song:#3f2a9c1d`) and keeps its kind.
                 if ["<nil>", "nil", "none", "?"].contains(value) || cleaner.isStandIn(value) || value.contains(":#") { return match }
                 return "\(key)=\(cleaner.standIn(value))"
             }
@@ -578,7 +586,7 @@ enum BugReportLogCopy {
                     cleaner.isStandIn(match) ? match : cleaner.standIn(match)
                 }
             }
-            result = replace(Self.typedKey, in: result) { _, _ in "key ·" }
+            result = replace(Self.typedKey, in: result) { _, match in match.contains("⇧") ? "key ⇧·" : "key ·" }
             return result
         }
 
@@ -587,13 +595,13 @@ enum BugReportLogCopy {
             var data = salt
             data.append(Data(value.utf8))
             let digest = SHA256.hash(data: data)
-            let standIn = "#" + digest.prefix(3).map { String(format: "%02x", $0) }.joined()
+            let standIn = "#" + digest.prefix(4).map { String(format: "%02x", $0) }.joined()
             standIns[value] = standIn
             return standIn
         }
 
         private func isStandIn(_ value: String) -> Bool {
-            value.count == 7 && value.first == "#"
+            value.count == 9 && value.first == "#"
         }
 
         /// Every captured group of `pattern` in `text`, put in the log's quotes.
@@ -643,6 +651,7 @@ enum BugReportLogCopy {
             pattern(#"(?m)palette search '(.*?)'(?= provider| answered|$)"#),
             pattern(#"current entry -> \S+ "(.*?)"(?: by (.*?))? (?=\(position )"#),
             pattern(#"(?m)album search for a pin \((?!“)(.*?) / (.*?)\)(?= done| failed| \(after| \(#\d|;|$)"#),
+            pattern(#"(?m)Looking up "(.*)" to open it failed"#),
             pattern(#"(?m)autoplay artist search \((?!“)(.*?)\)(?= done| failed| \(after| \(#\d|;|$)"#),
         ]
         /// “…”: ``SpotiglassLog/personal(_:)``, control and window names in interaction lines.
@@ -674,8 +683,8 @@ enum BugReportLogCopy {
             // Catalog and persistent IDs: nine or more digits.
             pattern(#"(?<![\w.:])-?\d{9,}\b"#),
         ]
-        /// `key A` in an interaction line: a letter or digit typed into a field. Shortcuts and
-        /// named keys (`shortcut ⌘F`, `key Return`) stay.
-        private static let typedKey = pattern(#"\bkey [^\s;](?=[\s;]|$)"#)
+        /// `key A`, `key ⇧A` or `key SS` in an interaction line: what was typed into a field.
+        /// Shortcuts and named keys (`shortcut ⌘F`, `key Return`, `key ↓`) stay.
+        private static let typedKey = pattern(#"\bkey ⇧?(?!(?:Return|Tab|Space|Delete|Escape|[←→↓↑]|key \d+|in a password field)(?=[\s;]|$))[^\s;]+(?=[\s;]|$)"#)
     }
 }

@@ -62,7 +62,7 @@ Hand-edits to the file are picked up live by Wax via a file-system watcher.
 - Loaded URLs are deduplicated in memory and stored on disk as image bytes (not JSON). Same artwork URL reuses cache across scrolling and restarts until cleared.
 - Does not contain tokens or credentials.
 
-The log (see the table above) never contains tokens, authorization codes, cookies or passwords. Everything else Wax does goes in, so attach the copy from **Save Copy of the Log…** to public reports, not the raw files. In that copy each value gets a stand-in such as `#3f2a9c` that is the same wherever the value shows up, so a report still shows that the same song or device came back; a new copy uses new stand-ins.
+The log (see the table above) never contains tokens, authorization codes, cookies or passwords. Everything else Wax does goes in, so attach the copy from **Save Copy of the Log…** to public reports, not the raw files. In that copy each value gets a stand-in such as `#3f2a9c1d` that is the same wherever the value shows up, so a report still shows that the same song or device came back; a new copy uses new stand-ins.
 
 ## Troubleshooting Keychain errors
 
