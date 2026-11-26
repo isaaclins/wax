@@ -156,6 +156,77 @@ final class SpotifyAutoplayTests: XCTestCase {
         XCTAssertEqual(QueueAutoplay.fillTarget(for: .spotify), 1)
     }
 
+    // MARK: - The live reads
+
+    /// The search asks for songs led by the artist, in my market, with any quote in the name
+    /// taken out so it can't end the `artist:` filter early.
+    func testLiveSearchAsksForTheArtistInMyMarket() async throws {
+        let http = QueueHTTPClient([.json(#"{"tracks":{"items":[]}}"#)])
+        let reads = SpotifyAutoplayReads(
+            api: SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: http),
+            cache: nil
+        )
+
+        let found = try await reads.autoplayTracks(byArtistNamed: #"The "Quoted" Band"#)
+
+        XCTAssertEqual(found, [])
+        XCTAssertEqual(
+            http.requests.first?.url?.absoluteString,
+            "https://api.spotify.com/v1/search?q=artist:%22The%20Quoted%20Band%22&type=track&limit=10&market=from_token"
+        )
+        let noPlaylists = await reads.autoplayLibraryPlaylists()
+        XCTAssertEqual(noPlaylists, [], "without a cache folder there are no playlists, only search")
+    }
+
+    /// The playlists come from what the app keeps on disk; episodes and unreadable playlists
+    /// are left out.
+    func testLivePlaylistsAreTheOnesKeptOnDisk() async throws {
+        let cache = try SpotifyLocalCache(rootDirectory: spotiglassTestsTemporaryDirectory())
+        let song = Self.track("kept", artist: "Seed Artist")
+        let episode = MusicEpisode(
+            id: "ep", name: "Episode", showName: "Show", artworkURL: nil,
+            durationMilliseconds: 1000, isPlayable: true, uri: "spotify:episode:ep"
+        )
+        try cache.savePlaylists([
+            Self.summary("p.1", snapshot: "s1"),
+            Self.summary("p.missing", snapshot: "s2"),
+        ])
+        try cache.saveTracks(
+            [
+                MusicPlaylistTrackItem(id: "0", content: .track(song)),
+                MusicPlaylistTrackItem(id: "1", content: .episode(episode)),
+            ],
+            playlistID: "p.1",
+            snapshotID: "s1"
+        )
+        let reads = SpotifyAutoplayReads(
+            api: SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: QueueHTTPClient([])),
+            cache: cache
+        )
+
+        let playlists = await reads.autoplayLibraryPlaylists()
+
+        XCTAssertEqual(playlists, [[song]])
+    }
+
+    /// Without the playlist list on disk, the playlists "More from your library" collected stand in.
+    func testLivePlaylistsFallBackToTheLibraryContinuation() async throws {
+        let cache = try SpotifyLocalCache(rootDirectory: spotiglassTestsTemporaryDirectory())
+        let song = Self.track("collected", artist: "Close Friend")
+        try cache.saveLibraryContinuationIndex(
+            LibraryContinuationLibrary(playlists: [LibraryContinuationPlaylist(id: "p.9", tracks: [song])])
+        )
+        let reads = SpotifyAutoplayReads(
+            api: SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: QueueHTTPClient([])),
+            cache: cache
+        )
+
+        let playlists = await reads.autoplayLibraryPlaylists()
+
+        XCTAssertEqual(playlists, [[song]])
+    }
+
+    // MARK: - Harness
     // MARK: - Harness
 
     @MainActor
@@ -194,6 +265,10 @@ final class SpotifyAutoplayTests: XCTestCase {
         )
         autoplay.player = queue
         return Harness(queue: queue, autoplay: autoplay, clock: clock)
+    }
+
+    static func summary(_ id: String, snapshot: String) -> MusicPlaylistSummary {
+        MusicPlaylistSummary(id: id, name: id, ownerID: "me", ownerName: "Me", imageURL: nil, trackCount: 2, snapshotID: snapshot)
     }
 
     static func track(_ id: String, artist: String) -> MusicTrack {
