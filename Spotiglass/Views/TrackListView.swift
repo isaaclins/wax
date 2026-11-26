@@ -23,8 +23,9 @@ struct TrackListView<Row: View>: View {
     /// makes SwiftUI look at this view, so the list ran every row it holds with each press
     /// though nothing in them changed (#751). The page builds this view again when either changes.
     private let selection: Set<String>
-    /// The list's own binding, built in the body: it reads the selection live, so a click the
-    /// table makes is read back before the page has built this view again.
+    /// The page's selection binding, handed to the list in the body: it reads the selection live,
+    /// so a click the table makes is read back before the page has built this view again. It is
+    /// kept inside a closure on purpose: kept as a `Binding` it would bring #751 back.
     private let liveSelection: () -> Binding<Set<String>>
     let rowBuilder: (TrackRowViewModel) -> Row
     /// Optional content rendered above the track rows in the native list.
