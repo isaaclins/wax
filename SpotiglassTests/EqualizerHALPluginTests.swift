@@ -1267,10 +1267,60 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertEqual(rig.controller.currentForwardingTargetUID(), rig.selectedUID)
     }
 
+    /// A device picked while the equalizer was starting must not be lost when the equalizer then
+    /// gives up: before, the click ran after the freeze and set that device directly.
+    @MainActor
+    func testAnOutputPickedWhileTheEqualizerIsStartingIsUsedWhenTheStartFails() async throws {
+        let rig = makeTwoOutputRig(routerOpens: false)
+        let starting = Task { try await rig.engine.start() }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.viewModel.setSystemDefaultOutputDevice(rig.selectedID)
+        rig.installer.letItFinish()
+        do {
+            try await starting.value
+            XCTFail("the router never opened, so the start should have failed")
+        } catch {}
+
+        XCTAssertFalse(rig.engine.isEngaged)
+        XCTAssertEqual(rig.output.current, rig.selectedID, "the sound went back to the old device instead of the picked one")
+    }
+
+    @MainActor
+    func testAnOutputPickedWhileTheEqualizerIsStartingIsUsedWhenItIsSwitchedOffMeanwhile() async throws {
+        let rig = makeTwoOutputRig()
+        let settingsStore = try ViewTestHost.makeSettingsStore()
+        rig.engine.observe(settingsStore: settingsStore)
+        try settingsStore.mutate { $0.equalizer.enabled = true }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.viewModel.setSystemDefaultOutputDevice(rig.selectedID)
+        try settingsStore.mutate { $0.equalizer.enabled = false }
+        rig.installer.letItFinish()
+        await waitForRoute(of: rig.engine) { $0 == .disabled }
+
+        XCTAssertEqual(rig.output.current, rig.selectedID, "the sound went back to the old device instead of the picked one")
+    }
+
+    /// The Mac's default output as the rig's controller sets and reads it, from the route's queue
+    /// and from the test.
+    private final class RigOutput: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storedCurrent: AudioObjectID
+
+        init(current: AudioObjectID) { storedCurrent = current }
+
+        var current: AudioObjectID {
+            get { lock.withLock { storedCurrent } }
+            set { lock.withLock { storedCurrent = newValue } }
+        }
+    }
+
     private struct TwoOutputRig {
         let selectedID = AudioObjectID(42)
         let selectedUID = "SelectedOutputUID"
         let installer: HeldDriverInstaller
+        let output: RigOutput
         let controller: EqualizerHALPluginController
         let engine: AudioEqualizerEngine
         let macOutput: TestEqualizerMacOutputProvider
@@ -1278,14 +1328,15 @@ final class EqualizerHALPluginTests: XCTestCase {
     }
 
     /// Two hardware outputs, an install that waits for the test, and a router that opens whatever
-    /// target was last written.
+    /// target was last written, or never opens anything.
     @MainActor
-    private func makeTwoOutputRig() -> TwoOutputRig {
+    private func makeTwoOutputRig(routerOpens: Bool = true) -> TwoOutputRig {
         let originalID = AudioObjectID(41)
         let selectedID = AudioObjectID(42)
         let virtualID = AudioObjectID(99)
         let uids = [originalID: "OriginalOutputUID", selectedID: "SelectedOutputUID"]
         let installer = HeldDriverInstaller()
+        let output = RigOutput(current: originalID)
         let controller = EqualizerHALPluginController(
             halDirectory: halDirectory,
             bundle: fakeAppBundle,
@@ -1293,14 +1344,16 @@ final class EqualizerHALPluginTests: XCTestCase {
             driverInstaller: installer,
             outputDeviceIDForUID: { uid in uids.first { $0.value == uid }?.key },
             outputDeviceUID: { uids[$0] },
-            defaultOutputDeviceIDProvider: { originalID },
+            defaultOutputDeviceIDProvider: { output.current },
             virtualDeviceIDProvider: { virtualID },
-            defaultOutputSetter: { _ in },
+            defaultOutputSetter: { output.current = $0 },
             routerStatusURL: makeTempDirectory().appendingPathComponent("router.status"),
             routerStatusReader: {
+                guard routerOpens else { return nil }
                 let written = try? String(contentsOf: EqualizerHALPluginController.forwardingTargetURL, encoding: .utf8)
                 return written.map { .ready(targetUID: $0.trimmingCharacters(in: .whitespacesAndNewlines)) }
             },
+            routerReadinessTimeout: 0.2,
             activeSampleRateObservationStarter: { _ in }
         )
         let engine = AudioEqualizerEngine(pluginController: controller)
@@ -1313,6 +1366,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         )
         return TwoOutputRig(
             installer: installer,
+            output: output,
             controller: controller,
             engine: engine,
             macOutput: macOutput,

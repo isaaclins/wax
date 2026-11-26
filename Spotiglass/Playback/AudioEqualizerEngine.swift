@@ -135,7 +135,8 @@ final class AudioEqualizerEngine: ObservableObject {
     /// wait for coreaudiod to list the EQ device and the wait for the router.
     /// They take seconds after an install (the helper restarts coreaudiod),
     /// and on the main actor they froze the whole app with a beachball (#604).
-    /// One serial queue, so two route changes never touch the controller at once.
+    /// One serial queue, so two route changes never touch the controller at once. Meanwhile the
+    /// main actor only reads the controller's sample rate, which the controller guards with a lock.
     private let routeQueue = DispatchQueue(label: "com.isaaclins.spotiglass.equalizer.route", qos: .userInitiated)
 
     /// In-memory mirror of the most recently applied settings. The persisted
@@ -593,21 +594,36 @@ final class AudioEqualizerEngine: ObservableObject {
         let pickedDevice = outputDevicePickedDuringRouteChange
         forwardingTargetPickedDuringRouteChange = nil
         outputDevicePickedDuringRouteChange = nil
-        if let settingsStore = observedSettingsStore, !settingsStore.settings.equalizer.enabled {
-            guard routeState.isEngaged else { return }
+        if let settingsStore = observedSettingsStore, !settingsStore.settings.equalizer.enabled,
+           routeState.isEngaged {
             do {
                 try stop()
             } catch {
                 SpotiglassLog.error(.playback, "Switching the equalizer off after it started failed: \(error.localizedDescription)")
                 putPersistedSwitchBack(in: settingsStore)
             }
+        }
+        guard case let .live(targetUID, _) = routeState else {
+            // The equalizer is off now (switched off meanwhile, or it could not start), and
+            // putting the sound back chose the device from before. A device picked meanwhile is
+            // where the sound should go, as if the equalizer had been off when it was picked.
+            if let pickedDevice, !routeState.isEngaged { moveOutput(to: pickedDevice) }
             return
         }
-        guard case let .live(targetUID, _) = routeState else { return }
+        if let settingsStore = observedSettingsStore, !settingsStore.settings.equalizer.enabled { return }
         if let pickedDevice {
             Task { @MainActor [weak self] in await self?.selectOutputDevice(pickedDevice) }
         } else if let pickedTarget, !pickedTarget.isEmpty, pickedTarget != targetUID {
             Task { @MainActor [weak self] in await self?.setForwardingTarget(uid: pickedTarget) }
+        }
+    }
+
+    private func moveOutput(to outputDeviceID: AudioObjectID) {
+        guard outputDeviceID != pluginController.lookupSpotiglassEQDeviceID() else { return }
+        do {
+            try pluginController.setDefaultOutputDevice(to: outputDeviceID)
+        } catch {
+            SpotiglassLog.error(.playback, "Could not move the output to the device picked while the equalizer was starting: \(error.localizedDescription)")
         }
     }
 

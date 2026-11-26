@@ -85,7 +85,14 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
     private(set) var previousDefaultOutputUID: String?
     /// Cache of the active sample rate the plugin is currently advertising,
     /// used by the coefficient publisher to recompute biquads on rate change.
-    private(set) var activeSampleRate: UInt32 = 48_000
+    /// A switch-on writes it off the main actor while the equalizer's sliders
+    /// read it on the main actor (#604), so it sits behind a lock.
+    private(set) var activeSampleRate: UInt32 {
+        get { activeSampleRateLock.withLock { lockedActiveSampleRate } }
+        set { activeSampleRateLock.withLock { lockedActiveSampleRate = newValue } }
+    }
+    private let activeSampleRateLock = NSLock()
+    private var lockedActiveSampleRate: UInt32 = 48_000
     var activeSampleRateDidChange: ((UInt32) -> Void)?
 
     init(
