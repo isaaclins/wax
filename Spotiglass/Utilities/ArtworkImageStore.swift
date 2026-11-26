@@ -3,8 +3,12 @@ import Combine
 import CryptoKit
 import Foundation
 
-/// Loads Spotify CDN artwork with memory + disk layers and a URLSession `URLCache` for HTTP caching.
+/// Loads downloadable artwork (Spotify's CDN, Apple Music's catalog) with memory + disk layers and
+/// a URLSession `URLCache` for HTTP caching. Every cover that fails to load writes one log line.
 actor ArtworkImageStore {
+    /// Writes a failure line; the app's log by default, a test's own list in tests.
+    typealias FailureLog = @Sendable (String) -> Void
+
     static let shared = ArtworkImageStore()
 
     private let memoryKeys: NSCache<NSString, NSImage> = {
@@ -20,6 +24,7 @@ actor ArtworkImageStore {
     private let makeURLSession: () -> URLSession
     private let responseURLCache: URLCache
     private let maxDiskBytes: Int64 = 50 * 1024 * 1024
+    private let logFailure: FailureLog
 
     private init() {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
@@ -50,8 +55,10 @@ actor ArtworkImageStore {
         diskDirectory: URL,
         urlSession: URLSession,
         responseURLCache: URLCache,
-        urlSessionFactory: @escaping () -> URLSession
+        urlSessionFactory: @escaping () -> URLSession,
+        logFailure: @escaping FailureLog = { SpotiglassLog.error(.artwork, $0) }
     ) {
+        self.logFailure = logFailure
         self.diskDirectory = diskDirectory
         self.urlSession = urlSession
         self.makeURLSession = urlSessionFactory
@@ -123,17 +130,19 @@ actor ArtworkImageStore {
             return image
         }
 
+        func logFailed(_ what: String) -> NSImage? {
+            // The host names the source; the path names the cover, which a failure line leaves
+            // out (#603). One line per failed cover (#737).
+            logFailure("Cover failed to load from \(Self.source(of: url)): \(what) after \(took())")
+            return nil
+        }
         do {
             let (data, response) = try await CallLog.http(url, session: urlSession)
             guard generation == cacheGeneration else { return nil }
-            guard let http = response as? HTTPURLResponse, (200 ... 299).contains(http.statusCode) else {
-                let status = (response as? HTTPURLResponse).map { "status \($0.statusCode)" } ?? "no HTTP response"
-                SpotiglassLog.error(.artwork, "cover \(key) failed after \(took()): \(status)")
-                return nil
-            }
+            guard let http = response as? HTTPURLResponse else { return logFailed("no HTTP response") }
+            guard (200 ... 299).contains(http.statusCode) else { return logFailed("HTTP \(http.statusCode)") }
             guard let image = NSImage(data: data) else {
-                SpotiglassLog.error(.artwork, "cover \(key) failed after \(took()): \(data.count) bytes that are not an image")
-                return nil
+                return logFailed("\(data.count) bytes that are not an image (\(http.mimeType ?? "no type"))")
             }
             memoryKeys.setObject(image, forKey: key as NSString)
             // URLCache answers a repeat without going out; the log can't tell the two apart.
@@ -142,11 +151,17 @@ actor ArtworkImageStore {
             await trimDiskCacheIfNeeded()
             return image
         } catch {
-            if !(error is CancellationError) && (error as? URLError)?.code != .cancelled {
-                SpotiglassLog.error(.artwork, "cover \(key) failed after \(took()): \(SpotiglassLog.describe(error))")
-            }
-            return nil
+            guard generation == cacheGeneration, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return nil }
+            return logFailed(SpotiglassLog.describe(error))
         }
+    }
+
+    /// Where a cover comes from, for the log: Apple Music's catalog, Spotify's CDN, or the host.
+    static func source(of url: URL) -> String {
+        let host = url.host?.lowercased() ?? "an unknown host"
+        if host.hasSuffix("mzstatic.com") { return "Apple Music (\(host))" }
+        if host.hasSuffix("scdn.co") || host.hasSuffix("spotifycdn.com") { return "Spotify (\(host))" }
+        return host
     }
 
     private nonisolated static func pixels(_ image: NSImage) -> String {

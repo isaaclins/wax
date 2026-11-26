@@ -52,6 +52,23 @@ enum AppleMusicItemMapping {
 
     // MARK: - Tracks
 
+    /// A saved song's own cover is library artwork only MusicKit draws, which broke in long lists;
+    /// its catalog release's cover is a plain download (#737). Before the release lookup has
+    /// answered, the row gets the library cover, and the views swap in the catalog cover as soon
+    /// as it's known.
+    static func songArtworkURL(
+        _ song: Song,
+        ratings: AppleMusicContentRatings = .shared,
+        registry: AppleMusicArtworkRegistry = .shared
+    ) -> URL? {
+        let catalogCover = ratings.catalogArtwork(of: song)
+        let url = artworkURL(catalogCover ?? song.artwork, size: ArtworkSize.row, pinKind: .track, itemID: song.id, registry: registry)
+        if catalogCover == nil, let url {
+            registry.registerLaterCover(for: url) { ratings.catalogArtwork(of: song) }
+        }
+        return url
+    }
+
     static func track(_ song: Song) -> MusicTrack {
         let uri = uri(kind: "song", id: song.id)
         // Playback queues this exact song for the row (see AppleMusicPlayableRegistry).
@@ -62,7 +79,7 @@ enum AppleMusicItemMapping {
             name: song.title,
             artists: artistNames(song.artistName),
             artistRefs: artistRefs(song.artists),
-            albumArtworkURL: artworkURL(song.artwork, size: ArtworkSize.row, pinKind: .track, itemID: song.id),
+            albumArtworkURL: songArtworkURL(song),
             albumName: song.albumTitle,
             albumID: song.albums?.first?.id.rawValue,
             durationMilliseconds: milliseconds(song.duration),

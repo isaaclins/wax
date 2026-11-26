@@ -22,10 +22,13 @@ final class AppleMusicArtworkRegistry: @unchecked Sendable {
     /// change between launches, so a pin saved with last session's URL finds its cover here
     /// once the item has been mapped again in this session.
     private var artworkByItemKey: LRUDictionary<String, Artwork>
+    /// For library covers that a downloadable cover replaces once it's known: asks for it (#737).
+    private var laterCoverByURL: LRUDictionary<String, @Sendable () -> Artwork?>
 
     init(capacity: Int = AppleMusicArtworkRegistry.maxEntries) {
         artworkByURL = LRUDictionary(capacity: capacity)
         artworkByItemKey = LRUDictionary(capacity: capacity)
+        laterCoverByURL = LRUDictionary(capacity: capacity)
     }
 
     /// URLs a URL loader can't fetch and only this registry can resolve.
@@ -42,6 +45,25 @@ final class AppleMusicArtworkRegistry: @unchecked Sendable {
         }
     }
 
+    /// Library artwork at `url` that a downloadable cover replaces once `cover` finds it. A saved
+    /// song's catalog cover is only known after its release lookup, which a list waits for at
+    /// most a moment; a row mapped before it answered asks here each time it's drawn, so it
+    /// shows the catalog cover rather than MusicKit's library artwork (#737).
+    func registerLaterCover(for url: URL, _ cover: @escaping @Sendable () -> Artwork?) {
+        guard Self.needsMusicKit(url) else { return }
+        lock.withLock { laterCoverByURL.setValue(cover, forKey: url.absoluteString) }
+    }
+
+    /// The downloadable cover that replaces the library artwork at `url`, once it's known.
+    private func laterCover(for url: URL) -> Artwork? {
+        // Asked outside the lock: the answer comes from another lock (the ratings').
+        guard let cover = lock.withLock({ laterCoverByURL.value(forKey: url.absoluteString) }),
+              let found = cover() else { return nil }
+        // Found: keep just the cover, not what it was asked from.
+        lock.withLock { laterCoverByURL.setValue({ found }, forKey: url.absoluteString) }
+        return found
+    }
+
     /// Pixel sizes artwork is requested in. Views round their drawn size up to one of these, so
     /// a 44 pt and a 56 pt thumbnail share one download and one cache entry.
     static let requestPixelSizes = [120, 300, 600, 1200]
@@ -54,8 +76,17 @@ final class AppleMusicArtworkRegistry: @unchecked Sendable {
     /// `url` (as mapped, at a fixed size) at `pixelSize`, so a cover is never stretched past what
     /// Apple sent. Library artwork and URLs this session never mapped come back unchanged: MusicKit
     /// draws library covers at the view's size itself, and an unknown URL can't be resized.
+    /// Library artwork a downloadable cover has replaced since it was mapped comes back as that
+    /// cover (``registerLaterCover(for:_:)``).
     func sizedURL(for url: URL, itemKey: String? = nil, pixelSize: Int) -> URL {
-        guard !Self.needsMusicKit(url), let artwork = artwork(for: url, itemKey: itemKey) else { return url }
+        let artwork: Artwork
+        if Self.needsMusicKit(url) {
+            guard let later = laterCover(for: url) else { return url }
+            artwork = later
+        } else {
+            guard let known = self.artwork(for: url, itemKey: itemKey) else { return url }
+            artwork = known
+        }
         // Asking past the original only returns the original under another cache key.
         let side = min(pixelSize, max(artwork.maximumWidth, artwork.maximumHeight, 1))
         // The item key can hold library artwork now (a pin saved with a catalog URL), and the

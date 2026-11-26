@@ -322,7 +322,12 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         let lyricsOverlay = LyricsOverlayController()
         let palette = CommandPaletteManager()
         let tokens = ShellTestTokenProvider()
-        let playbackHost = SpotiglassPlaybackHost(tokenProvider: tokens)
+        // A stand-in player: a real one reads Spotify with this fake token, gets a 401 and drops
+        // the song, and the lyrics close with it, whenever Spotify answers before the test's
+        // checks (#754, the same as the player bar test above).
+        let playbackHost = SpotiglassPlaybackHost(provider: SpotifyPlaybackProvider(
+            playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()
+        ))
         let view = PlaylistBrowserView(
             viewModel: browserVM,
             playbackHost: playbackHost,

@@ -395,6 +395,97 @@ private actor ArtworkImageTestGate {
     }
 }
 
+// MARK: - #737: every cover that fails to load writes one line
+
+final class ArtworkFailureLogTests: XCTestCase {
+    private final class Lines: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: [String] = []
+        func append(_ line: String) { lock.withLock { stored.append(line) } }
+        var all: [String] { lock.withLock { stored } }
+    }
+
+    private func store(answering answer: StubArtworkURLProtocol.Answer, lines: Lines) -> ArtworkImageStore {
+        StubArtworkURLProtocol.answer = answer
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StubArtworkURLProtocol.self]
+        return ArtworkImageStore(
+            diskDirectory: spotiglassTestsTemporaryDirectory(),
+            urlSession: URLSession(configuration: configuration),
+            responseURLCache: URLCache(memoryCapacity: 0, diskCapacity: 0),
+            urlSessionFactory: { URLSession(configuration: configuration) },
+            logFailure: { lines.append($0) }
+        )
+    }
+
+    private static let cover = URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/ae/b3/66/x/20UMGIM10542.rgb.jpg/120x120bb.jpg")!
+
+    func testAMissingCoverLogsItsSourceStatusAndTime() async throws {
+        let lines = Lines()
+        let image = await store(answering: .status(404), lines: lines).image(for: Self.cover)
+        XCTAssertNil(image)
+        XCTAssertEqual(lines.all.count, 1)
+        let line = try XCTUnwrap(lines.all.first)
+        XCTAssertTrue(line.hasPrefix("Cover failed to load from Apple Music (is1-ssl.mzstatic.com): HTTP 404 after "), line)
+        XCTAssertTrue(line.hasSuffix(" ms"), line)
+        // The cover's path is not the log's business (#603).
+        XCTAssertFalse(line.contains("20UMGIM10542"), line)
+    }
+
+    func testDataThatIsNotAnImageLogsWhatCameBack() async throws {
+        let lines = Lines()
+        let image = await store(answering: .body(Data("<html>".utf8), type: "text/html"), lines: lines).image(for: Self.cover)
+        XCTAssertNil(image)
+        XCTAssertEqual(lines.all.count, 1)
+        XCTAssertTrue(lines.all[0].contains(": 6 bytes that are not an image (text/html) after "), lines.all[0])
+    }
+
+    func testANetworkErrorLogsItsCode() async throws {
+        let lines = Lines()
+        let spotify = URL(string: "https://i.scdn.co/image/ab67616d0000b273")!
+        _ = await store(answering: .error(URLError(.notConnectedToInternet)), lines: lines).image(for: spotify)
+        XCTAssertEqual(lines.all.count, 1)
+        XCTAssertTrue(lines.all[0].hasPrefix("Cover failed to load from Spotify (i.scdn.co): \(NSURLErrorDomain) -1009 after "), lines.all[0])
+    }
+
+    func testALoadedCoverLogsNothing() async throws {
+        let lines = Lines()
+        let image = await store(answering: .body(validArtworkPNGData(), type: "image/png"), lines: lines).image(for: Self.cover)
+        XCTAssertNotNil(image)
+        XCTAssertEqual(lines.all, [])
+    }
+}
+
+private final class StubArtworkURLProtocol: URLProtocol {
+    enum Answer {
+        case status(Int)
+        case body(Data, type: String)
+        case error(Error)
+    }
+
+    nonisolated(unsafe) static var answer: Answer = .status(404)
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+
+    override func startLoading() {
+        let url = request.url!
+        switch Self.answer {
+        case let .status(code):
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: code, httpVersion: nil, headerFields: nil)!, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+        case let .body(data, type):
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": type])!
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        case let .error(error):
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+}
+
 private func makeDelayedArtworkURLSession(cache: URLCache) -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [DelayedArtworkURLProtocol.self]

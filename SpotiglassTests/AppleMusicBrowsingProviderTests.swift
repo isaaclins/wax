@@ -2818,11 +2818,16 @@ private final class MockAppleMusicSource: AppleMusicContentSource, @unchecked Se
     /// Awaited before a rating lookup answers: a catalog that is slow to answer.
     var ratingLookupHold: (@Sendable () async -> Void)?
 
-    func catalogSongRatings(catalogIDs: [String]) async throws -> [String: Bool] {
+    /// The catalog's covers, by catalog song ID (#737).
+    var catalogArtwork: [String: Artwork] = [:]
+
+    func catalogSongReleases(catalogIDs: [String]) async throws -> [String: AppleMusicCatalogRelease] {
         lock.withLock { recordedRatingLookups.append(catalogIDs) }
         if let ratingLookupHold { await ratingLookupHold() }
         if let catalogRatingsError { throw catalogRatingsError }
-        return catalogRatings.filter { catalogIDs.contains($0.key) }
+        return Dictionary(uniqueKeysWithValues: catalogIDs.compactMap { id in
+            catalogRatings[id].map { (id, AppleMusicCatalogRelease(isExplicit: $0, artwork: catalogArtwork[id])) }
+        })
     }
 
     /// The catalog's ratings, `true` for explicit, by catalog album ID.
@@ -2921,6 +2926,85 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         XCTAssertEqual(source.ratingLookups.count, 1)
     }
 
+    /// Saved songs come with library artwork only MusicKit's own view draws; in a long Liked Songs
+    /// some rows drew a black and white diagonal tile instead of the cover (#737). A saved song
+    /// that names a catalog release shows that release's cover, a plain download Wax sizes,
+    /// caches and logs; an upload, which has no release, keeps the library cover.
+    func testSavedSongsShowTheirCatalogReleasesCoverInsteadOfLibraryArtwork() async throws {
+        let source = MockAppleMusicSource()
+        source.savedSongs = [
+            try AppleMusicFixtures.song(id: "i.7370001", title: "Nota Loca", libraryArtwork: true, catalogID: "9737001"),
+            try AppleMusicFixtures.song(id: "i.7370002", title: "Rojo", libraryArtwork: true, catalogID: "9737002"),
+            // Uploaded: no catalog release, so only the library has its cover.
+            try AppleMusicFixtures.song(id: "i.7370003", title: "Voice Memo Demo", libraryArtwork: true),
+        ]
+        source.catalogRatings = ["9737001": false, "9737002": true]
+        source.catalogArtwork = [
+            "9737001": try AppleMusicFixtures.catalogArtwork("9737001"),
+            "9737002": try AppleMusicFixtures.catalogArtwork("9737002"),
+        ]
+
+        let result = try await Self.provider(source).currentUserSavedTracks(limit: 50, maxPages: nil)
+
+        let covers = result.tracks.map { item -> URL? in
+            guard case let .track(track) = item.content else { return nil }
+            return track.albumArtworkURL
+        }
+        XCTAssertEqual(covers.map { $0?.scheme?.lowercased() }, ["https", "https", "musickit"])
+        XCTAssertEqual(covers[0]?.absoluteString, "https://example.com/art/catalog-9737001/120x120bb.jpg")
+        XCTAssertEqual(covers[1]?.absoluteString, "https://example.com/art/catalog-9737002/120x120bb.jpg")
+        // The row downloads it at the size it draws, through Wax's own image cache.
+        let row = try XCTUnwrap(covers[0])
+        XCTAssertFalse(AppleMusicArtworkRegistry.needsMusicKit(row))
+        XCTAssertEqual(
+            ArtworkRequest.url(row, points: TrackRowMetrics.artworkSize, scale: 2).absoluteString,
+            "https://example.com/art/catalog-9737001/120x120bb.jpg"
+        )
+        // The same lookup as the ratings: no extra request for the covers.
+        XCTAssertEqual(source.ratingLookups.count, 1)
+    }
+
+    /// A catalog slower than the list's wait used to leave those rows on MusicKit's library
+    /// artwork, the path that drew the tile, until the list was read again (#737). The row's cover
+    /// becomes the catalog cover as soon as the lookup answers, without another read; an upload
+    /// keeps its library cover.
+    func testASavedSongMappedBeforeItsReleaseLookupAnsweredShowsTheCatalogCoverOnceItDoes() async throws {
+        let source = MockAppleMusicSource()
+        let saved = try AppleMusicFixtures.song(id: "i.7370011", title: "Nota Loca", libraryArtwork: true, catalogID: "9737011")
+        source.savedSongs = [
+            saved,
+            try AppleMusicFixtures.song(id: "i.7370013", title: "Voice Memo Demo", libraryArtwork: true),
+        ]
+        source.catalogRatings = ["9737011": false]
+        source.catalogArtwork = ["9737011": try AppleMusicFixtures.catalogArtwork("9737011")]
+        let (held, release) = AsyncStream<Void>.makeStream()
+        source.ratingLookupHold = { for await _ in held {} }
+        var provider = AppleMusicBrowsingProvider(source: source)
+        provider.ratingsDeadline = {}
+
+        let result = try await provider.currentUserSavedTracks(limit: 50, maxPages: nil)
+        let covers = result.tracks.compactMap { item -> URL? in
+            guard case let .track(track) = item.content else { return nil }
+            return track.albumArtworkURL
+        }
+        XCTAssertEqual(covers.count, 2)
+        func requested() -> [String] {
+            covers.map { ArtworkRequest.url($0, points: TrackRowMetrics.artworkSize, scale: 2).absoluteString }
+        }
+        XCTAssertEqual(covers.map { $0.scheme?.lowercased() }, ["musickit", "musickit"], "mapped before the catalog answered")
+        XCTAssertEqual(requested(), covers.map(\.absoluteString), "nothing to swap in yet")
+
+        // Covers already on screen hear that they can ask again.
+        let arrived = expectation(forNotification: AppleMusicContentRatings.catalogCoversArrived, object: AppleMusicContentRatings.shared)
+        release.finish()
+        // Waits for the lookup still asking instead of asking again.
+        await AppleMusicContentRatings.shared.resolve([saved], lookup: source.catalogSongReleases, library: nil)
+        await fulfillment(of: [arrived], timeout: 5)
+
+        XCTAssertEqual(requested(), ["https://example.com/art/catalog-9737011/120x120bb.jpg", covers[1].absoluteString])
+        XCTAssertEqual(source.ratingLookups.count, 1)
+    }
+
     /// Library playlists and saved albums list their songs under the Music app's persistent ID
     /// alone: no rating and no catalog ID, as MusicKit gave every row of four real playlists. The
     /// same songs read from the library name both IDs, so one read of it gives each row its release.
@@ -3013,7 +3097,7 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         let answer = Latch()
         let lookup: AppleMusicContentRatings.CatalogLookup = { _ in
             await answer.wait()
-            return ["9518081": true]
+            return ["9518081": .init(isExplicit: true)]
         }
         // Both lists stop waiting at their deadline; the first one's lookup keeps asking.
         await ratings.resolve([song], lookup: lookup, library: nil, deadline: {})
@@ -3046,7 +3130,7 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         func row(_ n: Int) throws -> Song {
             try AppleMusicFixtures.song(id: "51800000000000001\(n)", title: "Song \(n)", persistentID: "51800000000000001\(n)")
         }
-        let lookup: AppleMusicContentRatings.CatalogLookup = { ids in Dictionary(uniqueKeysWithValues: ids.map { ($0, true) }) }
+        let lookup: AppleMusicContentRatings.CatalogLookup = { ids in Dictionary(uniqueKeysWithValues: ids.map { ($0, .init(isExplicit: true)) }) }
 
         await ratings.resolve([try row(5)], lookup: lookup, library: read)
         XCTAssertEqual(pages.reads.map(\.offset), [0, 2], "the whole bound, once")
@@ -3079,7 +3163,7 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
                 asked.open()
                 await answer.wait()
             }
-            return Dictionary(uniqueKeysWithValues: ids.map { ($0, true) })
+            return Dictionary(uniqueKeysWithValues: ids.map { ($0, .init(isExplicit: true)) })
         }
 
         // The first list finds the row unmapped and waits for its catalog lookup first.
@@ -3104,7 +3188,7 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         let library = [try AppleMusicFixtures.song(id: "i.5180121", title: "Harbour", catalogID: "9518121", persistentID: "5180000000000000121")]
         let row = try AppleMusicFixtures.song(id: "5180000000000000121", title: "Harbour", persistentID: "5180000000000000121")
 
-        await ratings.resolve([row], lookup: { _ in ["9518121": true] }, library: { _, offset in offset == 0 ? library : [] })
+        await ratings.resolve([row], lookup: { _ in ["9518121": .init(isExplicit: true)] }, library: { _, offset in offset == 0 ? library : [] })
         XCTAssertEqual(ratings.rating(of: row), true)
         XCTAssertEqual(ratings.rating(of: thinner), true, "the library read named its release")
     }
@@ -3115,7 +3199,7 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
     func testASongReadWithoutItsReleaseIsUnknownUntilTheLibraryIsRead() async throws {
         let thinner = try AppleMusicFixtures.song(id: "i.5180131", title: "Night Ferry", persistentID: "5180000000000000131")
         let fuller = try AppleMusicFixtures.song(id: "i.5180131", title: "Night Ferry", catalogID: "9518131", persistentID: "5180000000000000131")
-        let lookup: AppleMusicContentRatings.CatalogLookup = { ids in Dictionary(uniqueKeysWithValues: ids.map { ($0, true) }) }
+        let lookup: AppleMusicContentRatings.CatalogLookup = { ids in Dictionary(uniqueKeysWithValues: ids.map { ($0, .init(isExplicit: true)) }) }
 
         // The fuller form after the thinner one: its release counts.
         let first = AppleMusicContentRatings()
@@ -3146,7 +3230,7 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         let ratings = AppleMusicContentRatings()
         let library = [try AppleMusicFixtures.song(id: "i.5180111", title: "Harbour", catalogID: "9518111", persistentID: "5180000000000000111")]
         let row = try AppleMusicFixtures.song(id: "5180000000000000111", title: "Harbour", persistentID: "5180000000000000111")
-        await ratings.resolve([row], lookup: { _ in ["9518111": true] }, library: { _, offset in offset == 0 ? library : [] })
+        await ratings.resolve([row], lookup: { _ in ["9518111": .init(isExplicit: true)] }, library: { _, offset in offset == 0 ? library : [] })
         XCTAssertEqual(ratings.rating(of: row), true)
 
         // The same library song read in a shape that carries its persistent ID but no release.
@@ -3286,6 +3370,19 @@ enum AppleMusicFixtures {
         ["url": "https://example.com/art/\(id)/{w}x{h}bb.jpg", "width": 3000, "height": 3000]
     }
 
+    /// The cover MusicKit gives a song read from the library, as it gave every saved song of a
+    /// real library (#737): a transient `musicKit://` URL only its own view can draw, no size.
+    private static func libraryArtwork(_ id: String) -> [String: Any] {
+        let digits = String(id.filter(\.isNumber).suffix(12))
+        let token = String(repeating: "0", count: 12 - digits.count) + digits
+        return ["url": "musicKit://artwork/transient/{w}x{h}?id=6AD2B166%2D2B81%2D4AA0%2D83C8%2D\(token)", "width": 0, "height": 0]
+    }
+
+    /// A catalog release's cover, as `MusicCatalogResourceRequest<Song>` gives it.
+    static func catalogArtwork(_ id: String) throws -> Artwork {
+        try decode(Artwork.self, try json(artwork("catalog-\(id)")))
+    }
+
     static func song(
         id: String,
         title: String,
@@ -3294,6 +3391,7 @@ enum AppleMusicFixtures {
         durationMs: Int = 200_000,
         explicit: Bool = false,
         withArtwork: Bool = true,
+        libraryArtwork: Bool = false,
         playable: Bool = true,
         artistRefs: [(String, String)] = [],
         clean: Bool = false,
@@ -3307,7 +3405,7 @@ enum AppleMusicFixtures {
         if let album { attributes["albumName"] = album }
         if explicit { attributes["contentRating"] = "explicit" }
         if clean { attributes["contentRating"] = "clean" }
-        if withArtwork { attributes["artwork"] = artwork(id) }
+        if withArtwork { attributes["artwork"] = libraryArtwork ? Self.libraryArtwork(id) : artwork(id) }
         // A saved song names its catalog release in its play parameters, and has no rating. Read
         // from the library it also names the Music app's persistent ID; a library playlist or
         // album lists it under that persistent ID alone, with no catalog ID (#518).
