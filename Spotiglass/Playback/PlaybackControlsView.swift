@@ -334,14 +334,35 @@ enum PlaybackArtistLineScrollPolicy {
 
 struct PlaybackControlsView: View {
     @ObservedObject var viewModel: PlaybackSessionViewModel
-    @Binding var isLyricsPresented: Bool
+    /// Whether the lyrics show, as it was when the bar handed it in, and how to change it. Not a
+    /// `Binding`: one built from a getter and a setter tells SwiftUI it changed every time SwiftUI
+    /// looks, and on macOS 26 opening or closing the queue makes SwiftUI look at this view, so the
+    /// controls redrew with each press though nothing in them changed (#751). The bar builds this
+    /// view again when the lyrics open or close.
+    private let isLyricsPresented: Bool
+    private let setLyricsPresented: (Bool) -> Void
     let openArtist: (ArtistTapTarget) -> Void
     /// Set while the bar shows the other service's player because that is what you hear (#396):
     /// the bar says which service plays, and its artists, which belong to the other library,
     /// aren't offered here. Its Lyrics button opens that song's lyrics (#486).
-    var otherService: MusicService? = nil
+    var otherService: MusicService?
     /// The playback log, where the bar says how long a press took to show (#645).
-    var trace: PlaybackTrace = .shared
+    var trace: PlaybackTrace
+
+    init(
+        viewModel: PlaybackSessionViewModel,
+        isLyricsPresented: Binding<Bool>,
+        openArtist: @escaping (ArtistTapTarget) -> Void,
+        otherService: MusicService? = nil,
+        trace: PlaybackTrace = .shared
+    ) {
+        _viewModel = ObservedObject(wrappedValue: viewModel)
+        self.isLyricsPresented = isLyricsPresented.wrappedValue
+        setLyricsPresented = { isLyricsPresented.wrappedValue = $0 }
+        self.openArtist = openArtist
+        self.otherService = otherService
+        self.trace = trace
+    }
     @Environment(\.openWaxSettings) private var openSettingsAction
     @State private var isVolumePopoverPresented = false
 
@@ -513,7 +534,7 @@ struct PlaybackControlsView: View {
                                 width: PlaybackTransportLayoutPolicy.nowPlayingArtworkSize,
                                 height: PlaybackTransportLayoutPolicy.nowPlayingArtworkSize
                             ),
-                            action: { isLyricsPresented.toggle() }
+                            action: { setLyricsPresented(!isLyricsPresented) }
                         ) {
                             EmptyView()
                         }
@@ -579,7 +600,7 @@ struct PlaybackControlsView: View {
             accessibilityLabel: SpotiglassL10n.string("playback.controls.lyrics"),
             accessibilityHint: lyricsButtonHint,
             size: SpotiglassDesign.Layout.iconButtonFrame,
-            action: { isLyricsPresented.toggle() }
+            action: { setLyricsPresented(!isLyricsPresented) }
         ) {
             Image(systemName: "music.note.list")
                 .foregroundStyle(
