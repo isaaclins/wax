@@ -120,7 +120,7 @@ final class LongListScrollCostTests: XCTestCase {
         var times: [(String, TimeInterval)] = []
 
         func measure(
-            _ name: String, showsInPlayerBar: Bool = false, buildsEveryRow: Bool = false, _ change: () -> Void,
+            _ name: String, showsInPlayerBar: Bool = false, _ change: () -> Void,
             file: StaticString = #filePath, line: UInt = #line
         ) {
             ViewBodyTally.counts = [:]
@@ -133,9 +133,7 @@ final class LongListScrollCostTests: XCTestCase {
             for outside in outside {
                 XCTAssertNil(counts[outside], "\(name) ran \(outside) again", file: file, line: line)
             }
-            if !buildsEveryRow {
-                XCTAssertLessThan(rowBodies(), 50, "\(name) built \(rowBodies()) rows", file: file, line: line)
-            }
+            XCTAssertLessThan(rowBodies(), 50, "\(name) built \(rowBodies()) rows", file: file, line: line)
         }
 
         // Clicks go through the app's event queue the way the mouse's do. In the app the table
@@ -148,13 +146,38 @@ final class LongListScrollCostTests: XCTestCase {
         XCTAssertEqual(browser.selectedDetailTrackIDs, ["t\(middle)"], "the click didn't select its row")
         measure("click another") { click(host, row: middle + 1) }
         XCTAssertEqual(browser.selectedDetailTrackIDs, ["t\(middle + 1)"])
-        // A shift-click, as the table makes it: SwiftUI reads the shift key from the keyboard
-        // itself, which a test can't press. The table proposes the range and SwiftUI builds each
-        // row it proposes, so this is still over 50 ms (#694).
-        measure("shift-click 30", buildsEveryRow: true) {
-            table.selectRowIndexes(IndexSet(integersIn: (middle + 1)...(middle + 30)), byExtendingSelection: false)
+        // Shift-click and ⌘A are caught on their way to the window, so they're only checked where
+        // posted events reach it (not on GitHub's runners).
+        if clicksReachTheWindow {
+            // A shift-click 29 songs further down, scrolled to as someone would: the 30 songs from the
+            // last one clicked. When the table made this selection, SwiftUI built every row it added,
+            // on screen or not (#694).
+            let start = middle + 1
+            // A song clicked, then the song the range starts from ⌘-clicked: the shift-click keeps
+            // the first one, as the table does. The list notes the ⌘-click on its way to the table;
+            // the table reads ⌘ from the keyboard, which a test can't press, so where it took the
+            // click as a plain one the selection is set as its ⌘-click leaves it.
+            let picked = "t\(start - 3)"
+            click(host, row: start - 3)
+            XCTAssertEqual(browser.selectedDetailTrackIDs, [picked])
+            click(host, row: start, modifiers: .command)
+            if browser.selectedDetailTrackIDs != [picked, "t\(start)"] {
+                browser.selectedDetailTrackIDs = [picked, "t\(start)"]
+            }
+            await AppKitTestSupport.settle()
+            scrollTo(host, y: host.scrollView.contentView.bounds.origin.y + table.rect(ofRow: start + 29).minY - table.rect(ofRow: start + 1).minY)
+            measure("shift-click 30") { click(host, row: start + 29, modifiers: .shift) }
+            XCTAssertEqual(
+                browser.selectedDetailTrackIDs, Set((start...(start + 29)).map { "t\($0)" } + [picked]),
+                "shift-click didn't select the songs from the last clicked one, next to the ⌘-clicked one"
+            )
+            // Another shift-click extends from the same song, not from the end of the range, and
+            // swaps only the range.
+            click(host, row: start + 27, modifiers: .shift)
+            XCTAssertEqual(browser.selectedDetailTrackIDs, Set((start...(start + 27)).map { "t\($0)" } + [picked]))
+            let back = host.scrollView.contentView.bounds.origin.y
+            scrollTo(host, y: back - (table.rect(ofRow: start + 29).minY - table.rect(ofRow: start + 1).minY))
         }
-        XCTAssertEqual(browser.selectedDetailTrackIDs.count, 30, "shift-click didn't select the range")
         measure("click one") { click(host, row: middle) }
         XCTAssertEqual(browser.selectedDetailTrackIDs, ["t\(middle)"])
 
@@ -185,12 +208,16 @@ final class LongListScrollCostTests: XCTestCase {
         measure("start playback", showsInPlayerBar: true) { host.playback.setConnectionState(.playing(nowPlaying)) }
         measure("pause", showsInPlayerBar: true) { host.playback.setConnectionState(.paused(nowPlaying)) }
 
-        // ⌘A on the table, last: it builds every row it selects, and takes seconds (#694).
-        measure("select all", buildsEveryRow: true) { table.selectAll(nil) }
-        XCTAssertEqual(browser.selectedDetailTrackIDs.count, Self.trackCount)
+        // ⌘A, pressed on the table. When the table selected them itself, SwiftUI built all
+        // 2,000 rows and it took seconds (#694).
+        if clicksReachTheWindow {
+            XCTAssertTrue(host.window.firstResponder === table, "the table lost the keyboard")
+            measure("select all") { press(host, "a", modifiers: .command) }
+            XCTAssertEqual(browser.selectedDetailTrackIDs.count, Self.trackCount, "⌘A didn't select every song")
+        }
 
         let report = times.map { String(format: "%@ %.1f ms", $0.0, $0.1 * 1000) }.joined(separator: ", ")
-            + (clicksReachTheWindow ? "" : " (clicks made by the table: this machine doesn't hand posted clicks to the window)")
+            + (clicksReachTheWindow ? "" : " (clicks made by the table, shift-click and ⌘A not checked: this machine doesn't hand posted events to the window)")
         XCTContext.runActivity(named: "LongListInteractions \(report)") { _ in }
         print("LongListInteractions \(report)")
         if Self.checksTimes {
@@ -198,6 +225,117 @@ final class LongListScrollCostTests: XCTestCase {
                 XCTAssertLessThanOrEqual(time, Self.budget, "\(name): \(report)")
             }
         }
+    }
+
+    /// A shift-click selects the songs from the last song clicked without shift to the clicked
+    /// one, up or down, next to songs picked with ⌘-click before, and the song alone when there's
+    /// no such song in the list (#694). Checked
+    /// here too, without the window: GitHub's runners don't hand posted clicks to it.
+    func testAShiftClickSelectsFromTheLastClickedSong() throws {
+        let covers = [try XCTUnwrap(URL(string: "https://covers.invalid/cover.jpg"))]
+        let tracks = TrackRowViewModel.numberedPlaylistRows((0..<10).map { track($0, covers: covers) })
+        let positions = TrackListSelectionShortcuts.positions(of: tracks)
+        func extend(to row: Int, from anchor: Int?, keeping base: Set<String> = []) -> Set<String> {
+            TrackListSelectionShortcuts.extend(
+                to: "t\(row)", from: anchor.map { "t\($0)" }, keeping: base, positions: positions, tracks: tracks
+            )
+        }
+        XCTAssertEqual(extend(to: 7, from: 3), ["t3", "t4", "t5", "t6", "t7"])
+        XCTAssertEqual(extend(to: 1, from: 3), ["t1", "t2", "t3"])
+        XCTAssertEqual(extend(to: 3, from: 3), ["t3"])
+        XCTAssertEqual(extend(to: 5, from: nil), ["t5"])
+        // Songs picked with ⌘-click before stay, as the table keeps them; one that left the list doesn't.
+        XCTAssertEqual(extend(to: 7, from: 5, keeping: ["t1", "t5"]), ["t1", "t5", "t6", "t7"])
+        XCTAssertEqual(extend(to: 6, from: 5, keeping: ["t1", "t5", "gone"]), ["t1", "t5", "t6"])
+        XCTAssertEqual(
+            TrackListSelectionShortcuts.extend(to: "t5", from: "gone", positions: positions, tracks: tracks), ["t5"],
+            "an anchor that left the list still extended"
+        )
+    }
+
+    /// Where a shift-click starts and what it keeps, against what a plain `NSTableView` does with
+    /// the same clicks and keys posted through the event queue (#694). Runs everywhere: this is
+    /// the bookkeeping the clicks go through on a Mac.
+    func testShiftClicksKeepWhatTheTableKeeps() throws {
+        let covers = [try XCTUnwrap(URL(string: "https://covers.invalid/cover.jpg"))]
+        let tracks = TrackRowViewModel.numberedPlaylistRows((0..<20).map { track($0, covers: covers) })
+        let positions = TrackListSelectionShortcuts.positions(of: tracks)
+        func ids(_ rows: [Int]) -> Set<String> { Set(rows.map { "t\($0)" }) }
+        var selection: Set<String> = []
+        var state = TrackListShiftClick()
+        // A click the table makes: it changes the selection, then the list hears of it.
+        func click(_ row: Int, command: Bool = false, shift: Bool = false) {
+            state.clicked("t\(row)", command: command, shift: shift, selection: selection)
+            selection = !command ? ["t\(row)"] : shift ? selection.union(["t\(row)"]) : selection.symmetricDifference(["t\(row)"])
+            state.selectionChanged(to: selection)
+        }
+        func shiftClick(_ row: Int) {
+            selection = state.shiftClicked("t\(row)", positions: positions, tracks: tracks)
+            state.selectionChanged(to: selection)
+        }
+        func tableSelects(_ rows: [Int]) {
+            selection = ids(rows)
+            state.selectionChanged(to: selection)
+        }
+
+        // ⌘-clicked songs stay; a second shift-click swaps only the range.
+        click(2); click(5, command: true); shiftClick(10)
+        XCTAssertEqual(selection, ids([2] + Array(5...10)))
+        shiftClick(8)
+        XCTAssertEqual(selection, ids([2] + Array(5...8)))
+        shiftClick(0)
+        XCTAssertEqual(selection, ids(Array(0...5)))
+
+        // After ⌘A a shift-click selects the range from the last clicked song alone.
+        click(4)
+        selection = ids(Array(0..<20)); state.selectedAll(); state.selectionChanged(to: selection)
+        shiftClick(8)
+        XCTAssertEqual(selection, ids(Array(4...8)), "a shift-click after ⌘A kept every song")
+
+        // After shift-arrow the range replaces what the arrows selected.
+        click(5); tableSelects(Array(5...8)); shiftClick(2)
+        XCTAssertEqual(selection, ids(Array(2...5)), "a shift-click after shift-arrow kept the arrows' songs")
+
+        // A ⌘-click that takes a song out still moves where the next range starts.
+        click(4); click(9, command: true); click(9, command: true)
+        XCTAssertEqual(selection, ids([4]))
+        shiftClick(12)
+        XCTAssertEqual(selection, ids([4] + Array(9...12)))
+
+        // A ⌘-shift-click adds its song alone and starts the next range there.
+        click(2); click(5, command: true, shift: true); shiftClick(9)
+        XCTAssertEqual(selection, ids([2] + Array(5...9)))
+
+        // An arrow key moves the start.
+        click(3); tableSelects([4]); shiftClick(6)
+        XCTAssertEqual(selection, ids(Array(4...6)))
+
+        // No start yet: the song alone, and the next shift-click extends from it.
+        var fresh = TrackListShiftClick()
+        XCTAssertEqual(fresh.shiftClicked("t7", positions: positions, tracks: tracks), ids([7]))
+        fresh.selectionChanged(to: ids([7]))
+        XCTAssertEqual(fresh.shiftClicked("t9", positions: positions, tracks: tracks), ids([7, 8, 9]))
+    }
+
+    /// Which song a row of the table is, with the rows that aren't songs above or below them: Home
+    /// puts its greeting, quick access and shelves in one header row above its top tracks, and a
+    /// playlist has its footer below the songs (#694).
+    func testATableRowMapsToItsSongAroundHeaderAndFooterRows() {
+        func index(_ row: Int, _ rowsAbove: TrackListSelectionShortcuts.RowsAboveTracks, rows: Int, tracks: Int) -> Int? {
+            TrackListSelectionShortcuts.trackIndex(atRow: row, rowsAbove: rowsAbove, rowCount: rows, trackCount: tracks)
+        }
+        // No header: the songs are the table's first rows, a footer row after them is no song.
+        XCTAssertEqual(index(0, .noRows, rows: 10, tracks: 10), 0)
+        XCTAssertEqual(index(9, .noRows, rows: 10, tracks: 10), 9)
+        XCTAssertNil(index(10, .noRows, rows: 11, tracks: 10), "a footer row was taken for a song")
+        // A header row above the songs, as on Home.
+        XCTAssertNil(index(0, .allOtherRows, rows: 11, tracks: 10), "the header row was taken for a song")
+        XCTAssertEqual(index(1, .allOtherRows, rows: 11, tracks: 10), 0)
+        XCTAssertEqual(index(10, .allOtherRows, rows: 11, tracks: 10), 9)
+        // Rows the table doesn't have, and a table that doesn't hold all the songs yet.
+        XCTAssertNil(index(-1, .noRows, rows: 10, tracks: 10))
+        XCTAssertNil(index(11, .allOtherRows, rows: 11, tracks: 10))
+        XCTAssertNil(index(0, .allOtherRows, rows: 5, tracks: 10))
     }
 
     // MARK: - Hosting
@@ -328,7 +466,7 @@ final class LongListScrollCostTests: XCTestCase {
     /// and the report says so.
     private func click(_ host: Host, row: Int, modifiers: NSEvent.ModifierFlags = []) {
         defer {
-            if host.browser.selectedDetailTrackIDs != ["t\(row)"] {
+            if modifiers.isEmpty, host.browser.selectedDetailTrackIDs != ["t\(row)"] {
                 clicksReachTheWindow = false
                 host.table.selectRowIndexes([row], byExtendingSelection: false)
             }
@@ -341,6 +479,21 @@ final class LongListScrollCostTests: XCTestCase {
                 with: type, location: point, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
                 windowNumber: host.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
                 pressure: type == .leftMouseDown ? 1 : 0
+            ) else { return XCTFail("no \(type) event") }
+            NSApp.postEvent(event, atStart: false)
+            while let next = NSApp.nextEvent(matching: .any, until: Date(), inMode: .default, dequeue: true) {
+                NSApp.sendEvent(next)
+            }
+        }
+    }
+
+    /// A key press posted to the app's event queue and handed out from it, like `click`.
+    private func press(_ host: Host, _ key: String, modifiers: NSEvent.ModifierFlags = []) {
+        for type in [NSEvent.EventType.keyDown, .keyUp] {
+            guard let event = NSEvent.keyEvent(
+                with: type, location: .zero, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: host.window.windowNumber, context: nil, characters: key, charactersIgnoringModifiers: key,
+                isARepeat: false, keyCode: 0
             ) else { return XCTFail("no \(type) event") }
             NSApp.postEvent(event, atStart: false)
             while let next = NSApp.nextEvent(matching: .any, until: Date(), inMode: .default, dequeue: true) {
