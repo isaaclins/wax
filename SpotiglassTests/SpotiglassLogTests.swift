@@ -207,6 +207,9 @@ final class SpotiglassLogTests: XCTestCase {
             ("INFO", "interaction", "#17 key ↓ in window “Wax” on focus NSTableView; first frame after 2.1 ms"),
             ("INFO", "interaction", "#18 key Return in window “Wax” on focus NSTableView; first frame after 2.4 ms"),
             ("INFO", "interaction", "#19 key in a password field in window “Wax”; first frame after 2.2 ms"),
+            ("INFO", "interaction", "#20 key ⇧Tab in window “Wax” on focus NSTableView; first frame after 2.0 ms"),
+            ("INFO", "interaction", "#21 key ⇧↓ in window “Wax” on focus NSTableView; first frame after 2.3 ms"),
+            ("INFO", "interaction", "#22 key key 53 in window “Wax”; first frame after 2.5 ms"),
             ("INFO", "interaction", "#14 shortcut ⌘K in window “Wax” on button “Next”; first frame after 3.2 ms"),
             ("INFO", "persistence", "Cache folder /Users/isaac/Library/Caches/Spotiglass unreadable"),
             ("INFO", "calls", "→ #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg"),
@@ -246,7 +249,7 @@ final class SpotiglassLogTests: XCTestCase {
             "position 9 of 440", "first frame after 6.1 ms", "row 3 of 40", "button “Next”", "window “Wax”",
             "shortcut ⌘K", "/v1/search?<query>", "applemusic:song:#", "spotify:track:#", "currentURI=<nil>",
             "/Users/<user>/Library/Caches", "access_denied", "https://is1-ssl.mzstatic.com/#", "status 200, 114795 bytes",
-            "album search for a pin (“#", "key ⇧·", "key ↓", "key Return", "key in a password field", "catalog artist #", "top songs done after 120.4 ms", "” by “#",
+            "album search for a pin (“#", "key ⇧·", "key ↓", "key Return", "key in a password field", "key ⇧Tab", "key ⇧↓", "key key 53", "catalog artist #", "top songs done after 120.4 ms", "” by “#",
         ] {
             XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
         }

@@ -685,6 +685,6 @@ enum BugReportLogCopy {
         ]
         /// `key A`, `key ⇧A` or `key SS` in an interaction line: what was typed into a field.
         /// Shortcuts and named keys (`shortcut ⌘F`, `key Return`, `key ↓`) stay.
-        private static let typedKey = pattern(#"\bkey ⇧?(?!(?:Return|Tab|Space|Delete|Escape|[←→↓↑]|key \d+|in a password field)(?=[\s;]|$))[^\s;]+(?=[\s;]|$)"#)
+        private static let typedKey = pattern(#"(?<!key )\bkey ⇧?+(?!(?:Return|Tab|Space|Delete|Escape|[←→↓↑]|key \d+|in a password field)(?=[\s;]|$))[^\s;]+(?=[\s;]|$)"#)
     }
 }
