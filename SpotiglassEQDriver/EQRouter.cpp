@@ -450,8 +450,11 @@ int EQRouter_FallbackTargetUID(const char* own_uid, char* out, size_t out_size) 
     size_t count = 0;
     for (size_t index = 0; index < device_count; ++index) {
         const AudioObjectID device = devices[index];
-        if (!HasOutputStreams(device)) continue;
+        // The UID first: the EQ device itself is skipped before any other
+        // property query, so the driver never asks Core Audio about itself.
         if (!CopyDeviceUID(device, uids[count], kUIDLength)) continue;
+        if (own_uid && strcmp(uids[count], own_uid) == 0) continue;
+        if (!HasOutputStreams(device)) continue;
         candidates[count].uid = uids[count];
         candidates[count].is_built_in = IsBuiltIn(device) ? 1 : 0;
         candidates[count].plays_float32_stereo = SupportsFloat32StereoOutput(device) ? 1 : 0;

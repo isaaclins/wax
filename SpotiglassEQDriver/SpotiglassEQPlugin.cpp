@@ -492,9 +492,10 @@ void* TargetWatcherMain(void* /*unused*/) {
         EQRouter* opened = EQRouter_OpenWithError(new_uid, &open_error);
         if (!opened) {
             EQRouter_PublishFailureStatus(new_uid, static_cast<int>(open_error));
-            // The target went away (unplugged headphones) while something is
-            // playing to the EQ device: play on the fallback until it is back,
-            // so the Mac is never silent while Wax isn't there to move the output.
+            // A newly requested target can't be opened while something is
+            // playing to the EQ device: play on the fallback until it can, so
+            // the Mac is never silent while Wax isn't there to move the output.
+            // (A target that vanishes under an open router is Wax's to handle.)
             if (gPlugin.ioAccepting.load(std::memory_order_seq_cst)) OpenRouterOrFallback("");
             continue;
         }

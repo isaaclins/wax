@@ -323,8 +323,19 @@ final class AudioEqualizerEngine: ObservableObject {
             }
         }
         do {
-            if routeState.isEngaged { try stop() }
+            if routeState.isEngaged {
+                do {
+                    try stop()
+                } catch {
+                    // The device the sound was on before the EQ is gone (unplugged
+                    // headphones): the release below moves it to another output.
+                    SpotiglassLog.info(.playback, "Removing the equalizer driver: the pre-EQ output is gone, moving the sound to another output")
+                }
+            }
             try pluginController.releaseOutputForRemoval()
+            // The output is off the EQ device now. Saying so before anything else
+            // runs keeps a failed stop from putting the switch back on.
+            routeState = .disabled
         } catch {
             SpotiglassLog.error(.playback, "Equalizer driver left installed: the output could not leave the EQ device")
             finishDriverRemoval(with: error)
