@@ -32,9 +32,13 @@ Fixes #
 
 ## Security
 
-<!-- Only when it applies; delete the rest. -->
+<!-- Tick what applies or write n/a. CONTRIBUTING.md#security explains each one.
+The repository's own checks (secret scanning, push protection, Dependabot,
+pinned actions) are in #385. -->
 
-- [ ] Privileged code (the equalizer helper, driver or install path): who can call it, how that is checked, and what it writes as root
-- [ ] Data from outside (Spotify, Apple Music, lyrics, the update feed, the sign-in callback) is checked before it is used
-- [ ] No tokens, codes, search text or library contents in the log or in files outside the Keychain
-- [ ] Dependency updates name the version's security advisories
+- [ ] Privileged code (`SpotiglassEQPrivilegedHelper/`, `SpotiglassEQDriver/`, the install path): who can call it, how that is checked, and what it writes as root, with which owner and mode
+- [ ] Files: created only where this user alone can write, no symlinks followed, narrowest mode; a file the app can't read is never overwritten
+- [ ] Data from outside (Spotify, Apple Music, LRCLIB, the update feed, the sign-in callback): numbers parsed with bounds, never trapping conversions; URLs that get a token checked against the expected host; text escaped before the log or the screen
+- [ ] Secrets and privacy: no tokens, codes, search text, library contents or device IDs in the log; nothing new outside the Keychain that another account or app could read
+- [ ] Dependencies: an update to Sparkle or another package names that version's security advisories (Dependabot alerts, #385)
+- [ ] Tests: a security fix comes with a test that replays the attack and fails on the old code
