@@ -1,21 +1,24 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class SpotifyAPIClientArtistAndAlbumTracksTests: XCTestCase {
     func testArtistDetailRequestAndDecoding() async throws {
         let httpClient = QueueHTTPClient([
-            .json("""
-            {
-              "id": "ar1",
-              "name": "Test Artist",
-              "images": [],
-              "followers": { "total": 42 },
-              "genres": ["pop"],
-              "uri": "spotify:artist:ar1"
-            }
-            """)
+            .json(
+                """
+                {
+                  "id": "ar1",
+                  "name": "Test Artist",
+                  "images": [],
+                  "followers": { "total": 42 },
+                  "genres": ["pop"],
+                  "uri": "spotify:artist:ar1"
+                }
+                """)
         ])
-        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+        let client = SpotifyAPIClient(
+            tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
 
         let artist = try await client.artist(id: "ar1", cacheMode: .freshOnly)
 
@@ -28,29 +31,31 @@ final class SpotifyAPIClientArtistAndAlbumTracksTests: XCTestCase {
 
     func testAlbumTracksRequestsCorrectURLAndDecodes() async throws {
         let httpClient = QueueHTTPClient([
-            .json("""
-            {
-              "href": "https://api.spotify.com/v1/albums/al1/tracks?offset=0&limit=50",
-              "limit": 50,
-              "next": null,
-              "offset": 0,
-              "previous": null,
-              "total": 1,
-              "items": [
+            .json(
+                """
                 {
-                  "id": "tr1",
-                  "name": "Song",
-                  "artists": [{ "id": "ar1", "name": "Artist" }],
-                  "album": { "images": [] },
-                  "duration_ms": 1000,
-                  "explicit": false,
-                  "uri": "spotify:track:tr1"
+                  "href": "https://api.spotify.com/v1/albums/al1/tracks?offset=0&limit=50",
+                  "limit": 50,
+                  "next": null,
+                  "offset": 0,
+                  "previous": null,
+                  "total": 1,
+                  "items": [
+                    {
+                      "id": "tr1",
+                      "name": "Song",
+                      "artists": [{ "id": "ar1", "name": "Artist" }],
+                      "album": { "images": [] },
+                      "duration_ms": 1000,
+                      "explicit": false,
+                      "uri": "spotify:track:tr1"
+                    }
+                  ]
                 }
-              ]
-            }
-            """)
+                """)
         ])
-        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+        let client = SpotifyAPIClient(
+            tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
 
         let tracks = try await client.albumTracks(albumID: "al1", market: "US", limit: 50)
 
@@ -66,26 +71,26 @@ final class SpotifyAPIClientArtistAndAlbumTracksTests: XCTestCase {
         func page(trackID: String, next: String?) -> String {
             let nextJSON = next.map { "\"\($0)\"" } ?? "null"
             return """
-            {
-              "href": "https://api.spotify.com/v1/albums/al1/tracks",
-              "limit": 1,
-              "next": \(nextJSON),
-              "offset": 0,
-              "previous": null,
-              "total": 2,
-              "items": [
                 {
-                  "id": "\(trackID)",
-                  "name": "Song \(trackID)",
-                  "artists": [{ "id": "ar1", "name": "Artist" }],
-                  "album": { "images": [] },
-                  "duration_ms": 1000,
-                  "explicit": false,
-                  "uri": "spotify:track:\(trackID)"
+                  "href": "https://api.spotify.com/v1/albums/al1/tracks",
+                  "limit": 1,
+                  "next": \(nextJSON),
+                  "offset": 0,
+                  "previous": null,
+                  "total": 2,
+                  "items": [
+                    {
+                      "id": "\(trackID)",
+                      "name": "Song \(trackID)",
+                      "artists": [{ "id": "ar1", "name": "Artist" }],
+                      "album": { "images": [] },
+                      "duration_ms": 1000,
+                      "explicit": false,
+                      "uri": "spotify:track:\(trackID)"
+                    }
+                  ]
                 }
-              ]
-            }
-            """
+                """
         }
         let next = "https://api.spotify.com/v1/albums/al1/tracks?offset=1&limit=1"
         let firstRequestStarted = AsyncSignal()
@@ -96,7 +101,8 @@ final class SpotifyAPIClientArtistAndAlbumTracksTests: XCTestCase {
             firstRequestStarted: firstRequestStarted,
             releaseFirstRequest: releaseFirstRequest
         )
-        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+        let client = SpotifyAPIClient(
+            tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
         let fullTask = Task {
             try await client.albumTracks(albumID: "al1", market: "US", limit: 1, maxPages: 2)
         }
@@ -118,26 +124,26 @@ final class SpotifyAPIClientArtistAndAlbumTracksTests: XCTestCase {
         let releaseRequest = AsyncSignal()
         let httpClient = DelayedCountingHTTPClient(
             responseJSON: """
-            {
-              "href": "https://api.spotify.com/v1/albums/al1/tracks?offset=0&limit=50",
-              "limit": 50,
-              "next": null,
-              "offset": 0,
-              "previous": null,
-              "total": 1,
-              "items": [
                 {
-                  "id": "tr1",
-                  "name": "Song",
-                  "artists": [{ "id": "ar1", "name": "Artist" }],
-                  "album": { "images": [] },
-                  "duration_ms": 1000,
-                  "explicit": false,
-                  "uri": "spotify:track:tr1"
+                  "href": "https://api.spotify.com/v1/albums/al1/tracks?offset=0&limit=50",
+                  "limit": 50,
+                  "next": null,
+                  "offset": 0,
+                  "previous": null,
+                  "total": 1,
+                  "items": [
+                    {
+                      "id": "tr1",
+                      "name": "Song",
+                      "artists": [{ "id": "ar1", "name": "Artist" }],
+                      "album": { "images": [] },
+                      "duration_ms": 1000,
+                      "explicit": false,
+                      "uri": "spotify:track:tr1"
+                    }
+                  ]
                 }
-              ]
-            }
-            """,
+                """,
             firstRequestStarted: requestStarted,
             releaseFirstRequest: releaseRequest
         )
@@ -162,63 +168,71 @@ final class SpotifyAPIClientArtistAndAlbumTracksTests: XCTestCase {
         XCTAssertEqual(a.map(\.id), ["tr1"])
         XCTAssertEqual(b.map(\.id), ["tr1"])
         let requestCount = await httpClient.requestCount
-        XCTAssertEqual(requestCount, 1, "Concurrent identical album tracks requests should share one in-flight network call.")
+        XCTAssertEqual(
+            requestCount, 1, "Concurrent identical album tracks requests should share one in-flight network call.")
     }
 
     func testAlbumTracksRespectsMaxPagesCap() async throws {
         let httpClient = QueueHTTPClient([
-            .json("""
-            {
-              "href": "https://api.spotify.com/v1/albums/al1/tracks?offset=0&limit=2",
-              "limit": 2,
-              "next": "https://api.spotify.com/v1/albums/al1/tracks?offset=2&limit=2",
-              "offset": 0,
-              "previous": null,
-              "total": 4,
-              "items": [
-                { "id": "tr1", "name": "S1", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr1" },
-                { "id": "tr2", "name": "S2", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr2" }
-              ]
-            }
-            """)
+            .json(
+                """
+                {
+                  "href": "https://api.spotify.com/v1/albums/al1/tracks?offset=0&limit=2",
+                  "limit": 2,
+                  "next": "https://api.spotify.com/v1/albums/al1/tracks?offset=2&limit=2",
+                  "offset": 0,
+                  "previous": null,
+                  "total": 4,
+                  "items": [
+                    { "id": "tr1", "name": "S1", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr1" },
+                    { "id": "tr2", "name": "S2", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr2" }
+                  ]
+                }
+                """)
         ])
-        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+        let client = SpotifyAPIClient(
+            tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
 
         let result = try await client.albumTracksWithMetrics(albumID: "al1", market: "US", limit: 2, maxPages: 1)
 
         XCTAssertEqual(result.tracks.map(\.id), ["tr1", "tr2"])
-        XCTAssertEqual(httpClient.requests.count, 1, "maxPages cap should stop pagination after one HTTP call regardless of `next` URL.")
+        XCTAssertEqual(
+            httpClient.requests.count, 1,
+            "maxPages cap should stop pagination after one HTTP call regardless of `next` URL.")
     }
 
     /// A next link back to a page already read used to end the list as if it were complete (#595).
     func testAlbumTracksFailWhenTheNextURLRepeats() async throws {
         let httpClient = QueueHTTPClient([
-            .json("""
-            {
-              "limit": 1,
-              "next": "https://api.spotify.com/v1/albums/al1/tracks?offset=1&limit=1",
-              "offset": 0,
-              "previous": null,
-              "total": 3,
-              "items": [
-                { "id": "tr1", "name": "S", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr1" }
-              ]
-            }
-            """),
-            .json("""
-            {
-              "limit": 1,
-              "next": "https://api.spotify.com/v1/albums/al1/tracks?offset=1&limit=1",
-              "offset": 0,
-              "previous": null,
-              "total": 3,
-              "items": [
-                { "id": "tr2", "name": "S", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr2" }
-              ]
-            }
-            """)
+            .json(
+                """
+                {
+                  "limit": 1,
+                  "next": "https://api.spotify.com/v1/albums/al1/tracks?offset=1&limit=1",
+                  "offset": 0,
+                  "previous": null,
+                  "total": 3,
+                  "items": [
+                    { "id": "tr1", "name": "S", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr1" }
+                  ]
+                }
+                """),
+            .json(
+                """
+                {
+                  "limit": 1,
+                  "next": "https://api.spotify.com/v1/albums/al1/tracks?offset=1&limit=1",
+                  "offset": 0,
+                  "previous": null,
+                  "total": 3,
+                  "items": [
+                    { "id": "tr2", "name": "S", "artists": [], "album": {"images": []}, "duration_ms": 1, "explicit": false, "uri": "spotify:track:tr2" }
+                  ]
+                }
+                """),
         ])
-        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+        let client = SpotifyAPIClient(
+            tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
 
         do {
             _ = try await client.albumTracksWithMetrics(albumID: "al1", market: "US", limit: 1, maxPages: 10)

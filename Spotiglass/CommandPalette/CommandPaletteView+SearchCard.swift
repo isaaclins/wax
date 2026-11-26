@@ -10,14 +10,18 @@ struct CommandPaletteSearchCardView: View {
 
     var body: some View {
         HStack(spacing: SpotiglassDesign.spacingS) {
-            Image(systemName: CommandPaletteScopePresentation.iconName(
-                scope: viewModel.currentScope,
-                category: viewModel.searchCategoryFilter
-            ))
-            .foregroundStyle(CommandPaletteScopePresentation.iconStyle(
-                scope: viewModel.currentScope,
-                category: viewModel.searchCategoryFilter
-            ))
+            Image(
+                systemName: CommandPaletteScopePresentation.iconName(
+                    scope: viewModel.currentScope,
+                    category: viewModel.searchCategoryFilter
+                )
+            )
+            .foregroundStyle(
+                CommandPaletteScopePresentation.iconStyle(
+                    scope: viewModel.currentScope,
+                    category: viewModel.searchCategoryFilter
+                )
+            )
             .frame(width: SpotiglassDesign.Layout.smallArtworkSize)
             .accessibilityHidden(true)
             TextField(
@@ -27,22 +31,23 @@ struct CommandPaletteSearchCardView: View {
                 ),
                 text: $viewModel.query
             )
-                .textFieldStyle(.plain)
-                .font(.title3)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .focused(focusedField, equals: .query)
-                .onChange(of: viewModel.query) { _, _ in
-                    viewModel.queryDidChangeFromTextField()
-                }
-                .onSubmit {
-                    // Modifier-bearing returns (⇧↩ queue, ⌘↩ pin) belong to the keymap
-                    // dispatch in CommandPaletteManager; if one reaches the field because
-                    // no binding matched, it must not run the default play action.
-                    let modifiers = NSApp.currentEvent?.modifierFlags
-                        .intersection([.command, .control, .option, .shift]) ?? []
-                    guard modifiers.isEmpty else { return }
-                    Task { await viewModel.executeSelection() }
-                }
+            .textFieldStyle(.plain)
+            .font(.title3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .focused(focusedField, equals: .query)
+            .onChange(of: viewModel.query) { _, _ in
+                viewModel.queryDidChangeFromTextField()
+            }
+            .onSubmit {
+                // Modifier-bearing returns (⇧↩ queue, ⌘↩ pin) belong to the keymap
+                // dispatch in CommandPaletteManager; if one reaches the field because
+                // no binding matched, it must not run the default play action.
+                let modifiers =
+                    NSApp.currentEvent?.modifierFlags
+                    .intersection([.command, .control, .option, .shift]) ?? []
+                guard modifiers.isEmpty else { return }
+                Task { await viewModel.executeSelection() }
+            }
         }
         .padding(.horizontal, SpotiglassDesign.spacingM)
         .padding(.vertical, SpotiglassDesign.spacingM)

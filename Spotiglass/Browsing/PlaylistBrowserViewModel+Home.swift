@@ -14,13 +14,14 @@ extension PlaylistBrowserViewModel {
                 destination: .likedSongs
             )
         ]
-        cards.append(contentsOf: visiblePlaylists.prefix(11).map { playlist in
-            HomeMediaCard(
-                playlist: PlaylistBrowserLibraryActions.playlistSummaryFromRow(playlist),
-                // The row keeps the owner it was loaded with; resolve it like the sidebar (#398).
-                subtitle: playlist.localizedOwner()
-            )
-        })
+        cards.append(
+            contentsOf: visiblePlaylists.prefix(11).map { playlist in
+                HomeMediaCard(
+                    playlist: PlaylistBrowserLibraryActions.playlistSummaryFromRow(playlist),
+                    // The row keeps the owner it was loaded with; resolve it like the sidebar (#398).
+                    subtitle: playlist.localizedOwner()
+                )
+            })
         return cards
     }
 

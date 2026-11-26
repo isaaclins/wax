@@ -1,5 +1,6 @@
 import JavaScriptCore
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -25,7 +26,7 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
     func testPlaybackBridgeAssociatesEventsWithHostGeneration() {
         let envelope = SpotifyPlaybackWebViewCoordinatorDispatch.playbackEventEnvelope(body: [
             "name": "ready",
-            "payload": ["deviceID": "device-1", "hostGeneration": 7]
+            "payload": ["deviceID": "device-1", "hostGeneration": 7],
         ])
 
         XCTAssertEqual(
@@ -43,7 +44,8 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
             .ready(deviceID: "device-1")
         )
         XCTAssertEqual(
-            try SpotifyPlaybackBridgeParser.parse(["name": "account_error", "payload": ["message": "Premium required"]]),
+            try SpotifyPlaybackBridgeParser.parse(["name": "account_error", "payload": ["message": "Premium required"]]
+            ),
             .accountError("Premium required")
         )
         XCTAssertThrowsError(try SpotifyPlaybackBridgeParser.parse(["name": "ready", "payload": [:]])) { error in
@@ -79,12 +81,12 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
                     "albumArtURL": "https://example.com/art.png",
                     "durationMilliseconds": 180_000,
                     "positionMilliseconds": 42_000,
-                    "uri": "spotify:track:1"
-                ]
-            ]
+                    "uri": "spotify:track:1",
+                ],
+            ],
         ])
 
-        guard case let .stateChanged(nowPlaying, isPaused, nextTracks, _) = event else {
+        guard case .stateChanged(let nowPlaying, let isPaused, let nextTracks, _) = event else {
             return XCTFail("Expected state changed")
         }
         XCTAssertFalse(isPaused)
@@ -110,7 +112,9 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
 
     func testBridgeParsesThePressIDOfAnAnswer() throws {
         XCTAssertEqual(
-            try SpotifyPlaybackBridgeParser.parse(["name": "player_command_finished", "payload": ["command": "pause", "id": 7]]),
+            try SpotifyPlaybackBridgeParser.parse([
+                "name": "player_command_finished", "payload": ["command": "pause", "id": 7],
+            ]),
             .playerCommandFinished(command: "pause", id: 7)
         )
         XCTAssertEqual(
@@ -124,7 +128,9 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
 
     func testBridgeParsesPlayerCommandFinished() throws {
         XCTAssertEqual(
-            try SpotifyPlaybackBridgeParser.parse(["name": "player_command_finished", "payload": ["command": "togglePlay"]]),
+            try SpotifyPlaybackBridgeParser.parse([
+                "name": "player_command_finished", "payload": ["command": "togglePlay"],
+            ]),
             .playerCommandFinished(command: "togglePlay")
         )
     }
@@ -135,14 +141,16 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
     func testASecondPressIsSentOnceTheBridgeAnswersTheFirst() async {
         let commander = MockWebPlaybackCommander()
         let playbackAPI = MockPlaybackAPI()
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: commander))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: commander))
 
         await viewModel.togglePlayPause()
         XCTAssertEqual(commander.commands.filter { $0.command == .togglePlay }.count, 1)
 
         let second = viewModel.requestTogglePlayPause()
         for _ in 0..<20 { await Task.yield() }
-        XCTAssertEqual(commander.commands.filter { $0.command == .togglePlay }.count, 1, "sent while the page still ran the first")
+        XCTAssertEqual(
+            commander.commands.filter { $0.command == .togglePlay }.count, 1, "sent while the page still ran the first")
 
         viewModel.handle(.playerCommandFinished(command: "togglePlay"))
         await second?.value
@@ -152,7 +160,8 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
     func testPlaybackErrorClearsToggleAckWait() async {
         let commander = MockWebPlaybackCommander()
         let playbackAPI = MockPlaybackAPI()
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: commander))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: commander))
 
         await viewModel.togglePlayPause()
         viewModel.handle(.playbackError("Spotify toggle failed"))
@@ -172,18 +181,22 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
             try SpotifyPlaybackBridgeParser.parse(["name": "not_ready", "payload": ["deviceID": "device-2"]]),
             .notReady(deviceID: "device-2")
         )
-        guard case let .initializationError(message) = try SpotifyPlaybackBridgeParser.parse([
-            "name": "initialization_error",
-            "payload": ["message": "SDK failed"]
-        ]) else {
+        guard
+            case .initializationError(let message) = try SpotifyPlaybackBridgeParser.parse([
+                "name": "initialization_error",
+                "payload": ["message": "SDK failed"],
+            ])
+        else {
             return XCTFail("Expected initialization error")
         }
         XCTAssertEqual(message, "SDK failed")
 
-        guard case let .authenticationError(authMessage) = try SpotifyPlaybackBridgeParser.parse([
-            "name": "authentication_error",
-            "payload": [:]
-        ]) else {
+        guard
+            case .authenticationError(let authMessage) = try SpotifyPlaybackBridgeParser.parse([
+                "name": "authentication_error",
+                "payload": [:],
+            ])
+        else {
             return XCTFail("Expected authentication error")
         }
         XCTAssertEqual(authMessage, "Spotify playback reported an error.")
@@ -193,7 +206,8 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
             .log("hello")
         )
 
-        XCTAssertThrowsError(try SpotifyPlaybackBridgeParser.parse(["name": "unknown_event", "payload": [:]])) { error in
+        XCTAssertThrowsError(try SpotifyPlaybackBridgeParser.parse(["name": "unknown_event", "payload": [:]])) {
+            error in
             XCTAssertEqual(error as? PlaybackBridgeMessageError, .unsupportedEvent("unknown_event"))
         }
         XCTAssertThrowsError(try SpotifyPlaybackBridgeParser.parse(["payload": [:]])) { error in
@@ -204,9 +218,9 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
     func testBridgeParsesStateChangedWithEmptyTrackWindow() throws {
         let event = try SpotifyPlaybackBridgeParser.parse([
             "name": "state_changed",
-            "payload": ["paused": true, "track": NSNull(), "nextTracks": []]
+            "payload": ["paused": true, "track": NSNull(), "nextTracks": []],
         ])
-        guard case let .stateChanged(nowPlaying, isPaused, nextTracks, _) = event else {
+        guard case .stateChanged(let nowPlaying, let isPaused, let nextTracks, _) = event else {
             return XCTFail("Expected state changed")
         }
         XCTAssertNil(nowPlaying)
@@ -220,16 +234,18 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
             "payload": [
                 "paused": false,
                 "track": NSNull(),
-                "nextTracks": [[
-                    "name": "Up Next",
-                    "artists": ["A"],
-                    "durationMilliseconds": 60_000,
-                    "positionMilliseconds": 0,
-                    "uri": "spotify:track:2"
-                ]]
-            ]
+                "nextTracks": [
+                    [
+                        "name": "Up Next",
+                        "artists": ["A"],
+                        "durationMilliseconds": 60_000,
+                        "positionMilliseconds": 0,
+                        "uri": "spotify:track:2",
+                    ]
+                ],
+            ],
         ])
-        guard case let .stateChanged(_, _, nextTracks, _) = event else {
+        guard case .stateChanged(_, _, let nextTracks, _) = event else {
             return XCTFail("expected state changed")
         }
         XCTAssertEqual(nextTracks.count, 1)
@@ -238,14 +254,14 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
         XCTAssertEqual(
             try SpotifyPlaybackBridgeParser.parse([
                 "name": "playback_error",
-                "payload": ["message": "Device busy"]
+                "payload": ["message": "Device busy"],
             ]),
             .playbackError("Device busy")
         )
         XCTAssertEqual(
             try SpotifyPlaybackBridgeParser.parse([
                 "name": "authentication_error",
-                "payload": ["message": "Token expired"]
+                "payload": ["message": "Token expired"],
             ]),
             .authenticationError("Token expired")
         )
@@ -266,11 +282,13 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
         context.evaluateScript(String(html[start.lowerBound..<end.upperBound]))
         let pick = try XCTUnwrap(context.objectForKeyedSubscript("largestImageURL"))
 
-        let album: [String: Any] = ["images": [
-            ["url": "https://i.scdn.co/image/300", "width": 300, "height": 300],
-            ["url": "https://i.scdn.co/image/64", "width": 64, "height": 64],
-            ["url": "https://i.scdn.co/image/640", "width": 640, "height": 640]
-        ]]
+        let album: [String: Any] = [
+            "images": [
+                ["url": "https://i.scdn.co/image/300", "width": 300, "height": 300],
+                ["url": "https://i.scdn.co/image/64", "width": 64, "height": 64],
+                ["url": "https://i.scdn.co/image/640", "width": 640, "height": 640],
+            ]
+        ]
         XCTAssertEqual(pick.call(withArguments: [album])?.toString(), "https://i.scdn.co/image/640")
         XCTAssertEqual(
             pick.call(withArguments: [["images": [["url": "https://i.scdn.co/image/only"]]]])?.toString(),
@@ -291,11 +309,11 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
                     "albumURI": "spotify:album:album1",
                     "durationMilliseconds": 1000,
                     "positionMilliseconds": 0,
-                    "uri": "spotify:track:1"
-                ]
-            ]
+                    "uri": "spotify:track:1",
+                ],
+            ],
         ])
-        guard case let .stateChanged(nowPlaying, _, _, _) = event else {
+        guard case .stateChanged(let nowPlaying, _, _, _) = event else {
             return XCTFail("expected state")
         }
         XCTAssertNil(nowPlaying?.albumName)
@@ -303,7 +321,8 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
     }
 
     func testCoordinatorDispatchRejectsUnknownHandler() async {
-        let bridge = PlaybackTokenBridge(provider: MockPlaybackTokenProvider(accessToken: "a", refreshedAccessToken: "b"))
+        let bridge = PlaybackTokenBridge(
+            provider: MockPlaybackTokenProvider(accessToken: "a", refreshedAccessToken: "b"))
         let result = await SpotifyPlaybackWebViewCoordinatorDispatch.tokenReply(
             handlerName: "unknown",
             body: [:],
@@ -318,7 +337,8 @@ final class PlaybackBridgeAndModelsTests: XCTestCase {
     /// authentication error that reads "Your Spotify session has expired".
     func testTokenBridgeTellsThePageWhenTheSignInIsPaused() async throws {
         let pause = SpotifySignInPause(session: nil, reason: .offline, retryAt: nil)
-        let bridge = PlaybackTokenBridge(provider: PausedPlaybackTokenProvider(error: SpotifySignInPausedError(pause: pause)))
+        let bridge = PlaybackTokenBridge(
+            provider: PausedPlaybackTokenProvider(error: SpotifySignInPausedError(pause: pause)))
 
         let response = try await bridge.tokenResponse(refresh: false)
 

@@ -118,7 +118,9 @@ struct PinnedSidebarLibraryRow: View {
             onUnpin: { pinnedStore.unpin(id: item.id) }
         )
         .contextMenu {
-            Button(SpotiglassL10n.string("browser.unpin.short", locale: spotiglassLocale)) { pinnedStore.unpin(id: item.id) }
+            Button(SpotiglassL10n.string("browser.unpin.short", locale: spotiglassLocale)) {
+                pinnedStore.unpin(id: item.id)
+            }
         }
     }
 }

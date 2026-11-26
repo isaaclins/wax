@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -36,14 +37,14 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         // Raw JSON shaped like a settings.json written before lyricsTextScale and
         // seededKeybindCommands existed — neither key present at all.
         let legacyJSON = """
-        {
-          "version" : 1,
-          "keybinds" : [],
-          "appearance" : { "colorScheme" : "dark" },
-          "commandPalette" : { "backdropBlur" : true },
-          "equalizer" : { }
-        }
-        """
+            {
+              "version" : 1,
+              "keybinds" : [],
+              "appearance" : { "colorScheme" : "dark" },
+              "commandPalette" : { "backdropBlur" : true },
+              "equalizer" : { }
+            }
+            """
         let decoded = try JSONDecoder().decode(SpotiglassSettingsFile.self, from: Data(legacyJSON.utf8))
         XCTAssertEqual(decoded.appearance.lyricsTextScale, 1.0)
         XCTAssertEqual(decoded.appearance.colorScheme, .dark)
@@ -60,7 +61,8 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
     func testRenamedCommandIDsKeepTheirSavedShortcut() throws {
         var file = SpotiglassSettingsFile(keybinds: [
             CommandPaletteKeyBinding(keystrokes: ["cmd-f"], command: "search.open", when: .signedIn),
-            CommandPaletteKeyBinding(keystrokes: ["cmd-r"], command: CommandPaletteCommandID.refreshPlaylists, when: .signedIn),
+            CommandPaletteKeyBinding(
+                keystrokes: ["cmd-r"], command: CommandPaletteCommandID.refreshPlaylists, when: .signedIn),
         ])
 
         XCTAssertTrue(SpotiglassSettingsStore.migrateRenamedCommandIDs(into: &file))
@@ -85,7 +87,8 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
     func testRenameDropsTheStaleRowWhenTheCurrentCommandIsAlreadyBound() throws {
         var file = SpotiglassSettingsFile(keybinds: [
             CommandPaletteKeyBinding(keystrokes: ["cmd-f"], command: "search.open", when: .signedIn),
-            CommandPaletteKeyBinding(keystrokes: ["alt-cmd-f"], command: CommandPaletteCommandID.openSearch, when: .signedIn),
+            CommandPaletteKeyBinding(
+                keystrokes: ["alt-cmd-f"], command: CommandPaletteCommandID.openSearch, when: .signedIn),
         ])
 
         XCTAssertTrue(SpotiglassSettingsStore.migrateRenamedCommandIDs(into: &file))
@@ -96,8 +99,8 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
     func testOutOfRangeLyricsTextScaleClampsOnDecode() throws {
         func decodeScale(_ raw: Double) throws -> Double {
             let json = """
-            { "keybinds" : [], "appearance" : { "lyricsTextScale" : \(raw) } }
-            """
+                { "keybinds" : [], "appearance" : { "lyricsTextScale" : \(raw) } }
+                """
             return try JSONDecoder()
                 .decode(SpotiglassSettingsFile.self, from: Data(json.utf8))
                 .appearance.lyricsTextScale
@@ -110,8 +113,8 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
     func testOutOfRangeEqualizerPreampClampsOnDecode() throws {
         func decodePreamp(_ raw: Double) throws -> Double {
             let json = """
-            { "keybinds" : [], "equalizer" : { "preamp" : \(raw) } }
-            """
+                { "keybinds" : [], "equalizer" : { "preamp" : \(raw) } }
+                """
             return try JSONDecoder()
                 .decode(SpotiglassSettingsFile.self, from: Data(json.utf8))
                 .equalizer.preamp
@@ -124,9 +127,11 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
     func testOutOfRangeEqualizerPreampIsWrittenBackClamped() throws {
         let url = makeTempFileURL()
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data("""
-        { "keybinds" : [], "equalizer" : { "preamp" : 100 } }
-        """.utf8).write(to: url)
+        try Data(
+            """
+            { "keybinds" : [], "equalizer" : { "preamp" : 100 } }
+            """.utf8
+        ).write(to: url)
 
         let store = SpotiglassSettingsStore(fileURL: url)
 
@@ -298,7 +303,7 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
                 command: CommandPaletteCommandID.openSettings,
                 when: .always,
                 args: nil
-            ),
+            )
         ]
         try store.updateKeybinds(newKeybinds)
 
@@ -354,16 +359,18 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
     func testUnreadableRowIsSkippedAndTheFileIsCopiedBeforeTheRepairIsSaved() throws {
         let url = makeTempFileURL()
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let original = Data(#"""
-        {"version":2,"keybindSeedBaselineVersion":1,"seededKeybindCommands":[],
-         "keybinds":[{"keystrokes":["shift-cmd-9"],"command":"app.openSettings","when":"always"},
-                     {"keystrokes":["cmd-j"],"command":"x","when":"somewhereNew"}]}
-        """#.utf8)
+        let original = Data(
+            #"""
+            {"version":2,"keybindSeedBaselineVersion":1,"seededKeybindCommands":[],
+             "keybinds":[{"keystrokes":["shift-cmd-9"],"command":"app.openSettings","when":"always"},
+                         {"keystrokes":["cmd-j"],"command":"x","when":"somewhereNew"}]}
+            """#.utf8)
         try original.write(to: url)
 
         let store = SpotiglassSettingsStore(fileURL: url)
 
-        XCTAssertTrue(store.settings.keybinds.contains { $0.keystrokes == ["shift-cmd-9"] && $0.command == "app.openSettings" })
+        XCTAssertTrue(
+            store.settings.keybinds.contains { $0.keystrokes == ["shift-cmd-9"] && $0.command == "app.openSettings" })
         let copies = UnreadableFileBackup.copies(of: url)
         XCTAssertEqual(copies.count, 1)
         XCTAssertEqual(try Data(contentsOf: XCTUnwrap(copies.first)), original)
@@ -426,7 +433,9 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
     func testSaveIntoAFolderThatCantBeWrittenIsReported() throws {
         let url = makeTempFileURL()
         var file = SpotiglassSettingsStore.bootstrapDefaults()
-        file.equalizer.userPresets = [EqualizerPreset(name: "Mine", bands: Array(repeating: 1, count: EqualizerSettings.bandCount))]
+        file.equalizer.userPresets = [
+            EqualizerPreset(name: "Mine", bands: Array(repeating: 1, count: EqualizerSettings.bandCount))
+        ]
         file.equalizer.activePresetName = "Mine"
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try JSONEncoder().encode(file).write(to: url)
@@ -498,7 +507,8 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         let target = dotfiles.appendingPathComponent("settings.json")
         try Data(#"{"version":2}"#.utf8).write(to: target)
         let legacy = legacyDir.appendingPathComponent("settings.json")
-        try FileManager.default.createSymbolicLink(atPath: legacy.path, withDestinationPath: "../../dotfiles/settings.json")
+        try FileManager.default.createSymbolicLink(
+            atPath: legacy.path, withDestinationPath: "../../dotfiles/settings.json")
         let newURL = root.appendingPathComponent("Application Support/Spotiglass/settings.json")
 
         SpotiglassSettingsStore.migrateLegacyConfigIfNeeded(fileManager: .default, from: legacy, to: newURL)
@@ -515,17 +525,21 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         let url = dir.appendingPathComponent("settings.json")
         let start = Date(timeIntervalSince1970: 1_800_000_000)
         let first = try UnreadableFileBackup.preserve(Data("a".utf8), of: url, now: start)
-        XCTAssertEqual(try UnreadableFileBackup.preserve(Data("a".utf8), of: url, now: start.addingTimeInterval(60)), first)
+        XCTAssertEqual(
+            try UnreadableFileBackup.preserve(Data("a".utf8), of: url, now: start.addingTimeInterval(60)), first)
 
         for step in 1...7 {
-            try UnreadableFileBackup.preserve(Data("v\(step)".utf8), of: url, now: start.addingTimeInterval(Double(step)))
+            try UnreadableFileBackup.preserve(
+                Data("v\(step)".utf8), of: url, now: start.addingTimeInterval(Double(step)))
         }
         // Two in the same second get a counter instead of replacing each other.
         try UnreadableFileBackup.preserve(Data("same second".utf8), of: url, now: start.addingTimeInterval(7))
 
         let kept = UnreadableFileBackup.copies(of: url)
         XCTAssertEqual(kept.count, UnreadableFileBackup.keptCopies)
-        XCTAssertEqual(try kept.map { String(decoding: try Data(contentsOf: $0), as: UTF8.self) }, ["v4", "v5", "v6", "v7", "same second"])
+        XCTAssertEqual(
+            try kept.map { String(decoding: try Data(contentsOf: $0), as: UTF8.self) },
+            ["v4", "v5", "v6", "v7", "same second"])
     }
 
     func testDefaultFileURLIsApplicationSupportSpotiglassSettingsJSON() {
@@ -542,7 +556,8 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         let root = makeTempDir()
         let legacy = root.appendingPathComponent("config/spotiglass/settings.json")
         let destination = root.appendingPathComponent("ApplicationSupport/Spotiglass/settings.json")
-        try FileManager.default.createDirectory(at: legacy.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: legacy.deletingLastPathComponent(), withIntermediateDirectories: true)
         let payload = #"{"version":1}"#
         try payload.write(to: legacy, atomically: true, encoding: .utf8)
 
@@ -557,15 +572,18 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         let root = makeTempDir()
         let legacy = root.appendingPathComponent("config/settings.json")
         let destination = root.appendingPathComponent("dest/settings.json")
-        try FileManager.default.createDirectory(at: legacy.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: legacy.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
         try "legacy".write(to: legacy, atomically: true, encoding: .utf8)
         try "current".write(to: destination, atomically: true, encoding: .utf8)
 
         SpotiglassSettingsStore.migrateLegacyConfigIfNeeded(fileManager: .default, from: legacy, to: destination)
 
         XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "current", "Existing settings must win")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: legacy.path), "Legacy file is left intact when not migrating")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: legacy.path), "Legacy file is left intact when not migrating")
     }
 
     // MARK: - Helpers
@@ -640,16 +658,16 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         // palette.enqueue row is deliberate: it was an old command the user cleared,
         // not a command that was added after this file was created.
         let legacyJSON = """
-        {
-          "version" : 1,
-          "keybinds" : [
-            { "keystrokes" : ["cmd-,"], "command" : "app.openSettings", "when" : "always" }
-          ],
-          "appearance" : { "colorScheme" : "dark" },
-          "commandPalette" : { "backdropBlur" : false },
-          "equalizer" : { }
-        }
-        """
+            {
+              "version" : 1,
+              "keybinds" : [
+                { "keystrokes" : ["cmd-,"], "command" : "app.openSettings", "when" : "always" }
+              ],
+              "appearance" : { "colorScheme" : "dark" },
+              "commandPalette" : { "backdropBlur" : false },
+              "equalizer" : { }
+            }
+            """
         let url = makeTempFileURL()
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try legacyJSON.write(to: url, atomically: true, encoding: .utf8)
@@ -686,15 +704,15 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
     func testExplicitEmptySeedMetadataDoesNotUseLegacyBaseline() throws {
         let url = makeTempFileURL()
         let explicitEmptyJSON = """
-        {
-          "version" : 1,
-          "keybinds" : [],
-          "seededKeybindCommands" : [],
-          "appearance" : { },
-          "commandPalette" : { },
-          "equalizer" : { }
-        }
-        """
+            {
+              "version" : 1,
+              "keybinds" : [],
+              "seededKeybindCommands" : [],
+              "appearance" : { },
+              "commandPalette" : { },
+              "equalizer" : { }
+            }
+            """
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try explicitEmptyJSON.write(to: url, atomically: true, encoding: .utf8)
 
@@ -786,7 +804,8 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         })
 
         XCTAssertFalse(Self.descriptor(watcher, isOpenOn: url), "the released store left its watcher's descriptor open")
-        XCTAssertNotEqual(fcntl(other, F_GETFD), -1, "the released store closed descriptor \(other), which it no longer owned")
+        XCTAssertNotEqual(
+            fcntl(other, F_GETFD), -1, "the released store closed descriptor \(other), which it no longer owned")
     }
 
     private static func descriptor(openOn url: URL) -> Int32? {

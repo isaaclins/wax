@@ -127,8 +127,10 @@ final class AuthViewModel: ObservableObject {
         guard currentSession == nil else { return }
         let generation = authTransitionGeneration
         do {
-            guard let refreshToken = try loadSavedRefreshToken(for: "Restoring the session", outcome: "showed the error"),
-                  !settings.clientID.isEmpty else {
+            guard
+                let refreshToken = try loadSavedRefreshToken(for: "Restoring the session", outcome: "showed the error"),
+                !settings.clientID.isEmpty
+            else {
                 guard generation == authTransitionGeneration else { return }
                 SpotiglassLog.info(.auth, "No saved sign-in to restore")
                 state = .signedOut
@@ -210,14 +212,15 @@ final class AuthViewModel: ObservableObject {
         switch restorePoint.state {
         case .signedIn:
             state = restorePoint.state
-        case let .refreshing(.some(session)):
+        case .refreshing(.some(let session)):
             // The refresh it showed was cancelled by the sign-in; the next request refreshes.
             state = .signedIn(session)
-        case let .paused(pause):
+        case .paused(let pause):
             // Starting the sign-in cancelled the pause's own retry: set it up again, keeping
             // Spotify's Retry-After.
             state = restorePoint.state
-            let wait = pause.retryAt.map { max(0, $0.timeIntervalSince(now())) }
+            let wait =
+                pause.retryAt.map { max(0, $0.timeIntervalSince(now())) }
                 ?? Self.temporaryFailureCooldown(afterFailures: 0)
             refreshCooldownUntil = now().addingTimeInterval(wait)
             schedulePausedRetry(after: wait)
@@ -249,7 +252,8 @@ final class AuthViewModel: ObservableObject {
             let authorizationCode = try await authorizationFlow.requestAuthorizationCode(clientID: clientID)
             try ensureAuthTransitionIsCurrent(generation)
             step = "exchanging the code"
-            let configuration = try SpotifyAuthConfiguration(clientID: clientID, redirectURI: authorizationCode.redirectURI)
+            let configuration = try SpotifyAuthConfiguration(
+                clientID: clientID, redirectURI: authorizationCode.redirectURI)
             let grant = try await tokenClient.exchangeAuthorizationCode(
                 clientID: configuration.clientID,
                 code: authorizationCode.code,
@@ -313,7 +317,8 @@ final class AuthViewModel: ObservableObject {
             }
             signInRetryCooldownUntil = now().addingTimeInterval(2)
             if let restorePoint = signInRestorePoint,
-               restorePoint.state.hasSpotifySession || restorePoint.state == .refreshing(nil) {
+                restorePoint.state.hasSpotifySession || restorePoint.state == .refreshing(nil)
+            {
                 // The reason still reaches the log; the session from before keeps working (or, at
                 // launch, its refresh is tried again).
                 let shown = Self.report(
@@ -359,14 +364,16 @@ final class AuthViewModel: ObservableObject {
     ) async throws {
         try ensureAuthTransitionIsCurrent(generation)
         // A paused sign-in keeps its library on screen while it tries again.
-        if case .paused = state {} else {
+        if case .paused = state {
+        } else {
             state = .refreshing(previousSession)
         }
         let configuration = try SpotifyAuthConfiguration(
             clientID: clientID,
             redirectURI: SpotifyAuthConfiguration.loopbackRedirectURI()
         )
-        let grant = try await tokenClient.refreshAccessToken(clientID: configuration.clientID, refreshToken: refreshToken)
+        let grant = try await tokenClient.refreshAccessToken(
+            clientID: configuration.clientID, refreshToken: refreshToken)
         try ensureAuthTransitionIsCurrent(generation)
         if let replacementRefreshToken = grant.refreshToken {
             try refreshTokenStore.saveRefreshToken(replacementRefreshToken)
@@ -402,8 +409,9 @@ final class AuthViewModel: ObservableObject {
     ) async throws -> String {
         try ensureAuthTransitionIsCurrent(generation)
         if let cooldownUntil = refreshCooldownUntil,
-           cooldownUntil > now(),
-           case let .paused(pause) = state {
+            cooldownUntil > now(),
+            case .paused(let pause) = state
+        {
             throw SpotifySignInPausedError(pause: pause)
         }
 
@@ -431,7 +439,9 @@ final class AuthViewModel: ObservableObject {
                 }
                 // Logged here, once per refresh that ran: every waiter on this task gets the
                 // same error, and `handleRefreshFailure` acts on it the way this line says.
-                if !(error is CancellationError || error is AuthTransitionInvalidatedError || error is SpotifySignInPausedError) {
+                if !(error is CancellationError || error is AuthTransitionInvalidatedError
+                    || error is SpotifySignInPausedError)
+                {
                     SpotiglassLog.error(
                         .auth,
                         "Token refresh failed (\(AuthFailureDescription.describe(error))); \(Self.refreshFailureOutcome(error))"
@@ -504,9 +514,9 @@ final class AuthViewModel: ObservableObject {
             guard generation == authTransitionGeneration else { return SpotifyAPIError.unauthorized }
             state = .failed(Self.report(error, level: .loggedWhereCaught, while: "showing a sign-in Spotify rejected"))
             return SpotifyAPIError.unauthorized
-        case let .temporary(reason, retryAfter):
+        case .temporary(let reason, let retryAfter):
             // Every request waiting on the same refresh lands here; the first one settled it.
-            if let refreshCooldownUntil, refreshCooldownUntil > now(), case let .paused(pause) = state {
+            if let refreshCooldownUntil, refreshCooldownUntil > now(), case .paused(let pause) = state {
                 return SpotifySignInPausedError(pause: pause)
             }
             // Spotify's Retry-After when it is longer; a short or zero one doesn't undercut the
@@ -519,7 +529,8 @@ final class AuthViewModel: ObservableObject {
                 reason: reason,
                 retryAt: reason == .busy ? refreshCooldownUntil : nil
             )
-            SpotiglassLog.info(.auth, "Sign-in paused (\(reason)); it tries again by itself in \(Int(cooldown.rounded())) s")
+            SpotiglassLog.info(
+                .auth, "Sign-in paused (\(reason)); it tries again by itself in \(Int(cooldown.rounded())) s")
             state = .paused(pause)
             schedulePausedRetry(after: cooldown)
             return SpotifySignInPausedError(pause: pause)
@@ -560,18 +571,21 @@ final class AuthViewModel: ObservableObject {
     /// Tries a paused sign-in again. A network or wake signal skips the offline cooldown, but not
     /// a Retry-After Spotify asked for.
     private func retryPausedSignIn(waitForBusyCooldown: Bool) async {
-        guard case let .paused(pause) = state else { return }
+        guard case .paused(let pause) = state else { return }
         if waitForBusyCooldown, pause.reason == .busy,
-           let refreshCooldownUntil, refreshCooldownUntil > now() {
+            let refreshCooldownUntil, refreshCooldownUntil > now()
+        {
             return
         }
         refreshCooldownUntil = nil
         let generation = authTransitionGeneration
         do {
-            guard let refreshToken = try loadSavedRefreshToken(
-                for: "Retrying the paused sign-in",
-                outcome: "showed the error"
-            ) else {
+            guard
+                let refreshToken = try loadSavedRefreshToken(
+                    for: "Retrying the paused sign-in",
+                    outcome: "showed the error"
+                )
+            else {
                 state = .signedOut
                 return
             }
@@ -633,7 +647,8 @@ final class AuthViewModel: ObservableObject {
             }
         }
         guard let tokenError = error as? SpotifyTokenClientError,
-              case let .httpError(status, _, oauthError, retryAfter) = tokenError else {
+            case .httpError(let status, _, let oauthError, let retryAfter) = tokenError
+        else {
             return .other
         }
         if status == 429 {
@@ -652,8 +667,9 @@ final class AuthViewModel: ObservableObject {
 
     private func sessionWithPersistedScopeIfNeeded(_ session: AuthenticatedSession) -> AuthenticatedSession {
         guard session.scope == nil,
-              let persistedScope = settings.grantedScope?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !persistedScope.isEmpty else {
+            let persistedScope = settings.grantedScope?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !persistedScope.isEmpty
+        else {
             return session
         }
         return AuthenticatedSession(
@@ -680,7 +696,9 @@ final class AuthViewModel: ObservableObject {
     /// sentence stays free of OAuth codes and socket steps; the log line has them through
     /// `AuthFailureDescription` (#186, #602). The sentence is looked up each time it is shown,
     /// so it follows a language switch (#571).
-    private static func report(_ error: Error, level: ErrorReporting.Level = .error, while operation: String) -> DisplayError {
+    private static func report(_ error: Error, level: ErrorReporting.Level = .error, while operation: String)
+        -> DisplayError
+    {
         ErrorReporting.report(
             error,
             while: operation,
@@ -729,10 +747,12 @@ extension AuthViewModel: PlaybackAccessTokenProviding {
         // back on screen in the middle of the sign-in, and a dead-grant answer would delete the
         // token the reconnect falls back to (#593).
         guard signInTask == nil else { throw SpotifyAPIError.unauthorized }
-        guard let refreshToken = try loadSavedRefreshToken(
-            for: "The player's token refresh",
-            outcome: "passed to the player"
-        ) else {
+        guard
+            let refreshToken = try loadSavedRefreshToken(
+                for: "The player's token refresh",
+                outcome: "passed to the player"
+            )
+        else {
             throw SpotifyAPIError.unauthorized
         }
         let previousSession = currentSession ?? state.pausedOrLiveSession
@@ -767,9 +787,9 @@ extension AuthViewModel: SpotifyScopeProviding {
             return currentSession.grantedScopes
         }
         return switch state {
-        case let .signedIn(session), let .refreshing(.some(session)):
+        case .signedIn(let session), .refreshing(.some(let session)):
             session.grantedScopes
-        case let .paused(pause):
+        case .paused(let pause):
             // A launch while offline has no session yet: the scope saved with the grant still holds.
             pause.session?.grantedScopes
                 ?? Set((settings.grantedScope ?? "").split(whereSeparator: \.isWhitespace).map(String.init))
@@ -790,8 +810,9 @@ extension AuthViewModel: SpotifyAccessTokenProviding {
         // finished, the session holds a newer token: retry with it instead of
         // refreshing again.
         if let currentSession,
-           currentSession.accessToken != rejectedToken,
-           !currentSession.expires(within: 60) {
+            currentSession.accessToken != rejectedToken,
+            !currentSession.expires(within: 60)
+        {
             return currentSession.accessToken
         }
         return try await refreshedPlaybackAccessToken()
@@ -804,11 +825,11 @@ extension AuthViewModel {
     }
 }
 
-private extension AppConnectionState {
-    var pausedOrLiveSession: AuthenticatedSession? {
+extension AppConnectionState {
+    fileprivate var pausedOrLiveSession: AuthenticatedSession? {
         switch self {
-        case let .signedIn(session), let .refreshing(.some(session)): session
-        case let .paused(pause): pause.session
+        case .signedIn(let session), .refreshing(.some(let session)): session
+        case .paused(let pause): pause.session
         case .signedOut, .signingIn, .failed, .refreshing(.none): nil
         }
     }

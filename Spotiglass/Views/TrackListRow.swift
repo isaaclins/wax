@@ -74,7 +74,7 @@ enum TrackRowPlaybackInvocation: Equatable {
 
     var action: TrackRowPlaybackAction {
         switch self {
-        case let .toggle(action):
+        case .toggle(let action):
             action
         case .play:
             .play
@@ -199,9 +199,10 @@ struct TrackListRow: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("TrackListRow:\(track.id)")
-        // What the row shows of the player, so a test can tell a row came in with the current state.
-        let _ = ViewBodyTally.record("TrackListRowMark:\(track.id):\(isPlaying ? "playing" : isCurrent ? "paused" : "none")")
+            let _ = ViewBodyTally.record("TrackListRow:\(track.id)")
+            // What the row shows of the player, so a test can tell a row came in with the current state.
+            let _ = ViewBodyTally.record(
+                "TrackListRowMark:\(track.id):\(isPlaying ? "playing" : isCurrent ? "paused" : "none")")
         #endif
         HStack(spacing: SpotiglassDesign.spacingS) {
             leadingColumn
@@ -266,10 +267,12 @@ struct TrackListRow: View {
         .onHover { hovering in
             isHovering = hovering
         }
-        .modifier(TrackListPinningModifier(
-            track: track,
-            tracksSurfaceID: tracksSurfaceID
-        ))
+        .modifier(
+            TrackListPinningModifier(
+                track: track,
+                tracksSurfaceID: tracksSurfaceID
+            )
+        )
         // Double-click activates, which is what a Mac table does: a single
         // click belongs to the enclosing `List` so it can select. Attached
         // simultaneously so the tap recognizer cannot swallow that click.
@@ -302,10 +305,12 @@ struct TrackListRow: View {
         // never surfaces to assistive technology, and the play button existed
         // only while the pointer hovered. So VoiceOver could read a track but
         // never start one (#109).
-        .modifier(TrackListRowActivationAccessibilityModifier(
-            invocation: rowPlaybackInvocation,
-            action: activate
-        ))
+        .modifier(
+            TrackListRowActivationAccessibilityModifier(
+                invocation: rowPlaybackInvocation,
+                action: activate
+            )
+        )
         .accessibilityLabel(
             String(
                 format: SpotiglassL10n.string("browser.trackRow.accessibility"),
@@ -352,7 +357,7 @@ struct TrackListRow: View {
         switch rowPlaybackInvocation {
         case .toggle:
             togglePlayPause()
-        case let .play(uri):
+        case .play(let uri):
             playURI(uri)
         case .unavailable:
             break

@@ -1,6 +1,7 @@
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -22,14 +23,16 @@ final class BrowserChromeViewsTests: XCTestCase {
         await viewModel.load()
         await viewModel.selectSidebar(.home)
         XCTAssertEqual(
-            BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection),
+            BrowserToolbarPresentation.windowTitle(
+                for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection),
             ViewTestHost.localizedString("browser.home")
         )
         XCTAssertFalse(BrowserToolbarPresentation.showsTitleInToolbar(for: viewModel.breadcrumbPath))
         await viewModel.selectSidebar(.likedSongs)
         await viewModel.selectArtist(id: "artist-xyz", origin: .extend, displayName: "Malcolm Todd")
         XCTAssertEqual(
-            BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection),
+            BrowserToolbarPresentation.windowTitle(
+                for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection),
             "Artist artist-xyz"
         )
         XCTAssertTrue(BrowserToolbarPresentation.showsTitleInToolbar(for: viewModel.breadcrumbPath))
@@ -131,7 +134,9 @@ final class BrowserChromeViewsTests: XCTestCase {
         XCTAssertTrue(
             AppKitTestSupport.pumpRunLoop(until: {
                 layers.enumerated().contains { index, bar in
-                    guard let scale = bar.presentation()?.value(forKeyPath: "transform.scale.y") as? CGFloat else { return false }
+                    guard let scale = bar.presentation()?.value(forKeyPath: "transform.scale.y") as? CGFloat else {
+                        return false
+                    }
                     return abs(scale - pausedScale(index)) > 0.01
                 }
             }),
@@ -231,9 +236,13 @@ final class BrowserChromeViewsTests: XCTestCase {
         // and open again on the way out.
         var visited: [String] = ["Home"]
         await viewModel.selectSidebar(.likedSongs)
-        visited.append(BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection))
+        visited.append(
+            BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection)
+        )
         await viewModel.selectArtist(id: "artist-xyz", origin: .extend, displayName: "Malcolm Todd")
-        visited.append(BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection))
+        visited.append(
+            BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection)
+        )
         await viewModel.selectAlbum(
             id: "album-1",
             displayTitle: "Sweet Boy",
@@ -251,7 +260,8 @@ final class BrowserChromeViewsTests: XCTestCase {
             landed.append(
                 viewModel.sidebarSelection == .home
                     ? "Home"
-                    : BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection)
+                    : BrowserToolbarPresentation.windowTitle(
+                        for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection)
             )
         }
 
@@ -301,18 +311,19 @@ final class BrowserChromeViewsTests: XCTestCase {
         func item(_ id: String, artistName: String) -> MusicPlaylistTrackItem {
             MusicPlaylistTrackItem(
                 id: id,
-                content: .track(MusicTrack(
-                    id: id,
-                    name: "Track \(id)",
-                    artists: [artistName],
-                    artistRefs: [MusicArtistRef(id: "artist-bonobo", name: artistName)],
-                    albumArtworkURL: nil,
-                    durationMilliseconds: 237_000,
-                    isExplicit: false,
-                    isPlayable: true,
-                    linkedFromID: nil,
-                    uri: "spotify:track:\(id)"
-                ))
+                content: .track(
+                    MusicTrack(
+                        id: id,
+                        name: "Track \(id)",
+                        artists: [artistName],
+                        artistRefs: [MusicArtistRef(id: "artist-bonobo", name: artistName)],
+                        albumArtworkURL: nil,
+                        durationMilliseconds: 237_000,
+                        isExplicit: false,
+                        isPlayable: true,
+                        linkedFromID: nil,
+                        uri: "spotify:track:\(id)"
+                    ))
             )
         }
         let items = [item("first", artistName: "Unknown artist"), item("kerala", artistName: "Bonobo")]
@@ -353,7 +364,9 @@ final class BrowserChromeViewsTests: XCTestCase {
             await viewModel.selectArtist(id: artist.id, origin: .extend, displayName: artist.name)
         }
         await entered.wait()
-        XCTAssertEqual(BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection), "Bonobo")
+        XCTAssertEqual(
+            BrowserToolbarPresentation.windowTitle(
+                for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection), "Bonobo")
         await viewModel.selectSidebar(.home)
         release.open()
         await opening.value
@@ -381,7 +394,9 @@ final class BrowserChromeViewsTests: XCTestCase {
 
         XCTAssertEqual(NavigationToolbarChrome(viewModel: viewModel).destinationDescription, "Go back to Bonobo")
         await viewModel.navigateBack()
-        XCTAssertEqual(BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection), "Bonobo")
+        XCTAssertEqual(
+            BrowserToolbarPresentation.windowTitle(
+                for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection), "Bonobo")
 
         await viewModel.selectArtist(id: "artist-tycho", origin: .extend, displayName: "Tycho")
         XCTAssertEqual(NavigationToolbarChrome(viewModel: viewModel).destinationDescription, "Go back to Bonobo")
@@ -427,7 +442,6 @@ private struct WaveformMotionDriverView: View {
             .frame(width: 24, height: 16)
     }
 }
-
 
 /// The bar above Home said "Spotiglass" next to the sidebar button: the app's
 /// name, not a place, above a page that already has its own greeting (#495).
@@ -515,18 +529,22 @@ final class BrowserWindowTitleTests: XCTestCase {
         let homeQueue = try XCTUnwrap(queueButtonFrame(in: window))
 
         await viewModel.selectSidebar(.playlist("p1"))
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { window.title == "Focus" }), "the window never took the playlist's name")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { window.title == "Focus" }),
+            "the window never took the playlist's name")
         await AppKitTestSupport.settle()
         XCTAssertEqual(window.title, "Focus")
         XCTAssertEqual(window.titleVisibility, .visible)
         // Without the title the bar's buttons slid over next to the sidebar button on Home and
         // jumped back to the trailing edge on every other page.
         let playlistQueue = try XCTUnwrap(queueButtonFrame(in: window))
-        XCTAssertEqual(homeQueue.minX, playlistQueue.minX, accuracy: 0.5, "the bar's buttons moved between Home and a page")
+        XCTAssertEqual(
+            homeQueue.minX, playlistQueue.minX, accuracy: 0.5, "the bar's buttons moved between Home and a page")
         XCTAssertGreaterThan(homeQueue.minX, window.frame.width / 2, "the bar's buttons left the trailing edge on Home")
 
         await viewModel.navigateBack()
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { window.title == home }), "the window never went back to Home's name")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { window.title == home }), "the window never went back to Home's name")
         await AppKitTestSupport.settle()
         XCTAssertEqual(viewModel.sidebarSelection, .home)
         XCTAssertEqual(window.title, home)
@@ -561,7 +579,8 @@ final class BrowserWindowTitleTests: XCTestCase {
         let back = try XCTUnwrap(toolbarItemFrame(in: window) { $0.label == backLabel }, "no Back in the bar")
         let homeQueue = try XCTUnwrap(queueButtonFrame(in: window))
         XCTAssertLessThan(back.minX, window.frame.width / 2, "Back left the bar's leading edge")
-        XCTAssertEqual(homeQueue.minX, playlistQueue.minX, accuracy: 0.5, "the bar's buttons moved between a page and Home")
+        XCTAssertEqual(
+            homeQueue.minX, playlistQueue.minX, accuracy: 0.5, "the bar's buttons moved between a page and Home")
     }
 
     /// A Command-click on the selected sidebar row clears the selection and leaves an empty

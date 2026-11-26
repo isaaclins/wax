@@ -89,7 +89,7 @@ enum MacAudioOutputHardware {
         var dataSize: UInt32 = 0
         let systemObject = AudioObjectID(kAudioObjectSystemObject)
         guard AudioObjectGetPropertyDataSize(systemObject, &address, 0, nil, &dataSize) == noErr,
-              dataSize > 0
+            dataSize > 0
         else {
             return []
         }
@@ -108,7 +108,7 @@ enum MacAudioOutputHardware {
         )
         var propertySize: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(deviceID, &address, 0, nil, &propertySize) == noErr,
-              propertySize > 0
+            propertySize > 0
         else {
             return 0
         }
@@ -226,11 +226,13 @@ final class AudioOutputTrace: @unchecked Sendable {
         let devices = MacAudioOutputHardware.enumerateOutputDevices().map { device in
             Self.describe(device.id, name: device.name)
         }
-        let defaultName = defaultID.map { id in
-            Self.describe(id, name: MacAudioOutputHardware.copyDeviceDisplayName(deviceID: id) ?? "?")
-        } ?? "none"
+        let defaultName =
+            defaultID.map { id in
+                Self.describe(id, name: MacAudioOutputHardware.copyDeviceDisplayName(deviceID: id) ?? "?")
+            } ?? "none"
         let format = defaultID.map { Self.format($0) } ?? "no stream"
-        let line = "default output \(defaultName), stream \(format); outputs: \(devices.joined(separator: ", ")); "
+        let line =
+            "default output \(defaultName), stream \(format); outputs: \(devices.joined(separator: ", ")); "
             + Self.microphoneUsers()
         guard line != lastLine else { return }
         lastLine = line
@@ -246,17 +248,21 @@ final class AudioOutputTrace: @unchecked Sendable {
     /// a Bluetooth headset switches it to its call profile, so music on it sounds like a phone
     /// call until the app lets go (#734).
     nonisolated static func microphoneUsers() -> String {
-        let processes: [AudioObjectID] = objectList(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyProcessObjectList)
+        let processes: [AudioObjectID] = objectList(
+            AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyProcessObjectList)
         var users: [String] = []
         for process in processes {
             var running: UInt32 = 0
             var size = UInt32(MemoryLayout<UInt32>.size)
             var address = Self.address(kAudioProcessPropertyIsRunningInput)
-            guard AudioObjectGetPropertyData(process, &address, 0, nil, &size, &running) == noErr, running != 0 else { continue }
+            guard AudioObjectGetPropertyData(process, &address, 0, nil, &size, &running) == noErr, running != 0 else {
+                continue
+            }
             var bundleID: Unmanaged<CFString>?
             var bundleSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
             var bundleAddress = Self.address(kAudioProcessPropertyBundleID)
-            let name = AudioObjectGetPropertyData(process, &bundleAddress, 0, nil, &bundleSize, &bundleID) == noErr
+            let name =
+                AudioObjectGetPropertyData(process, &bundleAddress, 0, nil, &bundleSize, &bundleID) == noErr
                 ? (bundleID?.takeRetainedValue() as String?) ?? "an app" : "an app"
             var pid: pid_t = 0
             var pidSize = UInt32(MemoryLayout<pid_t>.size)
@@ -268,7 +274,9 @@ final class AudioOutputTrace: @unchecked Sendable {
             let on = devices.map { id in
                 describe(id, name: MacAudioOutputHardware.copyDeviceDisplayName(deviceID: id) ?? "?")
             }
-            users.append("\(name.isEmpty ? "an app" : name) (pid \(pid))" + (on.isEmpty ? "" : " using \(on.joined(separator: ", "))"))
+            users.append(
+                "\(name.isEmpty ? "an app" : name) (pid \(pid))"
+                    + (on.isEmpty ? "" : " using \(on.joined(separator: ", "))"))
         }
         return users.isEmpty ? "microphone in use by nobody" : "microphone in use by \(users.joined(separator: "; "))"
     }
@@ -286,17 +294,23 @@ final class AudioOutputTrace: @unchecked Sendable {
         var asbd = AudioStreamBasicDescription()
         var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
         var address = Self.address(kAudioStreamPropertyPhysicalFormat)
-        guard AudioObjectGetPropertyData(stream, &address, 0, nil, &size, &asbd) == noErr else { return "(format unknown)" }
+        guard AudioObjectGetPropertyData(stream, &address, 0, nil, &size, &asbd) == noErr else {
+            return "(format unknown)"
+        }
         let kind = asbd.mFormatFlags & kAudioFormatFlagIsFloat != 0 ? "float" : "int"
         return "\(Int(asbd.mSampleRate)) Hz \(asbd.mBitsPerChannel)-bit \(kind) \(asbd.mChannelsPerFrame) ch"
     }
 
-    nonisolated private static func objectList<T>(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector) -> [T] {
+    nonisolated private static func objectList<T>(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector)
+        -> [T]
+    {
         var address = Self.address(selector)
         return objectList(object, &address)
     }
 
-    nonisolated private static func objectList<T>(_ object: AudioObjectID, _ address: inout AudioObjectPropertyAddress) -> [T] {
+    nonisolated private static func objectList<T>(_ object: AudioObjectID, _ address: inout AudioObjectPropertyAddress)
+        -> [T]
+    {
         var size: UInt32 = 0
         guard AudioObjectGetPropertyDataSize(object, &address, 0, nil, &size) == noErr, size > 0 else { return [] }
         let count = Int(size) / MemoryLayout<T>.stride
@@ -315,7 +329,8 @@ final class AudioOutputTrace: @unchecked Sendable {
             AudioObjectRemovePropertyListenerBlock(id, &address, queue, block)
             rateListeners[id] = nil
         }
-        let all: [AudioDeviceID] = Self.objectList(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices)
+        let all: [AudioDeviceID] = Self.objectList(
+            AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices)
         for (id, block) in runningListeners where !all.contains(id) {
             var address = Self.address(kAudioDevicePropertyDeviceIsRunningSomewhere)
             AudioObjectRemovePropertyListenerBlock(id, &address, queue, block)

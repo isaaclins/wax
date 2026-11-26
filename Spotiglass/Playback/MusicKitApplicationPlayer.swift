@@ -84,33 +84,47 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         let resolved: [(uri: String, entry: MusicPlayer.Queue.Entry)]
         var startURI: String?
         switch request {
-        case let .items(uris, start):
+        case .items(let uris, let start):
             resolved = try await Self.resolveEntries(uris, lookingUpFirst: start)
             startURI = start
-        case let .album(id):
+        case .album(let id):
             // The browser's reads, which follow long catalog albums and playlists without
             // MusicKit's batches (#465).
             let source = MusicKitContentSource()
-            guard var album = try await Self.mapped("album \(id) for Play", { try await source.album(id: id) }) else { throw Self.notFound(id) }
+            guard var album = try await Self.mapped("album \(id) for Play", { try await source.album(id: id) }) else {
+                throw Self.notFound(id)
+            }
             // A saved album's page shows its catalog album, so its Play plays that (#658): the
             // one the page matched, else the one the saved album names.
-            if let catalogID = AppleMusicCatalogMatches.shared.catalogID(for: id) ?? AppleMusicBrowsingProvider.catalogID(of: album) {
+            if let catalogID = AppleMusicCatalogMatches.shared.catalogID(for: id)
+                ?? AppleMusicBrowsingProvider.catalogID(of: album)
+            {
                 do {
                     if let catalog = try await source.album(id: catalogID) { album = catalog }
                 } catch is CancellationError {
                     throw CancellationError()
                 } catch {
-                    SpotiglassLog.info(.playback, "Catalog album read for Play failed (\(MusicKitContentSource.describe(error))); playing the saved album")
+                    SpotiglassLog.info(
+                        .playback,
+                        "Catalog album read for Play failed (\(MusicKitContentSource.describe(error))); playing the saved album"
+                    )
                 }
             }
-            resolved = try await Self.entries(for: Self.mapped("album tracks for Play") { try await source.tracks(of: album, limit: Self.contextTrackLimit) })
-        case let .playlist(id):
+            resolved = try await Self.entries(
+                for: Self.mapped("album tracks for Play") {
+                    try await source.tracks(of: album, limit: Self.contextTrackLimit)
+                })
+        case .playlist(let id):
             let source = MusicKitContentSource()
-            guard let tracks = try await Self.mapped("playlist tracks for Play", {
-                try await source.playlistTracks(playlistID: id, limit: Self.contextTrackLimit)
-            }) else { throw Self.notFound(id) }
+            guard
+                let tracks = try await Self.mapped(
+                    "playlist tracks for Play",
+                    {
+                        try await source.playlistTracks(playlistID: id, limit: Self.contextTrackLimit)
+                    })
+            else { throw Self.notFound(id) }
             resolved = Self.entries(for: tracks)
-        case let .artist(id):
+        case .artist(let id):
             resolved = Self.entries(for: try await Self.artistSongs(id: id))
         }
         guard isCurrent() else { throw CancellationError() }
@@ -128,7 +142,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         // starts at a random song, like Spotify. Shuffle only reorders what comes after the
         // song that plays first, so that song moves to the front and every other one stays
         // ahead of it.
-        let ordered = startURI == nil && shuffleWanted
+        let ordered =
+            startURI == nil && shuffleWanted
             ? Self.movingToFront(queueable, index: Int.random(in: queueable.indices))
             : queueable
         let startIndex = ordered.firstIndex { $0.uri == startURI } ?? 0
@@ -176,7 +191,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             // MusicKit switched to the new queue before it refused to play it. What the player
             // holds now is what the start gave back (#476).
             switch refused.left {
-            case let .previousQueue(rows, leftOutBefore):
+            case .previousQueue(let rows, let leftOutBefore):
                 // Given back without the songs before the current one, every position moves up.
                 book = rows.book
                 book.forgetPendingAdds()
@@ -222,7 +237,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             guard starts.holdsQueue(started) else { return }
             let entries = player.queue.entries
             if let current = player.queue.currentEntry,
-               let currentIndex = entries.firstIndex(where: { $0.id == current.id }) {
+                let currentIndex = entries.firstIndex(where: { $0.id == current.id })
+            {
                 book.markAdded(start: currentIndex + 1, count: carried.count)
             }
         }
@@ -239,7 +255,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             fillInTask = nil
             guard let fill else { return }
             SpotiglassLog.info(
-                .playback, "Apple Music queue started: the player holds \(fill.holds) of \(fill.asked) songs from the pressed one on"
+                .playback,
+                "Apple Music queue started: the player holds \(fill.holds) of \(fill.asked) songs from the pressed one on"
             )
         }
     }
@@ -286,7 +303,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         let before = soundWatch.readNow()
         try await Self.mapped("player.skipToNextEntry") { try await self.player.skipToNextEntry() }
         starts.playerPlays()
-        soundWatch.watch("skipToNext", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
+        soundWatch.watch(
+            "skipToNext", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
     }
 
     func skipToPrevious() async throws {
@@ -296,7 +314,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         let before = soundWatch.readNow()
         try await Self.mapped("player.skipToPreviousEntry") { try await self.player.skipToPreviousEntry() }
         starts.playerPlays()
-        soundWatch.watch("skipToPrevious", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
+        soundWatch.watch(
+            "skipToPrevious", for: .movesOnAnotherSong, sentAt: sentAt, before: before, requestedAt: requestedAt)
     }
 
     func setShuffle(_ enabled: Bool) {
@@ -314,7 +333,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     /// Sets the shuffle and repeat last asked for on a queue just set, without trusting what
     /// the player reports right then (its state trails commands by up to a third of a second).
     private func applyModesToNewQueue() {
-        PlaybackTrace.shared.command("modes", "shuffle=\(shuffleWanted) repeat=\(repeatWanted.map { "\($0)" } ?? "unchanged") (new queue)")
+        PlaybackTrace.shared.command(
+            "modes", "shuffle=\(shuffleWanted) repeat=\(repeatWanted.map { "\($0)" } ?? "unchanged") (new queue)")
         if shuffleWanted {
             noteEntries()
             player.state.shuffleMode = .songs
@@ -335,9 +355,10 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         }
         guard let range = book.addedAhead(of: currentIndex) else { return [] }
         return range.compactMap { index -> (uri: String, entry: MusicPlayer.Queue.Entry)? in
-            guard entries.indices.contains(index), case let .song(song) = entries[index].item else { return nil }
+            guard entries.indices.contains(index), case .song(let song) = entries[index].item else { return nil }
             let entry = entries[index]
-            let uri = book.rowURI(entryID: entry.id, at: index, title: entry.title)
+            let uri =
+                book.rowURI(entryID: entry.id, at: index, title: entry.title)
                 ?? Self.keys(entry).lazy.compactMap({ self.uriByEntryKey[$0] }).first
                 ?? AppleMusicItemMapping.track(song).uri
             return (uri, MusicPlayer.Queue.Entry(song))
@@ -390,10 +411,12 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             entries.firstIndex { $0.id == current.id }
         }
         let row = AppleMusicQueueBook.Row(uri: uri, title: resolved.entry.title)
-        let plan = atEnd
+        let plan =
+            atEnd
             ? book.planAppend(row, currentIndex: currentIndex, entryCount: entries.count)
             : book.planAdd(row, currentIndex: currentIndex, entryCount: entries.count)
-        PlaybackTrace.shared.command(atEnd ? "appendToQueue" : "addToQueue", "at \(plan.index.map(String.init) ?? "after current")")
+        PlaybackTrace.shared.command(
+            atEnd ? "appendToQueue" : "addToQueue", "at \(plan.index.map(String.init) ?? "after current")")
         // Entries still waiting for their id before this add aren't this add's to wait for.
         let stuckBefore = Set(player.queue.entries.map(\.id).filter { UUID(uuidString: $0) != nil })
         if let index = plan.index, !plan.isAfterCurrent, !atEnd {
@@ -493,7 +516,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         noteEntries()
         let entries = Array(player.queue.entries)
         guard let currentID = player.queue.currentEntry?.id,
-              let currentIndex = entries.firstIndex(where: { $0.id == currentID })
+            let currentIndex = entries.firstIndex(where: { $0.id == currentID })
         else { return [] }
         let lookaheadEnd = currentIndex + 1 + Self.upcomingArtistLookahead
         return entries.indices.dropFirst(currentIndex + 1).compactMap { index in
@@ -505,14 +528,15 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     /// `track` with its song's own artists and their IDs, read once per song when MusicKit's
     /// entry came without them (#637). Read-only: `with([.artists])` only reads the song.
     private func withSongArtists(_ track: MusicTrack, entry: MusicPlayer.Queue.Entry) -> MusicTrack {
-        guard track.artistRefs.isEmpty, case let .song(song) = entry.item else { return track }
+        guard track.artistRefs.isEmpty, case .song(let song) = entry.item else { return track }
         return songArtists.filling(track, songID: song.id.rawValue) {
             do {
                 let detailed = try await song.with([.artists])
                 return (detailed.artists ?? []).map { MusicArtistRef(id: $0.id.rawValue, name: $0.name) }
             } catch {
                 if !(error is CancellationError) {
-                    SpotiglassLog.error(.api, "Apple Music song artists read failed: \(MusicKitContentSource.describe(error))")
+                    SpotiglassLog.error(
+                        .api, "Apple Music song artists read failed: \(MusicKitContentSource.describe(error))")
                 }
                 return []
             }
@@ -531,13 +555,15 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         noteEntries()
         let entries = Array(player.queue.entries)
         guard let currentID = player.queue.currentEntry?.id,
-              let currentIndex = entries.firstIndex(where: { $0.id == currentID })
+            let currentIndex = entries.firstIndex(where: { $0.id == currentID })
         else { return QueueRemovalReceipt(positions: [], tracks: []) }
         // The same places ``readUpcoming()`` counts: entries it shows, after the current one.
         let upcoming = entries.indices.dropFirst(currentIndex + 1).compactMap { index in
             track(for: entries[index], at: index).map { (index: index, track: $0) }
         }
-        let chosen = Array(Set(positions)).sorted().filter(upcoming.indices.contains).map { (position: $0, entry: upcoming[$0]) }
+        let chosen = Array(Set(positions)).sorted().filter(upcoming.indices.contains).map {
+            (position: $0, entry: upcoming[$0])
+        }
         guard !chosen.isEmpty else { return QueueRemovalReceipt(positions: [], tracks: []) }
         let indices = chosen.map(\.entry.index)
         PlaybackTrace.shared.command("removeFromQueue", "\(indices.count) at \(indices)")
@@ -553,14 +579,16 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
 
     func restoreUpcoming(_ receipt: QueueRemovalReceipt) throws {
         guard let found = removals.firstIndex(where: { $0.receipt == receipt.id }) else {
-            throw MusicPlaybackError(service: .appleMusic, reason: .notFound, detail: "That removal can no longer be undone")
+            throw MusicPlaybackError(
+                service: .appleMusic, reason: .notFound, detail: "That removal can no longer be undone")
         }
         let removal = removals.remove(at: found)
         noteEntries()
         let entries = Array(player.queue.entries)
         let currentIndex = player.queue.currentEntry.flatMap { current in entries.firstIndex { $0.id == current.id } }
         guard let currentIndex else {
-            throw MusicPlaybackError(service: .appleMusic, reason: .notFound, detail: "Nothing plays to put the songs back after")
+            throw MusicPlaybackError(
+                service: .appleMusic, reason: .notFound, detail: "Nothing plays to put the songs back after")
         }
         var count = entries.count
         var indices: [Int] = []
@@ -585,16 +613,17 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     private func track(for entry: MusicPlayer.Queue.Entry, at index: Int?) -> MusicTrack? {
         let mapped: MusicTrack
         switch entry.item {
-        case let .song(song):
+        case .song(let song):
             mapped = AppleMusicItemMapping.track(song)
-        case let .musicVideo(video):
+        case .musicVideo(let video):
             mapped = AppleMusicItemMapping.track(.musicVideo(video))
         case nil:
             return nil
         @unknown default:
             return nil
         }
-        let rowURI = book.rowURI(entryID: entry.id, at: index, title: entry.title)
+        let rowURI =
+            book.rowURI(entryID: entry.id, at: index, title: entry.title)
             ?? Self.keys(entry).lazy.compactMap({ self.uriByEntryKey[$0] }).first
         guard let uri = rowURI, uri != mapped.uri else { return mapped }
         return MusicTrack(
@@ -643,8 +672,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     private static func keys(_ entry: MusicPlayer.Queue.Entry) -> [String] {
         let duration: TimeInterval?
         switch entry.item {
-        case let .song(song): duration = song.duration
-        case let .musicVideo(video): duration = video.duration
+        case .song(let song): duration = song.duration
+        case .musicVideo(let video): duration = video.duration
         case nil: duration = nil
         @unknown default: duration = nil
         }
@@ -667,10 +696,11 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
 
     /// Songs of an album or playlist, under the URIs the browser gives their rows.
     private static func entries(for tracks: [Track]) -> [(uri: String, entry: MusicPlayer.Queue.Entry)] {
-        entries(for: tracks.compactMap { track -> Song? in
-            if case let .song(song) = track { return song }
-            return nil
-        })
+        entries(
+            for: tracks.compactMap { track -> Song? in
+                if case .song(let song) = track { return song }
+                return nil
+            })
     }
 
     private static func entries(for songs: [Song]) -> [(uri: String, entry: MusicPlayer.Queue.Entry)] {
@@ -716,7 +746,9 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         let itemID = MusicItemID(id)
         var request = MusicLibraryRequest<Song>()
         request.filter(matching: \.id, equalTo: itemID)
-        if let song = try await mapped("library song \(id)", { try await request.response().items.first }) { return song }
+        if let song = try await mapped("library song \(id)", { try await request.response().items.first }) {
+            return song
+        }
         return try await mapped("catalog song \(id)") {
             try await MusicCatalogResourceRequest<Song>(matching: \.id, equalTo: itemID).response().items.first
         }
@@ -730,16 +762,21 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             let artist = try await mapped("catalog artist \(id)") {
                 try await MusicCatalogResourceRequest<Artist>(matching: \.id, equalTo: itemID).response().items.first
             }
-            let topSongs = try await mapped("catalog artist \(id) top songs", { try await artist?.with([.topSongs]) })?.topSongs ?? []
+            let topSongs =
+                try await mapped("catalog artist \(id) top songs", { try await artist?.with([.topSongs]) })?.topSongs
+                ?? []
             if !topSongs.isEmpty { return Array(topSongs.prefix(artistSongLimit)) }
         }
         var artistRequest = MusicLibraryRequest<Artist>()
         artistRequest.filter(matching: \.id, equalTo: itemID)
-        guard let artist = try await mapped("library artist \(id)", { try await artistRequest.response().items.first }) else { return [] }
+        guard let artist = try await mapped("library artist \(id)", { try await artistRequest.response().items.first })
+        else { return [] }
         var songRequest = MusicLibraryRequest<Song>()
         songRequest.filter(matching: \.artists, contains: artist)
         songRequest.limit = artistSongLimit
-        let songs: MusicLibraryResponse<Song> = try await mapped("library songs of artist \(id)") { try await songRequest.response() }
+        let songs: MusicLibraryResponse<Song> = try await mapped("library songs of artist \(id)") {
+            try await songRequest.response()
+        }
         return Array(songs.items)
     }
 
@@ -778,8 +815,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     /// explicit: a failed lookup mustn't open up the restriction.
     private static func isExplicit(_ entry: MusicPlayer.Queue.Entry) -> Bool {
         switch entry.item {
-        case let .song(song): AppleMusicContentRatings.shared.rating(of: song) ?? true
-        case let .musicVideo(video): video.contentRating == .explicit
+        case .song(let song): AppleMusicContentRatings.shared.rating(of: song) ?? true
+        case .musicVideo(let video): video.contentRating == .explicit
         case nil: false
         @unknown default: false
         }
@@ -788,7 +825,7 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     /// Looks up the catalog rating of the saved songs among `entries` that no list has shown yet.
     private static func lookUpRatings(_ entries: [MusicPlayer.Queue.Entry]) async {
         let songs = entries.compactMap { entry -> Song? in
-            if case let .song(song) = entry.item { return song }
+            if case .song(let song) = entry.item { return song }
             return nil
         }
         await AppleMusicContentRatings.shared.resolve(
@@ -811,7 +848,9 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
     private func requireSubscription() async throws {
         let subscription = try await Self.mapped("subscription read") { try await MusicSubscription.current }
         guard subscription.canPlayCatalogContent else {
-            throw MusicPlaybackError(service: .appleMusic, reason: .subscriptionRequired(message: nil), detail: "canPlayCatalogContent is false")
+            throw MusicPlaybackError(
+                service: .appleMusic, reason: .subscriptionRequired(message: nil),
+                detail: "canPlayCatalogContent is false")
         }
     }
 
@@ -838,12 +877,14 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
         case let error as MusicTokenRequestError:
             switch error {
             case .permissionDenied, .userTokenRevoked, .userNotSignedIn:
-                return MusicPlaybackError(service: .appleMusic, reason: .missingPermission, detail: String(describing: error))
+                return MusicPlaybackError(
+                    service: .appleMusic, reason: .missingPermission, detail: String(describing: error))
             default:
                 return MusicPlaybackError(service: .appleMusic, reason: .failed, detail: String(describing: error))
             }
         case let error as URLError:
-            return MusicPlaybackError(service: .appleMusic, reason: .network(error.localizedDescription), detail: String(describing: error))
+            return MusicPlaybackError(
+                service: .appleMusic, reason: .network(error.localizedDescription), detail: String(describing: error))
         default:
             return playerError(error)
         }
@@ -857,7 +898,8 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
 
     static func playerError(_ error: Error) -> MusicPlaybackError {
         let nsError = error as NSError
-        let reason: MusicPlaybackError.Reason = nsError.domain == playerErrorDomain && nsError.code == prepareToPlayFailedCode
+        let reason: MusicPlaybackError.Reason =
+            nsError.domain == playerErrorDomain && nsError.code == prepareToPlayFailedCode
             ? .notFound
             : .failed
         return MusicPlaybackError(service: .appleMusic, reason: reason, detail: String(describing: error))
@@ -1038,7 +1080,8 @@ final class AppleMusicQueueStarts<Rows> {
         rowsPlayed: (Int) -> Rows
     ) async throws -> Started {
         guard entries.indices.contains(startIndex) else {
-            throw MusicPlaybackError(service: .appleMusic, reason: .notFound, detail: "No song at queue position \(startIndex)")
+            throw MusicPlaybackError(
+                service: .appleMusic, reason: .notFound, detail: "No song at queue position \(startIndex)")
         }
         self.shuffles = shuffles
         let giveBack = pending ?? giveBackNow(rows: currentRows)
@@ -1047,7 +1090,8 @@ final class AppleMusicQueueStarts<Rows> {
         var mine = setQueue(entries, at: startIndex)
         do {
             try await player.play()
-            return played(Array(entries), at: startIndex, leftOut: 0, serial: mine, giveBack: giveBack, rowsPlayed: rowsPlayed)
+            return played(
+                Array(entries), at: startIndex, leftOut: 0, serial: mine, giveBack: giveBack, rowsPlayed: rowsPlayed)
         } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -1058,37 +1102,46 @@ final class AppleMusicQueueStarts<Rows> {
             throw Refused(underlying: refusal, left: .replaced)
         }
         if let retry = retry(entries, at: startIndex) {
-            Self.logRefusal(refusal, of: entries.count, next: "trying again with \(retry.entries.count) songs from the pressed one")
+            Self.logRefusal(
+                refusal, of: entries.count, next: "trying again with \(retry.entries.count) songs from the pressed one")
             mine = setQueue(retry.entries, at: retry.index)
             do {
                 try await player.play()
                 if giveBack.pausedMeanwhile, mine == queueSerial { player.pause() }
-                return played(retry.entries, at: retry.index, leftOut: retry.leftOut, serial: mine, giveBack: giveBack, rowsPlayed: rowsPlayed)
+                return played(
+                    retry.entries, at: retry.index, leftOut: retry.leftOut, serial: mine, giveBack: giveBack,
+                    rowsPlayed: rowsPlayed)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
                 refusal = error
             }
             guard mine == queueSerial else {
-                Self.logRefusal(refusal, of: retry.entries.count, next: "a newer queue replaced it, leaving that one alone")
+                Self.logRefusal(
+                    refusal, of: retry.entries.count, next: "a newer queue replaced it, leaving that one alone")
                 throw Refused(underlying: refusal, left: .replaced)
             }
-            Self.logRefusal(refusal, of: retry.entries.count, next: giveBack.index == nil ? "stopping" : "giving back what played before")
+            Self.logRefusal(
+                refusal, of: retry.entries.count,
+                next: giveBack.index == nil ? "stopping" : "giving back what played before")
         } else {
-            Self.logRefusal(refusal, of: entries.count, next: giveBack.index == nil ? "stopping" : "giving back what played before")
+            Self.logRefusal(
+                refusal, of: entries.count, next: giveBack.index == nil ? "stopping" : "giving back what played before")
         }
         try await giveBackOrStop(giveBack, refusal: refusal)
     }
 
     /// MusicKit refused a start: what it said and what comes next, for the log (#736).
     private static func logRefusal(_ error: Error, of count: Int, next: String) {
-        SpotiglassLog.error(.playback, "Apple Music refused to start a queue of \(count) songs (\(describeRefusal(error))); \(next)")
+        SpotiglassLog.error(
+            .playback, "Apple Music refused to start a queue of \(count) songs (\(describeRefusal(error))); \(next)")
     }
 
     /// A refusal's domain, code and description, without the rest of its user info.
     static func describeRefusal(_ error: Error) -> String {
         let nsError = error as NSError
-        let description = nsError.userInfo[NSDebugDescriptionErrorKey] as? String
+        let description =
+            nsError.userInfo[NSDebugDescriptionErrorKey] as? String
             ?? nsError.userInfo[NSLocalizedDescriptionKey] as? String
             ?? "no description"
         return "\(nsError.domain) \(nsError.code): \(description)"
@@ -1113,8 +1166,10 @@ final class AppleMusicQueueStarts<Rows> {
         await player.settle { !holdsQueue(started) || Self.missing(started, from: player)?.isEmpty == true }
         guard holdsQueue(started), !Task.isCancelled else { return nil }
         guard let held = Self.following(in: player), player.currentEntry?.title == pressed.title,
-              let missing = Self.missing(started, from: player) else {
-            SpotiglassLog.info(.playback, "Apple Music moved on from the pressed song before its queue settled; leaving it alone")
+            let missing = Self.missing(started, from: player)
+        else {
+            SpotiglassLog.info(
+                .playback, "Apple Music moved on from the pressed song before its queue settled; leaving it alone")
             return nil
         }
         var holds = asked - missing.count
@@ -1142,7 +1197,8 @@ final class AppleMusicQueueStarts<Rows> {
         guard holdsQueue(started) else { return nil }
         holds = Self.missing(started, from: player).map { asked - $0.count } ?? 0
         if holds < asked {
-            SpotiglassLog.error(.playback, "Apple Music still holds only \(holds) of \(asked) songs from the pressed one")
+            SpotiglassLog.error(
+                .playback, "Apple Music still holds only \(holds) of \(asked) songs from the pressed one")
         }
         return Fill(holds: holds, asked: asked)
     }
@@ -1184,7 +1240,9 @@ final class AppleMusicQueueStarts<Rows> {
     /// The songs `started` asked to follow the pressed one that the player doesn't hold after
     /// its current entry, in their order; `nil` when it has no current entry. Matched by title,
     /// since MusicKit gives the entries it takes new ids; shuffle may reorder what it holds.
-    private static func missing(_ started: Started, from player: any AppleMusicQueueStarting) -> [MusicPlayer.Queue.Entry]? {
+    private static func missing(_ started: Started, from player: any AppleMusicQueueStarting) -> [MusicPlayer.Queue
+        .Entry]?
+    {
         guard let held = following(in: player) else { return nil }
         var heldTitles: [String: Int] = [:]
         for entry in held { heldTitles[entry.title, default: 0] += 1 }
@@ -1318,7 +1376,7 @@ final class AppleMusicQueueStarts<Rows> {
     static func fresh(_ entries: [MusicPlayer.Queue.Entry]) -> [MusicPlayer.Queue.Entry] {
         entries.map { entry in
             switch entry.item {
-            case let .song(song): MusicPlayer.Queue.Entry(song)
+            case .song(let song): MusicPlayer.Queue.Entry(song)
             // The player never queues music videos on macOS (``resolveEntries``).
             default: entry
             }
@@ -1348,30 +1406,37 @@ final class MusicKitQueueStarter: AppleMusicQueueStarting {
     var playbackTime: TimeInterval {
         get { player.playbackTime }
         set {
-            PlaybackTrace.shared.command("seek", "to \(PlaybackPositionWatch.time(Int((newValue * 1000).rounded()))) (queue start)")
+            PlaybackTrace.shared.command(
+                "seek", "to \(PlaybackPositionWatch.time(Int((newValue * 1000).rounded()))) (queue start)")
             player.playbackTime = newValue
         }
     }
 
     func setQueue(_ entries: [MusicPlayer.Queue.Entry], startingAt entry: MusicPlayer.Queue.Entry?) {
-        PlaybackTrace.shared.command("setQueue", "entries=\(entries.count) startingAt=\(entry.map { "entry \($0.id)" } ?? "first")")
-        player.queue = entry.map { ApplicationMusicPlayer.Queue(entries, startingAt: $0) }
+        PlaybackTrace.shared.command(
+            "setQueue", "entries=\(entries.count) startingAt=\(entry.map { "entry \($0.id)" } ?? "first")")
+        player.queue =
+            entry.map { ApplicationMusicPlayer.Queue(entries, startingAt: $0) }
             ?? ApplicationMusicPlayer.Queue(entries)
     }
 
     func play() async throws {
         PlaybackTrace.shared.command("play", "(queue start)")
-        try await CallLog.run(.musicKit, "player.play (queue start)", describe: MusicKitContentSource.describe) { try await player.play() }
+        try await CallLog.run(.musicKit, "player.play (queue start)", describe: MusicKitContentSource.describe) {
+            try await player.play()
+        }
     }
 
     func prepareToPlay() async throws {
         PlaybackTrace.shared.command("prepareToPlay", "(queue start)")
-        try await CallLog.run(.musicKit, "player.prepareToPlay (queue start)", describe: MusicKitContentSource.describe) { try await player.prepareToPlay() }
+        try await CallLog.run(.musicKit, "player.prepareToPlay (queue start)", describe: MusicKitContentSource.describe)
+        { try await player.prepareToPlay() }
     }
 
     func insertEntries(_ entries: [MusicPlayer.Queue.Entry], afterCurrent: Bool) async throws {
         PlaybackTrace.shared.command(
-            "addToQueue", "\(entries.count) songs the started queue was missing, \(afterCurrent ? "after current" : "at the end")"
+            "addToQueue",
+            "\(entries.count) songs the started queue was missing, \(afterCurrent ? "after current" : "at the end")"
         )
         try await CallLog.run(
             .musicKit, "player queue.insert \(afterCurrent ? "after current" : "at end") (missing songs)",
@@ -1385,7 +1450,8 @@ final class MusicKitQueueStarter: AppleMusicQueueStarting {
             // try?: a cancelled sleep only ends the wait; the loop checks cancellation itself.
             try? await Task.sleep(for: .milliseconds(20))
         }
-        PlaybackTrace.shared.command("queue settled", "after \(ContinuousClock.now - start)\(done() ? "" : " (limit reached)")")
+        PlaybackTrace.shared.command(
+            "queue settled", "after \(ContinuousClock.now - start)\(done() ? "" : " (limit reached)")")
     }
 
     /// MusicKit took the rest of a started queue in within 500 ms (#736).
@@ -1446,7 +1512,9 @@ enum AppleMusicSongChange {
     /// The position is read about once a second, so a song this close to its end ended.
     static let endMargin = 3000
 
-    static func reason(before: Seen?, command: String?, now: TimeInterval = ProcessInfo.processInfo.systemUptime) -> String? {
+    static func reason(before: Seen?, command: String?, now: TimeInterval = ProcessInfo.processInfo.systemUptime)
+        -> String?
+    {
         if let command { return "after \(command)" }
         guard let before else { return nil }
         // Counted on from the read while the song moved, never past its end. A seek after that
@@ -1454,7 +1522,8 @@ enum AppleMusicSongChange {
         let readAgo = max(0, now - before.readAt)
         var position = before.positionMilliseconds + Int((readAgo * max(before.rate, 0) * 1000).rounded())
         if let duration = before.durationMilliseconds { position = min(position, duration) }
-        let counted = before.rate > 0 && readAgo > 1.5
+        let counted =
+            before.rate > 0 && readAgo > 1.5
             ? ", counted on from a read \(PlaybackTrace.seconds(.milliseconds(Int(readAgo * 1000)))) before" : ""
         let at = PlaybackPositionWatch.time(position)
         guard let duration = before.durationMilliseconds else {
@@ -1573,7 +1642,7 @@ final class AppleMusicPlayerStateObserver {
         } else if let current {
             let seconds = player.playbackTime
             var duration: Int?
-            if case let .song(song) = current.item, let length = song.duration { duration = Int(length * 1000) }
+            if case .song(let song) = current.item, let length = song.duration { duration = Int(length * 1000) }
             let milliseconds = seconds.isFinite ? Int((seconds * 1000).rounded()) : nil
             // The first read after a change can still carry the song before's time.
             if let milliseconds, !justChanged || milliseconds < 1500 {

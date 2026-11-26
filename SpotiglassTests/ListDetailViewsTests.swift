@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -31,12 +32,13 @@ final class ListDetailViewsTests: XCTestCase {
     /// The page offers Retry when asking again can help, and the details behind a button (#608).
     func testErrorPageRetriesAndKeepsDetailsBehindAButton() throws {
         var retried = false
-        let error = DisplayError.reported(ErrorMessage(
-            title: "Load failed",
-            message: "Network error",
-            canRetry: true,
-            diagnosticDetails: "GET /v1/me/playlists HTTP 503"
-        ))
+        let error = DisplayError.reported(
+            ErrorMessage(
+                title: "Load failed",
+                message: "Network error",
+                canRetry: true,
+                diagnosticDetails: "GET /v1/me/playlists HTTP 503"
+            ))
         let view = ErrorPage(error: error, retry: { retried = true })
         ViewTestHost.host(view)
         try view.inspect().find(button: SpotiglassL10n.string("browser.retry")).tap()
@@ -48,7 +50,8 @@ final class ListDetailViewsTests: XCTestCase {
     func testInlineBannerLeadsWithItsTitleAndOffersRetryAndDismiss() throws {
         var retried = false
         var dismissed = false
-        let error = DisplayError.reported(ErrorMessage(title: "Queue update failed", message: "Try again in a moment.", canRetry: true))
+        let error = DisplayError.reported(
+            ErrorMessage(title: "Queue update failed", message: "Try again in a moment.", canRetry: true))
         let view = ErrorBanner(error: error, showsTitle: true, retry: { retried = true }, dismiss: { dismissed = true })
         ViewTestHost.host(view)
         try view.inspect().find(button: SpotiglassL10n.string("browser.retry")).tap()
@@ -62,9 +65,10 @@ final class ListDetailViewsTests: XCTestCase {
         var retried = false
         let view = ErrorBanner(error: nil, style: .floating, retry: { retried = true })
         ViewTestHost.host(view)
-        XCTAssertNoThrow(try view.inspect().find(
-            text: SpotiglassL10n.format("browser.cachedFallback", MusicServiceSelection.current.displayName)
-        ))
+        XCTAssertNoThrow(
+            try view.inspect().find(
+                text: SpotiglassL10n.format("browser.cachedFallback", MusicServiceSelection.current.displayName)
+            ))
         try view.inspect().find(button: SpotiglassL10n.string("browser.retry")).tap()
         XCTAssertTrue(retried)
     }
@@ -181,12 +185,13 @@ final class ListDetailViewsTests: XCTestCase {
     /// status, a header dump and a raw JSON body, which is bug-report material,
     /// not something to open over someone who wanted a playlist (#148).
     func testDiagnosticDetailsStayBehindAButton() throws {
-        let error = DisplayError.reported(ErrorMessage(
-            title: "Load failed",
-            message: "Spotify could not be reached.",
-            canRetry: true,
-            diagnosticDetails: "GET https://api.spotify.com/v1/me/playlists\nHTTP 403\n{\"error\":{}}"
-        ))
+        let error = DisplayError.reported(
+            ErrorMessage(
+                title: "Load failed",
+                message: "Spotify could not be reached.",
+                canRetry: true,
+                diagnosticDetails: "GET https://api.spotify.com/v1/me/playlists\nHTTP 403\n{\"error\":{}}"
+            ))
         let view = ErrorPage(error: error)
         ViewTestHost.host(view)
 
@@ -254,7 +259,7 @@ final class ListDetailViewsTests: XCTestCase {
         let track = TrackRowViewModel(
             topTrack: base.withArtistRefs([
                 MusicArtistRef(id: "a1", name: "Alpha"),
-                MusicArtistRef(id: "a2", name: "Beta")
+                MusicArtistRef(id: "a2", name: "Beta"),
             ]),
             listPosition: 4
         )
@@ -363,7 +368,8 @@ final class ListDetailViewsTests: XCTestCase {
     /// A right-click on a selection of several acts on all of them, so it offers no Copy Spotify
     /// URI: that would copy the clicked track alone. One track keeps it (#628).
     func testCopyURIIsOnlyOfferedForOneTrack() throws {
-        let browserViewModel = PlaylistBrowserViewModel(api: MockBrowsingAPI(playlistResults: [], trackResults: [:]), cache: MockBrowsingCache())
+        let browserViewModel = PlaylistBrowserViewModel(
+            api: MockBrowsingAPI(playlistResults: [], trackResults: [:]), cache: MockBrowsingCache())
         let rows = TrackRowViewModel.numberedPlaylistRows([
             PlaylistBrowsingTestFixtures.track(id: "one"),
             PlaylistBrowsingTestFixtures.track(id: "two"),
@@ -421,7 +427,7 @@ final class ListDetailViewsTests: XCTestCase {
         browserViewModel.playlistsByID = [source.id: source, destination.id: destination]
         browserViewModel.playlistState = .loaded([
             PlaylistRowViewModel(source),
-            PlaylistRowViewModel(destination)
+            PlaylistRowViewModel(destination),
         ])
         let target = TrackRowViewModel.numberedPlaylistRows([
             PlaylistBrowsingTestFixtures.track(id: "source-track")
@@ -462,50 +468,55 @@ final class ListDetailViewsTests: XCTestCase {
         let menus: [(String, AnyView, Bool)] = [
             (
                 "playlist",
-                AnyView(TrackOpsMenuItems(
-                    targets: [row], browserViewModel: browserViewModel,
-                    openArtist: openArtist, addToQueue: addToQueue,
-                    hasPlaybackDevice: true, copyableURI: row.playableURI
-                ).environmentObject(store)),
+                AnyView(
+                    TrackOpsMenuItems(
+                        targets: [row], browserViewModel: browserViewModel,
+                        openArtist: openArtist, addToQueue: addToQueue,
+                        hasPlaybackDevice: true, copyableURI: row.playableURI
+                    ).environmentObject(store)),
                 true
             ),
             (
                 "artist",
-                AnyView(TrackOpsMenuItems(
-                    targets: [row], browserViewModel: browserViewModel,
-                    openArtist: openArtist, addToQueue: addToQueue,
-                    hasPlaybackDevice: true, copyableURI: row.playableURI
-                ).environmentObject(store)),
+                AnyView(
+                    TrackOpsMenuItems(
+                        targets: [row], browserViewModel: browserViewModel,
+                        openArtist: openArtist, addToQueue: addToQueue,
+                        hasPlaybackDevice: true, copyableURI: row.playableURI
+                    ).environmentObject(store)),
                 true
             ),
             (
                 "catalog search",
-                AnyView(TrackOpsMenuItems(
-                    targets: [row], browserViewModel: browserViewModel,
-                    openArtist: openArtist, addToQueue: addToQueue,
-                    hasPlaybackDevice: true, copyableURI: row.playableURI
-                ).environmentObject(store)),
+                AnyView(
+                    TrackOpsMenuItems(
+                        targets: [row], browserViewModel: browserViewModel,
+                        openArtist: openArtist, addToQueue: addToQueue,
+                        hasPlaybackDevice: true, copyableURI: row.playableURI
+                    ).environmentObject(store)),
                 true
             ),
             (
                 "Home",
-                AnyView(TrackOpsMenuItems(
-                    targets: [row], browserViewModel: browserViewModel,
-                    openArtist: openArtist, addToQueue: addToQueue,
-                    hasPlaybackDevice: true, copyableURI: row.playableURI
-                ).environmentObject(store)),
+                AnyView(
+                    TrackOpsMenuItems(
+                        targets: [row], browserViewModel: browserViewModel,
+                        openArtist: openArtist, addToQueue: addToQueue,
+                        hasPlaybackDevice: true, copyableURI: row.playableURI
+                    ).environmentObject(store)),
                 true
             ),
             (
                 "queue",
-                AnyView(TrackOpsMenuItems(
-                    targets: [row], browserViewModel: browserViewModel,
-                    openArtist: openArtist,
-                    artistTargetsOverride: [ArtistTapTarget(id: "ar1", name: "Artist")],
-                    copyableURI: row.playableURI
-                ).environmentObject(store)),
+                AnyView(
+                    TrackOpsMenuItems(
+                        targets: [row], browserViewModel: browserViewModel,
+                        openArtist: openArtist,
+                        artistTargetsOverride: [ArtistTapTarget(id: "ar1", name: "Artist")],
+                        copyableURI: row.playableURI
+                    ).environmentObject(store)),
                 false
-            )
+            ),
         ]
 
         for (surface, menu, includesAddToQueue) in menus {
@@ -541,7 +552,7 @@ final class ListDetailViewsTests: XCTestCase {
 
     func testTrackListViewMountsRows() throws {
         let store = pinnedStore()
-        let tracks = (1 ... 24).map { index in
+        let tracks = (1...24).map { index in
             trackRow(id: "vt\(index)", title: "Track \(index)", explicit: false, listPosition: index)
         }
         var restoreID: String?
@@ -564,7 +575,7 @@ final class ListDetailViewsTests: XCTestCase {
     /// whichever CI runner happens to execute the suite.
     func testTrackListViewVirtualizesThousandRows() throws {
         let store = pinnedStore()
-        let tracks = (1 ... 1000).map { index in
+        let tracks = (1...1000).map { index in
             trackRow(id: "perf\(index)", title: "Track \(index)", explicit: false, listPosition: index)
         }
         var restoreID: String?
@@ -600,7 +611,7 @@ final class ListDetailViewsTests: XCTestCase {
 
     func testTrackListViewReportsTopmostVisibleTrackWhileScrolling() throws {
         let store = pinnedStore()
-        let tracks = (1 ... 400).map { index in
+        let tracks = (1...400).map { index in
             trackRow(id: "sc\(index)", title: "Track \(index)", explicit: false, listPosition: index)
         }
         var reported: [String] = []
@@ -655,7 +666,7 @@ final class ListDetailViewsTests: XCTestCase {
 
     func testTrackListViewScrollsToPendingRestoreTrackAndClearsIt() async throws {
         let store = pinnedStore()
-        let tracks = (1 ... 400).map { index in
+        let tracks = (1...400).map { index in
             trackRow(id: "rs\(index)", title: "Track \(index)", explicit: false, listPosition: index)
         }
         let recorder = ScrollRestoreRecorder()
@@ -696,7 +707,8 @@ final class ListDetailViewsTests: XCTestCase {
     }
 
     private func firstVisible(_ ids: [String], realized: Set<String>) -> String? {
-        TrackListVisibility.firstVisibleTrackID(realized: realized, positions: TrackListVisibility.positions(of: visibilityRows(ids)))
+        TrackListVisibility.firstVisibleTrackID(
+            realized: realized, positions: TrackListVisibility.positions(of: visibilityRows(ids)))
     }
 
     func testFirstVisibleTrackIDPicksTheTopmostRealizedRow() {
@@ -723,7 +735,7 @@ final class ListDetailViewsTests: XCTestCase {
         )
         let tracks = TrackRowViewModel.numberedPlaylistRows([
             PlaylistBrowsingTestFixtures.track(id: "pt1"),
-            PlaylistBrowsingTestFixtures.track(id: "pt2")
+            PlaylistBrowsingTestFixtures.track(id: "pt2"),
         ])
         let detail = PlaylistDetailViewModel(playlist: playlist, tracks: tracks)
         var restoreID: String?
@@ -868,7 +880,7 @@ final class ListDetailViewsTests: XCTestCase {
             "browser.albums",
             "browser.singles",
             "browser.compilations",
-            "browser.appearsOn"
+            "browser.appearsOn",
         ] {
             ViewTestHost.assertFindLocalizedText(key, in: view)
         }
@@ -926,14 +938,14 @@ final class ListDetailViewsTests: XCTestCase {
 
 // MARK: - Fixtures
 
-private extension ListDetailViewsTests {
-    func pinnedStore() -> PinnedItemsStore {
+extension ListDetailViewsTests {
+    fileprivate func pinnedStore() -> PinnedItemsStore {
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         store.bind(userID: "list-detail-tests")
         return store
     }
 
-    func trackRow(
+    fileprivate func trackRow(
         id: String,
         title: String,
         explicit: Bool,
@@ -956,7 +968,7 @@ private extension ListDetailViewsTests {
         )
     }
 
-    func trackListRow(
+    fileprivate func trackListRow(
         track: TrackRowViewModel,
         trackNumber: Int,
         isCurrent: Bool,
@@ -979,7 +991,7 @@ private extension ListDetailViewsTests {
         .environmentObject(store)
     }
 
-    func sampleArtistDetail(
+    fileprivate func sampleArtistDetail(
         canLoadMore: Bool,
         loadingMore: Bool = false,
         allReleaseGroups: Bool = false
@@ -1003,9 +1015,10 @@ private extension ListDetailViewsTests {
             MusicArtistAlbum(
                 id: "single1", name: "Hit Single", imageURL: nil, releaseYear: "2021",
                 totalTracks: 1, group: .single, uri: "spotify:album:single1"
-            )
+            ),
         ]
-        let allAlbums = allReleaseGroups
+        let allAlbums =
+            allReleaseGroups
             ? albums + [
                 MusicArtistAlbum(
                     id: "compilation1", name: "Compilation", imageURL: nil, releaseYear: "2022",
@@ -1026,7 +1039,7 @@ private extension ListDetailViewsTests {
         )
     }
 
-    func artistDetailContent(detail: ArtistDetailViewModel) -> ArtistDetailContent {
+    fileprivate func artistDetailContent(detail: ArtistDetailViewModel) -> ArtistDetailContent {
         ArtistDetailContent(
             detail: detail,
             browserViewModel: PlaylistBrowserViewModel(
@@ -1045,7 +1058,7 @@ private extension ListDetailViewsTests {
         )
     }
 
-    func trackListView(
+    fileprivate func trackListView(
         tracks: [TrackRowViewModel],
         selection: Binding<Set<String>>,
         pendingScrollRestoreTrackID: Binding<String?>,
@@ -1060,7 +1073,7 @@ private extension ListDetailViewsTests {
         )
     }
 
-    static func firstScrollView(in view: NSView) -> NSScrollView? {
+    fileprivate static func firstScrollView(in view: NSView) -> NSScrollView? {
         if let scrollView = view as? NSScrollView { return scrollView }
         for subview in view.subviews {
             if let found = firstScrollView(in: subview) { return found }
@@ -1128,8 +1141,8 @@ private struct TrackListScrollRestoreHarness: View {
     }
 }
 
-private extension MusicTrack {
-    func withArtistRefs(_ refs: [MusicArtistRef]) -> MusicTrack {
+extension MusicTrack {
+    fileprivate func withArtistRefs(_ refs: [MusicArtistRef]) -> MusicTrack {
         MusicTrack(
             id: id,
             name: name,

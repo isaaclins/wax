@@ -1,12 +1,17 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class SpotifyGETResponseCacheTests: XCTestCase {
     func testCachePolicyTTLAndShouldCache() {
-        XCTAssertFalse(SpotifyGETResponseCachePolicy.shouldCache(URLRequest(url: URL(string: "https://api.spotify.com/v1/me/playlists")!)))
-        XCTAssertFalse(SpotifyGETResponseCachePolicy.shouldCache(URLRequest(url: URL(string: "https://api.spotify.com/v1/me")!)))
+        XCTAssertFalse(
+            SpotifyGETResponseCachePolicy.shouldCache(
+                URLRequest(url: URL(string: "https://api.spotify.com/v1/me/playlists")!)))
+        XCTAssertFalse(
+            SpotifyGETResponseCachePolicy.shouldCache(URLRequest(url: URL(string: "https://api.spotify.com/v1/me")!)))
         XCTAssertNil(SpotifyGETResponseCachePolicy.ttl(for: URL(string: "https://api.spotify.com/v1/me")!))
-        XCTAssertEqual(SpotifyGETResponseCachePolicy.ttl(for: URL(string: "https://api.spotify.com/v1/search?q=x")!), 90)
+        XCTAssertEqual(
+            SpotifyGETResponseCachePolicy.ttl(for: URL(string: "https://api.spotify.com/v1/search?q=x")!), 90)
         XCTAssertEqual(
             SpotifyGETResponseCachePolicy.ttl(for: URL(string: "https://api.spotify.com/v1/artists/ar1")!),
             900
@@ -69,7 +74,7 @@ final class SpotifyGETResponseCacheTests: XCTestCase {
         let cache = SpotifyGETResponseCache(diskCache: nil, maxPendingWrites: 8)
         var ownerships: [SpotifyGETResponseCacheWriteOwnership] = []
         // Every distinct search starts a write; these requests all failed before storing.
-        for index in 0 ..< 500 {
+        for index in 0..<500 {
             ownerships.append(cache.beginWrite(forCacheKey: "search:\(index)"))
         }
 
@@ -82,7 +87,7 @@ final class SpotifyGETResponseCacheTests: XCTestCase {
 
     func testStoredResponseEndsItsPendingWrite() {
         let cache = SpotifyGETResponseCache(diskCache: nil)
-        for index in 0 ..< 300 {
+        for index in 0..<300 {
             cache.store(body: Data([UInt8(index % 256)]), cacheKey: "search:\(index)", ttl: 90)
         }
         XCTAssertEqual(cache.pendingWriteCountForTesting, 0)
@@ -101,14 +106,15 @@ final class SpotifyGETResponseCacheTests: XCTestCase {
         let disk = try SpotifyLocalCache(rootDirectory: spotiglassTestsTemporaryDirectory())
         // An earlier launch left 30 artist pages on disk.
         let earlierLaunch = SpotifyGETResponseCache(diskCache: disk)
-        for index in 0 ..< 30 {
+        for index in 0..<30 {
             earlierLaunch.store(body: Data([UInt8(index)]), cacheKey: "artist:\(index)", ttl: 900)
         }
 
         // Browsing back through all of them only reads from disk, it never stores.
         let cache = SpotifyGETResponseCache(diskCache: disk, maxMemoryEntries: 4)
-        for index in 0 ..< 30 {
-            XCTAssertEqual(cache.cachedEntry(forCacheKey: "artist:\(index)", allowExpired: true)?.data, Data([UInt8(index)]))
+        for index in 0..<30 {
+            XCTAssertEqual(
+                cache.cachedEntry(forCacheKey: "artist:\(index)", allowExpired: true)?.data, Data([UInt8(index)]))
         }
 
         XCTAssertLessThanOrEqual(cache.memoryEntryCountForTesting, 4)
@@ -126,7 +132,8 @@ final class SpotifyGETResponseCacheTests: XCTestCase {
 
         // A search from last month left on disk by an earlier launch.
         try disk.saveGETResponse(digest: "last-month", body: Data([1]), ttl: 90)
-        try FileManager.default.setAttributes([.modificationDate: pastRetention], ofItemAtPath: directory.appendingPathComponent("last-month.json").path)
+        try FileManager.default.setAttributes(
+            [.modificationDate: pastRetention], ofItemAtPath: directory.appendingPathComponent("last-month.json").path)
 
         cache.store(body: Data([2]), cacheKey: "search:today", ttl: 90)
         XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appendingPathComponent("last-month.json").path))
@@ -134,7 +141,8 @@ final class SpotifyGETResponseCacheTests: XCTestCase {
 
         // Within the interval a write doesn't list the directory again...
         try disk.saveGETResponse(digest: "also-old", body: Data([3]), ttl: 90)
-        try FileManager.default.setAttributes([.modificationDate: pastRetention], ofItemAtPath: directory.appendingPathComponent("also-old.json").path)
+        try FileManager.default.setAttributes(
+            [.modificationDate: pastRetention], ofItemAtPath: directory.appendingPathComponent("also-old.json").path)
         cache.store(body: Data([4]), cacheKey: "search:later", ttl: 90)
         XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appendingPathComponent("also-old.json").path))
 

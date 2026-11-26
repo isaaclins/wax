@@ -23,7 +23,8 @@ final class PlaylistBrowserViewModel: ObservableObject {
     /// The signed-in account's user ID on the current service. It hides the owner label on the
     /// account's own playlists and decides which playlists it may edit.
     @Published internal(set) var currentUserID: String?
-    @Published internal(set) var detailState: BrowsingLoadState<BrowsingDetailContent> = .empty(LocalizedText(SpotiglassL10n.string("browser.empty.pickSomething")))
+    @Published internal(set) var detailState: BrowsingLoadState<BrowsingDetailContent> = .empty(
+        LocalizedText(SpotiglassL10n.string("browser.empty.pickSomething")))
     /// Track IDs selected in the currently visible playlist table. Bound to the
     /// `List` selection, so the table owns click, shift and command behavior and
     /// this stays the value the context-menu actions read. Empty means "no
@@ -129,8 +130,8 @@ final class PlaylistBrowserViewModel: ObservableObject {
     var loadedContextTracksForPalette: [TrackRowViewModel]? {
         guard let content = detailState.currentValue else { return nil }
         switch content {
-        case let .playlist(vm): return vm.tracks
-        case let .artist(vm): return vm.tracks
+        case .playlist(let vm): return vm.tracks
+        case .artist(let vm): return vm.tracks
         case .home, .search: return nil
         }
     }
@@ -383,9 +384,12 @@ final class PlaylistBrowserViewModel: ObservableObject {
 struct DisabledBrowsingCache: MusicBrowsingCache {
     func loadPlaylistsBundle(now: Date) throws -> (playlists: [MusicPlaylistSummary], age: TimeInterval)? { nil }
     func savePlaylists(_ playlists: [MusicPlaylistSummary], cachedAt: Date) throws {}
-    func loadTracks(playlistID: String, snapshotID: String, now: Date, maxAge: TimeInterval) throws -> [MusicPlaylistTrackItem]? { nil }
+    func loadTracks(playlistID: String, snapshotID: String, now: Date, maxAge: TimeInterval) throws
+        -> [MusicPlaylistTrackItem]?
+    { nil }
     func loadTracksIgnoringAge(playlistID: String, snapshotID: String) throws -> [MusicPlaylistTrackItem]? { nil }
-    func saveTracks(_ tracks: [MusicPlaylistTrackItem], playlistID: String, snapshotID: String, cachedAt: Date) throws {}
+    func saveTracks(_ tracks: [MusicPlaylistTrackItem], playlistID: String, snapshotID: String, cachedAt: Date) throws {
+    }
     func invalidateTracks(playlistID: String) throws {}
 }
 
@@ -401,4 +405,3 @@ final class DetailTrackSelection: ObservableObject {
     /// Fires after each change, once the new selection is stored (`$ids` fires before).
     let changed = PassthroughSubject<Void, Never>()
 }
-

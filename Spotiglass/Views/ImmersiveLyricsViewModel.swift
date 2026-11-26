@@ -6,7 +6,7 @@ extension LrcLibClient.Failure {
         switch self {
         case .noLyrics:
             return SpotiglassL10n.string("lyrics.error.noLyrics")
-        case let .rateLimited(retryAfter):
+        case .rateLimited(let retryAfter):
             if let retryAfter {
                 return String(
                     format: SpotiglassL10n.string("lyrics.error.rateLimitedSeconds"),
@@ -84,8 +84,12 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         diskCache: LyricsDiskCache? = nil,
         networkRecovered: AsyncStream<Void>? = nil,
         now: @escaping () -> Date = Date.init,
-        sleep: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) },
-        connectionWait: @escaping (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
+        sleep: @escaping (TimeInterval) async throws -> Void = {
+            try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
+        },
+        connectionWait: @escaping (TimeInterval) async throws -> Void = {
+            try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000))
+        }
     ) {
         self.fetch = fetchLyrics
         self.diskCache = diskCache
@@ -164,13 +168,14 @@ final class ImmersiveLyricsViewModel: ObservableObject {
 
     private func load(track: PlaybackNowPlaying, generation: Int, honoursBackoff: Bool) async {
         guard let tid = track.lyricsTrackKey else {
-            phase = .failed(Self.report(
-                nil,
-                while: "loading lyrics for something that isn't a song",
-                level: .info,
-                action: nil,
-                SpotiglassL10n.string("lyrics.error.musicOnly")
-            ))
+            phase = .failed(
+                Self.report(
+                    nil,
+                    while: "loading lyrics for something that isn't a song",
+                    level: .info,
+                    action: nil,
+                    SpotiglassL10n.string("lyrics.error.musicOnly")
+                ))
             return
         }
 
@@ -186,12 +191,14 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         }
         if honoursBackoff, isWithinBackoffCooldown(trackId: tid) {
             let cooldown = cooldownMessage(trackId: tid)
-            phase = .failed(Self.report(
-                nil,
-                while: "loading lyrics for a song that failed before (waits \(remainingCooldownDescription(trackId: tid)))",
-                level: .info,
-                cooldown.string
-            ))
+            phase = .failed(
+                Self.report(
+                    nil,
+                    while:
+                        "loading lyrics for a song that failed before (waits \(remainingCooldownDescription(trackId: tid)))",
+                    level: .info,
+                    cooldown.string
+                ))
             // Lyrics reopened during a connection wait: the song still loads once it ends or the network is back.
             if let metadata = Self.backoffMetadata[tid], metadata.failureClass == .network {
                 waitForConnection(track: track, generation: generation, until: metadata.nextEligibleFetchAt)
@@ -215,12 +222,14 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             guard isCurrentLoad(generation) else { return }
             // `LrcLibClient` logged the request; this is what the app does about it.
             let (count, wait) = registerNetworkBackoff(trackId: tid)
-            phase = .failed(Self.report(
-                error,
-                while: "loading lyrics (network, \(count) time(s) for this song; no new fetch for \(Int(wait.rounded())) s or until the network is back)",
-                level: .info,
-                SpotiglassL10n.string("lyrics.error.network")
-            ))
+            phase = .failed(
+                Self.report(
+                    error,
+                    while:
+                        "loading lyrics (network, \(count) time(s) for this song; no new fetch for \(Int(wait.rounded())) s or until the network is back)",
+                    level: .info,
+                    SpotiglassL10n.string("lyrics.error.network")
+                ))
             waitForConnection(track: track, generation: generation, until: now().addingTimeInterval(wait))
         } catch {
             guard isCurrentLoad(generation) else { return }
@@ -283,7 +292,8 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             // try?: the wait only throws when cancelled, and the generation check ends it then.
             try? await connectionWait(wait)
             guard let self, !Task.isCancelled, generation == self.loadGeneration,
-                  let waiting = self.trackWaitingForNetwork else { return }
+                let waiting = self.trackWaitingForNetwork
+            else { return }
             SpotiglassLog.info(.api, "Lyrics connection wait ended; trying the song on screen again")
             // Past the wait check: this is its end, and a timer that wakes a moment early must
             // fetch, not find the wait still running and start another one at once.
@@ -342,7 +352,10 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             do {
                 try diskCache?.save(trackKey: trackId, lyrics: value)
             } catch {
-                SpotiglassLog.error(.persistence, "Saving lyrics to the disk cache failed: \(SpotiglassLog.describe(error)); they are fetched again next launch")
+                SpotiglassLog.error(
+                    .persistence,
+                    "Saving lyrics to the disk cache failed: \(SpotiglassLog.describe(error)); they are fetched again next launch"
+                )
             }
             do {
                 try diskCache?.clearTrackBackoffMetadata(trackKey: trackId)
@@ -377,7 +390,8 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             return true
         }
         if let persistedMetadata = diskCache?.loadTrackBackoffMetadata(trackKey: trackId),
-           persistedMetadata.nextEligibleFetchAt > now {
+            persistedMetadata.nextEligibleFetchAt > now
+        {
             Self.backoffMetadata[trackId] = persistedMetadata
             return true
         }
@@ -400,7 +414,10 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         do {
             try diskCache?.saveMissCooldownExpiry(trackKey: trackId, expiresAt: expiry)
         } catch {
-            SpotiglassLog.error(.persistence, "Saving a lyrics miss to the disk cache failed: \(SpotiglassLog.describe(error)); it is retried after a relaunch")
+            SpotiglassLog.error(
+                .persistence,
+                "Saving a lyrics miss to the disk cache failed: \(SpotiglassLog.describe(error)); it is retried after a relaunch"
+            )
         }
     }
 
@@ -478,16 +495,18 @@ final class ImmersiveLyricsViewModel: ObservableObject {
                 failureCount: nextCount,
                 nextEligibleFetchAt: now.addingTimeInterval(Self.decodingCooldownDuration)
             )
-        case let .rateLimited(retryAfter):
+        case .rateLimited(let retryAfter):
             let cooldown = max(Self.rateLimitedFallbackCooldownDuration, retryAfter ?? 0)
             metadata = LyricsDiskCache.TrackBackoffMetadata(
                 failureClass: .rateLimited,
                 failureCount: nextCount,
                 nextEligibleFetchAt: now.addingTimeInterval(cooldown)
             )
-        case let .http(code):
+        case .http(let code):
             if code >= 500 {
-                let exp = min(Self.transientMaxCooldownDuration, Self.transientBaseCooldownDuration * pow(2, Double(min(nextCount, 5))))
+                let exp = min(
+                    Self.transientMaxCooldownDuration,
+                    Self.transientBaseCooldownDuration * pow(2, Double(min(nextCount, 5))))
                 metadata = LyricsDiskCache.TrackBackoffMetadata(
                     failureClass: .transient,
                     failureCount: nextCount,
@@ -509,7 +528,9 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         }
 
         // Kept a day past its cooldown so repeated failures still back off further, like the disk copy.
-        Self.backoffMetadata = Self.backoffMetadata.filter { $0.value.nextEligibleFetchAt > now.addingTimeInterval(-24 * 60 * 60) }
+        Self.backoffMetadata = Self.backoffMetadata.filter {
+            $0.value.nextEligibleFetchAt > now.addingTimeInterval(-24 * 60 * 60)
+        }
         Self.backoffMetadata[trackId] = metadata
         // `LrcLibClient` logged the failure itself; this is what the app does about it.
         let wait = Int(metadata.nextEligibleFetchAt.timeIntervalSince(now).rounded())
@@ -524,7 +545,10 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         do {
             try diskCache?.saveTrackBackoffMetadata(trackKey: trackId, metadata: metadata)
         } catch {
-            SpotiglassLog.error(.persistence, "Saving the lyrics wait to the disk cache failed: \(SpotiglassLog.describe(error)); it ends at relaunch")
+            SpotiglassLog.error(
+                .persistence,
+                "Saving the lyrics wait to the disk cache failed: \(SpotiglassLog.describe(error)); it ends at relaunch"
+            )
         }
     }
 
@@ -533,8 +557,9 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         switch failure {
         case .noLyrics: return "no lyrics"
         case .decoding: return "unreadable answer"
-        case let .rateLimited(retryAfter): return "rate limited, Retry-After \(retryAfter.map { "\(Int($0.rounded())) s" } ?? "not sent")"
-        case let .http(code): return "HTTP \(code)"
+        case .rateLimited(let retryAfter):
+            return "rate limited, Retry-After \(retryAfter.map { "\(Int($0.rounded())) s" } ?? "not sent")"
+        case .http(let code): return "HTTP \(code)"
         case .invalidURL: return "invalid request"
         case .none: return "unknown error"
         }

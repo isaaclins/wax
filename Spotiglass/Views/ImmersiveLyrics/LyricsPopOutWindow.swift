@@ -254,7 +254,7 @@ struct LyricsPopOutKeyMonitor: NSViewRepresentable {
         /// True when the key was the pop-out's and it acted on it.
         func handle(_ event: NSEvent) -> Bool {
             guard let commandID = LyricsPopOutTransport.commandID(for: event, keymapStore: keymapStore),
-                  LyricsPopOutTransport.canRun(commandID, on: player)
+                LyricsPopOutTransport.canRun(commandID, on: player)
             else { return false }
             LyricsPopOutTransport.run(commandID, on: player)
             return true

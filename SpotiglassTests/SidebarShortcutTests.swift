@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 /// ⌘S shows and hides the sidebar (#436). Before, only the system's ⌃⌘S existed, and it only
@@ -68,7 +69,8 @@ final class SidebarShortcutTests: XCTestCase {
         }
         for other in others {
             guard let keystroke = other.defaultKeystroke else { continue }
-            XCTAssertNotEqual(try CommandShortcut(keystroke: keystroke), commandS, "\(other.commandID) also defaults to ⌘S")
+            XCTAssertNotEqual(
+                try CommandShortcut(keystroke: keystroke), commandS, "\(other.commandID) also defaults to ⌘S")
         }
         XCTAssertNil(CommandPaletteReservedShortcuts.reservingMenuTitleKey(for: commandS), "a menu item hardcodes ⌘S")
 
@@ -89,7 +91,8 @@ final class SidebarShortcutTests: XCTestCase {
             file.keybinds = keybinds
             file.seededKeybindCommands.removeAll { $0 == CommandPaletteCommandID.toggleSidebar }
             let url = makeCommandPaletteTestsTempSettingsURL()
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             try JSONEncoder().encode(file).write(to: url)
             return SpotiglassSettingsStore(fileURL: url).settings
         }
@@ -390,7 +393,8 @@ extension SidebarShortcutTests {
         XCTAssertEqual(systemToggles, 1)
 
         XCTAssertFalse(coordinator.handle(keyDown("s", keyCode: 1, modifiers: [.command], window: settingsWindow)))
-        XCTAssertFalse(coordinator.handle(keyDown("s", keyCode: 1, modifiers: [.control, .command], window: otherWindow)))
+        XCTAssertFalse(
+            coordinator.handle(keyDown("s", keyCode: 1, modifiers: [.control, .command], window: otherWindow)))
 
         coordinator.isRecordingHotkey = true
         XCTAssertFalse(coordinator.handle(inSettings), "Settings › Keyboard is recording ⌃⌘S as a binding")

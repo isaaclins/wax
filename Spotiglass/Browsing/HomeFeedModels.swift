@@ -22,7 +22,7 @@ struct HomeMediaCard: Equatable, Identifiable {
     private let builtDestination: Destination
     /// Where a tap goes. An album opens with the card's title and artists as they read now.
     var destination: Destination {
-        guard case let .album(id, _, _, artworkURL) = builtDestination else { return builtDestination }
+        guard case .album(let id, _, _, let artworkURL) = builtDestination else { return builtDestination }
         return .album(id: id, title: title, subtitle: subtitle, artworkURL: artworkURL)
     }
     /// The artists in `subtitle`, as the service named them.
@@ -67,13 +67,15 @@ struct HomeMediaCard: Equatable, Identifiable {
             destination: .album(id: albumID, title: "", subtitle: "", artworkURL: track.albumArtworkURL),
             artistNames: track.artists,
             artistRefs: track.artistRefs,
-            menuTarget: .pinnable(.album(MusicAlbum(
-                id: albumID,
-                name: albumName,
-                artists: track.artists,
-                imageURL: track.albumArtworkURL,
-                uri: Self.albumURI(id: albumID, siblingURI: track.uri)
-            )))
+            menuTarget: .pinnable(
+                .album(
+                    MusicAlbum(
+                        id: albumID,
+                        name: albumName,
+                        artists: track.artists,
+                        imageURL: track.albumArtworkURL,
+                        uri: Self.albumURI(id: albumID, siblingURI: track.uri)
+                    )))
         )
     }
 
@@ -132,10 +134,13 @@ enum HomeArtistCredit: Equatable {
         return names.map { name in
             // A nameless artist's stand-in was taken in the language of the moment; the ref's
             // follows the app's, so after a switch they match as stand-ins, not as text (#548).
-            guard let index = unmatched.firstIndex(where: {
-                $0.name == name
-                    || (UnnamedMusicItem.isStandIn($0.name, kind: .artist) && UnnamedMusicItem.isStandIn(name, kind: .artist))
-            }) else { return .name(name) }
+            guard
+                let index = unmatched.firstIndex(where: {
+                    $0.name == name
+                        || (UnnamedMusicItem.isStandIn($0.name, kind: .artist)
+                            && UnnamedMusicItem.isStandIn(name, kind: .artist))
+                })
+            else { return .name(name) }
             return .link(unmatched.remove(at: index))
         }
     }
@@ -154,7 +159,7 @@ enum HomeSectionState<Value: Equatable>: Equatable {
     case failed(DisplayError)
 
     var value: Value? {
-        if case let .loaded(value) = self { return value }
+        if case .loaded(let value) = self { return value }
         return nil
     }
 }

@@ -36,7 +36,6 @@ struct AppleMusicBrowserRoot: View {
     /// Below the permission screen: Cancel, or a way to another service.
     var signInFooter: AnyView? = nil
 
-
     enum AccessTransition: Equatable {
         case granted
         case lost
@@ -46,7 +45,8 @@ struct AppleMusicBrowserRoot: View {
     /// Only a real change of access touches the windows: gaining it re-arms this window's
     /// callbacks, losing it resets every window. Moving from "checking" to "needs permission"
     /// at launch is neither.
-    static func accessTransition(from old: AppleMusicSession.State, to new: AppleMusicSession.State) -> AccessTransition {
+    static func accessTransition(from old: AppleMusicSession.State, to new: AppleMusicSession.State) -> AccessTransition
+    {
         if new == .authorized {
             return old == .authorized ? .unchanged : .granted
         }
@@ -143,9 +143,9 @@ struct AppleMusicBrowserRoot: View {
                     .labelStyle(.titleAndIcon)
 
                     Text(Self.permissionMessage(for: session.state))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
 
                     if session.state == .signedOut {
                         Button(SpotiglassL10n.string("appleMusic.signedOut.openMusic")) {
@@ -187,7 +187,8 @@ struct AppleMusicBrowserRoot: View {
     }
 
     private static func openMusicApp() {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: AppleMusicSession.musicAppBundleID) else { return }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: AppleMusicSession.musicAppBundleID)
+        else { return }
         NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 

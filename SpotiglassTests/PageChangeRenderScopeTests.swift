@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// A page change must not re-announce what didn't change (#675). The browser binds the command
@@ -19,13 +20,17 @@ final class PageChangeRenderScopeTests: XCTestCase {
     }
 
     /// The real browser window at Home, with three playlists in the sidebar.
-    private func hostBrowserAtHome() async throws -> (PlaylistBrowserViewModel, CommandPaletteManager, LyricsOverlayController) {
+    private func hostBrowserAtHome() async throws -> (
+        PlaylistBrowserViewModel, CommandPaletteManager, LyricsOverlayController
+    ) {
         let api = MockBrowsingAPI(
-            playlistResults: [.success([
-                PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Focus"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p3", name: "Gym"),
-            ])],
+            playlistResults: [
+                .success([
+                    PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Focus"),
+                    PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
+                    PlaylistBrowsingTestFixtures.playlist(id: "p3", name: "Gym"),
+                ])
+            ],
             trackResults: ["p2": [.success((1...20).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })]]
         )
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
@@ -119,7 +124,9 @@ final class PageChangeRenderScopeTests: XCTestCase {
         let repeated = await repeatedAnnouncements(of: palette, lyrics: lyrics) {
             // What a click on its sidebar row does: the list sets its selection.
             browser.sidebarSelection = .playlist("p2")
-            let opened = await AppKitTestSupport.settle(until: { PlaylistBrowsingTestFixtures.playlistTracks(browser.detailState).count == 20 })
+            let opened = await AppKitTestSupport.settle(until: {
+                PlaylistBrowsingTestFixtures.playlistTracks(browser.detailState).count == 20
+            })
             XCTAssertTrue(opened, "the playlist never opened")
         }
         XCTAssertEqual(repeated, [], "announced again without a change")

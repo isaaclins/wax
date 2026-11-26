@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// Next and previous name the new song at once, before Spotify answers (#687).
@@ -33,12 +34,13 @@ final class SkipPreviewTests: XCTestCase {
             skipCommandMinimumSpacing: .zero
         )
         session.handle(.ready(deviceID: "device-1"))
-        session.handle(.stateChanged(
-            Self.song("b", position: 40_000),
-            isPaused: false,
-            nextTracks: [Self.song("c"), Self.song("d")],
-            previousTracks: [Self.song("a")]
-        ))
+        session.handle(
+            .stateChanged(
+                Self.song("b", position: 40_000),
+                isPaused: false,
+                nextTracks: [Self.song("c"), Self.song("d")],
+                previousTracks: [Self.song("a")]
+            ))
         return Fixture(session: session, api: api, clock: clock)
     }
 
@@ -46,12 +48,13 @@ final class SkipPreviewTests: XCTestCase {
 
     /// Two seconds into B: a previous goes back a song instead of starting B again.
     private static func twoSecondsIn(_ session: PlaybackSessionViewModel) {
-        session.handle(.stateChanged(
-            song("b", position: 2_000),
-            isPaused: false,
-            nextTracks: [song("c"), song("d")],
-            previousTracks: [song("a")]
-        ))
+        session.handle(
+            .stateChanged(
+                song("b", position: 2_000),
+                isPaused: false,
+                nextTracks: [song("c"), song("d")],
+                previousTracks: [song("a")]
+            ))
     }
 
     // The real failure: the skip is on its way to Spotify (its request hasn't answered) and
@@ -69,26 +72,30 @@ final class SkipPreviewTests: XCTestCase {
         await started.wait()
         XCTAssertEqual(shownURI(fixture.session), "spotify:track:c")
         XCTAssertEqual(fixture.session.currentNowPlaying?.positionMilliseconds, 0)
-        XCTAssertTrue(PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: fixture.session.connectionState))
+        XCTAssertTrue(
+            PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: fixture.session.connectionState))
 
         // Spotify's page reports B again (its 4 s heartbeat, or a report sent before the skip).
-        fixture.session.handle(.stateChanged(
-            Self.song("b", position: 41_000),
-            isPaused: false,
-            nextTracks: [Self.song("c"), Self.song("d")],
-            previousTracks: [Self.song("a")]
-        ))
-        XCTAssertEqual(shownURI(fixture.session), "spotify:track:c", "a report of the song the skip left must not put it back")
+        fixture.session.handle(
+            .stateChanged(
+                Self.song("b", position: 41_000),
+                isPaused: false,
+                nextTracks: [Self.song("c"), Self.song("d")],
+                previousTracks: [Self.song("a")]
+            ))
+        XCTAssertEqual(
+            shownURI(fixture.session), "spotify:track:c", "a report of the song the skip left must not put it back")
 
         release.signal()
         await skip.value
         // Spotify has it: its report settles the bar, position included.
-        fixture.session.handle(.stateChanged(
-            Self.song("c", position: 300),
-            isPaused: false,
-            nextTracks: [Self.song("d")],
-            previousTracks: [Self.song("a"), Self.song("b")]
-        ))
+        fixture.session.handle(
+            .stateChanged(
+                Self.song("c", position: 300),
+                isPaused: false,
+                nextTracks: [Self.song("d")],
+                previousTracks: [Self.song("a"), Self.song("b")]
+            ))
         XCTAssertEqual(shownURI(fixture.session), "spotify:track:c")
         XCTAssertEqual(fixture.session.currentNowPlaying?.positionMilliseconds, 300)
         XCTAssertNil(fixture.session.skipPreview)
@@ -264,7 +271,8 @@ final class SkipPreviewTests: XCTestCase {
         XCTAssertNotNil(wait)
         fixture.clock.advance(by: PlaybackSessionViewModel.skipPreviewTimeout)
         await wait?.value
-        XCTAssertEqual(shownURI(fixture.session), "spotify:track:b", "after the wait the bar shows Spotify's own latest report")
+        XCTAssertEqual(
+            shownURI(fixture.session), "spotify:track:b", "after the wait the bar shows Spotify's own latest report")
         XCTAssertEqual(fixture.session.currentNowPlaying?.positionMilliseconds, 45_000)
     }
 
@@ -301,25 +309,31 @@ final class SkipPreviewTests: XCTestCase {
             "name": "state_changed",
             "payload": [
                 "paused": false,
-                "track": ["name": "B", "artists": ["Artist"], "durationMilliseconds": 1000, "positionMilliseconds": 0, "uri": "spotify:track:b"],
+                "track": [
+                    "name": "B", "artists": ["Artist"], "durationMilliseconds": 1000, "positionMilliseconds": 0,
+                    "uri": "spotify:track:b",
+                ],
                 "nextTracks": [],
                 "previousTracks": [
-                    ["name": "A", "artists": ["Artist"], "durationMilliseconds": 1000, "positionMilliseconds": 0, "uri": "spotify:track:a"]
-                ]
-            ]
+                    [
+                        "name": "A", "artists": ["Artist"], "durationMilliseconds": 1000, "positionMilliseconds": 0,
+                        "uri": "spotify:track:a",
+                    ]
+                ],
+            ],
         ])
-        guard case let .stateChanged(_, _, _, previousTracks) = event else {
+        guard case .stateChanged(_, _, _, let previousTracks) = event else {
             return XCTFail("expected state_changed")
         }
         XCTAssertEqual(previousTracks.map(\.uri), ["spotify:track:a"])
     }
 }
 
-private extension PlaybackConnectionState {
-    var nowPlayingURIForTests: String? {
+extension PlaybackConnectionState {
+    fileprivate var nowPlayingURIForTests: String? {
         switch self {
-        case let .playing(song): song.uri
-        case let .paused(song): song?.uri
+        case .playing(let song): song.uri
+        case .paused(let song): song?.uri
         default: nil
         }
     }

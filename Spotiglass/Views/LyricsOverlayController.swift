@@ -218,7 +218,8 @@ final class LyricsOverlayFocusContainerView<Content: View>: NSView, FocusedKeyEv
 
     private func matchesGlobalCommandBinding(_ event: NSEvent) -> Bool {
         if CommandPaletteSidebarShortcut.isSystemChord(event) { return true }
-        return keymapStore
+        return
+            keymapStore
             .commandBindings(for: event, context: .signedIn)
             .contains { LyricsOverlayGlobalCommands.commandIDs.contains($0.command) }
     }

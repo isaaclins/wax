@@ -1,6 +1,7 @@
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -24,10 +25,12 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
 
     func testQuickAccessListsLikedSongsThenPlaylists() async {
         let api = MockBrowsingAPI(
-            playlistResults: [.success([
-                PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One"),
-                PlaylistBrowsingTestFixtures.playlist(id: "two", name: "Two"),
-            ])],
+            playlistResults: [
+                .success([
+                    PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One"),
+                    PlaylistBrowsingTestFixtures.playlist(id: "two", name: "Two"),
+                ])
+            ],
             trackResults: [:]
         )
         let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
@@ -43,13 +46,15 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
     /// card must resolve my Apple Music library's "You" where it's shown, like the sidebar (#398).
     func testQuickAccessShowsMyLibraryOwnerInTheAppLanguage() async throws {
         let api = MockBrowsingAPI(
-            playlistResults: [.success([
-                MusicPlaylistSummary(
-                    id: "p.mine", name: "Road", ownerID: AppleMusicBrowsingProvider.libraryUserID,
-                    ownerName: "You", imageURL: nil, trackCount: 3, snapshotID: "applemusic"
-                ),
-                PlaylistBrowsingTestFixtures.playlist(id: "spotify", name: "Spotify"),
-            ])],
+            playlistResults: [
+                .success([
+                    MusicPlaylistSummary(
+                        id: "p.mine", name: "Road", ownerID: AppleMusicBrowsingProvider.libraryUserID,
+                        ownerName: "You", imageURL: nil, trackCount: 3, snapshotID: "applemusic"
+                    ),
+                    PlaylistBrowsingTestFixtures.playlist(id: "spotify", name: "Spotify"),
+                ])
+            ],
             trackResults: [:]
         )
         let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
@@ -105,7 +110,9 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
     /// other track list. Home kept its own selection, so with two top tracks selected those
     /// commands stayed greyed out and the right-click menu only saw its own row (#173).
     func testSelectedHomeTopTracksAreWhatTheMenuBarActsOn() async throws {
-        let api = MockBrowsingAPI(playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])], trackResults: [:])
+        let api = MockBrowsingAPI(
+            playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])],
+            trackResults: [:])
         api.topTracksHandler = { _, _ in
             ["t1", "t2", "t3"].map { self.recentlyPlayedTrack(id: $0, albumID: "al-\($0)", albumName: "Album \($0)") }
         }
@@ -120,7 +127,9 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
 
         XCTAssertEqual(vm.selectedTrackRows.map(\.title), ["Track t1", "Track t3"])
         XCTAssertTrue(PlaylistBrowserView.canEnqueueTrackSelection(rows: vm.selectedTrackRows, hasPlaybackDevice: true))
-        XCTAssertEqual(vm.effectiveTrackTargets(for: rows[2], selectedRows: vm.selectedRowsForMenus).map(\.title), ["Track t1", "Track t3"])
+        XCTAssertEqual(
+            vm.effectiveTrackTargets(for: rows[2], selectedRows: vm.selectedRowsForMenus).map(\.title),
+            ["Track t1", "Track t3"])
 
         // Leaving Home drops the selection, like leaving any other list.
         await vm.selectSidebar(.playlist("one"))
@@ -136,7 +145,9 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
             trackResults: [:]
         )
         api.topTracksHandler = { _, _ in
-            (refreshed ? ["t2", "t3"] : ["t1", "t2"]).map { self.recentlyPlayedTrack(id: $0, albumID: "al-\($0)", albumName: "Album \($0)") }
+            (refreshed ? ["t2", "t3"] : ["t1", "t2"]).map {
+                self.recentlyPlayedTrack(id: $0, albumID: "al-\($0)", albumName: "Album \($0)")
+            }
         }
         let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await vm.load()
@@ -183,10 +194,13 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         playback.deviceID = "device-1"
         playback.hasTransferredPlaybackToCurrentDevice = true
         playback.setTransportStateKnown(true)
-        playback.setConnectionState(.paused(PlaybackNowPlaying(
-            name: "Midnight City", artists: ["M83"], albumName: "Hurry Up, We're Dreaming", albumID: nil,
-            albumArtURL: nil, durationMilliseconds: 243_000, positionMilliseconds: 60_000, uri: "spotify:track:t9"
-        )))
+        playback.setConnectionState(
+            .paused(
+                PlaybackNowPlaying(
+                    name: "Midnight City", artists: ["M83"], albumName: "Hurry Up, We're Dreaming", albumID: nil,
+                    albumArtURL: nil, durationMilliseconds: 243_000, positionMilliseconds: 60_000,
+                    uri: "spotify:track:t9"
+                )))
         let palette = CommandPaletteManager()
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         store.bind(userID: "u1")
@@ -211,13 +225,16 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         // to under Home's shelves, then a row is clicked. The table builds only the rows it
         // shows (#655).
         var table: NSTableView?
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: {
-            table = AppKitTestSupport.tables(in: window.contentView).first { $0.numberOfRows > rows.count }
-            return table != nil
-        }), "Home's table never showed its top tracks")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: {
+                table = AppKitTestSupport.tables(in: window.contentView).first { $0.numberOfRows > rows.count }
+                return table != nil
+            }), "Home's table never showed its top tracks")
         let homeTable = try XCTUnwrap(table)
         homeTable.scrollRowToVisible(homeTable.numberOfRows - 1)
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { ViewBodyTally.counts?["TrackListRow:\(rows[0].id)"] != nil }), "Home's rows never came on screen")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { ViewBodyTally.counts?["TrackListRow:\(rows[0].id)"] != nil }),
+            "Home's rows never came on screen")
         browserVM.selectedDetailTrackIDs = [rows[0].id]
         XCTAssertTrue(
             AppKitTestSupport.pumpRunLoop(until: { palette.canEnqueueTrackSelection }),
@@ -231,7 +248,9 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         let asked = Date().addingTimeInterval(mustHappenTimeout)
         while refresh == nil, Date() < asked { await Task.yield() }
         XCTAssertNotNil(refresh, "the refresh never asked for top tracks")
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { !palette.canEnqueueTrackSelection }), "Add to Queue stayed on while the top tracks reloaded")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { !palette.canEnqueueTrackSelection }),
+            "Add to Queue stayed on while the top tracks reloaded")
 
         refresh?.resume()
         await reload.value
@@ -252,7 +271,7 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         let api = MockBrowsingAPI(
             playlistResults: [
                 .success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")]),
-                .success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])
+                .success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")]),
             ],
             trackResults: [:]
         )
@@ -346,9 +365,11 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         XCTAssertEqual(entries, [at(9, 23), at(10, 0), at(10, 5), at(10, 12), at(10, 18), at(11, 0)])
 
         // A change time itself moves on to the next one.
-        XCTAssertEqual(PlaylistBrowserViewModel.nextHomeGreetingChange(after: at(10, 5), calendar: calendar), at(10, 12))
+        XCTAssertEqual(
+            PlaylistBrowserViewModel.nextHomeGreetingChange(after: at(10, 5), calendar: calendar), at(10, 12))
 
-        let vm = PlaylistBrowserViewModel(api: MockBrowsingAPI(playlistResults: [.success([])], trackResults: [:]), cache: MockBrowsingCache())
+        let vm = PlaylistBrowserViewModel(
+            api: MockBrowsingAPI(playlistResults: [.success([])], trackResults: [:]), cache: MockBrowsingCache())
         XCTAssertEqual(vm.homeGreeting(now: entries[0], calendar: calendar), "Good evening")
         XCTAssertEqual(vm.homeGreeting(now: entries[1], calendar: calendar), "Hello, night owl")
         XCTAssertEqual(vm.homeGreeting(now: entries[2], calendar: calendar), "Good morning")
@@ -370,7 +391,8 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         XCTAssertEqual(clock.calendar.timeZone.identifier, "Europe/Zurich")
 
         // 23:00 in New York is 05:00 in Zurich: still evening there, and its next change is New York's midnight.
-        let newYorkEvening = calendar("America/New_York").date(from: DateComponents(year: 2026, month: 11, day: 9, hour: 23))!
+        let newYorkEvening = calendar("America/New_York").date(
+            from: DateComponents(year: 2026, month: 11, day: 9, hour: 23))!
         systemCalendar = calendar("America/New_York")
         center.post(name: .NSSystemTimeZoneDidChange, object: nil)
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
@@ -378,7 +400,8 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         XCTAssertEqual(clock.calendar.timeZone.identifier, "America/New_York")
         let next = PlaylistBrowserViewModel.nextHomeGreetingChange(after: newYorkEvening, calendar: clock.calendar)
         XCTAssertEqual(next, newYorkEvening.addingTimeInterval(3600))
-        let vm = PlaylistBrowserViewModel(api: MockBrowsingAPI(playlistResults: [.success([])], trackResults: [:]), cache: MockBrowsingCache())
+        let vm = PlaylistBrowserViewModel(
+            api: MockBrowsingAPI(playlistResults: [.success([])], trackResults: [:]), cache: MockBrowsingCache())
         XCTAssertEqual(vm.homeGreeting(now: newYorkEvening, calendar: clock.calendar), "Good evening")
         XCTAssertEqual(vm.homeGreeting(now: next, calendar: clock.calendar), "Hello, night owl")
 

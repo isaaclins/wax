@@ -39,7 +39,7 @@ enum LoopbackOAuthCallbackError: Error, Equatable, LocalizedError {
         // in diagnosticDetails instead (#186, #187).
         case .invalidRequest:
             SpotiglassL10n.string("auth.callback.invalidRequest")
-        case let .oauthError(code, description):
+        case .oauthError(let code, let description):
             description ?? SpotiglassL10n.format("auth.callback.oauthError", code)
         case .missingState:
             SpotiglassL10n.string("auth.callback.missingState")
@@ -58,9 +58,9 @@ enum LoopbackOAuthCallbackError: Error, Equatable, LocalizedError {
     /// report, so they stay off the connect screen but are not thrown away.
     var diagnosticDetails: String? {
         switch self {
-        case let .oauthError(code, description):
+        case .oauthError(let code, let description):
             return description.map { "oauth error: \(code) (\($0))" } ?? "oauth error: \(code)"
-        case let .socketSetupFailed(step):
+        case .socketSetupFailed(let step):
             return "loopback listener failed at step: \(step)"
         case .invalidRequest, .missingState, .stateMismatch, .missingCode, .timedOut:
             return nil
@@ -185,21 +185,24 @@ final class ActiveLoopbackOAuthListener {
                     continue
                 }
                 guard let request = String(bytes: buffer.prefix(count), encoding: .utf8),
-                      let requestLine = request.components(separatedBy: "\r\n").first else {
+                    let requestLine = request.components(separatedBy: "\r\n").first
+                else {
                     self.writeResponse(to: client, status: "400 Bad Request", body: responseCopy.invalidRequest)
                     throw LoopbackOAuthCallbackError.invalidRequest
                 }
 
                 let parts = requestLine.split(separator: " ")
                 guard parts.count >= 2,
-                      parts[0] == "GET",
-                      let callbackURL = URL(string: "http://127.0.0.1\(parts[1])") else {
+                    parts[0] == "GET",
+                    let callbackURL = URL(string: "http://127.0.0.1\(parts[1])")
+                else {
                     self.writeResponse(to: client, status: "400 Bad Request", body: responseCopy.invalidRequest)
                     throw LoopbackOAuthCallbackError.invalidRequest
                 }
 
                 do {
-                    let callback = try LoopbackOAuthCallbackValidator.validate(url: callbackURL, expectedState: self.expectedState)
+                    let callback = try LoopbackOAuthCallbackValidator.validate(
+                        url: callbackURL, expectedState: self.expectedState)
                     self.writeResponse(to: client, status: "200 OK", body: responseCopy.success)
                     return callback
                 } catch {
@@ -257,13 +260,13 @@ final class ActiveLoopbackOAuthListener {
 
     private func writeResponse(to client: Int32, status: String, body: String) {
         let response = """
-        HTTP/1.1 \(status)\r
-        Content-Type: text/plain; charset=utf-8\r
-        Content-Length: \(body.utf8.count)\r
-        Connection: close\r
-        \r
-        \(body)
-        """
+            HTTP/1.1 \(status)\r
+            Content-Type: text/plain; charset=utf-8\r
+            Content-Length: \(body.utf8.count)\r
+            Connection: close\r
+            \r
+            \(body)
+            """
         _ = response.withCString { pointer in
             Darwin.write(client, pointer, strlen(pointer))
         }

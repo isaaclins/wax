@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Scrolling a playlist of a couple of thousand songs stuttered instead of following the
@@ -31,7 +32,8 @@ final class LongListScrollCostTests: XCTestCase {
         ViewTestHost.tearDownAll()
         // The artwork store keeps a copy of each cover it loaded in the app's own cache.
         for url in coverURLs {
-            try? FileManager.default.removeItem(at: ArtworkImageStore.cacheFileURL(for: url, diskDirectory: ArtworkImageStore.defaultDiskDirectory))
+            try? FileManager.default.removeItem(
+                at: ArtworkImageStore.cacheFileURL(for: url, diskDirectory: ArtworkImageStore.defaultDiskDirectory))
         }
         super.tearDown()
     }
@@ -45,8 +47,9 @@ final class LongListScrollCostTests: XCTestCase {
         // The table knows every row's height before it scrolls: guessed at 24 points, a
         // 2,000-song playlist started at half its height and grew under the pointer.
         let rowHeight = table.rect(ofRow: 0).height
-        XCTAssertEqual(table.rect(ofRow: Self.trackCount - 1).maxY, rowHeight * CGFloat(Self.trackCount), accuracy: rowHeight,
-                       "the table doesn't know where its last row is before scrolling")
+        XCTAssertEqual(
+            table.rect(ofRow: Self.trackCount - 1).maxY, rowHeight * CGFloat(Self.trackCount), accuracy: rowHeight,
+            "the table doesn't know where its last row is before scrolling")
 
         ViewBodyTally.counts = [:]
         let firstFrame = scrollFrame(host, by: 260)
@@ -59,8 +62,9 @@ final class LongListScrollCostTests: XCTestCase {
         let flick = scrollToBottom(host, flick: true, stoppingAt: rowHeight * 1_000)
         XCTAssertNil(ViewBodyTally.counts?["TrackListRows"], "scrolling walked all the rows again")
         XCTAssertNil(ViewBodyTally.counts?["PlaylistDetailContent"], "scrolling ran the playlist page again")
-        XCTAssertEqual(table.rect(ofRow: Self.trackCount - 1).maxY, rowHeight * CGFloat(Self.trackCount), accuracy: rowHeight,
-                       "the table's height changed while it scrolled")
+        XCTAssertEqual(
+            table.rect(ofRow: Self.trackCount - 1).maxY, rowHeight * CGFloat(Self.trackCount), accuracy: rowHeight,
+            "the table's height changed while it scrolled")
 
         // A slow scroll through 300 songs in the middle: all 2,000 at this pace is about 18,000
         // frames, longer than a Debug build on CI may take for one test.
@@ -72,7 +76,8 @@ final class LongListScrollCostTests: XCTestCase {
         let cover = await ArtworkImageStore.shared.image(for: coverURLs[1])
         XCTAssertNotNil(cover, "the covers didn't load")
 
-        let report = String(format: "first frame %.1f ms; flick: %@; slow: %@", firstFrame * 1000, flick.summary, slow.summary)
+        let report = String(
+            format: "first frame %.1f ms; flick: %@; slow: %@", firstFrame * 1000, flick.summary, slow.summary)
         XCTContext.runActivity(named: "LongListScroll \(report)") { _ in }
         print("LongListScroll \(report)")
         if Self.checksTimes {
@@ -99,7 +104,9 @@ final class LongListScrollCostTests: XCTestCase {
         try store.mutate { $0.appearance.language = .german }
         await AppKitTestSupport.settle()
 
-        XCTAssertNil(ViewBodyTally.counts?["TrackListRows"], "the list built its rows again, so this didn't test the rows it keeps")
+        XCTAssertNil(
+            ViewBodyTally.counts?["TrackListRows"],
+            "the list built its rows again, so this didn't test the rows it keeps")
         let stale = (visible.location..<(visible.location + visible.length)).filter {
             ViewBodyTally.counts?["TrackListRow:t\($0)"] == nil
         }
@@ -128,7 +135,11 @@ final class LongListScrollCostTests: XCTestCase {
             let counts = ViewBodyTally.counts ?? [:]
             // A click is the table's business: the window, the sidebar and the player bar ran
             // again on every one, and the table ran the body of every row.
-            let outside = ["PlaylistBrowserView", "PlaylistBrowserSidebar", "PlaylistBrowserMainDetailColumn", "PlaylistDetailContent"]
+            let outside =
+                [
+                    "PlaylistBrowserView", "PlaylistBrowserSidebar", "PlaylistBrowserMainDetailColumn",
+                    "PlaylistDetailContent",
+                ]
                 + (showsInPlayerBar ? [] : ["BrowserTransportBar"])
             for outside in outside {
                 XCTAssertNil(counts[outside], "\(name) ran \(outside) again", file: file, line: line)
@@ -161,10 +172,12 @@ final class LongListScrollCostTests: XCTestCase {
         // A right-click: the menu the table hands AppKit for the row, built in full.
         let rowRect = table.rect(ofRow: middle)
         let point = table.convert(NSPoint(x: rowRect.midX, y: rowRect.midY), to: nil)
-        let event = try XCTUnwrap(NSEvent.mouseEvent(
-            with: .rightMouseDown, location: point, modifierFlags: [], timestamp: 0, windowNumber: host.window.windowNumber,
-            context: nil, eventNumber: 0, clickCount: 1, pressure: 1
-        ))
+        let event = try XCTUnwrap(
+            NSEvent.mouseEvent(
+                with: .rightMouseDown, location: point, modifierFlags: [], timestamp: 0,
+                windowNumber: host.window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+            ))
         var menu: NSMenu?
         measure("right-click") {
             // The view under the pointer, or the first one around it, that has a menu there.
@@ -189,8 +202,10 @@ final class LongListScrollCostTests: XCTestCase {
         measure("select all", buildsEveryRow: true) { table.selectAll(nil) }
         XCTAssertEqual(browser.selectedDetailTrackIDs.count, Self.trackCount)
 
-        let report = times.map { String(format: "%@ %.1f ms", $0.0, $0.1 * 1000) }.joined(separator: ", ")
-            + (clicksReachTheWindow ? "" : " (clicks made by the table: this machine doesn't hand posted clicks to the window)")
+        let report =
+            times.map { String(format: "%@ %.1f ms", $0.0, $0.1 * 1000) }.joined(separator: ", ")
+            + (clicksReachTheWindow
+                ? "" : " (clicks made by the table: this machine doesn't hand posted clicks to the window)")
         XCTContext.runActivity(named: "LongListInteractions \(report)") { _ in }
         print("LongListInteractions \(report)")
         if Self.checksTimes {
@@ -217,28 +232,33 @@ final class LongListScrollCostTests: XCTestCase {
         let run = UUID().uuidString
         var urls: [URL] = []
         for index in 0..<Self.coverCount {
-            let rep = try XCTUnwrap(NSBitmapImageRep(
-                bitmapDataPlanes: nil, pixelsWide: 640, pixelsHigh: 640, bitsPerSample: 8, samplesPerPixel: 4,
-                hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
-            ))
+            let rep = try XCTUnwrap(
+                NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: 640, pixelsHigh: 640, bitsPerSample: 8, samplesPerPixel: 4,
+                    hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+                ))
             let context = try XCTUnwrap(NSGraphicsContext(bitmapImageRep: rep)?.cgContext)
             var generator = SystemRandomNumberGenerator()
             for _ in 0..<200 {
-                context.setFillColor(CGColor(
-                    red: .random(in: 0...1, using: &generator),
-                    green: .random(in: 0...1, using: &generator),
-                    blue: .random(in: 0...1, using: &generator),
-                    alpha: 1
-                ))
-                context.fillEllipse(in: CGRect(
-                    x: .random(in: -100...640, using: &generator), y: .random(in: -100...640, using: &generator),
-                    width: .random(in: 20...200, using: &generator), height: .random(in: 20...200, using: &generator)
-                ))
+                context.setFillColor(
+                    CGColor(
+                        red: .random(in: 0...1, using: &generator),
+                        green: .random(in: 0...1, using: &generator),
+                        blue: .random(in: 0...1, using: &generator),
+                        alpha: 1
+                    ))
+                context.fillEllipse(
+                    in: CGRect(
+                        x: .random(in: -100...640, using: &generator), y: .random(in: -100...640, using: &generator),
+                        width: .random(in: 20...200, using: &generator),
+                        height: .random(in: 20...200, using: &generator)
+                    ))
             }
             let data = try XCTUnwrap(rep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]))
             let url = try XCTUnwrap(URL(string: "https://covers.invalid/\(run)/cover-\(index).jpg"))
             let cached = ArtworkImageStore.cacheFileURL(for: url, diskDirectory: ArtworkImageStore.defaultDiskDirectory)
-            try FileManager.default.createDirectory(at: cached.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(
+                at: cached.deletingLastPathComponent(), withIntermediateDirectories: true)
             try data.write(to: cached)
             urls.append(url)
         }
@@ -249,21 +269,22 @@ final class LongListScrollCostTests: XCTestCase {
     private func track(_ index: Int, covers: [URL]) -> MusicPlaylistTrackItem {
         MusicPlaylistTrackItem(
             id: "t\(index)",
-            content: .track(MusicTrack(
-                id: "t\(index)",
-                name: "Song number \(index) with a longer title",
-                artists: ["Artist \(index % 97)", "Featured \(index % 13)"],
-                artistRefs: [
-                    MusicArtistRef(id: "a\(index % 97)", name: "Artist \(index % 97)"),
-                    MusicArtistRef(id: "f\(index % 13)", name: "Featured \(index % 13)"),
-                ],
-                albumArtworkURL: covers[index % covers.count],
-                durationMilliseconds: 180_000 + index,
-                isExplicit: index % 5 == 0,
-                isPlayable: true,
-                linkedFromID: nil,
-                uri: "spotify:track:t\(index)"
-            ))
+            content: .track(
+                MusicTrack(
+                    id: "t\(index)",
+                    name: "Song number \(index) with a longer title",
+                    artists: ["Artist \(index % 97)", "Featured \(index % 13)"],
+                    artistRefs: [
+                        MusicArtistRef(id: "a\(index % 97)", name: "Artist \(index % 97)"),
+                        MusicArtistRef(id: "f\(index % 13)", name: "Featured \(index % 13)"),
+                    ],
+                    albumArtworkURL: covers[index % covers.count],
+                    durationMilliseconds: 180_000 + index,
+                    isExplicit: index % 5 == 0,
+                    isPlayable: true,
+                    linkedFromID: nil,
+                    uri: "spotify:track:t\(index)"
+                ))
         )
     }
 
@@ -272,10 +293,12 @@ final class LongListScrollCostTests: XCTestCase {
         let covers = try makeCovers()
         let tracks = (0..<Self.trackCount).map { track($0, covers: covers) }
         let api = MockBrowsingAPI(
-            playlistResults: [.success([
-                PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Liked"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
-            ])],
+            playlistResults: [
+                .success([
+                    PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Liked"),
+                    PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
+                ])
+            ],
             trackResults: ["p1": [.success(tracks)]]
         )
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
@@ -312,14 +335,17 @@ final class LongListScrollCostTests: XCTestCase {
         // back, as it does when a real window opens.
         window.setContentSize(NSSize(width: 1_450, height: 900))
         var table: NSTableView?
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: {
-            table = AppKitTestSupport.tables(in: window.contentView).first { $0.numberOfRows >= Self.trackCount }
-            return table != nil
-        }), "the playlist's table never showed all \(Self.trackCount) songs")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: {
+                table = AppKitTestSupport.tables(in: window.contentView).first { $0.numberOfRows >= Self.trackCount }
+                return table != nil
+            }), "the playlist's table never showed all \(Self.trackCount) songs")
         let found = try XCTUnwrap(table)
         let scrollView = try XCTUnwrap(found.enclosingScrollView)
         await AppKitTestSupport.settle()
-        return Host(window: window, scrollView: scrollView, table: found, browser: browserVM, playback: playbackHost.playbackViewModel)
+        return Host(
+            window: window, scrollView: scrollView, table: found, browser: browserVM,
+            playback: playbackHost.playbackViewModel)
     }
 
     /// A click on `row`, posted to the app's event queue and handed out from it as the app's own
@@ -337,11 +363,14 @@ final class LongListScrollCostTests: XCTestCase {
         // On the title, clear of the cover and the hover play button.
         let point = host.table.convert(NSPoint(x: rect.minX + rect.width * 0.4, y: rect.midY), to: nil)
         for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            guard let event = NSEvent.mouseEvent(
-                with: type, location: point, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: host.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
-                pressure: type == .leftMouseDown ? 1 : 0
-            ) else { return XCTFail("no \(type) event") }
+            guard
+                let event = NSEvent.mouseEvent(
+                    with: type, location: point, modifierFlags: modifiers,
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: host.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                    pressure: type == .leftMouseDown ? 1 : 0
+                )
+            else { return XCTFail("no \(type) event") }
             NSApp.postEvent(event, atStart: false)
             while let next = NSApp.nextEvent(matching: .any, until: Date(), inMode: .default, dequeue: true) {
                 NSApp.sendEvent(next)
@@ -397,7 +426,8 @@ final class LongListScrollCostTests: XCTestCase {
             guard !sorted.isEmpty else { return "no frames" }
             return String(
                 format: "%d frames, median %.1f ms, p95 %.1f ms, worst %.1f ms, %d over 50 ms",
-                frames.count, sorted[sorted.count / 2] * 1000, sorted[min(sorted.count - 1, sorted.count * 95 / 100)] * 1000,
+                frames.count, sorted[sorted.count / 2] * 1000,
+                sorted[min(sorted.count - 1, sorted.count * 95 / 100)] * 1000,
                 (sorted.last ?? 0) * 1000, over
             )
         }
@@ -405,7 +435,9 @@ final class LongListScrollCostTests: XCTestCase {
 
     /// Scrolls from where it is to the bottom, or to `stoppingAt`: 6 points a frame, or flicks
     /// that start at 260 points a frame and slow down the way the trackpad's momentum does.
-    private func scrollToBottom(_ host: Host, flick: Bool, stoppingAt end: CGFloat = .greatestFiniteMagnitude) -> ScrollResult {
+    private func scrollToBottom(_ host: Host, flick: Bool, stoppingAt end: CGFloat = .greatestFiniteMagnitude)
+        -> ScrollResult
+    {
         var result = ScrollResult()
         var velocity: CGFloat = flick ? 260 : 6
         let end = min(end, maxScrollY(host))

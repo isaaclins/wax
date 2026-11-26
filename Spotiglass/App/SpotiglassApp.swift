@@ -67,9 +67,10 @@ struct SpotiglassApp: App {
             SpotiglassLog.info(SpotiglassLog.persistence, "Using in-memory pinned-items cache")
             pinningCache = InMemoryPinnedItemsCache()
         }
-        _pinnedStore = StateObject(wrappedValue: PinnedItemsStore(cache: pinningCache, aliases: AppleMusicPinAliases()) { pinID in
-            AppleMusicArtworkRegistry.shared.url(forItemKey: pinID, size: AppleMusicItemMapping.ArtworkSize.cover)
-        })
+        _pinnedStore = StateObject(
+            wrappedValue: PinnedItemsStore(cache: pinningCache, aliases: AppleMusicPinAliases()) { pinID in
+                AppleMusicArtworkRegistry.shared.url(forItemKey: pinID, size: AppleMusicItemMapping.ArtworkSize.cover)
+            })
         let authVM: AuthViewModel
         if AppMetadata.isRunningUnitTests {
             authVM = AuthViewModel(refreshTokenStore: MemoryOnlyRefreshTokenStore())
@@ -223,19 +224,19 @@ struct SpotiglassApp: App {
                 // never show (or add to) the searches of whoever runs it.
                 recentSearches: ScreenshotMode.isActive ? .inMemory() : .userDefaults(.standard)
             )
-                .environmentObject(authViewModel)
-                .environmentObject(settingsStore)
-                .environmentObject(pinnedStore)
-                .environmentObject(playbackHosts.spotify)
-                .environment(\.openWaxSettings, openSettings)
-                // After the window is on screen, so it doesn't hold up the launch; once built,
-                // the first ⌘, only has to show Settings (#676).
-                .task {
-                    await Task.yield()
-                    settingsWindow.prepare { settingsContent }
-                }
-                .spotiglassLiveSettings(settingsStore)
-                .modifier(QueuePanelWindowMinSize())
+            .environmentObject(authViewModel)
+            .environmentObject(settingsStore)
+            .environmentObject(pinnedStore)
+            .environmentObject(playbackHosts.spotify)
+            .environment(\.openWaxSettings, openSettings)
+            // After the window is on screen, so it doesn't hold up the launch; once built,
+            // the first ⌘, only has to show Settings (#676).
+            .task {
+                await Task.yield()
+                settingsWindow.prepare { settingsContent }
+            }
+            .spotiglassLiveSettings(settingsStore)
+            .modifier(QueuePanelWindowMinSize())
         }
         .windowResizability(.contentMinSize)
         // The unit-test host opens no main window (#418): tests that need a window make their own.
@@ -360,7 +361,7 @@ final class SpotiglassApplicationDelegate: NSObject, NSApplicationDelegate {
         switch Self.reopenAction(for: sender.windows) {
         case .system:
             return true
-        case let .restore(window):
+        case .restore(let window):
             window.deminiaturize(nil)
         case .newWindow:
             Self.performNewWindow(in: sender.mainMenu)
@@ -512,7 +513,8 @@ private final class LegacyLoginItemSnapshot {
     private var snapshot: UnsafeMutableRawPointer?
     init(source: URL) {
         guard source.lastPathComponent == "Spotiglass.app",
-              !source.pathComponents.contains("AppTranslocation") else { return }
+            !source.pathComponents.contains("AppTranslocation")
+        else { return }
         snapshot = source.path.withCString { WaxCaptureLegacyLoginItems($0) }
     }
     func commit(destination: URL) {

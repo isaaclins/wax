@@ -2,6 +2,7 @@ import MusicKit
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -103,15 +104,17 @@ final class RootViewTests: XCTestCase {
     /// Spotify's player starts new music only while Spotify is on screen (#373): the window keeps
     /// the app-wide player's gate in step with the service on screen, from the first frame on.
     func testSpotifyPlayerOnlyStartsMusicInTheSpotifySpace() async throws {
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(
-            services: [.appleMusic, .spotify], active: .appleMusic
-        ))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(
+                services: [.appleMusic, .spotify], active: .appleMusic
+            ))
         let session = AppleMusicSession(authorization: DeniedMusicAuthorization())
         await session.refresh()
         let settings = try ViewTestHost.makeSettingsStore()
-        let playbackHost = SpotiglassPlaybackHost(tokenProvider: MockPlaybackTokenProvider(
-            accessToken: "test", refreshedAccessToken: "test-refresh"
-        ))
+        let playbackHost = SpotiglassPlaybackHost(
+            tokenProvider: MockPlaybackTokenProvider(
+                accessToken: "test", refreshedAccessToken: "test-refresh"
+            ))
         let root = RootView(
             keymapStore: CommandPaletteKeymapStore(settingsStore: settings),
             sceneRegistry: SpotiglassSceneRegistry(),
@@ -120,11 +123,13 @@ final class RootViewTests: XCTestCase {
             appleMusicSession: session
         )
         .environmentObject(settings)
-        .environmentObject(AuthViewModel(
-            settings: SpotifyAuthSettings(defaults: makeEphemeralDefaults()),
-            refreshTokenStore: MemoryOnlyRefreshTokenStore(),
-            signOutDataCleaner: {}
-        ))
+        .environmentObject(
+            AuthViewModel(
+                settings: SpotifyAuthSettings(defaults: makeEphemeralDefaults()),
+                refreshTokenStore: MemoryOnlyRefreshTokenStore(),
+                signOutDataCleaner: {}
+            )
+        )
         .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
         ViewTestHost.host(root)
         // SwiftUI applies each change on a later pass of the run loop, however late (#535).
@@ -141,29 +146,34 @@ final class RootViewTests: XCTestCase {
     /// takes Spotify out of the service menu and hands the window to Apple Music (#399). On its own,
     /// Spotify keeps Disconnect off.
     func testSignInScreenDisconnectRemovesALapsedSpotify() async throws {
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(
-            services: [.appleMusic, .spotify], active: .spotify
-        ))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(
+                services: [.appleMusic, .spotify], active: .spotify
+            ))
         let session = AppleMusicSession(authorization: DeniedMusicAuthorization())
         await session.refresh()
         let settings = try ViewTestHost.makeSettingsStore()
         let root = RootView(
             keymapStore: CommandPaletteKeymapStore(settingsStore: settings),
             sceneRegistry: SpotiglassSceneRegistry(),
-            playbackHosts: .forTests(spotify: SpotiglassPlaybackHost(tokenProvider: MockPlaybackTokenProvider(
-                accessToken: "test", refreshedAccessToken: "test-refresh"
-            ))),
+            playbackHosts: .forTests(
+                spotify: SpotiglassPlaybackHost(
+                    tokenProvider: MockPlaybackTokenProvider(
+                        accessToken: "test", refreshedAccessToken: "test-refresh"
+                    ))),
             serviceStore: services,
             appleMusicSession: session
         )
         .environmentObject(settings)
-        .environmentObject(AuthViewModel(
-            settings: SpotifyAuthSettings(defaults: makeEphemeralDefaults()),
-            refreshTokenStore: MemoryOnlyRefreshTokenStore(),
-            signOutDataCleaner: {},
-            artworkCacheClearer: {},
-            initialState: .signedOut
-        ))
+        .environmentObject(
+            AuthViewModel(
+                settings: SpotifyAuthSettings(defaults: makeEphemeralDefaults()),
+                refreshTokenStore: MemoryOnlyRefreshTokenStore(),
+                signOutDataCleaner: {},
+                artworkCacheClearer: {},
+                initialState: .signedOut
+            )
+        )
         .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
         ViewTestHost.host(root, size: CGSize(width: 720, height: 520))
         await AppKitTestSupport.settle()
@@ -205,22 +215,26 @@ final class RootViewTests: XCTestCase {
                 cleanupStarted.signal()
                 await finishCleanup.wait()
             },
-            initialState: .signedIn(AuthenticatedSession(
-                accessToken: "old-access", tokenType: "Bearer", scope: "", expiresAt: .distantFuture
-            ))
+            initialState: .signedIn(
+                AuthenticatedSession(
+                    accessToken: "old-access", tokenType: "Bearer", scope: "", expiresAt: .distantFuture
+                ))
         )
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(
-            services: [.appleMusic], active: .appleMusic
-        ))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(
+                services: [.appleMusic], active: .appleMusic
+            ))
         let session = AppleMusicSession(authorization: DeniedMusicAuthorization())
         await session.refresh()
         let settings = try ViewTestHost.makeSettingsStore()
         let root = RootView(
             keymapStore: CommandPaletteKeymapStore(settingsStore: settings),
             sceneRegistry: SpotiglassSceneRegistry(),
-            playbackHosts: .forTests(spotify: SpotiglassPlaybackHost(tokenProvider: MockPlaybackTokenProvider(
-                accessToken: "test", refreshedAccessToken: "test-refresh"
-            ))),
+            playbackHosts: .forTests(
+                spotify: SpotiglassPlaybackHost(
+                    tokenProvider: MockPlaybackTokenProvider(
+                        accessToken: "test", refreshedAccessToken: "test-refresh"
+                    ))),
             serviceStore: services,
             appleMusicSession: session
         )
@@ -283,7 +297,8 @@ final class RootViewTests: XCTestCase {
         var pageField: NSTextField?
         let caret = NSRange(location: 4, length: 0)
         if typingInPage {
-            let field = try XCTUnwrap(firstTextField(in: controller.view), "The page has no text field", file: file, line: line)
+            let field = try XCTUnwrap(
+                firstTextField(in: controller.view), "The page has no text field", file: file, line: line)
             XCTAssertTrue(AppKitTestSupport.makeFirstResponder(field, in: window), file: file, line: line)
             XCTAssertTrue(isEditing(field, in: window), "The page's field should be focused", file: file, line: line)
             // The caret in the middle of the text: neither where focusing puts it nor select-all.
@@ -299,8 +314,11 @@ final class RootViewTests: XCTestCase {
         let open = try AppKitTestSupport.settledAccessibilityElements(in: window) {
             mentions($0, fieldPlaceholder) && !mentions($0, pageElement) && paletteHasFocus()
         }
-        XCTAssertTrue(paletteHasFocus(), "The palette's field should have focus while it is open", file: file, line: line)
-        XCTAssertTrue(mentions(open, fieldPlaceholder), "The palette's field should be reachable: \(open)", file: file, line: line)
+        XCTAssertTrue(
+            paletteHasFocus(), "The palette's field should have focus while it is open", file: file, line: line)
+        XCTAssertTrue(
+            mentions(open, fieldPlaceholder), "The palette's field should be reachable: \(open)", file: file, line: line
+        )
         XCTAssertFalse(
             mentions(open, pageElement),
             "VoiceOver still reaches the page behind the palette: \(open)",
@@ -312,8 +330,10 @@ final class RootViewTests: XCTestCase {
         let after = try AppKitTestSupport.settledAccessibilityElements(in: window) {
             mentions($0, pageElement) && !mentions($0, fieldPlaceholder)
         }
-        XCTAssertTrue(mentions(after, pageElement), "The page should be back after esc: \(after)", file: file, line: line)
-        XCTAssertFalse(mentions(after, fieldPlaceholder), "The palette should be gone: \(after)", file: file, line: line)
+        XCTAssertTrue(
+            mentions(after, pageElement), "The page should be back after esc: \(after)", file: file, line: line)
+        XCTAssertFalse(
+            mentions(after, fieldPlaceholder), "The palette should be gone: \(after)", file: file, line: line)
         if let pageField {
             XCTAssertTrue(
                 isEditing(pageField, in: window),
@@ -329,7 +349,8 @@ final class RootViewTests: XCTestCase {
                 line: line
             )
         } else {
-            XCTAssertTrue(window.firstResponder === pageFocus, "Focus should return to where it was", file: file, line: line)
+            XCTAssertTrue(
+                window.firstResponder === pageFocus, "Focus should return to where it was", file: file, line: line)
         }
     }
 
@@ -392,9 +413,10 @@ final class RootViewTests: XCTestCase {
     }
 
     func testPaletteHidesTheAppleMusicPageFromVoiceOver() async throws {
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(
-            services: [.appleMusic], active: .appleMusic
-        ))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(
+                services: [.appleMusic], active: .appleMusic
+            ))
         let session = AppleMusicSession(authorization: DeniedMusicAuthorization())
         await session.refresh()
         let settings = try ViewTestHost.makeSettingsStore()
@@ -402,18 +424,22 @@ final class RootViewTests: XCTestCase {
         let root = RootView(
             keymapStore: CommandPaletteKeymapStore(settingsStore: settings),
             sceneRegistry: registry,
-            playbackHosts: .forTests(spotify: SpotiglassPlaybackHost(tokenProvider: MockPlaybackTokenProvider(
-                accessToken: "test", refreshedAccessToken: "test-refresh"
-            ))),
+            playbackHosts: .forTests(
+                spotify: SpotiglassPlaybackHost(
+                    tokenProvider: MockPlaybackTokenProvider(
+                        accessToken: "test", refreshedAccessToken: "test-refresh"
+                    ))),
             serviceStore: services,
             appleMusicSession: session
         )
         .environmentObject(settings)
-        .environmentObject(AuthViewModel(
-            settings: SpotifyAuthSettings(defaults: makeEphemeralDefaults()),
-            refreshTokenStore: MemoryOnlyRefreshTokenStore(),
-            signOutDataCleaner: {}
-        ))
+        .environmentObject(
+            AuthViewModel(
+                settings: SpotifyAuthSettings(defaults: makeEphemeralDefaults()),
+                refreshTokenStore: MemoryOnlyRefreshTokenStore(),
+                signOutDataCleaner: {}
+            )
+        )
         .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
         try assertPaletteIsModal(
             over: root,
@@ -471,10 +497,12 @@ final class RootViewPinsAfterAddingTests: XCTestCase {
     private func hostRoot(services: MusicServiceStore) async throws -> PinnedItemsStore {
         let cache = InMemoryPinnedItemsCache()
         try cache.savePinnedItems(
-            [PinnedItem(
-                id: "album:l.saved", kind: .album, title: "Saved Album", subtitle: "A",
-                artworkURL: nil, spotifyURI: nil, isStale: false
-            )],
+            [
+                PinnedItem(
+                    id: "album:l.saved", kind: .album, title: "Saved Album", subtitle: "A",
+                    artworkURL: nil, spotifyURI: nil, isStale: false
+                )
+            ],
             userID: AppleMusicBrowsingProvider.libraryUserID
         )
         let pinned = PinnedItemsStore(cache: cache)
@@ -489,9 +517,11 @@ final class RootViewPinsAfterAddingTests: XCTestCase {
         let root = RootView(
             keymapStore: CommandPaletteKeymapStore(settingsStore: settings),
             sceneRegistry: SpotiglassSceneRegistry(),
-            playbackHosts: .forTests(spotify: SpotiglassPlaybackHost(tokenProvider: MockPlaybackTokenProvider(
-                accessToken: "test", refreshedAccessToken: "test-refresh"
-            ))),
+            playbackHosts: .forTests(
+                spotify: SpotiglassPlaybackHost(
+                    tokenProvider: MockPlaybackTokenProvider(
+                        accessToken: "test", refreshedAccessToken: "test-refresh"
+                    ))),
             serviceStore: services,
             appleMusicSession: session
         )
@@ -513,7 +543,8 @@ final class RootViewPinsAfterAddingTests: XCTestCase {
     }
 
     func testAddingAppleMusicShowsItsPins() async throws {
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify))
         let pinned = try await hostRoot(services: services)
 
         services.beginAddition(of: .appleMusic)
@@ -526,15 +557,17 @@ final class RootViewPinsAfterAddingTests: XCTestCase {
     }
 
     func testPinMadeRightAfterAddingAppleMusicIsKept() async throws {
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify))
         let pinned = try await hostRoot(services: services)
         services.beginAddition(of: .appleMusic)
         try await settle(until: { pinned.boundUserID != nil })
 
-        pinned.pin(PinnedItem(
-            id: "album:l.new", kind: .album, title: "Pinned After Adding", subtitle: "B",
-            artworkURL: nil, spotifyURI: nil, isStale: false
-        ))
+        pinned.pin(
+            PinnedItem(
+                id: "album:l.new", kind: .album, title: "Pinned After Adding", subtitle: "B",
+                artworkURL: nil, spotifyURI: nil, isStale: false
+            ))
         services.activate(.spotify)
         // Switching away clears the pins, so switching back has to load them from disk.
         try await settle(until: { pinned.boundUserID == nil && pinned.items.isEmpty })
@@ -572,7 +605,8 @@ final class RootViewToolbarLayoutTests: XCTestCase {
     }
 
     func testSignInScreenToAppleMusicLibraryLaysTheWindowOutOnce() async throws {
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify))
         let window = try await hostRoot(services: services)
         let toolbar = window.toolbar
 
@@ -599,7 +633,8 @@ final class RootViewToolbarLayoutTests: XCTestCase {
 
     /// The other way: disconnecting the last service takes the library's toolbar items away.
     func testAppleMusicLibraryBackToWelcomeLaysTheWindowOutOnce() async throws {
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(services: [.appleMusic], active: .appleMusic))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(services: [.appleMusic], active: .appleMusic))
         let window = try await hostRoot(services: services)
         try await settle(until: { Self.showsLibrary(window) })
         XCTAssertTrue(Self.showsLibrary(window), "the library never appeared")
@@ -641,9 +676,11 @@ final class RootViewToolbarLayoutTests: XCTestCase {
         let root = RootView(
             keymapStore: CommandPaletteKeymapStore(settingsStore: settings),
             sceneRegistry: SpotiglassSceneRegistry(),
-            playbackHosts: .forTests(spotify: SpotiglassPlaybackHost(tokenProvider: MockPlaybackTokenProvider(
-                accessToken: "test", refreshedAccessToken: "test-refresh"
-            ))),
+            playbackHosts: .forTests(
+                spotify: SpotiglassPlaybackHost(
+                    tokenProvider: MockPlaybackTokenProvider(
+                        accessToken: "test", refreshedAccessToken: "test-refresh"
+                    ))),
             serviceStore: services,
             appleMusicSession: session
         )
@@ -699,7 +736,8 @@ private enum FrameViewLayoutReentry {
     }
 
     private static func installIfNeeded() {
-        guard !installed, let method = class_getInstanceMethod(NSView.self, #selector(NSView.layoutSubtreeIfNeeded)) else { return }
+        guard !installed, let method = class_getInstanceMethod(NSView.self, #selector(NSView.layoutSubtreeIfNeeded))
+        else { return }
         installed = true
         typealias Original = @convention(c) (NSView, Selector) -> Void
         let original = unsafeBitCast(method_getImplementation(method), to: Original.self)

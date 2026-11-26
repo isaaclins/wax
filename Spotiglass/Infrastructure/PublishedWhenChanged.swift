@@ -23,7 +23,7 @@ struct PublishedWhenChanged<Value: Equatable> {
     @available(*, unavailable, message: "@PublishedWhenChanged is only available on properties of classes")
     var wrappedValue: Value {
         get { fatalError("unavailable") }
-        set { fatalError("unavailable") } // swiftlint:disable:this unused_setter_value
+        set { fatalError("unavailable") }  // swiftlint:disable:this unused_setter_value
     }
 
     var projectedValue: AnyPublisher<Value, Never> {

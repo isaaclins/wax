@@ -18,8 +18,8 @@ extension PlaylistBrowserViewModel {
     /// True when `playlistID` is one of the signed-in user's own playlists.
     func isUserOwnedPlaylist(_ playlistID: String?) -> Bool {
         guard let playlistID, playlistID != SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
-              let me = currentUserID, !me.isEmpty,
-              let summary = playlistsByID[playlistID] ?? knownPlaylistSummariesByID[playlistID]
+            let me = currentUserID, !me.isEmpty,
+            let summary = playlistsByID[playlistID] ?? knownPlaylistSummariesByID[playlistID]
         else { return false }
         return summary.ownerID == me
     }
@@ -33,8 +33,8 @@ extension PlaylistBrowserViewModel {
     /// renaming goes through the library's copy (`renamePlaylist`).
     func canRenamePlaylist(_ summary: MusicPlaylistSummary) -> Bool {
         guard summary.id != SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
-              playlistsByID[summary.id] != nil,
-              let me = currentUserID, !me.isEmpty
+            playlistsByID[summary.id] != nil,
+            let me = currentUserID, !me.isEmpty
         else { return false }
         return summary.ownerID == me
     }
@@ -51,7 +51,7 @@ extension PlaylistBrowserViewModel {
         // goes, or opening that playlist later would start editing its name out of nowhere.
         guard playlistNameEditRequestID == summary.id else { return }
         if sidebarSelection == .playlist(summary.id) {
-            if case let .playlist(detail)? = detailState.currentValue, detail.playlist.id == summary.id { return }
+            if case .playlist(let detail)? = detailState.currentValue, detail.playlist.id == summary.id { return }
             if case .empty = detailState { return }
         }
         playlistNameEditRequestID = nil
@@ -61,8 +61,8 @@ extension PlaylistBrowserViewModel {
     /// header, so the sidebar row takes it (#478). The window shows a hidden sidebar for it.
     var pendingSidebarPlaylistNameEditID: String? {
         guard let id = playlistNameEditRequestID,
-              sidebarSelection == .playlist(id),
-              case .empty = detailState
+            sidebarSelection == .playlist(id),
+            case .empty = detailState
         else { return nil }
         return id
     }
@@ -74,7 +74,7 @@ extension PlaylistBrowserViewModel {
 
     func canDeletePlaylist(_ summary: MusicPlaylistSummary) -> Bool {
         guard supportedLibraryEdits.contains(.deletePlaylist),
-              let me = currentUserID, !me.isEmpty
+            let me = currentUserID, !me.isEmpty
         else { return false }
         return summary.ownerID == me && summary.id != SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID
     }
@@ -99,11 +99,13 @@ extension PlaylistBrowserViewModel {
             adjustSidebarTrackCountAfterEdit(playlistID: playlistID, by: -count)
             await refreshCurrentPlaylistMutationDetail(for: [playlistID])
             let name = shownPlaylistName(playlistID: playlistID, given: playlistName)
-            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
-                "playlist.mutation.removedFromPlaylist",
-                Int64(count),
-                name.string
-            )))
+            trackMutationToast = .done(
+                LocalizedText(
+                    SpotiglassL10n.format(
+                        "playlist.mutation.removedFromPlaylist",
+                        Int64(count),
+                        name.string
+                    )))
         } catch let partial as MusicLibraryPartialEditError {
             // The songs that went stay gone; the playlist shows what it has now (#596).
             logPartialEdit(partial, playlistID: playlistID)
@@ -112,13 +114,15 @@ extension PlaylistBrowserViewModel {
             adjustSidebarTrackCountAfterEdit(playlistID: playlistID, by: -partial.completed)
             await refreshCurrentPlaylistMutationDetail(for: [playlistID])
             let name = shownPlaylistName(playlistID: playlistID, given: playlistName)
-            trackMutationToast = Self.failureToast(partial, while: "removing songs from a playlist", SpotiglassL10n.format(
-                "playlist.mutation.partialRemoveFromPlaylist",
-                Int64(partial.completed),
-                Int64(partial.total),
-                name.string,
-                Self.describeFailure(partial.underlying, operation: .removeFromPlaylist)
-            ))
+            trackMutationToast = Self.failureToast(
+                partial, while: "removing songs from a playlist",
+                SpotiglassL10n.format(
+                    "playlist.mutation.partialRemoveFromPlaylist",
+                    Int64(partial.completed),
+                    Int64(partial.total),
+                    name.string,
+                    Self.describeFailure(partial.underlying, operation: .removeFromPlaylist)
+                ))
         } catch {
             trackMutationToast = Self.failureToast(error, operation: .removeFromPlaylist)
         }
@@ -131,10 +135,10 @@ extension PlaylistBrowserViewModel {
     /// Liked Songs, albums and other people's playlists keep their order.
     func canReorderTracks(inPlaylist playlistID: String?) -> Bool {
         guard supportedLibraryEdits.contains(.reorderPlaylistTracks),
-              let playlistID, playlistID != SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
-              let me = currentUserID, !me.isEmpty,
-              !playlistsRefusingReorder.contains(playlistID),
-              let summary = playlistsByID[playlistID] ?? knownPlaylistSummariesByID[playlistID]
+            let playlistID, playlistID != SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
+            let me = currentUserID, !me.isEmpty,
+            !playlistsRefusingReorder.contains(playlistID),
+            let summary = playlistsByID[playlistID] ?? knownPlaylistSummariesByID[playlistID]
         else { return false }
         return summary.ownerID == me || summary.isCollaborative
     }
@@ -146,13 +150,15 @@ extension PlaylistBrowserViewModel {
     /// does nothing.
     func moveTracks(rowIDs: [String], toOffset offset: Int, inPlaylist playlistID: String) async {
         guard reorderingPlaylistID == nil,
-              canReorderTracks(inPlaylist: playlistID),
-              let detail = shownPlaylistDetail(playlistID)
+            canReorderTracks(inPlaylist: playlistID),
+            let detail = shownPlaylistDetail(playlistID)
         else { return }
         let shown = detail.tracks
         // A long list shows its first rows a moment before the rest; an order counted in those
         // would leave the rest out.
-        if let complete = completeRowsOnScreen, complete.playlistID == playlistID, complete.tracks.count > shown.count { return }
+        if let complete = completeRowsOnScreen, complete.playlistID == playlistID, complete.tracks.count > shown.count {
+            return
+        }
         let positions = Set(rowIDs.compactMap { id in shown.firstIndex { $0.id == id } })
         guard !positions.isEmpty else { return }
         let order = PlaylistTrackReorder.order(count: shown.count, moving: positions, toOffset: offset)
@@ -197,18 +203,22 @@ extension PlaylistBrowserViewModel {
                 await showServiceOrder(playlistID: playlistID)
             }
             let service = MusicServiceSelection.current
-            trackMutationToast = Self.failureToast(partial, while: "reordering a playlist", SpotiglassL10n.format(
-                "playlist.mutation.reorderPartlySaved",
-                Self.describeFailure(partial.underlying, operation: .reorderPlaylist, service: service)
-            ))
+            trackMutationToast = Self.failureToast(
+                partial, while: "reordering a playlist",
+                SpotiglassL10n.format(
+                    "playlist.mutation.reorderPartlySaved",
+                    Self.describeFailure(partial.underlying, operation: .reorderPlaylist, service: service)
+                ))
         } catch {
             await putBack(shown, replacing: reordered, playlistID: playlistID)
             let service = MusicServiceSelection.current
-            trackMutationToast = Self.failureToast(error, while: "reordering a playlist", SpotiglassL10n.format(
-                "playlist.mutation.reorderFailed",
-                (error as? MusicPlaylistChangedElsewhere)?.localizedDescription
-                    ?? Self.describeFailure(error, operation: .reorderPlaylist, service: service)
-            ))
+            trackMutationToast = Self.failureToast(
+                error, while: "reordering a playlist",
+                SpotiglassL10n.format(
+                    "playlist.mutation.reorderFailed",
+                    (error as? MusicPlaylistChangedElsewhere)?.localizedDescription
+                        ?? Self.describeFailure(error, operation: .reorderPlaylist, service: service)
+                ))
             // Apple Music's smart playlists can't be reordered, and nothing says so before
             // Music refuses: the playlist stops offering dragging after the first try.
             if error as? AppleMusicLibraryEditError == .notEditable {
@@ -232,7 +242,9 @@ extension PlaylistBrowserViewModel {
 
     /// The open playlist, when `playlistID` is the playlist on screen.
     private func shownPlaylistDetail(_ playlistID: String) -> PlaylistDetailViewModel? {
-        guard case let .playlist(detail)? = detailState.currentValue, detail.playlist.id == playlistID else { return nil }
+        guard case .playlist(let detail)? = detailState.currentValue, detail.playlist.id == playlistID else {
+            return nil
+        }
         return detail
     }
 
@@ -248,7 +260,7 @@ extension PlaylistBrowserViewModel {
         switch detailState {
         case .loaded: detailState = .loaded(content)
         case .refreshing: detailState = .refreshing(content)
-        case let .staleCache(_, error): detailState = .staleCache(content, error)
+        case .staleCache(_, let error): detailState = .staleCache(content, error)
         case .loading, .empty, .error: return
         }
         if completeRowsOnScreen?.playlistID == playlistID {
@@ -258,7 +270,9 @@ extension PlaylistBrowserViewModel {
 
     /// After a failed save: the old order goes back when the screen still shows the new one;
     /// rows something else put there meanwhile are read once more, in place.
-    private func putBack(_ previous: [TrackRowViewModel], replacing reordered: [TrackRowViewModel], playlistID: String) async {
+    private func putBack(_ previous: [TrackRowViewModel], replacing reordered: [TrackRowViewModel], playlistID: String)
+        async
+    {
         guard let now = shownPlaylistTracks(playlistID) else { return }
         if now == reordered {
             showReorderedTracks(previous, playlistID: playlistID)
@@ -273,9 +287,9 @@ extension PlaylistBrowserViewModel {
     /// it read are left as they are.
     private func showServiceOrder(playlistID: String) async {
         guard let shown = shownPlaylistTracks(playlistID),
-              let items = try? await api.playlistTracks(playlistID: playlistID, limit: 50, maxPages: 200),
-              !items.isEmpty,
-              shownPlaylistTracks(playlistID) == shown
+            let items = try? await api.playlistTracks(playlistID: playlistID, limit: 50, maxPages: 200),
+            !items.isEmpty,
+            shownPlaylistTracks(playlistID) == shown
         else { return }
         invalidateTracksCache(playlistID: playlistID)
         let rows = TrackRowViewModel.numberedPlaylistRows(items)
@@ -320,7 +334,8 @@ extension PlaylistBrowserViewModel {
             await selectSidebar(.home)
         }
         forgetDeletedPlaylist(id: summary.id)
-        trackMutationToast = .done(LocalizedText(SpotiglassL10n.format("playlist.mutation.deletedPlaylist", summary.name)))
+        trackMutationToast = .done(
+            LocalizedText(SpotiglassL10n.format("playlist.mutation.deletedPlaylist", summary.name)))
     }
 
     /// Keeps the sidebar's "N tracks" in step with an edit, instead of the count the playlist
@@ -345,7 +360,7 @@ extension PlaylistBrowserViewModel {
             playlistState = .loaded(updated)
         case .refreshing:
             playlistState = .refreshing(updated)
-        case let .staleCache(_, displayError):
+        case .staleCache(_, let displayError):
             playlistState = .staleCache(updated, displayError)
         }
         try? cache.savePlaylists(playlistsInSidebarOrder(), cachedAt: now())
@@ -361,12 +376,13 @@ extension PlaylistBrowserViewModel {
         case .loading, .empty, .error:
             break
         case .loaded:
-            playlistState = remaining.isEmpty
+            playlistState =
+                remaining.isEmpty
                 ? .empty(LocalizedText.noPlaylists(on: MusicServiceSelection.current))
                 : .loaded(remaining)
         case .refreshing:
             playlistState = .refreshing(remaining)
-        case let .staleCache(_, displayError):
+        case .staleCache(_, let displayError):
             playlistState = .staleCache(remaining, displayError)
         }
         try? cache.savePlaylists(playlistsInSidebarOrder(), cachedAt: now())
@@ -379,7 +395,9 @@ extension PlaylistBrowserViewModel {
     }
 
     func loadSavedAlbumState(for albumID: String) async {
-        guard supportedLibraryEdits.contains(.saveAlbums), !albumID.isEmpty, savedAlbumStates[albumID] == nil else { return }
+        guard supportedLibraryEdits.contains(.saveAlbums), !albumID.isEmpty, savedAlbumStates[albumID] == nil else {
+            return
+        }
         do {
             let statuses = try await api.savedAlbumStatuses(ids: [albumID])
             guard !Task.isCancelled, let status = statuses.first else { return }
@@ -412,10 +430,12 @@ extension PlaylistBrowserViewModel {
             if isSaved { recountPlaylistTracksAfterLibraryRemoval() }
             await refreshLikedSongsDetailAfterMutation()
             // A nameless album's stand-in is said in the language the note is read in (#571).
-            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
-                isSaved ? "playlist.mutation.removedAlbum" : "playlist.mutation.addedAlbum",
-                UnnamedMusicItem.displayName(albumName, kind: .album)
-            )))
+            trackMutationToast = .done(
+                LocalizedText(
+                    SpotiglassL10n.format(
+                        isSaved ? "playlist.mutation.removedAlbum" : "playlist.mutation.addedAlbum",
+                        UnnamedMusicItem.displayName(albumName, kind: .album)
+                    )))
         } catch {
             savedAlbumStates[albumID] = isSaved
             trackMutationToast = Self.failureToast(error, operation: .saveAlbum)
@@ -429,9 +449,9 @@ extension PlaylistBrowserViewModel {
     func confirmLibraryRemoval(_ removal: PendingLibraryRemoval) async {
         pendingLibraryRemoval = nil
         switch removal {
-        case let .songs(rows):
+        case .songs(let rows):
             await unfavoriteRows(rows, confirmed: true)
-        case let .album(id, name):
+        case .album(let id, let name):
             await toggleAlbumInLibrary(albumID: id, albumName: name, confirmed: true)
         }
     }

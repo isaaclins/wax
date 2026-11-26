@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Shared AppKit helpers for deterministic focus and layout in unit tests.
@@ -300,7 +301,8 @@ enum ViewTestHost {
     /// ViewInspector can miss text until SwiftUI finishes laying out the hosted window, so this
     /// waits for it however long a busy machine takes; text that never shows runs into the
     /// per-test time limit.
-    static func assertFindText<V: View>(_ text: String, in view: V, file: StaticString = #filePath, line: UInt = #line) {
+    static func assertFindText<V: View>(_ text: String, in view: V, file: StaticString = #filePath, line: UInt = #line)
+    {
         let found = AppKitTestSupport.pumpRunLoop(until: { (try? view.inspect().find(text: text)) != nil })
         XCTAssertTrue(found, "no text \"\(text)\"", file: file, line: line)
     }

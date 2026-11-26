@@ -80,8 +80,8 @@ extension PlaybackSessionViewModel {
         // Engaged, not only running: a change made while the equalizer is still starting is
         // kept by the engine and applied once it is up (#604).
         guard let equalizerEngine,
-              equalizerEngine.isEngaged,
-              let outputDeviceID = macAudioOutput.currentOutputDeviceID
+            equalizerEngine.isEngaged,
+            let outputDeviceID = macAudioOutput.currentOutputDeviceID
         else { return }
 
         Task { @MainActor [weak self] in

@@ -9,7 +9,9 @@ extension PlaybackSessionViewModel {
         // Shuffle turns shuffle on and then plays. Spotify keeps waiting for its state.
         guard isTransportStateKnown || !provider.capabilities.contains(.pushesPlayerState) else { return }
         guard let commandDeviceID else {
-            showPlaybackError(nil, while: "turning shuffle on or off with no player device", Self.playbackDeviceReconnectRequiredError())
+            showPlaybackError(
+                nil, while: "turning shuffle on or off with no player device",
+                Self.playbackDeviceReconnectRequiredError())
             return
         }
         let target = !shuffleEnabled
@@ -90,7 +92,8 @@ extension PlaybackSessionViewModel {
         PlaybackTrace.shared.request("repeat \(mode) (\(service))", file: file, line: line)
         guard isTransportStateKnown else { return }
         guard let commandDeviceID else {
-            showPlaybackError(nil, while: "setting repeat with no player device", Self.playbackDeviceReconnectRequiredError())
+            showPlaybackError(
+                nil, while: "setting repeat with no player device", Self.playbackDeviceReconnectRequiredError())
             return
         }
         // A pick while a write is out replaces that write for Retry, even when it only queues.

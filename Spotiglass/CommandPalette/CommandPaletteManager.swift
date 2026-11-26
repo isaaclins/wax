@@ -281,15 +281,17 @@ final class CommandPaletteManager: ObservableObject {
             let (connectionState, deviceID, activePlaybackDeviceID, isTransportStateKnown) = state
             // While the other service's music is what you hear, Play/Pause pauses or resumes it
             // (#396, #468).
-            let followsOtherService = isOtherServiceHeard
+            let followsOtherService =
+                isOtherServiceHeard
                 && !PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: connectionState)
             self?.setPlaybackToggleAvailability(
-                followsOtherService || PlaybackSessionViewModel.isPlaybackToggleReady(
-                    connectionState: connectionState,
-                    deviceID: deviceID,
-                    activePlaybackDeviceID: activePlaybackDeviceID,
-                    playerPushesState: playerPushesState
-                )
+                followsOtherService
+                    || PlaybackSessionViewModel.isPlaybackToggleReady(
+                        connectionState: connectionState,
+                        deviceID: deviceID,
+                        activePlaybackDeviceID: activePlaybackDeviceID,
+                        playerPushesState: playerPushesState
+                    )
             )
             // View › Show Lyrics opens the lyrics of the song in the bar (#486).
             self?.setLyricsToggleAvailability(
@@ -303,7 +305,8 @@ final class CommandPaletteManager: ObservableObject {
                 commandDeviceID: activePlaybackDeviceID ?? deviceID
             )
             self?.setPlaybackTransportMutability(isTransportMutationReady)
-            self?.setRepeatMutability(followsOtherService ? isOtherServiceTransportMutationReady : isTransportMutationReady)
+            self?.setRepeatMutability(
+                followsOtherService ? isOtherServiceTransportMutationReady : isTransportMutationReady)
         }
         .store(in: &playbackReadinessCancellables)
 
@@ -321,7 +324,8 @@ final class CommandPaletteManager: ObservableObject {
             playback.connectionStatePublisher
         )
         .map { mode, otherMode, isOtherServiceHeard, connectionState in
-            let followsOtherService = isOtherServiceHeard
+            let followsOtherService =
+                isOtherServiceHeard
                 && !PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: connectionState)
             return followsOtherService ? otherMode : mode
         }
@@ -385,21 +389,22 @@ final class CommandPaletteManager: ObservableObject {
             // In `>` scope there are no filters, but Tab is still the palette's: passed on, the
             // field handed focus to the page behind and typing stopped reaching it.
             if event.keyCode == 48,
-               event.modifierFlags.intersection([.control, .option, .command]).isEmpty {
+                event.modifierFlags.intersection([.control, .option, .command]).isEmpty
+            {
                 if CommandPaletteScope.parse(viewModel.query).scope != .commands {
                     viewModel.cycleSearchCategory(forward: !event.modifierFlags.contains(.shift))
                 }
                 return true
             }
-            if event.keyCode == 125 { // down
+            if event.keyCode == 125 {  // down
                 viewModel.moveSelection(delta: 1)
                 return true
             }
-            if event.keyCode == 126 { // up
+            if event.keyCode == 126 {  // up
                 viewModel.moveSelection(delta: -1)
                 return true
             }
-            if event.keyCode == 36 { // return
+            if event.keyCode == 36 {  // return
                 // Plain ↩ runs the highlighted item. Modifier-bearing returns
                 // (most importantly ⌘↩ for `palette.pin`) fall through to the
                 // keymap-matching path below so user-rebound shortcuts work.
@@ -436,7 +441,8 @@ final class CommandPaletteManager: ObservableObject {
             }
         }
 
-        let context: CommandPaletteContext = viewModel.isPresented ? .paletteOpen : (isSignedIn ? .signedIn : .signedOut)
+        let context: CommandPaletteContext =
+            viewModel.isPresented ? .paletteOpen : (isSignedIn ? .signedIn : .signedOut)
         let matched = keymapStore.commandBindings(for: event, context: context)
         let filtered = matched.filter { binding in
             if binding.command == CommandPaletteCommandID.togglePlayback {
@@ -471,8 +477,9 @@ final class CommandPaletteManager: ObservableObject {
         // ⌃⌘S is the system's Show/Hide Sidebar chord, kept next to the rebindable one (#436).
         // With Settings in front it is Settings' chord, answered by Settings itself.
         if filtered.isEmpty, toggleSidebar != nil, !isAnotherWindowInFront,
-           CommandPaletteSidebarShortcut.isSystemChord(event),
-           !CommandPaletteSidebarShortcut.isTypingKeyPress(event) {
+            CommandPaletteSidebarShortcut.isSystemChord(event),
+            !CommandPaletteSidebarShortcut.isTypingKeyPress(event)
+        {
             execute(commandID: CommandPaletteCommandID.toggleSidebar)
             return true
         }
@@ -534,26 +541,26 @@ final class CommandPaletteManager: ObservableObject {
         case CommandPaletteCommandID.seekBackward:
             Task { await seekBy?(-PlaybackSeekStep.milliseconds) }
         case "playback.playURI":
-            if case let .string(uri)? = args?["uri"] {
+            if case .string(let uri)? = args?["uri"] {
                 Task { await playURI?(uri) }
             }
         case "navigation.playlist.open":
-            if case let .string(playlistID)? = args?["playlistID"] {
+            if case .string(let playlistID)? = args?["playlistID"] {
                 Task { await openPlaylist?(playlistID) }
             }
         case CommandPaletteCommandID.openArtist:
-            if case let .string(artistID)? = args?["artistID"] {
+            if case .string(let artistID)? = args?["artistID"] {
                 var artistName: String?
-                if case let .string(name)? = args?["artistName"] { artistName = name }
+                if case .string(let name)? = args?["artistName"] { artistName = name }
                 Task { await openArtist?(artistID, artistName) }
             }
         case CommandPaletteCommandID.openAlbum:
-            guard case let .string(albumID)? = args?["albumID"],
-                  case let .string(title)? = args?["title"],
-                  case let .string(subtitle)? = args?["subtitle"]
+            guard case .string(let albumID)? = args?["albumID"],
+                case .string(let title)? = args?["title"],
+                case .string(let subtitle)? = args?["subtitle"]
             else { break }
             let artworkURL: URL?
-            if case let .string(rawURL)? = args?["artworkURL"] {
+            if case .string(let rawURL)? = args?["artworkURL"] {
                 artworkURL = URL(string: rawURL)
             } else {
                 artworkURL = nil
@@ -562,7 +569,7 @@ final class CommandPaletteManager: ObservableObject {
         case CommandPaletteCommandID.openSearch:
             openSearch?()
         case CommandPaletteCommandID.filterByArtist:
-            if case let .string(name)? = args?["name"] {
+            if case .string(let name)? = args?["name"] {
                 filterByArtist?(name)
             }
         case CommandPaletteCommandID.toggleQueue:
@@ -685,11 +692,14 @@ final class CommandPaletteManager: ObservableObject {
             // A service without Disconnect or that can't play (Apple Music without a
             // subscription) leaves these unwired; listing them would offer commands that do nothing.
             guard spec.commandID != CommandPaletteCommandID.signOut || signOut != nil else { return nil }
-            guard spec.commandID != CommandPaletteCommandID.connectPlayback || connectPlayback != nil else { return nil }
+            guard spec.commandID != CommandPaletteCommandID.connectPlayback || connectPlayback != nil else {
+                return nil
+            }
             guard spec.commandID != CommandPaletteCommandID.nextTrack || (nextTrack != nil && canSkipTrack) else {
                 return nil
             }
-            guard spec.commandID != CommandPaletteCommandID.previousTrack || (previousTrack != nil && canSkipTrack) else {
+            guard spec.commandID != CommandPaletteCommandID.previousTrack || (previousTrack != nil && canSkipTrack)
+            else {
                 return nil
             }
             guard spec.commandID != CommandPaletteCommandID.toggleSidebar || toggleSidebar != nil else { return nil }

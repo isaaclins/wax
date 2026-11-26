@@ -35,7 +35,8 @@ extension PlaylistBrowserViewModel {
         // selection: an album opened from a playlist keeps the sidebar on the playlist, and
         // opening the playlist again while the album loads must still open it.
         if origin == .reset, selection == sidebarSelection, detailLoadTask != nil,
-           currentNavigationTarget == .sidebar(selection) {
+            currentNavigationTarget == .sidebar(selection)
+        {
             return
         }
 
@@ -60,7 +61,8 @@ extension PlaylistBrowserViewModel {
         origin: BrowserNavigationOrigin = .reset
     ) async {
         clearTrackSelection()
-        registerNavigationTransition(to: .album(id: id, title: displayTitle, subtitle: displaySubtitle, artworkURL: artworkURL))
+        registerNavigationTransition(
+            to: .album(id: id, title: displayTitle, subtitle: displaySubtitle, artworkURL: artworkURL))
         applyBreadcrumbForAlbum(
             id: id,
             title: displayTitle,

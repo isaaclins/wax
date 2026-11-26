@@ -24,8 +24,10 @@ struct ImmersiveLyricsLyricsPhaseColumn: View {
                     .controlSize(.large)
                     .tint(.white)
                     .foregroundStyle(.white.opacity(0.85))
-                    .frame(maxWidth: .infinity, minHeight: SpotiglassDesign.Layout.lyricsStatusMinHeight, alignment: .center)
-            case let .failed(error):
+                    .frame(
+                        maxWidth: .infinity, minHeight: SpotiglassDesign.Layout.lyricsStatusMinHeight,
+                        alignment: .center)
+            case .failed(let error):
                 // The lyrics column's page error, in the column's own white type.
                 VStack(alignment: .leading, spacing: SpotiglassDesign.spacingS) {
                     Text(error.message)
@@ -40,7 +42,7 @@ struct ImmersiveLyricsLyricsPhaseColumn: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-            case let .ready(lyrics):
+            case .ready(let lyrics):
                 ImmersiveLyricsReadyContentView(
                     lyrics: lyrics,
                     maxHeight: maxHeight,
@@ -88,8 +90,10 @@ struct ImmersiveLyricsReadyContentView: View {
             Text(SpotiglassL10n.string("lyrics.instrumental"))
                 .font(.title3.weight(.medium))
                 .foregroundStyle(.white.opacity(0.85))
-                .frame(maxWidth: .infinity, minHeight: SpotiglassDesign.Layout.lyricsInstrumentalMinHeight, alignment: .leading)
-        case let .timed(renderModel):
+                .frame(
+                    maxWidth: .infinity, minHeight: SpotiglassDesign.Layout.lyricsInstrumentalMinHeight,
+                    alignment: .leading)
+        case .timed(let renderModel):
             ImmersiveLyricsTimedLyricsScrollView(
                 renderModel: renderModel,
                 maxHeight: maxHeight,
@@ -98,7 +102,7 @@ struct ImmersiveLyricsReadyContentView: View {
                 lyricsTextSize: lyricsTextSize,
                 onSeek: onSeek
             )
-        case let .plain(renderModel):
+        case .plain(let renderModel):
             ImmersiveLyricsPlainLyricsScrollView(
                 renderModel: renderModel,
                 maxHeight: maxHeight,

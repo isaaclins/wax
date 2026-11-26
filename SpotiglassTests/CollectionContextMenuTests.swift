@@ -1,6 +1,7 @@
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 /// Home's tiles and Recently played covers had no menu, and the artist names under a cover
@@ -202,7 +203,7 @@ final class CollectionContextMenuTests: XCTestCase {
             browserViewModel: makeBrowserViewModel(),
             openArtist: { opened.append($0) }
         ) {}
-            .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
+        .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
         ViewTestHost.host(view)
 
         try view.inspect().find(button: "Steve Lacy").tap()
@@ -249,13 +250,14 @@ final class CollectionContextMenuTests: XCTestCase {
     }
 
     func testNamesWithoutIDsStayPlainText() throws {
-        let card = HomeMediaCard(album: MusicAlbum(
-            id: "a",
-            name: "Album",
-            artists: ["Unknown Artist"],
-            imageURL: nil,
-            uri: "spotify:album:a"
-        ))
+        let card = HomeMediaCard(
+            album: MusicAlbum(
+                id: "a",
+                name: "Album",
+                artists: ["Unknown Artist"],
+                imageURL: nil,
+                uri: "spotify:album:a"
+            ))
         let view = HomeCardArtistCredits(subtitle: card.subtitle, credits: card.artistCredits, openArtist: { _ in })
         XCTAssertNoThrow(try view.inspect().find(text: "Unknown Artist"))
         XCTAssertThrowsError(try view.inspect().find(button: "Unknown Artist"))
@@ -265,10 +267,11 @@ final class CollectionContextMenuTests: XCTestCase {
     /// one without an ID used to drop out of the line under the cover.
     func testAnArtistWithoutAnIDStaysInTheLineAsPlainText() throws {
         var opened: [MusicArtistRef] = []
-        let card = HomeMediaCard(recentlyPlayed: recentlyPlayedTrack(
-            artists: [MusicArtistRef(id: "steve", name: "Steve Lacy")],
-            names: ["Steve Lacy", "Local Friend"]
-        ))
+        let card = HomeMediaCard(
+            recentlyPlayed: recentlyPlayedTrack(
+                artists: [MusicArtistRef(id: "steve", name: "Steve Lacy")],
+                names: ["Steve Lacy", "Local Friend"]
+            ))
         let line = try XCTUnwrap(card).artistCredits
         XCTAssertEqual(line, [.link(MusicArtistRef(id: "steve", name: "Steve Lacy")), .name("Local Friend")])
 
@@ -294,24 +297,27 @@ final class CollectionContextMenuTests: XCTestCase {
             names: ["Steve Lacy & Faye Webster"],
             refs: [MusicArtistRef(id: "1", name: "Steve Lacy"), MusicArtistRef(id: "2", name: "Faye Webster")]
         )
-        XCTAssertEqual(line, [
-            .link(MusicArtistRef(id: "1", name: "Steve Lacy")),
-            .link(MusicArtistRef(id: "2", name: "Faye Webster")),
-        ])
+        XCTAssertEqual(
+            line,
+            [
+                .link(MusicArtistRef(id: "1", name: "Steve Lacy")),
+                .link(MusicArtistRef(id: "2", name: "Faye Webster")),
+            ])
     }
 
     // MARK: - Edit playlist name from Home
 
     func testEditPlaylistNameOpensThePlaylistAndAsksItsHeaderToEdit() async throws {
-        let viewModel = makeBrowserViewModel(api: MockBrowsingAPI(
-            playlistResults: [.success([ownPlaylist])],
-            trackResults: [ownPlaylist.id: [.success([PlaylistBrowsingTestFixtures.track(id: "t1")])]]
-        ))
+        let viewModel = makeBrowserViewModel(
+            api: MockBrowsingAPI(
+                playlistResults: [.success([ownPlaylist])],
+                trackResults: [ownPlaylist.id: [.success([PlaylistBrowsingTestFixtures.track(id: "t1")])]]
+            ))
 
         await viewModel.openPlaylistForNameEditing(ownPlaylist)
 
         XCTAssertEqual(viewModel.sidebarSelection, .playlist(ownPlaylist.id))
-        guard case let .playlist(detail)? = viewModel.detailState.currentValue else {
+        guard case .playlist(let detail)? = viewModel.detailState.currentValue else {
             return XCTFail("The playlist's page should show, with the header that edits its name")
         }
         XCTAssertEqual(detail.playlist.id, ownPlaylist.id)
@@ -322,10 +328,11 @@ final class CollectionContextMenuTests: XCTestCase {
     /// A new playlist is empty, and an empty playlist's page shows a message, not the header.
     /// Edit playlist name on its tile then did nothing; its sidebar row edits instead.
     func testEditPlaylistNameOnAnEmptyPlaylistEditsItsSidebarRow() async throws {
-        let viewModel = makeBrowserViewModel(api: MockBrowsingAPI(
-            playlistResults: [.success([ownPlaylist])],
-            trackResults: [ownPlaylist.id: [.success([])]]
-        ))
+        let viewModel = makeBrowserViewModel(
+            api: MockBrowsingAPI(
+                playlistResults: [.success([ownPlaylist])],
+                trackResults: [ownPlaylist.id: [.success([])]]
+            ))
 
         await viewModel.openPlaylistForNameEditing(ownPlaylist)
 
@@ -340,7 +347,8 @@ final class CollectionContextMenuTests: XCTestCase {
         store.bind(userID: "me")
         let sidebar = PlaylistsSidebarSectionContent(
             playlistState: viewModel.playlistState,
-            likedSongsStubRow: PlaylistRowViewModel(likedSongsOwnerDisplay: "You", totalTrackCount: nil, artworkURL: nil),
+            likedSongsStubRow: PlaylistRowViewModel(
+                likedSongsOwnerDisplay: "You", totalTrackCount: nil, artworkURL: nil),
             viewModel: viewModel,
             playbackViewModel: playbackViewModel,
             playlistSummaryFromRow: { _ in self.ownPlaylist }
@@ -362,25 +370,28 @@ final class CollectionContextMenuTests: XCTestCase {
     /// With the sidebar hidden, the row used to take the rename inside the hidden column and lose
     /// its field as the sidebar came back: nothing was editable. The row now waits for it to show.
     func testEmptyPlaylistsRenameWaitsForAHiddenSidebarToShow() async {
-        let viewModel = makeBrowserViewModel(api: MockBrowsingAPI(
-            playlistResults: [.success([ownPlaylist])],
-            trackResults: [ownPlaylist.id: [.success([])]]
-        ))
+        let viewModel = makeBrowserViewModel(
+            api: MockBrowsingAPI(
+                playlistResults: [.success([ownPlaylist])],
+                trackResults: [ownPlaylist.id: [.success([])]]
+            ))
         viewModel.isSidebarShown = false
 
         await viewModel.openPlaylistForNameEditing(ownPlaylist)
 
-        XCTAssertEqual(viewModel.pendingSidebarPlaylistNameEditID, ownPlaylist.id, "the window shows the sidebar for it")
+        XCTAssertEqual(
+            viewModel.pendingSidebarPlaylistNameEditID, ownPlaylist.id, "the window shows the sidebar for it")
         XCTAssertNil(viewModel.sidebarPlaylistNameEditRequestID, "the hidden row doesn't take it")
         viewModel.isSidebarShown = true
         XCTAssertEqual(viewModel.sidebarPlaylistNameEditRequestID, ownPlaylist.id)
     }
 
     func testEditPlaylistNameIsDroppedWhenThePlaylistDoesntOpen() async {
-        let viewModel = makeBrowserViewModel(api: MockBrowsingAPI(
-            playlistResults: [.success([ownPlaylist])],
-            trackResults: [ownPlaylist.id: [.failure(URLError(.notConnectedToInternet))]]
-        ))
+        let viewModel = makeBrowserViewModel(
+            api: MockBrowsingAPI(
+                playlistResults: [.success([ownPlaylist])],
+                trackResults: [ownPlaylist.id: [.failure(URLError(.notConnectedToInternet))]]
+            ))
 
         await viewModel.openPlaylistForNameEditing(ownPlaylist)
 
@@ -406,10 +417,11 @@ final class CollectionContextMenuTests: XCTestCase {
     // MARK: - Search results carry the artist IDs
 
     func testSpotifySearchAlbumKeepsItsArtistIDs() throws {
-        let json = Data("""
-        {"id": "al1", "name": "Gemini Rights", "uri": "spotify:album:al1", "images": [],
-         "artists": [{"id": "steve", "name": "Steve Lacy"}, {"name": "No ID"}]}
-        """.utf8)
+        let json = Data(
+            """
+            {"id": "al1", "name": "Gemini Rights", "uri": "spotify:album:al1", "images": [],
+             "artists": [{"id": "steve", "name": "Steve Lacy"}, {"name": "No ID"}]}
+            """.utf8)
         let album = try JSONDecoder().decode(SpotifySearchAlbumDTO.self, from: json).domainModel()
         XCTAssertEqual(album.artists, ["Steve Lacy", "No ID"])
         XCTAssertEqual(album.artistRefs, [MusicArtistRef(id: "steve", name: "Steve Lacy")])
@@ -417,14 +429,19 @@ final class CollectionContextMenuTests: XCTestCase {
     }
 
     func testAlbumsCachedBeforeArtistIDsStillDecode() throws {
-        let json = Data("""
-        {"id": "al1", "name": "Old", "artists": ["Someone"], "uri": "spotify:album:al1"}
-        """.utf8)
+        let json = Data(
+            """
+            {"id": "al1", "name": "Old", "artists": ["Someone"], "uri": "spotify:album:al1"}
+            """.utf8)
         let album = try JSONDecoder().decode(MusicAlbum.self, from: json)
         XCTAssertEqual(album.artistRefs, [])
-        let roundTrip = try JSONDecoder().decode(MusicAlbum.self, from: JSONEncoder().encode(
-            MusicAlbum(id: "x", name: "X", artists: ["A"], artistRefs: [MusicArtistRef(id: "a", name: "A")], imageURL: nil, uri: "u")
-        ))
+        let roundTrip = try JSONDecoder().decode(
+            MusicAlbum.self,
+            from: JSONEncoder().encode(
+                MusicAlbum(
+                    id: "x", name: "X", artists: ["A"], artistRefs: [MusicArtistRef(id: "a", name: "A")], imageURL: nil,
+                    uri: "u")
+            ))
         XCTAssertEqual(roundTrip.artistRefs, [MusicArtistRef(id: "a", name: "A")])
     }
 }

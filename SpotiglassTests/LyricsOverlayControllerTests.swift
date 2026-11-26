@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -33,7 +34,8 @@ final class LyricsOverlayControllerTests: XCTestCase {
     func testAttachDetachAndDismiss() async {
         let controller = LyricsOverlayController()
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api),
             playbackSession: playback,

@@ -47,7 +47,8 @@ final class DetailSurfaceRegressionTests: XCTestCase {
         .environmentObject(pinnedStore())
 
         ViewTestHost.host(view, size: CGSize(width: 800, height: 700))
-        XCTAssertNoThrow(try view.inspect().find(TrackListView<PlaybackValueReader<TrackRowPlaybackMark, TrackListRow>>.self))
+        XCTAssertNoThrow(
+            try view.inspect().find(TrackListView<PlaybackValueReader<TrackRowPlaybackMark, TrackListRow>>.self))
 
         browserViewModel.detailState = .loaded(.artist(detail))
         browserViewModel.selectedDetailTrackIDs = [detail.tracks[0].id]

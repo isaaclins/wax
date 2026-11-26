@@ -41,8 +41,9 @@ enum PlaylistTrackReorder {
             // A run: rows next to each other in the new order that were neighbours before.
             var length = 1
             while index + length < order.count,
-                  !stays.contains(order[index + length]),
-                  order[index + length] == order[index + length - 1] + 1 {
+                !stays.contains(order[index + length]),
+                order[index + length] == order[index + length - 1] + 1
+            {
                 length += 1
             }
             let start = working.firstIndex(of: order[index])!

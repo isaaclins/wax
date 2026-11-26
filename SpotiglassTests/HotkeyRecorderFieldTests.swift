@@ -2,6 +2,7 @@ import AppKit
 import Carbon
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// US QWERTY virtual key codes so key events are layout-independent in tests.
@@ -9,7 +10,10 @@ private enum USKeyboard {
     static func virtualKey(for key: String) -> CGKeyCode? {
         guard key.count == 1, let scalar = key.unicodeScalars.first else { return nil }
         if scalar.value >= 97, scalar.value <= 122 {
-            let codes: [CGKeyCode] = [0, 11, 8, 2, 14, 3, 5, 4, 34, 38, 40, 37, 46, 45, 31, 35, 12, 15, 1, 17, 32, 9, 13, 7, 16, 6, 18, 19, 20, 21, 23]
+            let codes: [CGKeyCode] = [
+                0, 11, 8, 2, 14, 3, 5, 4, 34, 38, 40, 37, 46, 45, 31, 35, 12, 15, 1, 17, 32, 9, 13, 7, 16, 6, 18, 19,
+                20, 21, 23,
+            ]
             return codes[Int(scalar.value - 97)]
         }
         if scalar.value >= 48, scalar.value <= 57 {
@@ -198,10 +202,13 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         // A key that becomes a shortcut but can't be stored (⌃F1) is no different.
         failure = nil
         let f1 = String(Character(UnicodeScalar(NSF1FunctionKey)!))
-        view.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(
-            with: .keyDown, location: .zero, modifierFlags: [.control, .function], timestamp: 0, windowNumber: 0,
-            context: nil, characters: f1, charactersIgnoringModifiers: f1, isARepeat: false, keyCode: 122
-        )))
+        view.keyDown(
+            with: try XCTUnwrap(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: [.control, .function], timestamp: 0,
+                    windowNumber: 0,
+                    context: nil, characters: f1, charactersIgnoringModifiers: f1, isARepeat: false, keyCode: 122
+                )))
         XCTAssertTrue(view.isRecording, "⌃F1 keeps recording")
         XCTAssertEqual(failure, SpotiglassL10n.string("palette.settings.recordingUnsupported"))
         XCTAssertEqual(applied, 0)
@@ -209,7 +216,9 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         view.keyDown(with: keyEvent(virtualKey: 38, modifierFlags: [.control, .option]))
         XCTAssertFalse(view.isRecording)
         XCTAssertEqual(applied, 1)
-        XCTAssertEqual(keymap.primaryShortcut(for: CommandPaletteCommandID.openSettings), try CommandShortcut(keystroke: "ctrl-alt-j"))
+        XCTAssertEqual(
+            keymap.primaryShortcut(for: CommandPaletteCommandID.openSettings),
+            try CommandShortcut(keystroke: "ctrl-alt-j"))
     }
 
     func testMenuOwnedShortcutShowsReasonAndKeepsRecording() throws {
@@ -238,7 +247,9 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         try keymap.clearBinding(commandID: field.commandID)
         view.syncFromStore()
         XCTAssertEqual(view.content, .prompt(SpotiglassL10n.string("palette.hotkeyRecorder.clickToRecord")))
-        XCTAssertEqual(SpotiglassL10n.string("palette.hotkeyRecorder.clickToRecord", locale: Locale(identifier: "en")), "Record Shortcut")
+        XCTAssertEqual(
+            SpotiglassL10n.string("palette.hotkeyRecorder.clickToRecord", locale: Locale(identifier: "en")),
+            "Record Shortcut")
         XCTAssertFalse(view.showsClearControl, "nothing to clear")
 
         view.testing_beginKeyCapture()
@@ -263,7 +274,8 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
     func testClearControlOnTheFieldClearsTheShortcut() throws {
         var applied = 0
         let (field, keymap, view, _, _) = try makeHarness(onApplied: { applied += 1 })
-        try keymap.setBinding(commandID: field.commandID, shortcut: try CommandShortcut(keystroke: "ctrl-k"), replaceConflicting: true)
+        try keymap.setBinding(
+            commandID: field.commandID, shortcut: try CommandShortcut(keystroke: "ctrl-k"), replaceConflicting: true)
         view.syncFromStore()
 
         let clear = try XCTUnwrap(view.subviews.compactMap { $0 as? NSButton }.first)
@@ -296,7 +308,8 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         }
         XCTAssertEqual(view.accessibilityChangeCount, settled, "unchanged field, no notice")
 
-        try keymap.setBinding(commandID: field.commandID, shortcut: try CommandShortcut(keystroke: "ctrl-k"), replaceConflicting: true)
+        try keymap.setBinding(
+            commandID: field.commandID, shortcut: try CommandShortcut(keystroke: "ctrl-k"), replaceConflicting: true)
         view.syncFromStore()
         view.syncFromStore()
         XCTAssertEqual(view.accessibilityChangeCount, settled + 1, "one notice for the new shortcut")
@@ -308,7 +321,8 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         let stolen = try CommandShortcut(keystroke: "ctrl-j")
         var conflict: (CommandShortcut, String)?
         let (_, keymap, view, _, _) = try makeHarness(onCaptureConflict: { conflict = ($0, $1) })
-        try keymap.setBinding(commandID: CommandPaletteCommandID.openPalette, shortcut: stolen, replaceConflicting: true)
+        try keymap.setBinding(
+            commandID: CommandPaletteCommandID.openPalette, shortcut: stolen, replaceConflicting: true)
 
         view.testing_beginKeyCapture()
         view.keyDown(with: try keyEvent(for: stolen))
@@ -318,7 +332,9 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         view.showsProblem = true
         XCTAssertEqual(view.content, .keys(["⌃", "J"]))
         XCTAssertFalse(view.showsClearControl, "Replace on the row is the way out, not clear")
-        let otherTitle = CommandPaletteCommandCatalog.editable.first { $0.commandID == CommandPaletteCommandID.openPalette }!.title
+        let otherTitle = CommandPaletteCommandCatalog.editable.first {
+            $0.commandID == CommandPaletteCommandID.openPalette
+        }!.title
         XCTAssertTrue(SpotiglassL10n.format("palette.settings.conflict", otherTitle).contains(otherTitle))
     }
 

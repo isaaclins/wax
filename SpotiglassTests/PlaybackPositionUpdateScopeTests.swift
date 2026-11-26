@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// A new position from the player re-renders only the views that show it (#409). Before, every
@@ -269,7 +270,8 @@ final class ScrubberTickCostTests: XCTestCase {
             "the track stopped ticking, so nothing was measured"
         )
         let seconds = Date().timeIntervalSince(start).rounded(.up)
-        XCTAssertLessThanOrEqual(hosting.layoutCount, 2 * Int(seconds) + 3, "the moving track must not lay out the window")
+        XCTAssertLessThanOrEqual(
+            hosting.layoutCount, 2 * Int(seconds) + 3, "the moving track must not lay out the window")
     }
 
     private static func trackView(in view: NSView) -> ScrubberTrackCanvasView? {

@@ -1,5 +1,6 @@
 import MusicKit
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -7,7 +8,10 @@ final class PlaylistBrowserDisplayErrorTests: XCTestCase {
     func testDisplayErrorMapsSpotifyAPIErrors() {
         let cases: [(SpotifyAPIError, String, Bool)] = [
             (.unauthorized, "Sign in again", false),
-            (.insufficientScope(requiredScopes: ["playlist-read-private"], message: nil, details: nil), "Reconnect Spotify", false),
+            (
+                .insufficientScope(requiredScopes: ["playlist-read-private"], message: nil, details: nil),
+                "Reconnect Spotify", false
+            ),
             (.forbidden(message: "Nope", details: nil), "Access denied", false),
             (.rateLimited(retryAfter: 30), "Spotify is rate limiting requests", true),
             (.notFound(message: "gone"), "Not found", true),
@@ -65,11 +69,26 @@ final class PlaylistBrowserDisplayErrorTests: XCTestCase {
         let cases: [(Error, String, String)] = [
             (MusicTokenRequestError.userNotSignedIn, "Sign in to Apple Music", "appleMusic.error.signIn.message"),
             (MusicTokenRequestError.userTokenRevoked, "Sign in to Apple Music", "appleMusic.error.signIn.message"),
-            (MusicTokenRequestError.privacyAcknowledgementRequired, "Open Music once", "appleMusic.error.privacyNotice.message"),
-            (MusicTokenRequestError.permissionDenied, "Apple Music access is off", "error.playback.appleMusic.permission.message"),
-            (MusicTokenRequestError.developerTokenRequestFailed, "Apple Music isn't available", "appleMusic.error.unavailable.message"),
-            (MusicLibrary.Error.permissionDenied, "Apple Music access is off", "error.playback.appleMusic.permission.message"),
-            (MusicSubscription.Error.privacyAcknowledgementRequired, "Open Music once", "appleMusic.error.privacyNotice.message"),
+            (
+                MusicTokenRequestError.privacyAcknowledgementRequired, "Open Music once",
+                "appleMusic.error.privacyNotice.message"
+            ),
+            (
+                MusicTokenRequestError.permissionDenied, "Apple Music access is off",
+                "error.playback.appleMusic.permission.message"
+            ),
+            (
+                MusicTokenRequestError.developerTokenRequestFailed, "Apple Music isn't available",
+                "appleMusic.error.unavailable.message"
+            ),
+            (
+                MusicLibrary.Error.permissionDenied, "Apple Music access is off",
+                "error.playback.appleMusic.permission.message"
+            ),
+            (
+                MusicSubscription.Error.privacyAcknowledgementRequired, "Open Music once",
+                "appleMusic.error.privacyNotice.message"
+            ),
         ]
         for (error, title, messageKey) in cases {
             let display = PlaylistBrowserViewModel.displayError(for: error)
@@ -79,7 +98,8 @@ final class PlaylistBrowserDisplayErrorTests: XCTestCase {
             // MusicKit's text is still there for a bug report.
             XCTAssertEqual(display.diagnosticDetails, String(describing: error), "\(error)")
         }
-        XCTAssertFalse(PlaylistBrowserViewModel.displayError(for: MusicTokenRequestError.developerTokenRequestFailed).canRetry)
+        XCTAssertFalse(
+            PlaylistBrowserViewModel.displayError(for: MusicTokenRequestError.developerTokenRequestFailed).canRetry)
 
         // MusicKit's catch-all isn't a missing token: it keeps Retry instead of "isn't available".
         let unknown = PlaylistBrowserViewModel.displayError(for: MusicTokenRequestError.unknown)
@@ -124,7 +144,7 @@ final class PlaylistBrowserDisplayErrorTests: XCTestCase {
             for: MusicTokenRequestError.userNotSignedIn,
             while: "test"
         )
-        guard case let .failed(error) = state else { return XCTFail("Expected a failed section, got \(state)") }
+        guard case .failed(let error) = state else { return XCTFail("Expected a failed section, got \(state)") }
         XCTAssertEqual(error.message, SpotiglassL10n.string("appleMusic.error.signIn.message"))
 
         // Spotify's Home mapping is untouched.
@@ -145,6 +165,7 @@ final class PlaylistBrowserDisplayErrorTests: XCTestCase {
 
         let display = PlaylistBrowserViewModel.displayError(for: MusicTokenRequestError.userNotSignedIn)
         XCTAssertEqual(display.title, "Bei Apple Music anmelden")
-        XCTAssertEqual(display.message, "Öffne Musik, melde dich mit deinem Apple Account an und versuche es dann erneut.")
+        XCTAssertEqual(
+            display.message, "Öffne Musik, melde dich mit deinem Apple Account an und versuche es dann erneut.")
     }
 }

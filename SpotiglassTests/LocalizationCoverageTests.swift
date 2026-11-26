@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// Exercises every surface that was localized for the i18n initiative and
@@ -33,13 +34,25 @@ final class LocalizationCoverageTests: XCTestCase {
         // CommandPalette
         ("palette.section.thisPlaylist", "palette.section.thisPlaylist", "Here", "Aquí", "Hier"),
         ("palette.searchCategory.all", "palette.searchCategory.all", "All", "Todo", "Alle"),
-        ("palette.searchPlaceholder.commands", "palette.searchPlaceholder.commands", "Run a command", "Ejecutar un comando", "Befehl ausführen"),
-        ("palette.hotkeyRecorder.clickToRecord", "palette.hotkeyRecorder.clickToRecord", "Record Shortcut", "Grabar atajo", "Tastenkürzel aufnehmen"),
+        (
+            "palette.searchPlaceholder.commands", "palette.searchPlaceholder.commands", "Run a command",
+            "Ejecutar un comando", "Befehl ausführen"
+        ),
+        (
+            "palette.hotkeyRecorder.clickToRecord", "palette.hotkeyRecorder.clickToRecord", "Record Shortcut",
+            "Grabar atajo", "Tastenkürzel aufnehmen"
+        ),
 
         // Browsing
-        ("browser.likedSongs.title", "browser.likedSongs.title", "Liked Songs", "Canciones que te gustan", "Lieblingssongs"),
+        (
+            "browser.likedSongs.title", "browser.likedSongs.title", "Liked Songs", "Canciones que te gustan",
+            "Lieblingssongs"
+        ),
         ("browser.likedSongs.owner.you", "browser.likedSongs.owner.you", "You", "Tú", "Du"),
-        ("browser.trackBadge.unavailable", "browser.trackBadge.unavailable", "Unavailable", "No disponible", "Nicht verfügbar"),
+        (
+            "browser.trackBadge.unavailable", "browser.trackBadge.unavailable", "Unavailable", "No disponible",
+            "Nicht verfügbar"
+        ),
         ("browser.trackBadge.explicit", "browser.trackBadge.explicit", "Explicit", "Explícito", "Explizit"),
         ("browser.breadcrumb.artistFallback", "browser.breadcrumb.artistFallback", "Artist", "Artista", "Künstler"),
 
@@ -47,32 +60,64 @@ final class LocalizationCoverageTests: XCTestCase {
         ("browser.search", "browser.search", "Search", "Buscar", "Suchen"),
         ("search.category.tracks", "search.category.tracks", "Tracks", "Canciones", "Titel"),
         ("search.field.placeholder", "search.field.placeholder", "Search %@", "Buscar en %@", "%@ durchsuchen"),
-        ("palette.showAllResults.subtitle", "palette.showAllResults.subtitle", "Open the Search view", "Abrir la vista de búsqueda", "Suchansicht öffnen"),
+        (
+            "palette.showAllResults.subtitle", "palette.showAllResults.subtitle", "Open the Search view",
+            "Abrir la vista de búsqueda", "Suchansicht öffnen"
+        ),
 
         // Menus
         ("menu.view.title", "menu.view.title", "View", "Vista", "Ansicht"),
 
         // Playback
-        ("playback.controls.state.ready.title", "playback.controls.state.ready.title", "Ready to play", "Listo para reproducir", "Bereit zur Wiedergabe"),
-        ("music.unnamed.artist", "music.unnamed.artist", "Unknown artist", "Artista desconocido", "Unbekannter Künstler"),
+        (
+            "playback.controls.state.ready.title", "playback.controls.state.ready.title", "Ready to play",
+            "Listo para reproducir", "Bereit zur Wiedergabe"
+        ),
+        (
+            "music.unnamed.artist", "music.unnamed.artist", "Unknown artist", "Artista desconocido",
+            "Unbekannter Künstler"
+        ),
 
         // Appearance
         ("settings.appearance.lyricsSize.large", "settings.appearance.lyricsSize.large", "Large", "Grande", "Gross"),
-        ("settings.appearance.lyricsSize.medium", "settings.appearance.lyricsSize.medium", "Medium", "Mediano", "Mittel"),
+        (
+            "settings.appearance.lyricsSize.medium", "settings.appearance.lyricsSize.medium", "Medium", "Mediano",
+            "Mittel"
+        ),
         ("settings.appearance.lyricsSize.small", "settings.appearance.lyricsSize.small", "Small", "Pequeño", "Klein"),
         ("settings.appearance.scheme.dark", "settings.appearance.scheme.dark", "Dark", "Oscuro", "Dunkel"),
         ("settings.appearance.scheme.light", "settings.appearance.scheme.light", "Light", "Claro", "Hell"),
         ("settings.appearance.scheme.system", "settings.appearance.scheme.system", "System", "Sistema", "System"),
 
         // Authentication
-        ("auth.clientID.hint", "auth.clientID.hint", "Paste the client ID from your Spotify Developer Dashboard app. This public identifier is always visible so you can verify it before signing in.", "Pega el ID de cliente de tu app en el Spotify Developer Dashboard. Este identificador público siempre está visible para que puedas verificarlo antes de iniciar sesión.", "Fügen Sie die Client-ID aus Ihrer App im Spotify Developer Dashboard ein. Diese öffentliche Kennung ist immer sichtbar, damit Sie sie vor der Anmeldung prüfen können."),
-        ("auth.callback.response.invalidRequest", "auth.callback.response.invalidRequest", "Invalid Spotify callback.", "Respuesta de Spotify no válida.", "Ungültiger Spotify-Rückruf."),
-        ("auth.callback.response.success", "auth.callback.response.success", "Spotify sign-in is complete. You can return to Wax.", "El inicio de sesión de Spotify se completó. Puedes volver a Wax.", "Die Spotify-Anmeldung ist abgeschlossen. Sie können zu Wax zurückkehren."),
-        ("auth.callback.response.failure", "auth.callback.response.failure", "Spotify sign-in could not be completed.", "No se pudo completar el inicio de sesión de Spotify.", "Die Spotify-Anmeldung konnte nicht abgeschlossen werden."),
+        (
+            "auth.clientID.hint", "auth.clientID.hint",
+            "Paste the client ID from your Spotify Developer Dashboard app. This public identifier is always visible so you can verify it before signing in.",
+            "Pega el ID de cliente de tu app en el Spotify Developer Dashboard. Este identificador público siempre está visible para que puedas verificarlo antes de iniciar sesión.",
+            "Fügen Sie die Client-ID aus Ihrer App im Spotify Developer Dashboard ein. Diese öffentliche Kennung ist immer sichtbar, damit Sie sie vor der Anmeldung prüfen können."
+        ),
+        (
+            "auth.callback.response.invalidRequest", "auth.callback.response.invalidRequest",
+            "Invalid Spotify callback.", "Respuesta de Spotify no válida.", "Ungültiger Spotify-Rückruf."
+        ),
+        (
+            "auth.callback.response.success", "auth.callback.response.success",
+            "Spotify sign-in is complete. You can return to Wax.",
+            "El inicio de sesión de Spotify se completó. Puedes volver a Wax.",
+            "Die Spotify-Anmeldung ist abgeschlossen. Sie können zu Wax zurückkehren."
+        ),
+        (
+            "auth.callback.response.failure", "auth.callback.response.failure",
+            "Spotify sign-in could not be completed.", "No se pudo completar el inicio de sesión de Spotify.",
+            "Die Spotify-Anmeldung konnte nicht abgeschlossen werden."
+        ),
 
         // Breadcrumb / Account
         ("breadcrumb.back", "breadcrumb.back", "Back", "Atrás", "Zurück"),
-        ("settings.account.diagnostics.header", "settings.account.diagnostics.header", "Diagnostics", "Diagnóstico", "Diagnose")
+        (
+            "settings.account.diagnostics.header", "settings.account.diagnostics.header", "Diagnostics", "Diagnóstico",
+            "Diagnose"
+        ),
     ]
 
     // MARK: - Tests
@@ -89,7 +134,7 @@ final class LocalizationCoverageTests: XCTestCase {
                 switch language {
                 case .english: expected = row.en
                 case .spanish: expected = row.es
-                case .german:  expected = row.de
+                case .german: expected = row.de
                 }
                 XCTAssertEqual(actual, expected, "[\(language.rawValue)] \(row.name)")
                 print("  \(row.name) -> \(actual)")
@@ -127,7 +172,7 @@ final class LocalizationCoverageTests: XCTestCase {
             let range = NSRange(source.startIndex..., in: source)
             lookupRegex.enumerateMatches(in: source, range: range) { match, _, _ in
                 guard let match,
-                      let keyRange = Range(match.range(at: 1), in: source)
+                    let keyRange = Range(match.range(at: 1), in: source)
                 else { return }
                 usedKeys.insert(String(source[keyRange]))
             }
@@ -135,18 +180,21 @@ final class LocalizationCoverageTests: XCTestCase {
 
         func values(for entry: [String: Any], locale: String) -> [String] {
             guard let localizations = entry["localizations"] as? [String: Any],
-                  let localization = localizations[locale] as? [String: Any]
+                let localization = localizations[locale] as? [String: Any]
             else { return [] }
             var values: [String] = []
             if let unit = localization["stringUnit"] as? [String: Any],
-               let value = unit["value"] as? String {
+                let value = unit["value"] as? String
+            {
                 values.append(value)
             }
             if let variations = localization["variations"] as? [String: Any],
-               let plural = variations["plural"] as? [String: Any] {
+                let plural = variations["plural"] as? [String: Any]
+            {
                 for case let form as [String: Any] in plural.values {
                     if let unit = form["stringUnit"] as? [String: Any],
-                       let value = unit["value"] as? String {
+                        let value = unit["value"] as? String
+                    {
                         values.append(value)
                     }
                 }
@@ -180,7 +228,7 @@ final class LocalizationCoverageTests: XCTestCase {
         let expected: [AppLanguage: String] = [
             .english: "You",
             .spanish: "Tú",
-            .german: "Du"
+            .german: "Du",
         ]
         for language in [AppLanguage.english, .spanish, .german] {
             try store.mutate { $0.appearance.language = language }
@@ -202,7 +250,7 @@ final class LocalizationCoverageTests: XCTestCase {
         let expected: [AppLanguage: (title: String, owner: String)] = [
             .english: ("Liked Songs", "You"),
             .spanish: ("Canciones que te gustan", "Tú"),
-            .german: ("Lieblingssongs", "Du")
+            .german: ("Lieblingssongs", "Du"),
         ]
         for language in [AppLanguage.english, .spanish, .german] {
             try store.mutate { $0.appearance.language = language }
@@ -220,7 +268,7 @@ final class LocalizationCoverageTests: XCTestCase {
             .deletingLastPathComponent()
         let paths = [
             "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
-            "Spotiglass/Views/PlaylistBrowser/PlaylistBrowserView+Library.swift"
+            "Spotiglass/Views/PlaylistBrowser/PlaylistBrowserView+Library.swift",
         ]
         for relativePath in paths {
             let source = try String(
@@ -244,7 +292,7 @@ final class LocalizationCoverageTests: XCTestCase {
             .deletingLastPathComponent()
         let roots = [
             repositoryURL.appendingPathComponent("Spotiglass/Browsing", isDirectory: true),
-            repositoryURL.appendingPathComponent("Spotiglass/Views/PlaylistBrowser", isDirectory: true)
+            repositoryURL.appendingPathComponent("Spotiglass/Views/PlaylistBrowser", isDirectory: true),
         ]
         let uiLiteralRegex = try NSRegularExpression(
             pattern: #"\b(?:Text|Label|Button|Menu|ProgressView|Section)\(\s*\"[A-Za-z]"#
@@ -295,7 +343,7 @@ final class LocalizationCoverageTests: XCTestCase {
         let expected: [AppLanguage: String] = [
             .english: "Added 1 track to Mix",
             .spanish: "Se añadió 1 canción a Mix",
-            .german: "1 Titel zu Mix hinzugefügt"
+            .german: "1 Titel zu Mix hinzugefügt",
         ]
         for language in [AppLanguage.english, .spanish, .german] {
             try store.mutate { $0.appearance.language = language }
@@ -315,7 +363,7 @@ final class LocalizationCoverageTests: XCTestCase {
         let expected: [AppLanguage: String] = [
             .english: "Open Settings",
             .spanish: "Abrir ajustes",
-            .german:  "Einstellungen öffnen"
+            .german: "Einstellungen öffnen",
         ]
         for language in [AppLanguage.english, .spanish, .german] {
             try store.mutate { $0.appearance.language = language }
@@ -354,28 +402,31 @@ final class LocalizationCoverageTests: XCTestCase {
     /// entry), plus rows cached by earlier builds that stored the English sentence.
     func testUnavailablePlaylistRowReasonsFollowSelectedLocale() throws {
         let response = #"""
-        [{"is_local":false,"item":{"type":"track","id":null,"name":"","uri":null}},
-         {"is_local":false,"item":{"type":"episode","id":null,"name":"","uri":null}},
-         {"is_local":false,"item":null,"track":null}]
-        """#
+            [{"is_local":false,"item":{"type":"track","id":null,"name":"","uri":null}},
+             {"is_local":false,"item":{"type":"episode","id":null,"name":"","uri":null}},
+             {"is_local":false,"item":null,"track":null}]
+            """#
         let fetched = try JSONDecoder().decode([SpotifyPlaylistTrackItemDTO].self, from: Data(response.utf8))
             .enumerated()
             .map { $0.element.domainModel(position: $0.offset) }
         let cachedBefore492 = #"""
-        [{"id":"a","content":{"unavailable":{"reason":"Track is unavailable."}}},
-         {"id":"b","content":{"unavailable":{"reason":"Episode is unavailable."}}},
-         {"id":"c","content":{"unavailable":{"reason":"Playlist item has no playable content."}}}]
-        """#
+            [{"id":"a","content":{"unavailable":{"reason":"Track is unavailable."}}},
+             {"id":"b","content":{"unavailable":{"reason":"Episode is unavailable."}}},
+             {"id":"c","content":{"unavailable":{"reason":"Playlist item has no playable content."}}}]
+            """#
         let cached = try JSONDecoder().decode([MusicPlaylistTrackItem].self, from: Data(cachedBefore492.utf8))
 
         let expected: [AppLanguage: [String]] = [
             .english: ["Track is unavailable.", "Episode is unavailable.", "Playlist item has no playable content."],
-            .german: ["Titel ist nicht verfügbar.", "Episode ist nicht verfügbar.", "Playlist-Eintrag hat keinen abspielbaren Inhalt."],
+            .german: [
+                "Titel ist nicht verfügbar.", "Episode ist nicht verfügbar.",
+                "Playlist-Eintrag hat keinen abspielbaren Inhalt.",
+            ],
             .spanish: [
                 "La canción no está disponible.",
                 "El episodio no está disponible.",
-                "El elemento de la lista no tiene contenido reproducible."
-            ]
+                "El elemento de la lista no tiene contenido reproducible.",
+            ],
         ]
         for language in [AppLanguage.english, .german, .spanish] {
             try store.mutate { $0.appearance.language = language }
@@ -407,18 +458,22 @@ final class LocalizationCoverageTests: XCTestCase {
         /// Every translated value for a locale, including each plural case.
         func values(_ entry: Any, _ locale: String) -> [String] {
             guard let entry = entry as? [String: Any],
-                  let localizations = entry["localizations"] as? [String: Any],
-                  let localization = localizations[locale] as? [String: Any] else { return [] }
+                let localizations = entry["localizations"] as? [String: Any],
+                let localization = localizations[locale] as? [String: Any]
+            else { return [] }
             var out: [String] = []
             if let unit = localization["stringUnit"] as? [String: Any],
-               let value = unit["value"] as? String {
+                let value = unit["value"] as? String
+            {
                 out.append(value)
             }
             if let variations = localization["variations"] as? [String: Any],
-               let plural = variations["plural"] as? [String: Any] {
+                let plural = variations["plural"] as? [String: Any]
+            {
                 for case let form as [String: Any] in plural.values {
                     if let unit = form["stringUnit"] as? [String: Any],
-                       let value = unit["value"] as? String {
+                        let value = unit["value"] as? String
+                    {
                         out.append(value)
                     }
                 }
@@ -461,27 +516,30 @@ final class LocalizationCoverageTests: XCTestCase {
     /// surface in each language. Real names that look like a stand-in are left alone.
     func testNamelessItemsShowTheirStandInInTheSelectedLocale() throws {
         let playlistItems = #"""
-        [{"is_local":false,"item":{"type":"track","id":"t1","uri":"spotify:track:t1","artists":[{"id":"a1"}]}},
-         {"is_local":false,"item":{"type":"track","id":"t2","name":"","uri":"spotify:track:t2","artists":[{"id":"a2","name":""}]}},
-         {"is_local":false,"item":{"type":"episode","id":"e1","uri":"spotify:episode:e1","show":{}}}]
-        """#
+            [{"is_local":false,"item":{"type":"track","id":"t1","uri":"spotify:track:t1","artists":[{"id":"a1"}]}},
+             {"is_local":false,"item":{"type":"track","id":"t2","name":"","uri":"spotify:track:t2","artists":[{"id":"a2","name":""}]}},
+             {"is_local":false,"item":{"type":"episode","id":"e1","uri":"spotify:episode:e1","show":{}}}]
+            """#
         let fetched = try JSONDecoder().decode([SpotifyPlaylistTrackItemDTO].self, from: Data(playlistItems.utf8))
             .enumerated()
             .map { $0.element.domainModel(position: $0.offset) }
         let cachedItems = #"""
-        [{"id":"c1","content":{"track":{"_0":{"id":"t3","name":"Unknown track","artists":["Unknown artist"],
-          "artistRefs":[{"id":"a3","name":"Unknown artist"}],"durationMilliseconds":1000,"isExplicit":false,
-          "uri":"spotify:track:t3"}}}},
-         {"id":"c2","content":{"episode":{"_0":{"id":"e2","name":"Unknown episode","durationMilliseconds":1000,
-          "uri":"spotify:episode:e2"}}}}]
-        """#
+            [{"id":"c1","content":{"track":{"_0":{"id":"t3","name":"Unknown track","artists":["Unknown artist"],
+              "artistRefs":[{"id":"a3","name":"Unknown artist"}],"durationMilliseconds":1000,"isExplicit":false,
+              "uri":"spotify:track:t3"}}}},
+             {"id":"c2","content":{"episode":{"_0":{"id":"e2","name":"Unknown episode","durationMilliseconds":1000,
+              "uri":"spotify:episode:e2"}}}}]
+            """#
         let cached = try JSONDecoder().decode([MusicPlaylistTrackItem].self, from: Data(cachedItems.utf8))
         let fetchedPlaylist = try JSONDecoder().decode(
             SpotifyPlaylistDTO.self, from: Data(#"{"id":"p1","owner":{"id":"me"},"images":[]}"#.utf8)
         ).domainModel()
-        let cachedPlaylists = try JSONDecoder().decode([MusicPlaylistSummary].self, from: Data(#"""
-        [{"id":"p2","name":"Untitled playlist","ownerID":"me","ownerName":"me","snapshotID":"s"}]
-        """#.utf8))
+        let cachedPlaylists = try JSONDecoder().decode(
+            [MusicPlaylistSummary].self,
+            from: Data(
+                #"""
+                [{"id":"p2","name":"Untitled playlist","ownerID":"me","ownerName":"me","snapshotID":"s"}]
+                """#.utf8))
         let playlists = [fetchedPlaylist] + cachedPlaylists
         // Music names new playlists "Untitled Playlist", and local files carry "Unknown Artist".
         let realNames = [
@@ -491,10 +549,12 @@ final class LocalizationCoverageTests: XCTestCase {
             )
         ]
         let realArtist = MusicArtistRef(id: "a4", name: "Unknown Artist")
-        guard case let .stateChanged(playerBarTrack?, _, _, _) = try SpotifyPlaybackBridgeParser.parse([
-            "name": "state_changed",
-            "payload": ["paused": false, "track": ["artists": [String](), "uri": "spotify:track:t1"]]
-        ]) else { return XCTFail("expected a playing track") }
+        guard
+            case .stateChanged(let playerBarTrack?, _, _, _) = try SpotifyPlaybackBridgeParser.parse([
+                "name": "state_changed",
+                "payload": ["paused": false, "track": ["artists": [String](), "uri": "spotify:track:t1"]],
+            ])
+        else { return XCTFail("expected a playing track") }
 
         // The names stay as Spotify sent them, so a saved row has no language in it.
         let saved = try XCTUnwrap(
@@ -505,14 +565,15 @@ final class LocalizationCoverageTests: XCTestCase {
         // Rows, pins and the queue made in English must follow a switch to another language.
         try store.mutate { $0.appearance.language = .english }
         let englishPlaylistRows = playlists.map(PlaylistRowViewModel.init)
-        let englishPins = TrackRowViewModel.numberedPlaylistRows(fetched).compactMap { $0.pinnedTrackItem() }
+        let englishPins =
+            TrackRowViewModel.numberedPlaylistRows(fetched).compactMap { $0.pinnedTrackItem() }
             + playlists.map(PinnedItem.playlist)
         let englishQueueRow = QueueItem.from(playback: playerBarTrack)
 
         let expected: [AppLanguage: (track: String, episode: String, artist: String, playlist: String)] = [
             .english: ("Unknown track", "Unknown episode", "Unknown artist", "Untitled Playlist"),
             .german: ("Unbekannter Titel", "Unbekannte Episode", "Unbekannter Künstler", "Unbenannte Playlist"),
-            .spanish: ("Canción desconocida", "Episodio desconocido", "Artista desconocido", "Lista sin título")
+            .spanish: ("Canción desconocida", "Episodio desconocido", "Artista desconocido", "Lista sin título"),
         ]
         for language in [AppLanguage.english, .german, .spanish] {
             try store.mutate { $0.appearance.language = language }
@@ -535,7 +596,9 @@ final class LocalizationCoverageTests: XCTestCase {
                 englishPins.map { $0.localizedTitle(locale: locale) },
                 [names.track, names.track, names.playlist, names.playlist], language.rawValue
             )
-            XCTAssertEqual(realNames.map(PlaylistRowViewModel.init).map { $0.localizedTitle(locale: locale) }, ["Untitled Playlist"])
+            XCTAssertEqual(
+                realNames.map(PlaylistRowViewModel.init).map { $0.localizedTitle(locale: locale) },
+                ["Untitled Playlist"])
             XCTAssertEqual(realNames.map(\.name), ["Untitled Playlist"])
             XCTAssertEqual(realArtist.name, "Unknown Artist")
             XCTAssertEqual(playerBarTrack.name, names.track, language.rawValue)
@@ -558,7 +621,7 @@ final class LocalizationCoverageTests: XCTestCase {
         let pins = [
             PinnedItem.playlist(PlaylistBrowserLibraryActions.playlistSummaryFromRow(germanRow)),
             PlaylistDetailHeaderPinning.item(for: germanRow),
-            PinnedItem.playlist(counted)
+            PinnedItem.playlist(counted),
         ]
         let rebuiltRow = PlaylistRowViewModel(PlaylistBrowserLibraryActions.playlistSummaryFromRow(germanRow))
 
@@ -572,10 +635,13 @@ final class LocalizationCoverageTests: XCTestCase {
         XCTAssertEqual(PlaylistRowViewModel(counted).localizedTitle(locale: locale), "Untitled Playlist")
 
         // Earlier builds saved Apple Music's stand-in in German or Spanish as the name.
-        let savedAppleMusic = try JSONDecoder().decode([MusicPlaylistSummary].self, from: Data(#"""
-        [{"id":"p.7","name":"Unbenannte Playlist","ownerID":"me","ownerName":"me","snapshotID":"applemusic"},
-         {"id":"p.8","name":"Lista sin título","ownerID":"me","ownerName":"me","snapshotID":"applemusic"}]
-        """#.utf8))
+        let savedAppleMusic = try JSONDecoder().decode(
+            [MusicPlaylistSummary].self,
+            from: Data(
+                #"""
+                [{"id":"p.7","name":"Unbenannte Playlist","ownerID":"me","ownerName":"me","snapshotID":"applemusic"},
+                 {"id":"p.8","name":"Lista sin título","ownerID":"me","ownerName":"me","snapshotID":"applemusic"}]
+                """#.utf8))
         XCTAssertEqual(savedAppleMusic.map(\.name), ["Untitled Playlist", "Untitled Playlist"])
         XCTAssertEqual(
             savedAppleMusic.map { PinnedItem.playlist($0).localizedTitle(locale: locale) },
@@ -600,7 +666,8 @@ final class LocalizationCoverageTests: XCTestCase {
         )
         XCTAssertEqual(PinnedItem.playlist(lookalike).title, "Untitled playlist")
         XCTAssertEqual(
-            PinnedItem.playlist(PlaylistBrowserLibraryActions.playlistSummaryFromRow(PlaylistRowViewModel(lookalike))).title,
+            PinnedItem.playlist(PlaylistBrowserLibraryActions.playlistSummaryFromRow(PlaylistRowViewModel(lookalike)))
+                .title,
             "Untitled playlist"
         )
     }
@@ -609,23 +676,43 @@ final class LocalizationCoverageTests: XCTestCase {
     /// pin's label, a nameless episode in the player bar, and real names that read like another
     /// kind's stand-in (#547).
     func testSearchPinSubtitlesAndThePlayerBarFollowTheLanguageForNamelessItems() throws {
-        let search = try JSONDecoder().decode(SpotifySearchResponseDTO.self, from: Data(#"""
-        {"artists":{"limit":1,"total":1,"items":[{"id":"a1","uri":"spotify:artist:a1"}]},
-         "albums":{"limit":1,"total":1,"items":[{"id":"al1","artists":[{"id":"a2"}],"uri":"spotify:album:al1"}]}}
-        """#.utf8)).domainModel()
-        let track = try XCTUnwrap(try JSONDecoder().decode(SpotifyTrackDTO.self, from: Data(#"""
-        {"id":"t1","name":"Kerala","uri":"spotify:track:t1","artists":[{"id":"a3"},{"id":"a4","name":"Bonobo"}]}
-        """#.utf8)).domainModel())
-        let soloTrack = try XCTUnwrap(try JSONDecoder().decode(SpotifyTrackDTO.self, from: Data(#"""
-        {"id":"t2","name":"Solo","uri":"spotify:track:t2","artists":[{"id":"a5"}]}
-        """#.utf8)).domainModel())
-        guard case let .stateChanged(episode?, _, _, _) = try SpotifyPlaybackBridgeParser.parse([
-            "name": "state_changed",
-            "payload": ["paused": false, "track": ["name": "", "artists": [String](), "uri": "spotify:episode:e1"]]
-        ]) else { return XCTFail("expected a playing episode") }
+        let search = try JSONDecoder().decode(
+            SpotifySearchResponseDTO.self,
+            from: Data(
+                #"""
+                {"artists":{"limit":1,"total":1,"items":[{"id":"a1","uri":"spotify:artist:a1"}]},
+                 "albums":{"limit":1,"total":1,"items":[{"id":"al1","artists":[{"id":"a2"}],"uri":"spotify:album:al1"}]}}
+                """#.utf8)
+        ).domainModel()
+        let track = try XCTUnwrap(
+            try JSONDecoder().decode(
+                SpotifyTrackDTO.self,
+                from: Data(
+                    #"""
+                    {"id":"t1","name":"Kerala","uri":"spotify:track:t1","artists":[{"id":"a3"},{"id":"a4","name":"Bonobo"}]}
+                    """#.utf8)
+            ).domainModel())
+        let soloTrack = try XCTUnwrap(
+            try JSONDecoder().decode(
+                SpotifyTrackDTO.self,
+                from: Data(
+                    #"""
+                    {"id":"t2","name":"Solo","uri":"spotify:track:t2","artists":[{"id":"a5"}]}
+                    """#.utf8)
+            ).domainModel())
+        guard
+            case .stateChanged(let episode?, _, _, _) = try SpotifyPlaybackBridgeParser.parse([
+                "name": "state_changed",
+                "payload": [
+                    "paused": false, "track": ["name": "", "artists": [String](), "uri": "spotify:episode:e1"],
+                ],
+            ])
+        else { return XCTFail("expected a playing episode") }
 
         try store.mutate { $0.appearance.language = .english }
-        let pins = [PinnedItem.track(track), PinnedItem.track(soloTrack), PinnedItem.album(try XCTUnwrap(search.albums.first))]
+        let pins = [
+            PinnedItem.track(track), PinnedItem.track(soloTrack), PinnedItem.album(try XCTUnwrap(search.albums.first)),
+        ]
         let artistPin = PinnedItem.artist(try XCTUnwrap(search.artists.first))
         let commaArtist = PinnedItem(
             id: "track:t3", kind: .track, title: "Earfquake", subtitle: "Tyler, The Creator",
@@ -651,12 +738,15 @@ final class LocalizationCoverageTests: XCTestCase {
             PlaylistBrowserPinnedItemActivation.route(for: artistPin, previousSelection: nil),
             .selectArtist(id: "a1", displayName: "Unbekannter Künstler")
         )
-        guard case let .selectAlbum(_, _, albumSubtitle, _)? = PlaylistBrowserPinnedItemActivation.route(
-            for: pins[2], previousSelection: nil
-        ) else { return XCTFail("expected an album route") }
+        guard
+            case .selectAlbum(_, _, let albumSubtitle, _)? = PlaylistBrowserPinnedItemActivation.route(
+                for: pins[2], previousSelection: nil
+            )
+        else { return XCTFail("expected an album route") }
         // The route hands the line on as saved; the album page says it in the language of the moment (#571).
         let albumHeader = PlaylistRowViewModel(
-            albumDisplayName: "Album", artistsDisplay: albumSubtitle, totalTrackCount: 1, artworkURL: nil, albumID: "al1"
+            albumDisplayName: "Album", artistsDisplay: albumSubtitle, totalTrackCount: 1, artworkURL: nil,
+            albumID: "al1"
         )
         XCTAssertEqual(albumHeader.localizedOwner(locale: locale), "Unbekannter Künstler")
         XCTAssertEqual(commaArtist.localizedSubtitle(locale: locale), "Tyler, The Creator")
@@ -669,10 +759,15 @@ final class LocalizationCoverageTests: XCTestCase {
         XCTAssertEqual(albumByAlbum.localizedSubtitle(locale: Locale(identifier: "es")), "Album")
 
         // Recently Played names an album without a name as one, not after the track.
-        let recent = try XCTUnwrap(try JSONDecoder().decode(SpotifyTrackDTO.self, from: Data(#"""
-        {"id":"t5","name":"Kerala","uri":"spotify:track:t5","artists":[{"id":"a4","name":"Bonobo"}],
-         "album":{"id":"al3","name":null,"images":[]}}
-        """#.utf8)).domainModel())
+        let recent = try XCTUnwrap(
+            try JSONDecoder().decode(
+                SpotifyTrackDTO.self,
+                from: Data(
+                    #"""
+                    {"id":"t5","name":"Kerala","uri":"spotify:track:t5","artists":[{"id":"a4","name":"Bonobo"}],
+                     "album":{"id":"al3","name":null,"images":[]}}
+                    """#.utf8)
+            ).domainModel())
         let card = try XCTUnwrap(HomeMediaCard(recentlyPlayed: recent))
         XCTAssertEqual(card.title, "Unbekanntes Album")
         let albumPin = try XCTUnwrap(card.menuTarget).pinnedItem
@@ -689,7 +784,6 @@ final class LocalizationCoverageTests: XCTestCase {
         XCTAssertEqual(PinnedItem.playlist(realPlaylist).localizedTitle(locale: store.appLocale), "Unbekannter Titel")
         XCTAssertEqual(MusicArtistRef(id: "a6", name: "Unknown track").name, "Unknown track")
     }
-
 
     /// The equalizer exposes one gain fader per fixed centre frequency and no
     /// control over Q or centre frequency, which is a graphic equalizer. The
@@ -712,11 +806,13 @@ final class LocalizationCoverageTests: XCTestCase {
         var offenders: [String] = []
         for (key, entry) in strings {
             guard let entry = entry as? [String: Any],
-                  let localizations = entry["localizations"] as? [String: Any] else { continue }
+                let localizations = entry["localizations"] as? [String: Any]
+            else { continue }
             for (locale, localization) in localizations {
                 guard let localization = localization as? [String: Any],
-                      let unit = localization["stringUnit"] as? [String: Any],
-                      let value = unit["value"] as? String else { continue }
+                    let unit = localization["stringUnit"] as? [String: Any],
+                    let value = unit["value"] as? String
+                else { continue }
                 if value.lowercased().contains(forbidden) {
                     offenders.append("\(key) [\(locale)]: \(value)")
                 }
@@ -730,14 +826,14 @@ final class LocalizationCoverageTests: XCTestCase {
 
 }
 
-private extension MusicPlaylistTrackItem {
-    var trackName: String? {
-        guard case let .track(track) = content else { return nil }
+extension MusicPlaylistTrackItem {
+    fileprivate var trackName: String? {
+        guard case .track(let track) = content else { return nil }
         return track.name
     }
 
-    var artistRefNames: [String] {
-        guard case let .track(track) = content else { return [] }
+    fileprivate var artistRefNames: [String] {
+        guard case .track(let track) = content else { return [] }
         return track.artistRefs.map(\.name)
     }
 }

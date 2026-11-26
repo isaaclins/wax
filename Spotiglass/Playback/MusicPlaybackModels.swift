@@ -117,9 +117,9 @@ extension PlaybackConnectionState {
     /// so they don't re-render the window (#409).
     var ignoringPosition: PlaybackConnectionState {
         switch self {
-        case let .playing(track):
+        case .playing(let track):
             .playing(track.with(positionMilliseconds: 0))
-        case let .paused(track):
+        case .paused(let track):
             .paused(track?.with(positionMilliseconds: 0))
         case .disconnected, .connecting, .ready, .transferring, .unavailable, .error:
             self
@@ -159,9 +159,9 @@ extension PlaybackConnectionState {
     /// What is playing or paused, lyrics or not (a podcast episode, a local file).
     var currentTrack: PlaybackNowPlaying? {
         switch self {
-        case let .playing(track):
+        case .playing(let track):
             track
-        case let .paused(track):
+        case .paused(let track):
             track
         case .disconnected, .connecting, .ready, .transferring, .unavailable, .error:
             nil
@@ -292,7 +292,8 @@ extension QueueItem {
             albumID: track.albumID,
             durationMilliseconds: track.durationMilliseconds,
             uri: track.uri,
-            artistTapTargets: artistTapTargets(artistRefs: track.artistRefs, fallbackSubtitle: track.artists.joined(separator: ", "))
+            artistTapTargets: artistTapTargets(
+                artistRefs: track.artistRefs, fallbackSubtitle: track.artists.joined(separator: ", "))
         )
     }
 
@@ -310,9 +311,9 @@ extension QueueItem {
 
     static func from(queueItem: MusicPlaybackItem, id: String? = nil) -> QueueItem {
         switch queueItem {
-        case let .track(track):
+        case .track(let track):
             .from(track: track, id: id)
-        case let .episode(episode):
+        case .episode(let episode):
             .from(episode: episode, id: id)
         }
     }
@@ -335,7 +336,8 @@ extension QueueItem {
         if !artistRefs.isEmpty {
             return artistRefs.map { ArtistTapTarget(id: $0.id, name: $0.name) }
         }
-        let fallbackNames = fallbackSubtitle
+        let fallbackNames =
+            fallbackSubtitle
             .split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -346,7 +348,8 @@ extension QueueItem {
     func playbackNowPlayingForLyricsPrefetch() -> PlaybackNowPlaying? {
         guard let uri else { return nil }
         let trimmed = subtitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let artistParts = trimmed.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        let artistParts = trimmed.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
         // No artist stays none, as on the now-playing item this prefetches for.
         let artists = artistParts.isEmpty ? (trimmed.isEmpty ? [] : [trimmed]) : artistParts
         let nowPlaying = PlaybackNowPlaying(
@@ -475,7 +478,7 @@ extension MusicPlaybackSnapshot {
 
         let nowPlaying: PlaybackNowPlaying
         switch item {
-        case let .track(track):
+        case .track(let track):
             nowPlaying = PlaybackNowPlaying(
                 name: track.name,
                 artists: track.artists,
@@ -487,7 +490,7 @@ extension MusicPlaybackSnapshot {
                 positionMilliseconds: 0,
                 uri: track.uri
             )
-        case let .episode(episode):
+        case .episode(let episode):
             let showName = episode.showName?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .nilIfEmpty
@@ -504,7 +507,8 @@ extension MusicPlaybackSnapshot {
         }
 
         let progress = max(0, progressMilliseconds ?? 0)
-        let clampedProgress = nowPlaying.durationMilliseconds > 0
+        let clampedProgress =
+            nowPlaying.durationMilliseconds > 0
             ? min(progress, nowPlaying.durationMilliseconds)
             : progress
         return nowPlaying.with(positionMilliseconds: clampedProgress)

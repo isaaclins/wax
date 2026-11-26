@@ -1,5 +1,6 @@
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Keeps the app on one layout grid (#428).
@@ -209,14 +210,14 @@ final class LayoutGridTests: XCTestCase {
     /// A preview is left out, but a view written below one is still checked.
     func testScannerChecksCodeAfterAPreview() {
         let source = """
-        struct A: View { var body: some View { Text("a").padding(SpotiglassDesign.spacingM) } }
-        #Preview {
-            A()
-                .frame(width: 400)
-                .padding(20)
-        }
-        struct B: View { var body: some View { Text("b").padding(6) } }
-        """
+            struct A: View { var body: some View { Text("a").padding(SpotiglassDesign.spacingM) } }
+            #Preview {
+                A()
+                    .frame(width: 400)
+                    .padding(20)
+            }
+            struct B: View { var body: some View { Text("b").padding(6) } }
+            """
         XCTAssertEqual(Self.looseStatements(in: source).map(\.0), [6])
     }
 
@@ -224,11 +225,11 @@ final class LayoutGridTests: XCTestCase {
     /// preview swallow the code after it.
     func testPreviewBracesInTextDoNotHideLaterCode() {
         let source = """
-        #Preview {
-            Text("{ not a brace") // nor this {
-        }
-        struct B: View { var body: some View { Text("b").padding(6) } }
-        """
+            #Preview {
+                Text("{ not a brace") // nor this {
+            }
+            struct B: View { var body: some View { Text("b").padding(6) } }
+            """
         XCTAssertEqual(Self.looseStatements(in: source).map(\.0), [3])
     }
 
@@ -236,44 +237,44 @@ final class LayoutGridTests: XCTestCase {
     /// so the code after it is still checked.
     func testSlashStarInTextDoesNotHideLaterCode() {
         let source = """
-        /// Reads Spotiglass/*.swift
-        let pattern = "/*"
-        struct B: View { var body: some View { Text("b").padding(6) } }
-        """
+            /// Reads Spotiglass/*.swift
+            let pattern = "/*"
+            struct B: View { var body: some View { Text("b").padding(6) } }
+            """
         XCTAssertEqual(Self.looseStatements(in: source).map(\.0), [2])
     }
 
     /// A preview inside a type is left out like one at the top level.
     func testIndentedPreviewIsLeftOut() {
         let source = """
-        extension A {
-            #Preview {
-                A().padding(20)
+            extension A {
+                #Preview {
+                    A().padding(20)
+                }
             }
-        }
-        struct B: View { var body: some View { Text("b").padding(6) } }
-        """
+            struct B: View { var body: some View { Text("b").padding(6) } }
+            """
         XCTAssertEqual(Self.looseStatements(in: source).map(\.0), [5])
     }
 
     /// A call written over several lines is still one call.
     func testScannerReadsCallsOverSeveralLines() {
         let source = """
-        Text("a")
-            .padding(
-                6
-            )
-            .frame(width:
-                150)
-            .listRowInsets(EdgeInsets(
-                top: 0,
-                leading: SpotiglassDesign.spacingS,
-                bottom: 0,
-                trailing: 10
-            ))
-        Text("(") .padding(SpotiglassDesign.spacingM)
-        Text("b").padding(SpotiglassDesign.spacingM)
-        """
+            Text("a")
+                .padding(
+                    6
+                )
+                .frame(width:
+                    150)
+                .listRowInsets(EdgeInsets(
+                    top: 0,
+                    leading: SpotiglassDesign.spacingS,
+                    bottom: 0,
+                    trailing: 10
+                ))
+            Text("(") .padding(SpotiglassDesign.spacingM)
+            Text("b").padding(SpotiglassDesign.spacingM)
+            """
         XCTAssertEqual(Self.looseStatements(in: source).map(\.0), [1, 4, 6])
     }
 
@@ -308,8 +309,8 @@ final class LayoutGridTests: XCTestCase {
         for pattern in patterns {
             for match in pattern.matches(in: code, range: range) {
                 guard let valueRange = Range(match.range(at: 1), in: code),
-                      let value = Double(code[valueRange]),
-                      !allowedValues.contains(abs(value))
+                    let value = Double(code[valueRange]),
+                    !allowedValues.contains(abs(value))
                 else { continue }
                 let digits = code[valueRange].drop { $0 == "-" }
                 hits[code.distance(from: code.startIndex, to: digits.startIndex)] = String(code[valueRange])
@@ -318,9 +319,9 @@ final class LayoutGridTests: XCTestCase {
         for argument in layoutArguments(in: code) {
             for match in literal.matches(in: code, range: NSRange(argument, in: code)) {
                 guard let valueRange = Range(match.range, in: code),
-                      let value = Double(code[valueRange]),
-                      !allowedValues.contains(value),
-                      !isScaleFactor(valueRange, in: code)
+                    let value = Double(code[valueRange]),
+                    !allowedValues.contains(value),
+                    !isScaleFactor(valueRange, in: code)
                 else { continue }
                 let offset = code.distance(from: code.startIndex, to: valueRange.lowerBound)
                 if hits[offset] == nil { hits[offset] = String(code[valueRange]) }
@@ -335,7 +336,8 @@ final class LayoutGridTests: XCTestCase {
     /// Labels whose whole argument is a layout size, so a number anywhere in it
     /// (`min(320, width * 0.36)`, `isWide ? 420 : .infinity`, `top - 8`) is loose.
     private static let layoutLabel = try! NSRegularExpression(
-        pattern: #"(?<!let )(?<!var )\b(?:spacing|width|height|minWidth|maxWidth|minHeight|maxHeight|idealWidth|idealHeight|minLength)\s*:"#
+        pattern:
+            #"(?<!let )(?<!var )\b(?:spacing|width|height|minWidth|maxWidth|minHeight|maxHeight|idealWidth|idealHeight|minLength)\s*:"#
     )
 
     /// Calls whose every argument is a layout number: `.padding(.top, 6)`,
@@ -478,7 +480,10 @@ final class LayoutGridTests: XCTestCase {
         var previous: Character?
         for character in line {
             if inString {
-                if character == "\"", previous != "\\" { inString = false; code.append(character) }
+                if character == "\"", previous != "\\" {
+                    inString = false
+                    code.append(character)
+                }
             } else if character == "\"" {
                 inString = true
                 code.append(character)
@@ -527,24 +532,28 @@ final class SidebarRowLayoutTests: XCTestCase {
         return host.fittingSize.height
     }
 
-    private let playlist = PlaylistRowViewModel(MusicPlaylistSummary(
-        id: "p.1", name: "Night Drive", ownerID: "me", ownerName: "Me",
-        imageURL: nil, trackCount: 8, snapshotID: "s1"
-    ))
+    private let playlist = PlaylistRowViewModel(
+        MusicPlaylistSummary(
+            id: "p.1", name: "Night Drive", ownerID: "me", ownerName: "Me",
+            imageURL: nil, trackCount: 8, snapshotID: "s1"
+        ))
 
     func testEverySidebarRowHasTheSameHeight() {
-        let likedSongs = PlaylistRowViewModel(MusicPlaylistSummary(
-            id: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID, name: "Liked Songs", ownerID: "me",
-            ownerName: "Me", imageURL: nil, trackCount: 120, snapshotID: "s2"
-        ))
-        let pin = PinnedItem.playlist(MusicPlaylistSummary(
-            id: "p.2", name: "Deep Focus", ownerID: "me", ownerName: "Me",
-            imageURL: nil, trackCount: 13, snapshotID: "s3"
-        ))
-        var stalePin = PinnedItem.playlist(MusicPlaylistSummary(
-            id: "p.3", name: "A playlist with a name long enough to be cut", ownerID: "me", ownerName: "Me",
-            imageURL: nil, trackCount: 13, snapshotID: "s4"
-        ))
+        let likedSongs = PlaylistRowViewModel(
+            MusicPlaylistSummary(
+                id: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID, name: "Liked Songs", ownerID: "me",
+                ownerName: "Me", imageURL: nil, trackCount: 120, snapshotID: "s2"
+            ))
+        let pin = PinnedItem.playlist(
+            MusicPlaylistSummary(
+                id: "p.2", name: "Deep Focus", ownerID: "me", ownerName: "Me",
+                imageURL: nil, trackCount: 13, snapshotID: "s3"
+            ))
+        var stalePin = PinnedItem.playlist(
+            MusicPlaylistSummary(
+                id: "p.3", name: "A playlist with a name long enough to be cut", ownerID: "me", ownerName: "Me",
+                imageURL: nil, trackCount: 13, snapshotID: "s4"
+            ))
         stalePin.isStale = true
         // The row's height is a floor, so a row whose content outgrows it measures taller here.
         let rows: [(String, CGFloat)] = [
@@ -554,7 +563,10 @@ final class SidebarRowLayoutTests: XCTestCase {
             ("unavailable pin", height(of: PinnedRowView(item: stalePin, onUnpin: {}))),
             ("Liked Songs", height(of: PlaylistListRow(playlist: likedSongs))),
             ("playlist", height(of: PlaylistListRow(playlist: playlist))),
-            ("playing playlist", height(of: PlaylistListRow(playlist: playlist, isActive: true, isPlaying: true, isPinned: true))),
+            (
+                "playing playlist",
+                height(of: PlaylistListRow(playlist: playlist, isActive: true, isPlaying: true, isPinned: true))
+            ),
         ]
         for (name, rowHeight) in rows {
             XCTAssertEqual(rowHeight, SpotiglassDesign.Layout.sidebarRowHeight, "\(name) row")

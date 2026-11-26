@@ -92,7 +92,8 @@ extension PlaybackSessionViewModel {
         } else {
             guard Self.isPlaybackTransportReady(for: connectionState), commandDeviceID != nil else { return nil }
             if !provider.capabilities.contains(.pushesPlayerState),
-               let localCommandExpectsPlaying {
+                let localCommandExpectsPlaying
+            {
                 // A player without pushed state may not have confirmed the last pause, resume
                 // or play yet (a new item can still show `.ready` or the previous `.paused`
                 // item). Toggle what was asked for.
@@ -164,7 +165,8 @@ extension PlaybackSessionViewModel {
     private func showPlayPause(shouldPause: Bool) {
         let nowPlaying = currentNowPlaying ?? latestPlayerSnapshot?.playbackNowPlaying
         let optimisticNowPlaying = nowPlaying.map { nowPlaying in
-            let position = progressAnchor?.interpolatedPositionMs(at: Date())
+            let position =
+                progressAnchor?.interpolatedPositionMs(at: Date())
                 ?? nowPlaying.positionMilliseconds
             return nowPlaying.with(positionMilliseconds: position)
         }
@@ -183,13 +185,15 @@ extension PlaybackSessionViewModel {
             }
         }
         guard ownsPlaybackHostGeneration(request.generation), !Task.isCancelled,
-              request.serial > playPauseSupersededThrough else { return }
+            request.serial > playPauseSupersededThrough
+        else { return }
         if request.usesInAppPlayer {
             // The page is still running the press before: a quick pause, play would otherwise
             // run both at once in Spotify's player, and the pause could land last.
             await waitForInAppCommandToFinish()
             guard ownsPlaybackHostGeneration(request.generation), !Task.isCancelled,
-                  request.serial > playPauseSupersededThrough else { return }
+                request.serial > playPauseSupersededThrough
+            else { return }
             beginInAppCommand(request)
             lastSentInAppPress = request
             do {
@@ -212,7 +216,8 @@ extension PlaybackSessionViewModel {
         do {
             try await sendReadPlayerCommand(request, deviceID: deviceID)
             guard ownsPlaybackHostGeneration(request.generation), !Task.isCancelled,
-                  request.serial > playPauseSupersededThrough else { return }
+                request.serial > playPauseSupersededThrough
+            else { return }
             playPauseConfirmedState = request.stateAfter
             await reassertLaterPress(after: request)
             guard request.serial == playPauseRequestSerial else { return }
@@ -234,13 +239,16 @@ extension PlaybackSessionViewModel {
         guard ownsPlaybackHostGeneration(request.generation), !Task.isCancelled else { return }
         // A later press, or a play started after it, decides what is shown.
         guard request.serial == playPauseRequestSerial,
-              request.serial > playPauseSupersededThrough else { return }
+            request.serial > playPauseSupersededThrough
+        else { return }
         // An error that says what to do (sign in again, Premium) came meanwhile: it stays.
         if case .error = connectionState {
-            SpotiglassLog.error(.playback, "togglePlayPause refused: \(SpotiglassLog.describe(error)); the error already shown stays")
+            SpotiglassLog.error(
+                .playback, "togglePlayPause refused: \(SpotiglassLog.describe(error)); the error already shown stays")
             return
         }
-        let displayError = reportPlaybackError(error, while: "playing or pausing", Self.displayError(for: error, service: service))
+        let displayError = reportPlaybackError(
+            error, while: "playing or pausing", Self.displayError(for: error, service: service))
         localCommandExpectsPlaying = nil
         clearPushedPlayStateExpectation()
         guard Self.playPauseRefusalGoesBack(error) else {
@@ -249,7 +257,10 @@ extension PlaybackSessionViewModel {
         }
         let playerState = request.usesInAppPlayer ? pageReportedPlayState : playPauseConfirmedState
         setConnectionState(playerState ?? request.stateBefore)
-        showRefusedPlayPause(displayError.with { $0 = refusedPlayPauseLine(for: error, displayError: displayError, shouldPause: request.shouldPause) })
+        showRefusedPlayPause(
+            displayError.with {
+                $0 = refusedPlayPauseLine(for: error, displayError: displayError, shouldPause: request.shouldPause)
+            })
     }
 
     private func sendReadPlayerCommand(_ request: PlayPauseRequest, deviceID: String) async throws {
@@ -267,12 +278,14 @@ extension PlaybackSessionViewModel {
     /// effect may have landed last, so the latest press is sent again.
     private func reassertLaterPress(after request: PlayPauseRequest) async {
         guard let later = lastSentReadPress,
-              later.serial > request.serial,
-              later.shouldPause != request.shouldPause,
-              later.serial == playPauseRequestSerial,
-              later.serial > playPauseSupersededThrough,
-              let deviceID = later.deviceID else { return }
-        SpotiglassLog.info(.playback, "togglePlayPause sending the latest press again after an earlier one finished late")
+            later.serial > request.serial,
+            later.shouldPause != request.shouldPause,
+            later.serial == playPauseRequestSerial,
+            later.serial > playPauseSupersededThrough,
+            let deviceID = later.deviceID
+        else { return }
+        SpotiglassLog.info(
+            .playback, "togglePlayPause sending the latest press again after an earlier one finished late")
         do {
             try await sendReadPlayerCommand(later, deviceID: deviceID)
         } catch {
@@ -362,9 +375,10 @@ extension PlaybackSessionViewModel {
     func handleInAppCommandFinished(_ command: String, id: UInt64?) {
         let wasRunning = inAppCommandInFlight
         guard let request = takeAnsweredInAppPress(command: command, id: id),
-              ownsPlaybackHostGeneration(request.generation),
-              request.serial > playPauseSupersededThrough,
-              request.sendsRequestedState else { return }
+            ownsPlaybackHostGeneration(request.generation),
+            request.serial > playPauseSupersededThrough,
+            request.sendsRequestedState
+        else { return }
         pageReportedPlayState = request.stateAfter
         if request.serial == inAppPressRolledBackSerial {
             inAppPressRolledBackSerial = nil
@@ -373,20 +387,24 @@ extension PlaybackSessionViewModel {
             // one decides: it is sent again below when it is the opposite.
             if request.serial == playPauseRequestSerial {
                 if case .error = connectionState { return }
-                SpotiglassLog.info(.playback, "Spotify playback SDK answered \(request.inAppCommand) after the bar went back; showing it")
+                SpotiglassLog.info(
+                    .playback,
+                    "Spotify playback SDK answered \(request.inAppCommand) after the bar went back; showing it")
                 clearRefusedPlayPause()
                 setConnectionState(request.stateAfter)
                 return
             }
         }
         guard request.serial != wasRunning?.serial,
-              let later = lastSentInAppPress,
-              later.serial > request.serial,
-              later.shouldPause != request.shouldPause,
-              later.serial == playPauseRequestSerial,
-              later.serial > playPauseSupersededThrough,
-              later.sendsRequestedState else { return }
-        SpotiglassLog.info(.playback, "Spotify playback SDK answered \(request.inAppCommand) late; sending the latest press again")
+            let later = lastSentInAppPress,
+            later.serial > request.serial,
+            later.shouldPause != request.shouldPause,
+            later.serial == playPauseRequestSerial,
+            later.serial > playPauseSupersededThrough,
+            later.sendsRequestedState
+        else { return }
+        SpotiglassLog.info(
+            .playback, "Spotify playback SDK answered \(request.inAppCommand) late; sending the latest press again")
         pageReportedPlayState = later.stateAfter
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -442,7 +460,8 @@ extension PlaybackSessionViewModel {
             try? await clock.sleep(until: deadline, tolerance: nil)
             guard let self else { return }
             guard !Task.isCancelled, self.inAppCommandInFlight?.serial == request.serial else { return }
-            SpotiglassLog.info(.playback, "Spotify playback SDK didn't answer \(request.inAppCommand); sending the next press")
+            SpotiglassLog.info(
+                .playback, "Spotify playback SDK didn't answer \(request.inAppCommand); sending the next press")
             self.inAppCommandsUnanswered.append(request)
             if self.inAppCommandsUnanswered.count > Self.inAppCommandsUnansweredLimit {
                 self.inAppCommandsUnanswered.removeFirst()
@@ -458,10 +477,10 @@ extension PlaybackSessionViewModel {
     /// the icon of a press that may never have landed (#598).
     private func rollBackUnansweredInAppPress() {
         guard let latest = lastSentInAppPress,
-              latest.serial == playPauseRequestSerial,
-              latest.sendsRequestedState,
-              ownsPlaybackHostGeneration(latest.generation),
-              inAppCommandInFlight?.serial == latest.serial
+            latest.serial == playPauseRequestSerial,
+            latest.sendsRequestedState,
+            ownsPlaybackHostGeneration(latest.generation),
+            inAppCommandInFlight?.serial == latest.serial
                 || inAppCommandsUnanswered.contains(where: { $0.serial == latest.serial })
         else { return }
         SpotiglassLog.error(
@@ -469,7 +488,10 @@ extension PlaybackSessionViewModel {
             "Spotify playback SDK never answered \(latest.inAppCommand) and reported no state after \(Self.durationSeconds(pushedPlayStateExpectationTimeout))s; going back to the last confirmed state"
         )
         inAppPressRolledBackSerial = latest.serial
-        refusePlayPause(latest, error: MusicPlaybackError(service: .spotify, reason: .failed, detail: "no answer to \(latest.inAppCommand)"))
+        refusePlayPause(
+            latest,
+            error: MusicPlaybackError(service: .spotify, reason: .failed, detail: "no answer to \(latest.inAppCommand)")
+        )
     }
 
     /// A new player page: nothing the old one owed earlier presses counts any more, and a new
@@ -557,8 +579,9 @@ extension PlaybackSessionViewModel {
         guard let until = playPauseReadHoldUntil else { return false }
         if predatesPress, clock.now < until { return true }
         guard clock.now < until,
-              let localCommandExpectsPlaying,
-              snapshot.isPlaying != localCommandExpectsPlaying else {
+            let localCommandExpectsPlaying,
+            snapshot.isPlaying != localCommandExpectsPlaying
+        else {
             playPauseReadHoldUntil = nil
             return false
         }
@@ -597,7 +620,8 @@ extension PlaybackSessionViewModel {
         }
         let now = clock.now
         if kind == .next,
-           let deadline = pendingSkipDeadline {
+            let deadline = pendingSkipDeadline
+        {
             if now < deadline {
                 nextCommandDroppedLockoutCount += 1
                 return
@@ -606,7 +630,8 @@ extension PlaybackSessionViewModel {
             nextCommandTimeoutUnlockCount += 1
         }
         if let last = lastSkipDispatchInstant,
-           now < last.advanced(by: skipCommandMinimumSpacing) {
+            now < last.advanced(by: skipCommandMinimumSpacing)
+        {
             if kind == .next {
                 nextCommandDroppedDedupeCount += 1
             }
@@ -671,27 +696,29 @@ extension PlaybackSessionViewModel {
 
     func observeSkipAdvance(nowPlayingURI: String?) {
         if var dispatch = pendingSkipDispatch,
-           dispatch.kind == .next,
-           dispatch.hostGeneration == playbackHostGeneration,
-           let nowPlayingURI
+            dispatch.kind == .next,
+            dispatch.hostGeneration == playbackHostGeneration,
+            let nowPlayingURI
         {
-            guard isSkipURIAdvance(
-                expectedPreviousURI: dispatch.expectedPreviousURI,
-                currentURI: nowPlayingURI
-            ) else { return }
+            guard
+                isSkipURIAdvance(
+                    expectedPreviousURI: dispatch.expectedPreviousURI,
+                    currentURI: nowPlayingURI
+                )
+            else { return }
             dispatch.observedAdvance = true
             pendingSkipDispatch = dispatch
             return
         }
 
         guard let lockout = pendingNextSkipLockout,
-              lockout.hostGeneration == playbackHostGeneration,
-              let nowPlayingURI,
-              lockout.lockoutDeadline != nil,
-              isSkipURIAdvance(
-                  expectedPreviousURI: lockout.expectedPreviousURI,
-                  currentURI: nowPlayingURI
-              )
+            lockout.hostGeneration == playbackHostGeneration,
+            let nowPlayingURI,
+            lockout.lockoutDeadline != nil,
+            isSkipURIAdvance(
+                expectedPreviousURI: lockout.expectedPreviousURI,
+                currentURI: nowPlayingURI
+            )
         else { return }
         pendingNextSkipLockout = nil
         isNextCommandLockedOut = false
@@ -714,10 +741,11 @@ extension PlaybackSessionViewModel {
     private func hasObservedSkipAdvance(_ dispatch: SkipCommandDispatch) -> Bool {
         // The song on the bar may be the skip's own preview, not anything Spotify reported.
         dispatch.observedAdvance
-            || skipPreview == nil && isSkipURIAdvance(
-                expectedPreviousURI: dispatch.expectedPreviousURI,
-                currentURI: currentNowPlayingURI
-            )
+            || skipPreview == nil
+                && isSkipURIAdvance(
+                    expectedPreviousURI: dispatch.expectedPreviousURI,
+                    currentURI: currentNowPlayingURI
+                )
     }
 
     private func isSkipURIAdvance(expectedPreviousURI: String?, currentURI: String?) -> Bool {
@@ -726,7 +754,7 @@ extension PlaybackSessionViewModel {
             // With no pre-request URI, an identified current URI is the only
             // observable evidence that the skip transition happened.
             true
-        case let (.some(expected), .some(current)):
+        case (.some(let expected), .some(let current)):
             current != expected
         case (_, nil):
             false
@@ -743,8 +771,8 @@ extension PlaybackSessionViewModel {
         action: (String) async throws -> Void
     ) async -> Bool {
         guard isCurrentSkipCommandDispatch(dispatch),
-              ownsPlaybackHostGeneration(dispatch.hostGeneration),
-              !Task.isCancelled
+            ownsPlaybackHostGeneration(dispatch.hostGeneration),
+            !Task.isCancelled
         else {
             // Never sent: the bar goes back to the song Spotify has, unless a newer skip owns it.
             if isCurrentSkipCommandDispatch(dispatch) { revertSkipPreview() }
@@ -758,8 +786,8 @@ extension PlaybackSessionViewModel {
         do {
             try await action(commandDeviceID)
             guard isCurrentSkipCommandDispatch(dispatch),
-                  ownsPlaybackHostGeneration(dispatch.hostGeneration),
-                  !Task.isCancelled
+                ownsPlaybackHostGeneration(dispatch.hostGeneration),
+                !Task.isCancelled
             else { return false }
             if !provider.capabilities.contains(.pushesPlayerState) {
                 // The player has moved past the item a pending play waits for,
@@ -772,8 +800,8 @@ extension PlaybackSessionViewModel {
             return true
         } catch {
             guard isCurrentSkipCommandDispatch(dispatch),
-                  ownsPlaybackHostGeneration(dispatch.hostGeneration),
-                  !Task.isCancelled
+                ownsPlaybackHostGeneration(dispatch.hostGeneration),
+                !Task.isCancelled
             else { return false }
             // The player already moved on from the song the Next left (its answer to the
             // request was lost): the skip happened, so there is nothing to show and nothing for
@@ -781,8 +809,10 @@ extension PlaybackSessionViewModel {
             // skip sent with no song known can't be told from any report, so those still fail. Nor
             // can a Next sent while a play was landing: the new song may be that play's.
             if dispatch.kind == .next, dispatch.expectedPreviousURI != nil, !dispatch.playWasPending,
-               let liveDispatch = pendingSkipDispatch, hasObservedSkipAdvance(liveDispatch) {
-                SpotiglassLog.info(.playback, "skip request failed after the player moved on: \(error.localizedDescription)")
+                let liveDispatch = pendingSkipDispatch, hasObservedSkipAdvance(liveDispatch)
+            {
+                SpotiglassLog.info(
+                    .playback, "skip request failed after the player moved on: \(error.localizedDescription)")
                 noteLocalPlaybackMutation()
                 return true
             }

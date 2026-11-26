@@ -25,7 +25,7 @@ final class RealUserDefaultsIsolationTests: XCTestCase {
         "spotify.grantedScope",
         "spotiglass.playbackVolume",
         "queue.panel.visible",
-        "lyrics.popOut.pinned"
+        "lyrics.popOut.pinned",
     ]
 
     private func snapshotRealDomain() -> [String: String] {
@@ -77,7 +77,8 @@ final class RealUserDefaultsIsolationTests: XCTestCase {
         ViewTestHost.appStorageDefaults.set(true, forKey: "queue.panel.visible")
         ViewTestHost.host(Text("probe"))
 
-        XCTAssertEqual(snapshotRealDomain(), before, "Hosted @AppStorage must bind to the test suite, not the real domain.")
+        XCTAssertEqual(
+            snapshotRealDomain(), before, "Hosted @AppStorage must bind to the test suite, not the real domain.")
         ViewTestHost.tearDownAll()
     }
 
@@ -89,7 +90,10 @@ final class RealUserDefaultsIsolationTests: XCTestCase {
             .filter { $0.hasSuffix(".swift") }
             .map { directory.appendingPathComponent($0) }
         return try urls.map {
-            (name: $0.lastPathComponent, contents: strippingWholeLineComments(try String(contentsOf: $0, encoding: .utf8)))
+            (
+                name: $0.lastPathComponent,
+                contents: strippingWholeLineComments(try String(contentsOf: $0, encoding: .utf8))
+            )
         }
     }
 
@@ -186,7 +190,7 @@ final class RealUserDefaultsIsolationTests: XCTestCase {
         while index < characters.count {
             if characters[index] == "\n" { line += 1 }
             guard index + token.count <= characters.count,
-                  Array(characters[index ..< index + token.count]) == token
+                Array(characters[index..<index + token.count]) == token
             else {
                 index += 1
                 continue

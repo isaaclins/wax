@@ -116,10 +116,12 @@ final class SpotifyGETResponseCache: @unchecked Sendable {
         }
 
         guard let diskCache else { return nil }
-        guard let hit = try? diskCache.loadGETResponseRecord(
-            digest: Self.digest(for: key),
-            allowExpired: allowExpired
-        ) else {
+        guard
+            let hit = try? diskCache.loadGETResponseRecord(
+                digest: Self.digest(for: key),
+                allowExpired: allowExpired
+            )
+        else {
             return nil
         }
         memory[key] = (expiry: hit.expiresAt, data: hit.data)
@@ -148,7 +150,8 @@ final class SpotifyGETResponseCache: @unchecked Sendable {
     ) -> Bool {
         lock.lock()
         guard ownership.cacheKey == key,
-              currentWriteGenerationByKey[key] == ownership.generation else {
+            currentWriteGenerationByKey[key] == ownership.generation
+        else {
             lock.unlock()
             return false
         }
@@ -187,7 +190,8 @@ final class SpotifyGETResponseCache: @unchecked Sendable {
     private func evictPendingWritesIfNeeded() {
         guard currentWriteGenerationByKey.count > maxPendingWrites else { return }
         let keep = max(1, maxPendingWrites * 3 / 4)
-        let oldest = currentWriteGenerationByKey
+        let oldest =
+            currentWriteGenerationByKey
             .sorted { $0.value < $1.value }
             .prefix(currentWriteGenerationByKey.count - keep)
         for entry in oldest {

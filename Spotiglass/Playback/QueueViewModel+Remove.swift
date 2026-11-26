@@ -22,7 +22,8 @@ extension QueueViewModel {
         guard let editing = provider.queueEditing, !removals.isEmpty else { return nil }
         let positions = Set(removals.map(\.position))
         let seen = QueueSnapshot(current: nowPlayingItem?.uri, upcoming: upcomingItems.map(\.uri))
-        return await applyRemoval(hiding: { $0.enumerated().filter { !positions.contains($0.offset) }.map(\.element) }) {
+        return await applyRemoval(hiding: { $0.enumerated().filter { !positions.contains($0.offset) }.map(\.element) })
+        {
             try await editing.removeFromQueue(removals, seen: seen)
         }
     }

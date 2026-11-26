@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// Autoplay (#613) on the Apple Music provider, with the scripted MusicKit player and sample
@@ -107,7 +108,9 @@ final class QueueAutoplayTests: XCTestCase {
             XCTAssertTrue(Set(after).isDisjoint(with: heard), "a heard song came back")
             XCTAssertEqual(Set(after).count, after.count, "a song is queued twice")
         }
-        let appended = h.player.commands.filter { $0.hasPrefix("append ") }.map { String($0.dropFirst("append ".count)) }
+        let appended = h.player.commands.filter { $0.hasPrefix("append ") }.map {
+            String($0.dropFirst("append ".count))
+        }
         XCTAssertEqual(Set(appended).count, appended.count)
         XCTAssertEqual(appended.count, 5 + 40)
     }
@@ -186,7 +189,8 @@ final class QueueAutoplayTests: XCTestCase {
 
         // The hand-added songs count fully in the seeds; Autoplay's own songs count half.
         let seedsAsked = try XCTUnwrap(h.source.requests.last)
-        let weightByURI = Dictionary(seedsAsked.compactMap { seed in seed.uri.map { ($0, seed.weight) } }, uniquingKeysWith: max)
+        let weightByURI = Dictionary(
+            seedsAsked.compactMap { seed in seed.uri.map { ($0, seed.weight) } }, uniquingKeysWith: max)
         let mineWeight = try XCTUnwrap(weightByURI[mine[1]])
         let autoplayWeight = try XCTUnwrap(weightByURI[autoplaySongs[0]])
         XCTAssertGreaterThan(mineWeight, autoplayWeight)
@@ -400,7 +404,8 @@ final class QueueAutoplayTests: XCTestCase {
         for reason: MusicPlaybackError.Reason in [
             .network("offline"), .server, .rateLimited(retryAfter: nil), .signInExpired, .missingPermission,
         ] {
-            XCTAssertFalse(QueueAutoplay.isPlainFailure(MusicPlaybackError(service: .appleMusic, reason: reason)), "\(reason)")
+            XCTAssertFalse(
+                QueueAutoplay.isPlainFailure(MusicPlaybackError(service: .appleMusic, reason: reason)), "\(reason)")
         }
         XCTAssertFalse(QueueAutoplay.isPlainFailure(QueueAutoplayNoPlayer()))
         XCTAssertFalse(QueueAutoplay.isPlainFailure(URLError(.notConnectedToInternet)))
@@ -443,7 +448,9 @@ final class QueueAutoplayTests: XCTestCase {
                 h.player.waitingLookups.contains("enqueue \(byHandURI)")
             }
             h.player.holdLookups = false
-            let autoplayAdd = Task { try await h.provider.appendToQueueEnd(suggested, deviceID: deviceID, isWanted: { true }) }
+            let autoplayAdd = Task {
+                try await h.provider.appendToQueueEnd(suggested, deviceID: deviceID, isWanted: { true })
+            }
             h.player.releaseLookups()
             try await byHand.value
 
@@ -499,16 +506,17 @@ final class QueueAutoplayTests: XCTestCase {
 
         func sessionPlays() async {
             let track = player.readState().current
-            session.connectionState = .playing(PlaybackNowPlaying(
-                name: track?.name ?? "",
-                artists: track?.artists ?? [],
-                albumName: nil,
-                albumID: nil,
-                albumArtURL: nil,
-                durationMilliseconds: 200_000,
-                positionMilliseconds: 0,
-                uri: track?.uri
-            ))
+            session.connectionState = .playing(
+                PlaybackNowPlaying(
+                    name: track?.name ?? "",
+                    artists: track?.artists ?? [],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 200_000,
+                    positionMilliseconds: 0,
+                    uri: track?.uri
+                ))
             await autoplay.settle()
         }
 
@@ -570,7 +578,7 @@ final class QueueAutoplayTests: XCTestCase {
 
     private func upcomingURIs(_ provider: AppleMusicPlaybackProvider) async throws -> [String] {
         try await provider.fetchQueue().queue.compactMap { item in
-            if case let .track(track) = item { return track.uri }
+            if case .track(let track) = item { return track.uri }
             return nil
         }
     }
@@ -599,7 +607,8 @@ final class QueueAutoplayTests: XCTestCase {
     func testRankingSkipsHeardSongsUnderAnotherIDAndSpreadsArtists() {
         let heard = Self.track("i.LIBRARY", title: "Midnight City", artist: "M83")
         let candidates = [
-            QueueAutoplayCandidate(track: Self.track("1001", title: "Midnight City (Remastered)", artist: "M83"), score: 9),
+            QueueAutoplayCandidate(
+                track: Self.track("1001", title: "Midnight City (Remastered)", artist: "M83"), score: 9),
             QueueAutoplayCandidate(track: Self.track("1002", title: "Wait", artist: "M83"), score: 8),
             QueueAutoplayCandidate(track: Self.track("1003", title: "Outro", artist: "M83"), score: 7),
             QueueAutoplayCandidate(track: Self.track("2001", title: "Kids", artist: "MGMT"), score: 6),
@@ -616,13 +625,14 @@ final class QueueAutoplayTests: XCTestCase {
 
     func testCatalogScoringPrefersSimilarArtistsOverTheSameArtistsHits() {
         let profiles: [String: AppleMusicAutoplaySource.ArtistProfile] = [
-            "1": .init(similarArtistIDs: ["2", "3"], topSongs: [Self.track("own", title: "Own Hit", artist: "One")]),
+            "1": .init(similarArtistIDs: ["2", "3"], topSongs: [Self.track("own", title: "Own Hit", artist: "One")])
         ]
         let top = [
             "2": [Self.track("sim2", title: "Similar Two", artist: "Two")],
             "3": [Self.track("sim3", title: "Similar Three", artist: "Three")],
         ]
-        let scored = AppleMusicAutoplaySource.score(seedArtists: [("1", 1)], profiles: profiles, topSongsByArtistID: top)
+        let scored = AppleMusicAutoplaySource.score(
+            seedArtists: [("1", 1)], profiles: profiles, topSongsByArtistID: top)
         let ranked = QueueAutoplayRanking.pick(scored, count: 3, excluded: [], lastArtistKey: nil)
         XCTAssertEqual(ranked.map(\.id), ["sim2", "sim3", "own"])
     }
@@ -649,17 +659,24 @@ final class QueueAutoplayTests: XCTestCase {
             AppleMusicAutoplayArtistMatch(id: "9", name: "Daft Punk Tribute Band"),
             AppleMusicAutoplayArtistMatch(id: "1", name: "Daft Punk"),
         ]
-        catalog.artists["1"] = .init(id: "1", similarArtistIDs: ["2", "3"], topSongs: [Self.track("own", title: "Own Hit", artist: "Daft Punk")])
-        catalog.artists["2"] = .init(id: "2", similarArtistIDs: [], topSongs: [Self.track("j1", title: "Genesis", artist: "Justice")])
-        catalog.artists["3"] = .init(id: "3", similarArtistIDs: [], topSongs: [Self.track("c1", title: "Kids", artist: "MGMT")])
+        catalog.artists["1"] = .init(
+            id: "1", similarArtistIDs: ["2", "3"], topSongs: [Self.track("own", title: "Own Hit", artist: "Daft Punk")])
+        catalog.artists["2"] = .init(
+            id: "2", similarArtistIDs: [], topSongs: [Self.track("j1", title: "Genesis", artist: "Justice")])
+        catalog.artists["3"] = .init(
+            id: "3", similarArtistIDs: [], topSongs: [Self.track("c1", title: "Kids", artist: "MGMT")])
         let source = AppleMusicAutoplaySource(catalog: catalog)
-        let seeds = [QueueAutoplaySeed(uri: "applemusic:song:i.lib", title: "Get Lucky", artists: ["Daft Punk"], artistIDs: ["r.lib"])]
+        let seeds = [
+            QueueAutoplaySeed(
+                uri: "applemusic:song:i.lib", title: "Get Lucky", artists: ["Daft Punk"], artistIDs: ["r.lib"])
+        ]
 
         let first = try await source.candidates(for: seeds)
         let ranked = QueueAutoplayRanking.pick(first, count: 3, excluded: [], lastArtistKey: nil).map(\.id)
         XCTAssertEqual(ranked, ["j1", "c1", "own"], "similar artists first, the seed artist's own hit last")
         XCTAssertEqual(catalog.searches, ["Daft Punk"])
-        XCTAssertEqual(catalog.reads, [.init(ids: ["1"], includeSimilar: true), .init(ids: ["2", "3"], includeSimilar: false)])
+        XCTAssertEqual(
+            catalog.reads, [.init(ids: ["1"], includeSimilar: true), .init(ids: ["2", "3"], includeSimilar: false)])
 
         let again = try await source.candidates(for: seeds)
         XCTAssertEqual(again, first)
@@ -674,8 +691,10 @@ final class QueueAutoplayTests: XCTestCase {
         let catalog = SampleAutoplayCatalog()
         catalog.matches["Nobody Known"] = []
         catalog.matches["Air & Friends"] = [AppleMusicAutoplayArtistMatch(id: "5", name: "Air")]
-        catalog.artists["4"] = .init(id: "4", similarArtistIDs: [], topSongs: [Self.track("b1", title: "Hyperballad", artist: "Björk")])
-        catalog.artists["5"] = .init(id: "5", similarArtistIDs: [], topSongs: [Self.track("a1", title: "Playground Love", artist: "Air")])
+        catalog.artists["4"] = .init(
+            id: "4", similarArtistIDs: [], topSongs: [Self.track("b1", title: "Hyperballad", artist: "Björk")])
+        catalog.artists["5"] = .init(
+            id: "5", similarArtistIDs: [], topSongs: [Self.track("a1", title: "Playground Love", artist: "Air")])
         let source = AppleMusicAutoplaySource(catalog: catalog)
         let seeds = [
             QueueAutoplaySeed(uri: "applemusic:song:b", title: "Joga", artists: ["Björk"], artistIDs: ["4"]),
@@ -687,7 +706,9 @@ final class QueueAutoplayTests: XCTestCase {
         _ = try await source.candidates(for: seeds)
 
         XCTAssertEqual(Set(found), ["b1", "a1"])
-        XCTAssertEqual(catalog.searches, ["Nobody Known", "Air & Friends"], "a catalog ID needs no search, and each name is searched once")
+        XCTAssertEqual(
+            catalog.searches, ["Nobody Known", "Air & Friends"],
+            "a catalog ID needs no search, and each name is searched once")
     }
 
     /// More than 25 similar artists go to the catalog in batches of 25, and an artist the
@@ -706,7 +727,9 @@ final class QueueAutoplayTests: XCTestCase {
             }
         }
         let source = AppleMusicAutoplaySource(catalog: catalog)
-        let seeds = seedArtists.map { QueueAutoplaySeed(uri: "applemusic:song:\($0)", title: $0, artists: [$0], artistIDs: [$0]) }
+        let seeds = seedArtists.map {
+            QueueAutoplaySeed(uri: "applemusic:song:\($0)", title: $0, artists: [$0], artistIDs: [$0])
+        }
 
         let found = try await source.candidates(for: seeds)
         _ = try await source.candidates(for: seeds)
@@ -810,7 +833,8 @@ final class SampleAutoplayCatalog: AppleMusicAutoplayCatalog, @unchecked Sendabl
         reads.append(Read(ids: ids, includeSimilar: includeSimilar))
         return ids.compactMap { id in
             artists[id].map {
-                AppleMusicAutoplayCatalogArtist(id: $0.id, similarArtistIDs: includeSimilar ? $0.similarArtistIDs : [], topSongs: $0.topSongs)
+                AppleMusicAutoplayCatalogArtist(
+                    id: $0.id, similarArtistIDs: includeSimilar ? $0.similarArtistIDs : [], topSongs: $0.topSongs)
             }
         }
     }
@@ -846,7 +870,8 @@ extension QueueAutoplayTests {
     func testARemovedSongIsNotAddedBack() async throws {
         let h = makeHarness()
         let removed = seeds[2]
-        h.source.fixed = [Self.candidate(removed, score: 9_000)]
+        h.source.fixed =
+            [Self.candidate(removed, score: 9_000)]
             + (1...30).map { Self.candidate("applemusic:song:new-\($0)", score: Double(1_000 - $0)) }
         try await h.provider.play(.items(uris: seeds, startURI: nil), deviceID: deviceID)
         try await notePlaying(h)
@@ -857,7 +882,8 @@ extension QueueAutoplayTests {
 
         // What the queue panel sends for the row the listener removed.
         let removal = QueueRemoval(position: try XCTUnwrap(before.firstIndex(of: removed)), uri: removed)
-        let receipt = try await h.provider.removeFromQueue([removal], seen: QueueSnapshot(current: h.player.readState().current?.uri, upcoming: before))
+        let receipt = try await h.provider.removeFromQueue(
+            [removal], seen: QueueSnapshot(current: h.player.readState().current?.uri, upcoming: before))
         h.autoplay.listenerRemoved(receipt.tracks)
         let rightAfter = try await upcoming(h)
         XCTAssertFalse(rightAfter.contains(removed))
@@ -873,7 +899,8 @@ extension QueueAutoplayTests {
     private static func candidate(_ uri: String, score: Double) -> QueueAutoplayCandidate {
         QueueAutoplayCandidate(
             track: MusicTrack(
-                id: uri, name: uri, artists: ["Artist \(uri.suffix(1))"], albumArtworkURL: nil, durationMilliseconds: 200_000,
+                id: uri, name: uri, artists: ["Artist \(uri.suffix(1))"], albumArtworkURL: nil,
+                durationMilliseconds: 200_000,
                 isExplicit: false, isPlayable: true, linkedFromID: nil, uri: uri
             ),
             score: score
@@ -1018,7 +1045,8 @@ extension QueueAutoplayTests {
             "the song before ended (3:33.5 of 3:35.0)"
         )
         XCTAssertEqual(
-            Change.reason(before: .init(positionMilliseconds: 400, durationMilliseconds: 215_000), command: "skipToNext"),
+            Change.reason(
+                before: .init(positionMilliseconds: 400, durationMilliseconds: 215_000), command: "skipToNext"),
             "after skipToNext"
         )
         XCTAssertNil(Change.reason(before: nil, command: nil))

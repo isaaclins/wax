@@ -1,7 +1,8 @@
 import AppKit
-import SwiftUI
 import Sparkle
+import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 final class SpotiglassFoundationTests: XCTestCase {
@@ -20,12 +21,14 @@ final class SpotiglassFoundationTests: XCTestCase {
         XCTAssertEqual(AppMetadata.displayName, "Wax")
         XCTAssertEqual(AppMetadata.bundleIdentifier, "com.isaaclins.spotiglass")
         XCTAssertEqual(AppMetadata.storageDirectoryName, "Spotiglass")
-        XCTAssertTrue(SpotiglassSettingsStore.defaultFileURL(fileManager: .default).path.hasSuffix("/Spotiglass/settings.json"))
+        XCTAssertTrue(
+            SpotiglassSettingsStore.defaultFileURL(fileManager: .default).path.hasSuffix("/Spotiglass/settings.json"))
     }
 
     func testAppMenuKeepsPaletteInStandardApplicationMenu() throws {
         let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        let sourceURL = testsDirectory
+        let sourceURL =
+            testsDirectory
             .deletingLastPathComponent()
             .appendingPathComponent("Spotiglass/App/SpotiglassApp.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
@@ -68,7 +71,8 @@ final class SpotiglassFoundationTests: XCTestCase {
     /// so the two sources of truth must not drift apart.
     func testSparkleInfoPlistMatchesSparkleConfiguration() throws {
         let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        let plistURL = testsDirectory
+        let plistURL =
+            testsDirectory
             .deletingLastPathComponent()
             .appendingPathComponent("Spotiglass/App/SparkleInfo.plist")
         let data = try Data(contentsOf: plistURL)
@@ -85,7 +89,8 @@ final class SpotiglassFoundationTests: XCTestCase {
     /// took a day or more to arrive.
     func testSparkleInfoPlistInstallsUpdatesAutomatically() throws {
         let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-        let plistURL = testsDirectory
+        let plistURL =
+            testsDirectory
             .deletingLastPathComponent()
             .appendingPathComponent("Spotiglass/App/SparkleInfo.plist")
         let data = try Data(contentsOf: plistURL)
@@ -187,13 +192,14 @@ final class SpotiglassFoundationTests: XCTestCase {
             }
 
             for scheme in [ColorScheme.light, .dark] {
-                let host = NSHostingView(rootView: Form {
-                    UpdatesSettingsSection(updater: updater)
-                    CheckForUpdatesView(updater: updater)
-                }
-                .formStyle(.grouped)
-                .environment(\.colorScheme, scheme)
-                .frame(width: 560))
+                let host = NSHostingView(
+                    rootView: Form {
+                        UpdatesSettingsSection(updater: updater)
+                        CheckForUpdatesView(updater: updater)
+                    }
+                    .formStyle(.grouped)
+                    .environment(\.colorScheme, scheme)
+                    .frame(width: 560))
                 host.frame = NSRect(origin: .zero, size: host.fittingSize)
                 host.layoutSubtreeIfNeeded()
                 AppKitTestSupport.settle()

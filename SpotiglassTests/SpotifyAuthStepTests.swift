@@ -1,5 +1,6 @@
 import Security
 import XCTest
+
 @testable import Spotiglass
 
 final class SpotifyAuthStepTests: XCTestCase {
@@ -34,9 +35,10 @@ final class SpotifyAuthStepTests: XCTestCase {
         let configuration = try SpotifyAuthConfiguration(clientID: "client-123", redirectURI: redirectURI)
         let url = try configuration.authorizationURL(state: "state", codeChallenge: "challenge")
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        let items = Dictionary(uniqueKeysWithValues: (components?.queryItems ?? []).compactMap { item in
-            item.value.map { (item.name, $0) }
-        })
+        let items = Dictionary(
+            uniqueKeysWithValues: (components?.queryItems ?? []).compactMap { item in
+                item.value.map { (item.name, $0) }
+            })
 
         XCTAssertEqual(components?.scheme, "https")
         XCTAssertEqual(components?.host, "accounts.spotify.com")
@@ -77,7 +79,8 @@ final class SpotifyAuthStepTests: XCTestCase {
     func testCallbackValidatorRejectsStateMismatch() {
         let url = URL(string: "http://127.0.0.1:49152/callback?code=abc123&state=wrong")!
 
-        XCTAssertThrowsError(try LoopbackOAuthCallbackValidator.validate(url: url, expectedState: "expected")) { error in
+        XCTAssertThrowsError(try LoopbackOAuthCallbackValidator.validate(url: url, expectedState: "expected")) {
+            error in
             XCTAssertEqual(error as? LoopbackOAuthCallbackError, .stateMismatch)
         }
     }
@@ -85,7 +88,8 @@ final class SpotifyAuthStepTests: XCTestCase {
     func testCallbackValidatorSurfacesOAuthError() {
         let url = URL(string: "http://127.0.0.1:49152/callback?error=access_denied&error_description=Denied")!
 
-        XCTAssertThrowsError(try LoopbackOAuthCallbackValidator.validate(url: url, expectedState: "expected")) { error in
+        XCTAssertThrowsError(try LoopbackOAuthCallbackValidator.validate(url: url, expectedState: "expected")) {
+            error in
             XCTAssertEqual(error as? LoopbackOAuthCallbackError, .oauthError("access_denied", "Denied"))
         }
     }
@@ -94,14 +98,14 @@ final class SpotifyAuthStepTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_000)
         let httpClient = MockHTTPClient(
             data: """
-            {
-              "access_token": "access-token",
-              "token_type": "Bearer",
-              "expires_in": 3600,
-              "refresh_token": "refresh-token",
-              "scope": "playlist-read-private streaming"
-            }
-            """.data(using: .utf8)!,
+                {
+                  "access_token": "access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 3600,
+                  "refresh_token": "refresh-token",
+                  "scope": "playlist-read-private streaming"
+                }
+                """.data(using: .utf8)!,
             statusCode: 200
         )
         let client = SpotifyTokenClient(httpClient: httpClient, now: { now })
@@ -125,12 +129,12 @@ final class SpotifyAuthStepTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 2_000)
         let httpClient = MockHTTPClient(
             data: """
-            {
-              "access_token": "new-access-token",
-              "token_type": "Bearer",
-              "expires_in": 1800
-            }
-            """.data(using: .utf8)!,
+                {
+                  "access_token": "new-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 1800
+                }
+                """.data(using: .utf8)!,
             statusCode: 200
         )
         let client = SpotifyTokenClient(httpClient: httpClient, now: { now })
@@ -157,20 +161,22 @@ final class SpotifyAuthStepTests: XCTestCase {
         let httpClient = SequencedTokenHTTPClient([
             .json(#"{"error":"temporarily_unavailable","error_description":"Try again"}"#, statusCode: 500),
             .json(#"{"error":"temporarily_unavailable","error_description":"Still retrying"}"#, statusCode: 502),
-            .json("""
-            {
-              "access_token": "recovered-access-token",
-              "token_type": "Bearer",
-              "expires_in": 1800
-            }
-            """, statusCode: 200)
+            .json(
+                """
+                {
+                  "access_token": "recovered-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 1800
+                }
+                """, statusCode: 200),
         ])
         let client = SpotifyTokenClient(httpClient: httpClient, now: { now }, random: { _ in 0 })
 
         let grant = try await client.refreshAccessToken(clientID: "client-id", refreshToken: "refresh-token")
 
         XCTAssertEqual(grant.accessToken, "recovered-access-token")
-        XCTAssertEqual(httpClient.requestCount, 3, "Refresh should retry transient token endpoint failures with a bounded budget.")
+        XCTAssertEqual(
+            httpClient.requestCount, 3, "Refresh should retry transient token endpoint failures with a bounded budget.")
     }
 
     func testRefreshGrantDoesNotRetryInvalidGrant() async {
@@ -183,7 +189,7 @@ final class SpotifyAuthStepTests: XCTestCase {
             _ = try await client.refreshAccessToken(clientID: "client-id", refreshToken: "refresh-token")
             XCTFail("Expected invalid_grant to fail without retry.")
         } catch let error as SpotifyTokenClientError {
-            guard case let .httpError(status, description, oauthError, _) = error else {
+            guard case .httpError(let status, let description, let oauthError, _) = error else {
                 return XCTFail("Expected HTTP token error, got \(error)")
             }
             XCTAssertEqual(status, 400)
@@ -229,8 +235,8 @@ final class SpotifyAuthStepTests: XCTestCase {
         try store.saveRefreshToken("revoked-refresh-token")
         let httpClient = MockHTTPClient(
             data: """
-            { "error": "invalid_grant", "error_description": "Refresh token revoked" }
-            """.data(using: .utf8)!,
+                { "error": "invalid_grant", "error_description": "Refresh token revoked" }
+                """.data(using: .utf8)!,
             statusCode: 400
         )
         let cleaner = SignOutCacheCleanerSpy()
@@ -244,7 +250,7 @@ final class SpotifyAuthStepTests: XCTestCase {
 
         await viewModel.restoreSessionIfAvailable()
 
-        guard case let .failed(error) = viewModel.state else {
+        guard case .failed(let error) = viewModel.state else {
             return XCTFail("Expected failed auth state after invalid_grant")
         }
         XCTAssertTrue(error.message.contains("Refresh token revoked"))
@@ -290,7 +296,9 @@ final class SpotifyAuthStepTests: XCTestCase {
         try store.saveRefreshToken("good-refresh-token")
         let marker = "partial-\(UUID().uuidString)"
         let httpClient = MockHTTPClient(
-            data: Data(#"{ "access_token": "\#(marker)", "token_type": "Bearer", "expires_in": 3600, "scope": "playlist-read-private streaming" }"#.utf8),
+            data: Data(
+                #"{ "access_token": "\#(marker)", "token_type": "Bearer", "expires_in": 3600, "scope": "playlist-read-private streaming" }"#
+                    .utf8),
             statusCode: 200
         )
         let viewModel = AuthViewModel(
@@ -303,7 +311,8 @@ final class SpotifyAuthStepTests: XCTestCase {
 
         await viewModel.restoreSessionIfAvailable()
 
-        let lines = try SpotiglassLogReader.lines(containing: "token lacks missing scopes: playlist-read-collaborative)")
+        let lines = try SpotiglassLogReader.lines(
+            containing: "token lacks missing scopes: playlist-read-collaborative)")
         XCTAssertEqual(lines.count, 1, "\(lines)")
         XCTAssertTrue(lines.first?.contains("Token refresh failed") == true, lines.first ?? "")
         XCTAssertFalse(lines.first?.contains(marker) == true, "The log must never hold the token.")
@@ -328,7 +337,9 @@ final class SpotifyAuthStepTests: XCTestCase {
         guard case .paused = viewModel.state else {
             return XCTFail("Expected a paused sign-in on a transient network error, got \(viewModel.state)")
         }
-        XCTAssertEqual(try store.loadRefreshToken(), "good-refresh-token", "Transient network failures must not wipe the refresh token.")
+        XCTAssertEqual(
+            try store.loadRefreshToken(), "good-refresh-token",
+            "Transient network failures must not wipe the refresh token.")
         XCTAssertEqual(cleaner.callCount, 0, "Cache must survive a transient refresh failure.")
     }
 
@@ -341,7 +352,7 @@ final class SpotifyAuthStepTests: XCTestCase {
             (.badServerResponse, SpotiglassL10n.string("auth.error.generic")),
             (.cannotParseResponse, SpotiglassL10n.string("auth.error.generic")),
             (.cannotConnectToHost, SpotiglassL10n.string("auth.error.network")),
-            (.notConnectedToInternet, SpotiglassL10n.string("auth.error.offline"))
+            (.notConnectedToInternet, SpotiglassL10n.string("auth.error.offline")),
         ]
         for (code, expected) in cases {
             // Since #593 a refresh that fails this way pauses instead; a sign-in still says it.
@@ -349,7 +360,8 @@ final class SpotifyAuthStepTests: XCTestCase {
                 settings: makeSettings(clientID: "client-id"),
                 // URLSession's own text, which main showed as is.
                 authorizationFlow: FailingAuthorizationFlow(
-                    error: URLError(code, userInfo: [NSLocalizedDescriptionKey: "The server sent an answer that couldn’t be used."])
+                    error: URLError(
+                        code, userInfo: [NSLocalizedDescriptionKey: "The server sent an answer that couldn’t be used."])
                 ),
                 tokenClient: SpotifyTokenClient(httpClient: ThrowingHTTPClient(error: URLError(.badURL))),
                 refreshTokenStore: InMemoryRefreshTokenStore(),
@@ -359,7 +371,7 @@ final class SpotifyAuthStepTests: XCTestCase {
 
             await viewModel.signIn()
 
-            guard case let .failed(error) = viewModel.state else {
+            guard case .failed(let error) = viewModel.state else {
                 return XCTFail("\(code): expected a failed sign-in, got \(viewModel.state)")
             }
             XCTAssertEqual(error.message, expected, "\(code)")
@@ -372,14 +384,15 @@ final class SpotifyAuthStepTests: XCTestCase {
         try store.saveRefreshToken("refresh-token")
         let now = Date(timeIntervalSince1970: 2_000)
         let httpClient = SequencedTokenHTTPClient([
-            .json("""
-            {
-              "access_token": "shared-access-token",
-              "token_type": "Bearer",
-              "expires_in": 1800,
-              "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
-            }
-            """, statusCode: 200)
+            .json(
+                """
+                {
+                  "access_token": "shared-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 1800,
+                  "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
+                }
+                """, statusCode: 200)
         ])
         let refreshHeld = MockCallHold()
         httpClient.hold = refreshHeld
@@ -401,7 +414,8 @@ final class SpotifyAuthStepTests: XCTestCase {
 
         XCTAssertEqual(a, "shared-access-token")
         XCTAssertEqual(b, "shared-access-token")
-        XCTAssertEqual(httpClient.requestCount, 1, "Concurrent refresh consumers should share one in-flight token call.")
+        XCTAssertEqual(
+            httpClient.requestCount, 1, "Concurrent refresh consumers should share one in-flight token call.")
     }
 
     @MainActor
@@ -411,7 +425,7 @@ final class SpotifyAuthStepTests: XCTestCase {
         let httpClient = SequencedTokenHTTPClient([
             .json(#"{"error":"temporarily_unavailable","error_description":"Try later"}"#, statusCode: 500),
             .json(#"{"error":"temporarily_unavailable","error_description":"Try later"}"#, statusCode: 500),
-            .json(#"{"error":"temporarily_unavailable","error_description":"Try later"}"#, statusCode: 500)
+            .json(#"{"error":"temporarily_unavailable","error_description":"Try later"}"#, statusCode: 500),
         ])
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -431,7 +445,8 @@ final class SpotifyAuthStepTests: XCTestCase {
             XCTFail("Expected cooldown to block immediate retry.")
         } catch {}
 
-        XCTAssertEqual(httpClient.requestCount, 3, "Cooldown should fail fast without starting a second refresh attempt burst.")
+        XCTAssertEqual(
+            httpClient.requestCount, 3, "Cooldown should fail fast without starting a second refresh attempt burst.")
     }
 
     func testKeychainRefreshTokenStoreErrorDescriptionsAreUserFacing() {
@@ -448,9 +463,11 @@ final class SpotifyAuthStepTests: XCTestCase {
     }
 
     func testLoopbackOAuthCallbackErrorLocalizedDescriptions() {
-        XCTAssertTrue(((LoopbackOAuthCallbackError.timedOut as LocalizedError).errorDescription ?? "").contains("timed out"))
+        XCTAssertTrue(
+            ((LoopbackOAuthCallbackError.timedOut as LocalizedError).errorDescription ?? "").contains("timed out"))
         XCTAssertEqual(
-            (LoopbackOAuthCallbackError.oauthError("access_denied", "User declined") as LocalizedError).errorDescription,
+            (LoopbackOAuthCallbackError.oauthError("access_denied", "User declined") as LocalizedError)
+                .errorDescription,
             "User declined"
         )
     }
@@ -488,14 +505,14 @@ final class SpotifyAuthStepTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_000)
         let httpClient = MockHTTPClient(
             data: """
-            {
-              "access_token": "access-token",
-              "token_type": "Bearer",
-              "expires_in": 3600,
-              "refresh_token": "refresh-token",
-              "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
-            }
-            """.data(using: .utf8)!,
+                {
+                  "access_token": "access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 3600,
+                  "refresh_token": "refresh-token",
+                  "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
+                }
+                """.data(using: .utf8)!,
             statusCode: 200
         )
         let tokenClient = SpotifyTokenClient(httpClient: httpClient, now: { now })
@@ -517,7 +534,7 @@ final class SpotifyAuthStepTests: XCTestCase {
 
         flow.advance()
         await viewModel.signIn()
-        guard case let .signedIn(session) = viewModel.state else {
+        guard case .signedIn(let session) = viewModel.state else {
             return XCTFail("Expected signed-in state after second connect, got \(viewModel.state)")
         }
         XCTAssertEqual(session.accessToken, "access-token")
@@ -544,7 +561,9 @@ final class SpotifyAuthStepTests: XCTestCase {
         let second = await startExtraSignIn(viewModel)
         let third = await startExtraSignIn(viewModel)
         XCTAssertFalse(flow.launch(1).wasCancelled, "A concurrent sign-in attempt shouldn't cancel the running launch.")
-        XCTAssertEqual(flow.recordedRequestCount(), 1, "Concurrent sign-in attempts should reuse the active auth launch instead of restarting it.")
+        XCTAssertEqual(
+            flow.recordedRequestCount(), 1,
+            "Concurrent sign-in attempts should reuse the active auth launch instead of restarting it.")
         XCTAssertEqual(viewModel.state, .signingIn)
 
         viewModel.cancelSignIn()
@@ -552,7 +571,9 @@ final class SpotifyAuthStepTests: XCTestCase {
         // A click right after Cancel, while the cancelled launch is still unwinding, is ignored too:
         // the first sign-in can't resume and clear its task until this test suspends.
         await viewModel.signIn()
-        XCTAssertEqual(flow.recordedRequestCount(), 1, "A click right after Cancel shouldn't start a second launch while the first unwinds.")
+        XCTAssertEqual(
+            flow.recordedRequestCount(), 1,
+            "A click right after Cancel shouldn't start a second launch while the first unwinds.")
         await first.finished.value
         await second.value
         await third.value
@@ -640,8 +661,14 @@ final class SpotifyAuthStepTests: XCTestCase {
             returned.signal()
         }
         let didLaunch = await withTaskGroup(of: Bool.self) { group in
-            group.addTask { await launched.wait(); return true }
-            group.addTask { await returned.wait(); return false }
+            group.addTask {
+                await launched.wait()
+                return true
+            }
+            group.addTask {
+                await returned.wait()
+                return false
+            }
             let first = await group.next() ?? false
             group.cancelAll()
             return first
@@ -687,16 +714,18 @@ private final class HangingLaunch: @unchecked Sendable {
 
     func run() async throws -> Never {
         let cancellationSignal = AsyncSignal()
-        try await withTaskCancellationHandler(operation: {
-            started.signal()
-            await cancellationSignal.wait()
-            try Task.checkCancellation()
-        }, onCancel: {
-            lock.lock()
-            cancelled = true
-            lock.unlock()
-            cancellationSignal.signal()
-        })
+        try await withTaskCancellationHandler(
+            operation: {
+                started.signal()
+                await cancellationSignal.wait()
+                try Task.checkCancellation()
+            },
+            onCancel: {
+                lock.lock()
+                cancelled = true
+                lock.unlock()
+                cancellationSignal.signal()
+            })
         fatalError("A hanging launch ends only by cancellation")
     }
 }
@@ -832,12 +861,14 @@ private final class MockHTTPClient: HTTPClient {
 
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         if let bodyData = request.httpBody,
-           let body = String(data: bodyData, encoding: .utf8) {
+            let body = String(data: bodyData, encoding: .utf8)
+        {
             var components = URLComponents()
             components.percentEncodedQuery = body
-            lastBody = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
-                item.value.map { (item.name, $0) }
-            })
+            lastBody = Dictionary(
+                uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
+                    item.value.map { (item.name, $0) }
+                })
         }
 
         return (
@@ -910,7 +941,9 @@ private final class SaveRefusingRefreshTokenStore: RefreshTokenStore {
     private let refreshToken: String
     init(refreshToken: String) { self.refreshToken = refreshToken }
     func loadRefreshToken() throws -> String? { refreshToken }
-    func saveRefreshToken(_ refreshToken: String) throws { throw KeychainRefreshTokenStoreError.unexpectedStatus(-25_308) }
+    func saveRefreshToken(_ refreshToken: String) throws {
+        throw KeychainRefreshTokenStoreError.unexpectedStatus(-25_308)
+    }
     func deleteRefreshToken() throws { throw KeychainRefreshTokenStoreError.unexpectedStatus(-25_308) }
 }
 
@@ -960,8 +993,8 @@ extension SpotifyAuthStepTests {
     private static func grantJSON(_ accessToken: String, refreshToken: String? = nil) -> String {
         let refresh = refreshToken.map { #", "refresh_token": "\#($0)""# } ?? ""
         return """
-        { "access_token": "\(accessToken)", "token_type": "Bearer", "expires_in": 3600, "scope": "\(browsingScope)"\(refresh) }
-        """
+            { "access_token": "\(accessToken)", "token_type": "Bearer", "expires_in": 3600, "scope": "\(browsingScope)"\(refresh) }
+            """
     }
 
     /// Wax started at login before Wi-Fi joined. The sign-in must stay (library on screen, token
@@ -988,11 +1021,13 @@ extension SpotifyAuthStepTests {
 
         await viewModel.restoreSessionIfAvailable()
 
-        guard case let .paused(pause) = viewModel.state else {
+        guard case .paused(let pause) = viewModel.state else {
             return XCTFail("Offline at launch must keep the sign-in, got \(viewModel.state)")
         }
         XCTAssertEqual(pause.reason, .offline)
-        XCTAssertTrue(viewModel.state.hasSpotifySession, "The library stays on screen; Connect is not the way out of being offline.")
+        XCTAssertTrue(
+            viewModel.state.hasSpotifySession,
+            "The library stays on screen; Connect is not the way out of being offline.")
         XCTAssertEqual(viewModel.state.message, SpotiglassL10n.string("app.connection.paused.offline"))
         XCTAssertEqual(try store.loadRefreshToken(), "good-refresh-token")
         XCTAssertEqual(cleaner.callCount, 0)
@@ -1039,7 +1074,8 @@ extension SpotifyAuthStepTests {
             if case .failed = state { break }
         }
 
-        let lines = try SpotiglassLogReader.lines(containing: "Retrying the paused sign-in could not read the saved sign-in")
+        let lines = try SpotiglassLogReader.lines(
+            containing: "Retrying the paused sign-in could not read the saved sign-in")
         XCTAssertEqual(lines.count, 1, "\(lines)")
         XCTAssertTrue(lines.first?.contains("[ERROR] [auth]") == true)
         XCTAssertTrue(lines.first?.contains("Keychain OSStatus -25308") == true, lines.first ?? "")
@@ -1054,7 +1090,8 @@ extension SpotifyAuthStepTests {
         let http = ScriptedTokenHTTPClient()
         http.enqueue(.failure(URLError(.networkConnectionLost)), count: 3)
         let clock = TestClock(Date(timeIntervalSince1970: 50_000))
-        let expired = AuthenticatedSession(accessToken: "old", tokenType: "Bearer", scope: Self.browsingScope, expiresAt: clock.now)
+        let expired = AuthenticatedSession(
+            accessToken: "old", tokenType: "Bearer", scope: Self.browsingScope, expiresAt: clock.now)
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
             tokenClient: SpotifyTokenClient(httpClient: http, now: { clock.now }, random: { _ in 0 }, sleep: { _ in }),
@@ -1072,12 +1109,16 @@ extension SpotifyAuthStepTests {
             XCTFail("Expected the refresh to fail while offline")
         } catch let error as SpotifySignInPausedError {
             XCTAssertEqual(error.pause.reason, .offline)
-            XCTAssertEqual(MusicServiceErrorText.userMessage(for: error, service: .spotify), SpotiglassL10n.string("app.connection.paused.offline"))
+            XCTAssertEqual(
+                MusicServiceErrorText.userMessage(for: error, service: .spotify),
+                SpotiglassL10n.string("app.connection.paused.offline"))
         } catch {
             XCTFail("A network error must not read as an expired session, got \(error)")
         }
         XCTAssertEqual(try store.loadRefreshToken(), "good-refresh-token")
-        guard case let .paused(pause) = viewModel.state else { return XCTFail("Expected paused, got \(viewModel.state)") }
+        guard case .paused(let pause) = viewModel.state else {
+            return XCTFail("Expected paused, got \(viewModel.state)")
+        }
         XCTAssertEqual(pause.session, expired)
 
         clock.now += AuthViewModel.temporaryFailureCooldown + 1
@@ -1085,9 +1126,13 @@ extension SpotifyAuthStepTests {
         let token = try await viewModel.accessToken()
 
         XCTAssertEqual(token, "next-request")
-        XCTAssertEqual(viewModel.state, .signedIn(AuthenticatedSession(
-            accessToken: "next-request", tokenType: "Bearer", scope: Self.browsingScope, expiresAt: clock.now.addingTimeInterval(3_600)
-        )))
+        XCTAssertEqual(
+            viewModel.state,
+            .signedIn(
+                AuthenticatedSession(
+                    accessToken: "next-request", tokenType: "Bearer", scope: Self.browsingScope,
+                    expiresAt: clock.now.addingTimeInterval(3_600)
+                )))
     }
 
     /// The issue's own replay: /api/token answers 429 three times. The token and the library caches
@@ -1117,7 +1162,9 @@ extension SpotifyAuthStepTests {
         XCTAssertEqual(try store.loadRefreshToken(), "good-refresh-token")
         XCTAssertEqual(cleaner.callCount, 0)
         XCTAssertFalse(artworkCleared)
-        guard case let .paused(pause) = viewModel.state else { return XCTFail("Expected paused, got \(viewModel.state)") }
+        guard case .paused(let pause) = viewModel.state else {
+            return XCTFail("Expected paused, got \(viewModel.state)")
+        }
         XCTAssertEqual(pause.reason, .busy)
         XCTAssertEqual(pause.retryAt, clock.now.addingTimeInterval(AuthViewModel.temporaryFailureCooldown))
     }
@@ -1153,12 +1200,15 @@ extension SpotifyAuthStepTests {
 
         XCTAssertEqual(http.requestCount, 1, "A long Retry-After is not waited out inside the refresh.")
         XCTAssertEqual(tokenClientSleeps.values, [])
-        guard case let .paused(pause) = viewModel.state else { return XCTFail("Expected paused, got \(viewModel.state)") }
+        guard case .paused(let pause) = viewModel.state else {
+            return XCTFail("Expected paused, got \(viewModel.state)")
+        }
         let retryAt = try XCTUnwrap(pause.retryAt)
         XCTAssertEqual(retryAt, clock.now.addingTimeInterval(3_600))
-        XCTAssertTrue(viewModel.state.message.contains(
-            retryAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(SpotiglassL10n.locale))
-        ))
+        XCTAssertTrue(
+            viewModel.state.message.contains(
+                retryAt.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(SpotiglassL10n.locale))
+            ))
         XCTAssertEqual(try store.loadRefreshToken(), "good-refresh-token")
 
         do {
@@ -1195,7 +1245,8 @@ extension SpotifyAuthStepTests {
             .temporary(.busy, retryAfter: 120)
         )
         XCTAssertEqual(AuthViewModel.refreshFailureKind(http(503, nil)), .temporary(.busy, retryAfter: nil))
-        XCTAssertEqual(AuthViewModel.refreshFailureKind(URLError(.notConnectedToInternet)), .temporary(.offline, retryAfter: nil))
+        XCTAssertEqual(
+            AuthViewModel.refreshFailureKind(URLError(.notConnectedToInternet)), .temporary(.offline, retryAfter: nil))
         XCTAssertEqual(AuthViewModel.refreshFailureKind(URLError(.timedOut)), .temporary(.unreachable, retryAfter: nil))
         XCTAssertEqual(AuthViewModel.refreshFailureKind(http(400, "invalid_request")), .other)
     }
@@ -1208,7 +1259,8 @@ extension SpotifyAuthStepTests {
         try store.saveRefreshToken("good-refresh-token")
         let cleaner = SignOutCacheCleanerSpy()
         let session = AuthenticatedSession(
-            accessToken: "working", tokenType: "Bearer", scope: Self.browsingScope, expiresAt: Date().addingTimeInterval(3_600)
+            accessToken: "working", tokenType: "Bearer", scope: Self.browsingScope,
+            expiresAt: Date().addingTimeInterval(3_600)
         )
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -1226,7 +1278,8 @@ extension SpotifyAuthStepTests {
         XCTAssertEqual(try store.loadRefreshToken(), "good-refresh-token")
         XCTAssertEqual(cleaner.callCount, 0)
         XCTAssertEqual(viewModel.state, .signedIn(session))
-        XCTAssertNotNil(viewModel.reconnectFailure, "Settings says the reconnect didn't finish instead of nothing happening.")
+        XCTAssertNotNil(
+            viewModel.reconnectFailure, "Settings says the reconnect didn't finish instead of nothing happening.")
         let token = try await viewModel.accessToken()
         XCTAssertEqual(token, "working")
     }
@@ -1239,11 +1292,15 @@ extension SpotifyAuthStepTests {
         try store.saveRefreshToken("good-refresh-token")
         let cleaner = SignOutCacheCleanerSpy()
         let http = ScriptedTokenHTTPClient()
-        http.enqueue(.json("""
-        { "access_token": "narrow", "token_type": "Bearer", "expires_in": 3600, "scope": "user-read-email", "refresh_token": "narrow-token" }
-        """))
+        http.enqueue(
+            .json(
+                """
+                { "access_token": "narrow", "token_type": "Bearer", "expires_in": 3600, "scope": "user-read-email", "refresh_token": "narrow-token" }
+                """))
         let viewModel = makeReconnectingViewModel(store: store, http: http, cleaner: cleaner)
-        guard case let .signedIn(session) = viewModel.state else { return XCTFail("Expected signed in, got \(viewModel.state)") }
+        guard case .signedIn(let session) = viewModel.state else {
+            return XCTFail("Expected signed in, got \(viewModel.state)")
+        }
 
         await viewModel.signIn()
 
@@ -1274,7 +1331,9 @@ extension SpotifyAuthStepTests {
         finishCleanup.signal()
         await reconnect.value
 
-        guard case let .signedIn(session) = viewModel.state else { return XCTFail("Expected signed in, got \(viewModel.state)") }
+        guard case .signedIn(let session) = viewModel.state else {
+            return XCTFail("Expected signed in, got \(viewModel.state)")
+        }
         XCTAssertEqual(session.accessToken, "new-account")
         XCTAssertEqual(try store.loadRefreshToken(), "new-account-token")
     }
@@ -1289,7 +1348,8 @@ extension SpotifyAuthStepTests {
         let http = ScriptedTokenHTTPClient()
         http.enqueue(.json(#"{"error":"invalid_request"}"#, statusCode: 400))
         let expired = AuthenticatedSession(
-            accessToken: "old", tokenType: "Bearer", scope: Self.browsingScope, expiresAt: Date(timeIntervalSince1970: 1_000)
+            accessToken: "old", tokenType: "Bearer", scope: Self.browsingScope,
+            expiresAt: Date(timeIntervalSince1970: 1_000)
         )
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -1306,7 +1366,9 @@ extension SpotifyAuthStepTests {
 
         await viewModel.signIn()
 
-        guard case .failed = viewModel.state else { return XCTFail("Expected the new failure on screen, got \(viewModel.state)") }
+        guard case .failed = viewModel.state else {
+            return XCTFail("Expected the new failure on screen, got \(viewModel.state)")
+        }
         XCTAssertNil(viewModel.reconnectFailure, "Nothing was signed in before, so Settings mustn't say it still is.")
         XCTAssertEqual(try store.loadRefreshToken(), "good-refresh-token")
     }
@@ -1351,7 +1413,8 @@ extension SpotifyAuthStepTests {
         }
         flow.advance()
         let session = AuthenticatedSession(
-            accessToken: "working", tokenType: "Bearer", scope: Self.browsingScope, expiresAt: Date().addingTimeInterval(3_600)
+            accessToken: "working", tokenType: "Bearer", scope: Self.browsingScope,
+            expiresAt: Date().addingTimeInterval(3_600)
         )
         return AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -1380,7 +1443,8 @@ extension SpotifyAuthStepTests {
         }
         flow.advance()
         let session = AuthenticatedSession(
-            accessToken: "working", tokenType: "Bearer", scope: Self.browsingScope, expiresAt: Date().addingTimeInterval(3_600)
+            accessToken: "working", tokenType: "Bearer", scope: Self.browsingScope,
+            expiresAt: Date().addingTimeInterval(3_600)
         )
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -1410,7 +1474,8 @@ extension SpotifyAuthStepTests {
         let cleaner = SignOutCacheCleanerSpy()
         let flow = HangUntilCancelledAuthorizationFlow()
         let session = AuthenticatedSession(
-            accessToken: "working", tokenType: "Bearer", scope: Self.browsingScope, expiresAt: Date().addingTimeInterval(3_600)
+            accessToken: "working", tokenType: "Bearer", scope: Self.browsingScope,
+            expiresAt: Date().addingTimeInterval(3_600)
         )
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -1467,10 +1532,13 @@ extension SpotifyAuthStepTests {
         http.enqueue(.json(Self.grantJSON("second-account", refreshToken: "second-account-token")))
         await viewModel.signIn()
 
-        guard case let .signedIn(session) = viewModel.state else { return XCTFail("Expected signed in, got \(viewModel.state)") }
+        guard case .signedIn(let session) = viewModel.state else {
+            return XCTFail("Expected signed in, got \(viewModel.state)")
+        }
         XCTAssertEqual(session.accessToken, "second-account")
         XCTAssertEqual(try store.loadRefreshToken(), "second-account-token")
-        XCTAssertEqual(cleaner.callCount, 1, "The library cached for the sign-in before must not show under the new one.")
+        XCTAssertEqual(
+            cleaner.callCount, 1, "The library cached for the sign-in before must not show under the new one.")
     }
 
     /// While Reconnect waits in the browser, a request that needs a new token must not refresh the
@@ -1483,7 +1551,8 @@ extension SpotifyAuthStepTests {
         http.enqueue(.json(Self.grantJSON("refreshed-mid-sign-in")))
         let flow = HangUntilCancelledAuthorizationFlow()
         let expiring = AuthenticatedSession(
-            accessToken: "expiring", tokenType: "Bearer", scope: Self.browsingScope, expiresAt: Date().addingTimeInterval(10)
+            accessToken: "expiring", tokenType: "Bearer", scope: Self.browsingScope,
+            expiresAt: Date().addingTimeInterval(10)
         )
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -1536,7 +1605,9 @@ extension SpotifyAuthStepTests {
         )
 
         await viewModel.restoreSessionIfAvailable()
-        guard case let .paused(pause) = viewModel.state else { return XCTFail("Expected paused, got \(viewModel.state)") }
+        guard case .paused(let pause) = viewModel.state else {
+            return XCTFail("Expected paused, got \(viewModel.state)")
+        }
 
         let cancelledRequest = Task { @MainActor in
             withUnsafeCurrentTask { $0?.cancel() }
@@ -1578,7 +1649,9 @@ extension SpotifyAuthStepTests {
         )
 
         await viewModel.restoreSessionIfAvailable()
-        guard case let .paused(pause) = viewModel.state else { return XCTFail("Expected paused, got \(viewModel.state)") }
+        guard case .paused(let pause) = viewModel.state else {
+            return XCTFail("Expected paused, got \(viewModel.state)")
+        }
         let firstWait = await sleeper.nextSleep()
         XCTAssertEqual(firstWait, 600)
 
@@ -1619,7 +1692,9 @@ extension SpotifyAuthStepTests {
 
         await viewModel.restoreSessionIfAvailable()
 
-        guard case let .paused(pause) = viewModel.state else { return XCTFail("Expected paused, got \(viewModel.state)") }
+        guard case .paused(let pause) = viewModel.state else {
+            return XCTFail("Expected paused, got \(viewModel.state)")
+        }
         XCTAssertEqual(pause.retryAt, clock.now.addingTimeInterval(AuthViewModel.temporaryFailureCooldown))
     }
 
@@ -1680,7 +1755,7 @@ extension SpotifyAuthStepTests {
     @MainActor
     private func signedInSession(of viewModel: AuthViewModel) async -> AuthenticatedSession {
         for await state in viewModel.$state.values {
-            if case let .signedIn(session) = state { return session }
+            if case .signedIn(let session) = state { return session }
         }
         fatalError("The state publisher ended")
     }
@@ -1759,9 +1834,9 @@ private final class ScriptedTokenHTTPClient: HTTPClient, @unchecked Sendable {
         switch answer {
         case nil:
             throw URLError(.badServerResponse)
-        case let .failure(error):
+        case .failure(let error):
             throw error
-        case let .json(body, statusCode, headers):
+        case .json(let body, let statusCode, let headers):
             return (
                 Data(body.utf8),
                 HTTPURLResponse(url: request.url!, statusCode: statusCode, httpVersion: nil, headerFields: headers)!

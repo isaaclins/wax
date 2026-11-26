@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import XCTest
+
 @testable import Spotiglass
 
 /// The log holds everything Wax does (#734): no call fails without a line, a blocked main thread
@@ -13,7 +14,8 @@ final class FullLogTests: XCTestCase {
     /// read fails, and the log file has a line with all of it.
     func testAFailingMusicKitCallLeavesALineWithTheWholeError() async throws {
         let marker = "read \(UUID().uuidString)"
-        let underlying = NSError(domain: "MPErrorDomain", code: 5, userInfo: [NSLocalizedDescriptionKey: "The item is not available"])
+        let underlying = NSError(
+            domain: "MPErrorDomain", code: 5, userInfo: [NSLocalizedDescriptionKey: "The item is not available"])
         let failure = NSError(
             domain: MusicKitApplicationPlayer.playerErrorDomain,
             code: MusicKitApplicationPlayer.prepareToPlayFailedCode,
@@ -21,12 +23,15 @@ final class FullLogTests: XCTestCase {
         )
 
         do {
-            _ = try await MusicKitContentSource.logged("library playlists \(marker)") { () async throws -> Int in throw failure }
+            _ = try await MusicKitContentSource.logged("library playlists \(marker)") { () async throws -> Int in
+                throw failure
+            }
             XCTFail("The read must fail")
         } catch {}
 
         let lines = try SpotiglassLogReader.lines(containing: marker)
-        XCTAssertTrue(lines.contains { $0.contains("[calls] → #") && $0.contains("MusicKit library playlists") }, "\(lines)")
+        XCTAssertTrue(
+            lines.contains { $0.contains("[calls] → #") && $0.contains("MusicKit library playlists") }, "\(lines)")
         let failed = try XCTUnwrap(lines.first { $0.contains("[ERROR] [calls] ← #") }, "\(lines)")
         XCTAssertTrue(failed.contains("MusicKit library playlists \(marker) failed after"), failed)
         XCTAssertTrue(failed.contains("MPMusicPlayerControllerErrorDomain 6: Failed to prepare to play"), failed)
@@ -49,7 +54,8 @@ final class FullLogTests: XCTestCase {
 
         let lines = try SpotiglassLogReader.lines(containing: marker)
         let failed = try XCTUnwrap(lines.first { $0.contains("[ERROR] [calls] ← #") }, "\(lines)")
-        XCTAssertTrue(failed.contains("HTTP GET https://api.spotify.com/v1/me/player?marker=\(marker) failed after"), failed)
+        XCTAssertTrue(
+            failed.contains("HTTP GET https://api.spotify.com/v1/me/player?marker=\(marker) failed after"), failed)
         XCTAssertTrue(failed.contains("\(NSURLErrorDomain) \(URLError.timedOut.rawValue)"), failed)
         XCTAssertFalse(lines.joined().contains("secret-token"), "A token reached the log: \(lines)")
     }
@@ -60,7 +66,8 @@ final class FullLogTests: XCTestCase {
         let client: HTTPClient = FailingURLProtocol.session()
         FailingURLProtocol.outcome = .status(503)
 
-        let (_, response) = try await client.data(for: URLRequest(url: URL(string: "https://lrclib.net/api/get?m=\(marker)")!))
+        let (_, response) = try await client.data(
+            for: URLRequest(url: URL(string: "https://lrclib.net/api/get?m=\(marker)")!))
 
         XCTAssertEqual(response.statusCode, 503)
         let lines = try SpotiglassLogReader.lines(containing: marker)
@@ -81,7 +88,10 @@ final class FullLogTests: XCTestCase {
 
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 404)
         let lines = try SpotiglassLogReader.lines(containing: marker)
-        XCTAssertTrue(lines.contains { $0.contains("[INFO] [calls] ← #") && $0.contains("done after") && $0.contains("status 404") }, "\(lines)")
+        XCTAssertTrue(
+            lines.contains {
+                $0.contains("[INFO] [calls] ← #") && $0.contains("done after") && $0.contains("status 404")
+            }, "\(lines)")
         XCTAssertFalse(lines.contains { $0.contains("[ERROR]") }, "\(lines)")
     }
 
@@ -137,7 +147,10 @@ final class FullLogTests: XCTestCase {
         } catch {}
 
         let lines = try SpotiglassLogReader.lines(containing: marker)
-        XCTAssertTrue(lines.contains { $0.contains("[INFO] [calls] ← #") && $0.contains("done after") && $0.hasSuffix(": cancelled") }, "\(lines)")
+        XCTAssertTrue(
+            lines.contains {
+                $0.contains("[INFO] [calls] ← #") && $0.contains("done after") && $0.hasSuffix(": cancelled")
+            }, "\(lines)")
         XCTAssertFalse(lines.contains { $0.contains("[ERROR]") }, "\(lines)")
     }
 
@@ -146,7 +159,9 @@ final class FullLogTests: XCTestCase {
     /// What is typed into a password field never reaches the log, held keys included; other keys
     /// are named.
     func testKeysInAPasswordFieldAreNotNamed() throws {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 60), styleMask: [.titled], backing: .buffered, defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 60), styleMask: [.titled], backing: .buffered,
+            defer: false)
         defer { window.close() }
         window.isReleasedWhenClosed = false
         let secure = NSSecureTextField(frame: NSRect(x: 10, y: 10, width: 180, height: 24))
@@ -154,10 +169,12 @@ final class FullLogTests: XCTestCase {
         window.contentView?.addSubview(secure)
         window.contentView?.addSubview(plain)
         func key(_ character: String, repeat isARepeat: Bool = false) throws -> NSEvent {
-            try XCTUnwrap(NSEvent.keyEvent(
-                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
-                context: nil, characters: character, charactersIgnoringModifiers: character, isARepeat: isARepeat, keyCode: 0
-            ))
+            try XCTUnwrap(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+                    context: nil, characters: character, charactersIgnoringModifiers: character, isARepeat: isARepeat,
+                    keyCode: 0
+                ))
         }
 
         XCTAssertTrue(window.makeFirstResponder(secure))
@@ -180,18 +197,26 @@ final class FullLogTests: XCTestCase {
         // The interactions here would otherwise stay the last one for calls in later tests.
         defer { CallLog.noteInteraction(CallLog.Interaction(id: 0, label: "none", at: 0)) }
 
-        func mouse(_ type: NSEvent.EventType, at point: NSPoint, clicks: Int = 1, ago: TimeInterval = 0) throws -> NSEvent {
-            try XCTUnwrap(NSEvent.mouseEvent(
-                with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime - ago,
-                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: clicks, pressure: 1
-            ))
+        func mouse(_ type: NSEvent.EventType, at point: NSPoint, clicks: Int = 1, ago: TimeInterval = 0) throws
+            -> NSEvent
+        {
+            try XCTUnwrap(
+                NSEvent.mouseEvent(
+                    with: type, location: point, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime - ago,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: clicks, pressure: 1
+                ))
         }
-        func key(_ characters: String, code: UInt16 = 0, flags: NSEvent.ModifierFlags = [], repeat isARepeat: Bool = false) throws -> NSEvent {
-            try XCTUnwrap(NSEvent.keyEvent(
-                with: .keyDown, location: .zero, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: window.windowNumber, context: nil, characters: characters,
-                charactersIgnoringModifiers: characters, isARepeat: isARepeat, keyCode: code
-            ))
+        func key(
+            _ characters: String, code: UInt16 = 0, flags: NSEvent.ModifierFlags = [], repeat isARepeat: Bool = false
+        ) throws -> NSEvent {
+            try XCTUnwrap(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: flags,
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber, context: nil, characters: characters,
+                    charactersIgnoringModifiers: characters, isARepeat: isARepeat, keyCode: code
+                ))
         }
         func written() -> [String] {
             RunLoop.main.run(until: Date().addingTimeInterval(0.05))
@@ -240,14 +265,17 @@ final class FullLogTests: XCTestCase {
         XCTAssertTrue(written().first?.contains("key A in window “Fixture”") == true)
         log.handle(try key("k", flags: [.command, .shift, .option, .control]))
         XCTAssertTrue(written().first?.contains("shortcut ⌃⌥⇧⌘K") == true)
-        for (code, name) in [(36, "Return"), (48, "Tab"), (49, "Space"), (51, "Delete"), (53, "Escape"), (123, "←"), (124, "→"), (125, "↓"), (126, "↑")] {
+        for (code, name) in [
+            (36, "Return"), (48, "Tab"), (49, "Space"), (51, "Delete"), (53, "Escape"), (123, "←"), (124, "→"),
+            (125, "↓"), (126, "↑"),
+        ] {
             log.handle(try key(" ", code: UInt16(code)))
             XCTAssertTrue(written().first?.contains("key \(name) ") == true, name)
         }
         log.handle(try key(""))
         XCTAssertTrue(written().first?.contains("key key 0") == true)
         // A held key: every 10th repeat says it is still held.
-        for _ in 0 ..< 10 { log.handle(try key("j", repeat: true)) }
+        for _ in 0..<10 { log.handle(try key("j", repeat: true)) }
         XCTAssertEqual(written(), ["key J still held (10 repeats)"])
 
         // Trackpad scrolls start, lift and end; a mouse wheel counts a turn after a pause.
@@ -274,12 +302,13 @@ final class FullLogTests: XCTestCase {
         // Every lookup counts as over a budget below zero.
         let log = InteractionLog(lookupBudget: -1) { lines.append($0) }
         defer { CallLog.noteInteraction(CallLog.Interaction(id: 0, label: "none", at: 0)) }
-        for _ in 0 ..< 4 {
-            let event = try XCTUnwrap(NSEvent.mouseEvent(
-                with: .leftMouseDown, location: fixture.buttonCenter, modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: fixture.window.windowNumber,
-                context: nil, eventNumber: 0, clickCount: 1, pressure: 1
-            ))
+        for _ in 0..<4 {
+            let event = try XCTUnwrap(
+                NSEvent.mouseEvent(
+                    with: .leftMouseDown, location: fixture.buttonCenter, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: fixture.window.windowNumber,
+                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+                ))
             log.handle(event)
             RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         }
@@ -303,7 +332,8 @@ final class FullLogTests: XCTestCase {
         center.post(name: NSWindow.didEndLiveResizeNotification, object: fixture.window)
         center.post(name: NSApplication.didResignActiveNotification, object: nil)
         let item = NSMenuItem(title: "Next Track", action: nil, keyEquivalent: "")
-        center.post(name: NSMenu.didSendActionNotification, object: NSMenu(title: "Playback"), userInfo: ["MenuItem": item])
+        center.post(
+            name: NSMenu.didSendActionNotification, object: NSMenu(title: "Playback"), userInfo: ["MenuItem": item])
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
 
         XCTAssertTrue(lines.contains { $0.hasPrefix("window window “Fixture” resized: 320x") }, "\(lines)")
@@ -324,7 +354,8 @@ final class FullLogTests: XCTestCase {
 
     /// A trackpad or mouse-wheel scroll event, with the phases macOS gives it.
     private static func scroll(phase: Int64 = 0, momentum: Int64 = 0) throws -> NSEvent {
-        let event = try XCTUnwrap(CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: -4, wheel2: 0, wheel3: 0))
+        let event = try XCTUnwrap(
+            CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: -4, wheel2: 0, wheel3: 0))
         event.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
         event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: momentum)
         event.timestamp = CGEventTimestamp(ProcessInfo.processInfo.systemUptime * 1_000_000_000)
@@ -414,7 +445,8 @@ final class FullLogTests: XCTestCase {
     func testALongHangGetsALineWhileItStillLasts() throws {
         var captured: [String] = []
         let lock = NSLock()
-        let watch = HangWatch(threshold: 0.1, stillBlockedAfter: 0.4) { line in lock.withLock { captured.append(line) } }
+        let watch = HangWatch(threshold: 0.1, stillBlockedAfter: 0.4) { line in lock.withLock { captured.append(line) }
+        }
         watch.start()
         defer { watch.stop() }
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
@@ -446,7 +478,8 @@ final class FullLogTests: XCTestCase {
         var captured: [String] = []
         let lock = NSLock()
         // A short background pace and a block five times as long: a look always lands inside it.
-        let watch = HangWatch(threshold: 0.1, backgroundInterval: 0.2) { line in lock.withLock { captured.append(line) } }
+        let watch = HangWatch(threshold: 0.1, backgroundInterval: 0.2) { line in lock.withLock { captured.append(line) }
+        }
         watch.start(followingAppActivity: true)
         defer { watch.stop() }
         let center = NotificationCenter.default
@@ -458,7 +491,9 @@ final class FullLogTests: XCTestCase {
         while lock.withLock({ captured.isEmpty }), Date() < backgroundDeadline {
             RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         }
-        XCTAssertTrue(lock.withLock { captured.first }?.hasPrefix("MAIN THREAD BLOCKED for ") == true, "\(lock.withLock { captured })")
+        XCTAssertTrue(
+            lock.withLock { captured.first }?.hasPrefix("MAIN THREAD BLOCKED for ") == true,
+            "\(lock.withLock { captured })")
         lock.withLock { captured = [] }
 
         center.post(name: NSApplication.didBecomeActiveNotification, object: nil)
@@ -468,7 +503,9 @@ final class FullLogTests: XCTestCase {
         while lock.withLock({ captured.isEmpty }), Date() < deadline {
             RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         }
-        XCTAssertTrue(lock.withLock { captured.first }?.hasPrefix("MAIN THREAD BLOCKED for ") == true, "\(lock.withLock { captured })")
+        XCTAssertTrue(
+            lock.withLock { captured.first }?.hasPrefix("MAIN THREAD BLOCKED for ") == true,
+            "\(lock.withLock { captured })")
     }
 
     // MARK: - Song changes
@@ -478,17 +515,22 @@ final class FullLogTests: XCTestCase {
     /// isn't called MusicKit's own. A song paused at that read stays where it was.
     func testASongThatEndedLongAfterTheLastReadIsNotCalledMusicKitsOwn() {
         typealias Change = AppleMusicSongChange
-        let readWhilePlaying = Change.Seen(positionMilliseconds: 20_000, durationMilliseconds: 200_000, readAt: 1_000, rate: 1)
+        let readWhilePlaying = Change.Seen(
+            positionMilliseconds: 20_000, durationMilliseconds: 200_000, readAt: 1_000, rate: 1)
         XCTAssertEqual(
             Change.reason(before: readWhilePlaying, command: nil, now: 1_181),
             "the song before ended (3:20.0 of 3:20.0, counted on from a read 181.00 s before)"
         )
         // A read a moment ago is not called out.
         XCTAssertEqual(
-            Change.reason(before: Change.Seen(positionMilliseconds: 198_000, durationMilliseconds: 200_000, readAt: 1_000, rate: 1), command: nil, now: 1_001),
+            Change.reason(
+                before: Change.Seen(
+                    positionMilliseconds: 198_000, durationMilliseconds: 200_000, readAt: 1_000, rate: 1), command: nil,
+                now: 1_001),
             "the song before ended (3:19.0 of 3:20.0)"
         )
-        let readWhilePaused = Change.Seen(positionMilliseconds: 20_000, durationMilliseconds: 200_000, readAt: 1_000, rate: 0)
+        let readWhilePaused = Change.Seen(
+            positionMilliseconds: 20_000, durationMilliseconds: 200_000, readAt: 1_000, rate: 0)
         XCTAssertEqual(
             Change.reason(before: readWhilePaused, command: nil, now: 1_181),
             "MusicKit moved on by itself, no song command sent: the song before stopped at 0:20.0 of 3:20.0"
@@ -522,10 +564,11 @@ private final class FailingURLProtocol: URLProtocol {
 
     override func startLoading() {
         switch Self.outcome {
-        case let .error(error):
+        case .error(let error):
             client?.urlProtocol(self, didFailWithError: error)
-        case let .status(status):
-            let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil)!
+        case .status(let status):
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil)!
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: Data("unavailable".utf8))
             client?.urlProtocolDidFinishLoading(self)
@@ -543,7 +586,9 @@ private final class InteractionFixture: NSObject, NSTableViewDataSource {
     private let table: NSTableView
 
     override init() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 200), styleMask: [.titled], backing: .buffered, defer: false)
+        window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 200), styleMask: [.titled], backing: .buffered,
+            defer: false)
         window.isReleasedWhenClosed = false
         window.title = "Fixture"
         button = NSButton(title: "Next", target: nil, action: nil)

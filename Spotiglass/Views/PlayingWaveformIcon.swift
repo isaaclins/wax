@@ -66,7 +66,9 @@ struct PlayingWaveformIcon: View {
             height: Self.maxHeight
         )
         .help(isPlaying ? SpotiglassL10n.string("playback.nowPlaying") : SpotiglassL10n.string("playback.paused"))
-        .accessibilityLabel(isPlaying ? SpotiglassL10n.string("playback.nowPlaying") : SpotiglassL10n.string("playback.paused"))
+        .accessibilityLabel(
+            isPlaying ? SpotiglassL10n.string("playback.nowPlaying") : SpotiglassL10n.string("playback.paused")
+        )
         .accessibilityAddTraits(.isImage)
     }
 
@@ -199,14 +201,18 @@ final class WaveformBarsView: NSView {
         for (index, bar) in barLayers.enumerated() {
             bar.removeAnimation(forKey: Self.settleKey)
             let spec = PlayingWaveformIcon.bars[index]
-            guard let timing = PlayingWaveformIcon.barTiming(
-                isAnimating: true,
-                durationScale: spec.durationScale,
-                durationOffset: spec.durationOffset
-            ) else { continue }
+            guard
+                let timing = PlayingWaveformIcon.barTiming(
+                    isAnimating: true,
+                    durationScale: spec.durationScale,
+                    durationOffset: spec.durationOffset
+                )
+            else { continue }
             let animation = CABasicAnimation(keyPath: "transform.scale.y")
-            animation.fromValue = PlayingWaveformIcon.barScale(index: index, baseFraction: spec.baseFraction, isAnimating: false)
-            animation.toValue = PlayingWaveformIcon.barScale(index: index, baseFraction: spec.baseFraction, isAnimating: true)
+            animation.fromValue = PlayingWaveformIcon.barScale(
+                index: index, baseFraction: spec.baseFraction, isAnimating: false)
+            animation.toValue = PlayingWaveformIcon.barScale(
+                index: index, baseFraction: spec.baseFraction, isAnimating: true)
             animation.duration = timing.duration
             animation.beginTime = bar.convertTime(now, from: nil) + timing.delay
             animation.fillMode = .backwards

@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class PlaylistOwnerDisplayTests: XCTestCase {
@@ -76,9 +77,11 @@ final class PlaylistOwnerDisplayTests: XCTestCase {
     /// after the sidebar, stay quiet.
     func testOnlyAppleMusicRowsHideAnUnknownCount() {
         func row(snapshotID: String) -> PlaylistRowViewModel {
-            PlaylistRowViewModel(MusicPlaylistSummary(
-                id: "p", name: "P", ownerID: "o", ownerName: "O", imageURL: nil, trackCount: nil, snapshotID: snapshotID
-            ))
+            PlaylistRowViewModel(
+                MusicPlaylistSummary(
+                    id: "p", name: "P", ownerID: "o", ownerName: "O", imageURL: nil, trackCount: nil,
+                    snapshotID: snapshotID
+                ))
         }
         XCTAssertEqual(row(snapshotID: AppleMusicItemMapping.playlistSnapshotID).localizedTrackCountText(), "")
         XCTAssertEqual(

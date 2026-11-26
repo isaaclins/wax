@@ -1,6 +1,7 @@
 import Combine
 import MusicKit
 import XCTest
+
 @testable import Spotiglass
 
 /// Apple Music playback: the provider's mapping onto MusicKit's `ApplicationMusicPlayer`
@@ -20,10 +21,12 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertNil(provider.deviceTransfer)
         try await provider.connectPlayer(generation: .initial)
         try await provider.connectPlayer(generation: .initial.advanced())
-        XCTAssertEqual(events, [
-            .ready(deviceID: AppleMusicPlaybackProvider.deviceID),
-            .ready(deviceID: AppleMusicPlaybackProvider.deviceID),
-        ])
+        XCTAssertEqual(
+            events,
+            [
+                .ready(deviceID: AppleMusicPlaybackProvider.deviceID),
+                .ready(deviceID: AppleMusicPlaybackProvider.deviceID),
+            ])
 
         let session = PlaybackSessionViewModel(provider: provider)
         XCTAssertFalse(session.supportsPlayerVolume)
@@ -61,14 +64,22 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         )
         XCTAssertEqual(
             try AppleMusicPlaybackProvider.queueRequest(
-                for: .items(uris: ["applemusic:song:1", "spotify:track:x", "applemusic:song:-2"], startURI: "applemusic:song:-2")
+                for: .items(
+                    uris: ["applemusic:song:1", "spotify:track:x", "applemusic:song:-2"], startURI: "applemusic:song:-2"
+                )
             ),
             .items(uris: ["applemusic:song:1", "applemusic:song:-2"], startURI: "applemusic:song:-2")
         )
-        XCTAssertEqual(try AppleMusicPlaybackProvider.queueRequest(for: .context(uri: "applemusic:album:1440857781")), .album(id: "1440857781"))
-        XCTAssertEqual(try AppleMusicPlaybackProvider.queueRequest(for: .context(uri: "applemusic:playlist:p.abc")), .playlist(id: "p.abc"))
-        XCTAssertEqual(try AppleMusicPlaybackProvider.queueRequest(for: .context(uri: "applemusic:artist:42")), .artist(id: "42"))
-        XCTAssertThrowsError(try AppleMusicPlaybackProvider.queueRequest(for: .context(uri: "spotify:album:abc"))) { error in
+        XCTAssertEqual(
+            try AppleMusicPlaybackProvider.queueRequest(for: .context(uri: "applemusic:album:1440857781")),
+            .album(id: "1440857781"))
+        XCTAssertEqual(
+            try AppleMusicPlaybackProvider.queueRequest(for: .context(uri: "applemusic:playlist:p.abc")),
+            .playlist(id: "p.abc"))
+        XCTAssertEqual(
+            try AppleMusicPlaybackProvider.queueRequest(for: .context(uri: "applemusic:artist:42")), .artist(id: "42"))
+        XCTAssertThrowsError(try AppleMusicPlaybackProvider.queueRequest(for: .context(uri: "spotify:album:abc"))) {
+            error in
             XCTAssertEqual(MusicPlaybackError.from(error)?.service, .appleMusic)
             XCTAssertEqual(MusicPlaybackError.from(error)?.reason, .notFound)
         }
@@ -80,7 +91,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let noState = try await provider.fetchPlaybackState()
         XCTAssertNil(noState, "an empty queue reads as nothing active")
 
-        try await provider.play(.items(uris: Self.uris, startURI: Self.uris[1]), deviceID: AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(
+            .items(uris: Self.uris, startURI: Self.uris[1]), deviceID: AppleMusicPlaybackProvider.deviceID)
         player.advance(by: 1)
         try await provider.setShuffle(enabled: true, deviceID: "x")
         try await provider.setRepeat(mode: .context, deviceID: "x")
@@ -229,7 +241,10 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let slow = Task { try await patient.play(.items(uris: Self.uris, startURI: nil), deviceID: "x") }
         await Self.waitForLookups(2, on: player)
         var returned = false
-        let read = await Self.startRead { _ = try await patient.fetchQueue(); returned = true }
+        let read = await Self.startRead {
+            _ = try await patient.fetchQueue()
+            returned = true
+        }
         XCTAssertFalse(returned)
         try await patient.disconnectPlayer(generation: .initial)
         try await read.value
@@ -302,12 +317,14 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         var queue = ["0", "1", "2"].map { Self.row($0) }
         var book = Book()
         book.replace(with: queue)
-        XCTAssertTrue(book.planAdd(Self.row("a"), currentIndex: 0, entryCount: 3).isAfterCurrent,
-                      "the first add uses MusicKit's own insert after the current song")
+        XCTAssertTrue(
+            book.planAdd(Self.row("a"), currentIndex: 0, entryCount: 3).isAfterCurrent,
+            "the first add uses MusicKit's own insert after the current song")
         Self.add(Self.row("a"), to: &queue, current: 0, book: &book)
         Self.add(Self.row("b"), to: &queue, current: 0, book: &book)
-        XCTAssertFalse(book.planAdd(Self.row("x"), currentIndex: 0, entryCount: 5).isAfterCurrent,
-                       "the next goes to a position past the first")
+        XCTAssertFalse(
+            book.planAdd(Self.row("x"), currentIndex: 0, entryCount: 5).isAfterCurrent,
+            "the next goes to a position past the first")
         XCTAssertEqual(queue.map(\.title), ["0", "a", "b", "1", "2"])
         // a plays.
         Self.add(Self.row("c"), to: &queue, current: 1, book: &book)
@@ -330,9 +347,10 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         try await provider.enqueue(uri: "applemusic:song:a", deviceID: "x")
         try await provider.enqueue(uri: "applemusic:song:b", deviceID: "x")
         try await provider.skipToNext(deviceID: "x")
-        player.advance(by: 1) // a plays now; b is still ahead
+        player.advance(by: 1)  // a plays now; b is still ahead
 
-        try await provider.play(.items(uris: ["applemusic:song:n1", "applemusic:song:n2"], startURI: nil), deviceID: "x")
+        try await provider.play(
+            .items(uris: ["applemusic:song:n1", "applemusic:song:n2"], startURI: nil), deviceID: "x")
         try await provider.enqueue(uri: "applemusic:song:c", deviceID: "x")
 
         let state = try await provider.fetchPlaybackState()
@@ -360,8 +378,9 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         shuffled.replace(with: [])
         shuffled.forgetPositions()
         shuffled.markAdded(start: 3, count: 2)
-        XCTAssertEqual(shuffled.planAdd(Self.row("c"), currentIndex: 2, entryCount: 8).index, 5,
-                       "a later add goes after the carried songs")
+        XCTAssertEqual(
+            shuffled.planAdd(Self.row("c"), currentIndex: 2, entryCount: 8).index, 5,
+            "a later add goes after the carried songs")
         shuffled.markAdded(start: 3, count: 0)
         XCTAssertNil(shuffled.added)
 
@@ -587,7 +606,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
 
         await session.play(uri: Self.uris[0])
 
-        guard case let .error(displayError) = session.connectionState else {
+        guard case .error(let displayError) = session.connectionState else {
             return XCTFail("Expected an error, got \(session.connectionState)")
         }
         XCTAssertEqual(displayError.message, SpotiglassL10n.string("error.playback.appleMusic.failed"))
@@ -615,7 +634,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         )
         XCTAssertEqual(kept.map(\.uri), ["applemusic:song:1712562731", "applemusic:song:1689834069"])
         // A list started from its header leaves them out too.
-        XCTAssertEqual(try MusicKitApplicationPlayer.leavingOutBlocked(songs, startURI: nil, explicitBlocked: true).count, 2)
+        XCTAssertEqual(
+            try MusicKitApplicationPlayer.leavingOutBlocked(songs, startURI: nil, explicitBlocked: true).count, 2)
         // Without the restriction nothing changes.
         XCTAssertEqual(
             try MusicKitApplicationPlayer.leavingOutBlocked(songs, startURI: nil, explicitBlocked: false).map(\.uri),
@@ -625,15 +645,20 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
 
     func testAnExplicitSongOnAMacThatOnlyAllowsCleanMusicSaysWhy() throws {
         let songs = try Self.topTracks()
-        XCTAssertThrowsError(try MusicKitApplicationPlayer.leavingOutBlocked(
-            songs, startURI: "applemusic:song:1772940995", explicitBlocked: true
-        )) { error in
+        XCTAssertThrowsError(
+            try MusicKitApplicationPlayer.leavingOutBlocked(
+                songs, startURI: "applemusic:song:1772940995", explicitBlocked: true
+            )
+        ) { error in
             XCTAssertEqual((error as? MusicPlaybackError)?.reason, .explicitContentRestricted)
         }
         // A list of only explicit songs (an album) has nothing to play.
-        XCTAssertThrowsError(try MusicKitApplicationPlayer.leavingOutBlocked(
-            songs.filter { $0.uri.hasSuffix("0995") || $0.uri.hasSuffix("0626") }, startURI: nil, explicitBlocked: true
-        )) { error in
+        XCTAssertThrowsError(
+            try MusicKitApplicationPlayer.leavingOutBlocked(
+                songs.filter { $0.uri.hasSuffix("0995") || $0.uri.hasSuffix("0626") }, startURI: nil,
+                explicitBlocked: true
+            )
+        ) { error in
             XCTAssertEqual((error as? MusicPlaybackError)?.reason, .explicitContentRestricted)
         }
 
@@ -654,9 +679,10 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
             ["applemusic:song:1712562731", "applemusic:song:1689834069"]
         )
         // Only explicit ones added: nothing comes along, and the new queue still plays.
-        XCTAssertTrue(MusicKitApplicationPlayer.droppingBlocked(
-            added.filter { $0.uri.hasSuffix("0995") || $0.uri.hasSuffix("0626") }, explicitBlocked: true
-        ).isEmpty)
+        XCTAssertTrue(
+            MusicKitApplicationPlayer.droppingBlocked(
+                added.filter { $0.uri.hasSuffix("0995") || $0.uri.hasSuffix("0626") }, explicitBlocked: true
+            ).isEmpty)
         XCTAssertEqual(MusicKitApplicationPlayer.droppingBlocked(added, explicitBlocked: false).count, added.count)
     }
 
@@ -667,19 +693,25 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         AppleMusicContentRatings.shared.resetSharedStateForTesting()
         let saved = try AppleMusicFixtures.song(id: "i.5180041", title: "Paper Lanterns", catalogID: "9518041")
         let clean = try AppleMusicFixtures.song(id: "i.5180042", title: "Low Tide", catalogID: "9518042")
-        await AppleMusicContentRatings.shared.resolve([saved, clean], lookup: { _ in ["9518041": .init(isExplicit: true), "9518042": .init(isExplicit: false)] }, library: nil)
+        await AppleMusicContentRatings.shared.resolve(
+            [saved, clean], lookup: { _ in ["9518041": .init(isExplicit: true), "9518042": .init(isExplicit: false)] },
+            library: nil)
         let songs = [saved, clean].map { (AppleMusicItemMapping.track($0).uri, MusicPlayer.Queue.Entry($0)) }
 
         XCTAssertEqual(
             try MusicKitApplicationPlayer.leavingOutBlocked(songs, startURI: nil, explicitBlocked: true).map(\.uri),
             ["applemusic:song:i.5180042"]
         )
-        XCTAssertThrowsError(try MusicKitApplicationPlayer.leavingOutBlocked(
-            songs, startURI: "applemusic:song:i.5180041", explicitBlocked: true
-        )) { error in
+        XCTAssertThrowsError(
+            try MusicKitApplicationPlayer.leavingOutBlocked(
+                songs, startURI: "applemusic:song:i.5180041", explicitBlocked: true
+            )
+        ) { error in
             XCTAssertEqual((error as? MusicPlaybackError)?.reason, .explicitContentRestricted)
         }
-        XCTAssertEqual(MusicKitApplicationPlayer.droppingBlocked(songs, explicitBlocked: true).map(\.uri), ["applemusic:song:i.5180042"])
+        XCTAssertEqual(
+            MusicKitApplicationPlayer.droppingBlocked(songs, explicitBlocked: true).map(\.uri),
+            ["applemusic:song:i.5180042"])
     }
 
     /// With clean-only on, a saved song whose release's rating couldn't be read (offline, a
@@ -711,22 +743,30 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
     /// and plays.
     func testAMacThatOnlyAllowsCleanMusicLeavesOutRowsTheLookupsCouldNotRate() async throws {
         AppleMusicContentRatings.shared.resetSharedStateForTesting()
-        let notListed = try AppleMusicFixtures.song(id: "5180000000000000071", title: "Paper Lanterns", persistentID: "5180000000000000071")
-        let uploadRow = try AppleMusicFixtures.song(id: "5180000000000000072", title: "Voice Memo Demo", persistentID: "5180000000000000072")
+        let notListed = try AppleMusicFixtures.song(
+            id: "5180000000000000071", title: "Paper Lanterns", persistentID: "5180000000000000071")
+        let uploadRow = try AppleMusicFixtures.song(
+            id: "5180000000000000072", title: "Voice Memo Demo", persistentID: "5180000000000000072")
         let goneFromCatalog = try AppleMusicFixtures.song(id: "i.5180073", title: "Low Tide", catalogID: "9518073")
-        let library = [try AppleMusicFixtures.song(id: "i.5180072", title: "Voice Memo Demo", persistentID: "5180000000000000072")]
+        let library = [
+            try AppleMusicFixtures.song(id: "i.5180072", title: "Voice Memo Demo", persistentID: "5180000000000000072")
+        ]
         await AppleMusicContentRatings.shared.resolve(
             [notListed, uploadRow, goneFromCatalog],
             lookup: { _ in [:] },
             library: { _, offset in offset == 0 ? library : [] }
         )
-        let songs = [notListed, uploadRow, goneFromCatalog].map { (AppleMusicItemMapping.track($0).uri, MusicPlayer.Queue.Entry($0)) }
+        let songs = [notListed, uploadRow, goneFromCatalog].map {
+            (AppleMusicItemMapping.track($0).uri, MusicPlayer.Queue.Entry($0))
+        }
 
         XCTAssertEqual(
             MusicKitApplicationPlayer.droppingBlocked(songs, explicitBlocked: true).map(\.uri),
             ["applemusic:song:5180000000000000072"]
         )
-        XCTAssertEqual([notListed, uploadRow, goneFromCatalog].map { AppleMusicItemMapping.track($0).isExplicit }, [false, false, false])
+        XCTAssertEqual(
+            [notListed, uploadRow, goneFromCatalog].map { AppleMusicItemMapping.track($0).isExplicit },
+            [false, false, false])
     }
 
     // MARK: - Starts MusicKit refuses (#476)
@@ -735,10 +775,17 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
     /// catalog songs with play parameters. "oh yeah?" is the one that failed.
     private static func refusedTopTracks() throws -> [MusicPlayer.Queue.Entry] {
         try [
-            AppleMusicFixtures.song(id: "1745213459", title: "ITTY BITTY", artist: "Mishaal Tamer", album: "ITTY BITTY - Single", durationMs: 143_000, explicit: true),
-            AppleMusicFixtures.song(id: "1783862517", title: "Loca Playa", artist: "Santax", album: "Loca Playa", durationMs: 174_000),
-            AppleMusicFixtures.song(id: "6773775282", title: "oh yeah?", artist: "Steve Lacy", album: "Oh yeah?", durationMs: 170_000, explicit: true),
-            AppleMusicFixtures.song(id: "1838552993", title: "Where's Your Head At", artist: "Eurotripp", album: "Where's Your Head At", durationMs: 186_000),
+            AppleMusicFixtures.song(
+                id: "1745213459", title: "ITTY BITTY", artist: "Mishaal Tamer", album: "ITTY BITTY - Single",
+                durationMs: 143_000, explicit: true),
+            AppleMusicFixtures.song(
+                id: "1783862517", title: "Loca Playa", artist: "Santax", album: "Loca Playa", durationMs: 174_000),
+            AppleMusicFixtures.song(
+                id: "6773775282", title: "oh yeah?", artist: "Steve Lacy", album: "Oh yeah?", durationMs: 170_000,
+                explicit: true),
+            AppleMusicFixtures.song(
+                id: "1838552993", title: "Where's Your Head At", artist: "Eurotripp", album: "Where's Your Head At",
+                durationMs: 186_000),
         ].map { MusicPlayer.Queue.Entry($0) }
     }
 
@@ -764,7 +811,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
             return "plays, \(started.leftOut) left out"
         } catch let refused as Starts.Refused {
             switch refused.left {
-            case let .previousQueue(rows, leftOutBefore): return "gave back \(rows), \(leftOutBefore) left out"
+            case .previousQueue(let rows, let leftOutBefore): return "gave back \(rows), \(leftOutBefore) left out"
             case .nothing: return "nothing"
             case .replaced: return "replaced"
             }
@@ -816,10 +863,11 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
 
     private static func album(_ count: Int) throws -> [MusicPlayer.Queue.Entry] {
         try (1...count).map { number in
-            MusicPlayer.Queue.Entry(try AppleMusicFixtures.song(
-                id: "\(1_700_000_000 + number)", title: "Track \(number)", artist: "Artist",
-                album: "Album", durationMs: 200_000
-            ))
+            MusicPlayer.Queue.Entry(
+                try AppleMusicFixtures.song(
+                    id: "\(1_700_000_000 + number)", title: "Track \(number)", artist: "Artist",
+                    album: "Album", durationMs: 200_000
+                ))
         }
     }
 
@@ -837,10 +885,13 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertEqual(player.entries.map(\.title), ["Track 13"], "what MusicKit held in the log")
         let fill = await starts.fillIn(started)
 
-        XCTAssertEqual(player.namedStarts, ["Track 13", nil], "refused named start, then the retry from the pressed song")
+        XCTAssertEqual(
+            player.namedStarts, ["Track 13", nil], "refused named start, then the retry from the pressed song")
         XCTAssertEqual(player.currentEntry?.title, "Track 13")
         XCTAssertTrue(player.isPlaying)
-        XCTAssertEqual(player.entries.map(\.title), (13...20).map { "Track \($0)" }, "the rest of the album follows the pressed song")
+        XCTAssertEqual(
+            player.entries.map(\.title), (13...20).map { "Track \($0)" },
+            "the rest of the album follows the pressed song")
         XCTAssertEqual(player.commands.filter { $0.hasPrefix("add") }, ["add 7 at the end"])
         XCTAssertEqual(started.leftOut, 12)
         XCTAssertEqual(fill, Starts.Fill(holds: 8, asked: 8))
@@ -881,9 +932,11 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
     }
 
     private static func otherSong(_ title: String) throws -> MusicPlayer.Queue.Entry {
-        MusicPlayer.Queue.Entry(try AppleMusicFixtures.song(
-            id: "\(1_799_000_000 + title.count)", title: title, artist: "Someone", album: "Other", durationMs: 180_000
-        ))
+        MusicPlayer.Queue.Entry(
+            try AppleMusicFixtures.song(
+                id: "\(1_799_000_000 + title.count)", title: title, artist: "Someone", album: "Other",
+                durationMs: 180_000
+            ))
     }
 
     /// #736's second click (`entries=9`): Autoplay fills the one-song queue before it settles.
@@ -896,7 +949,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let starts = Starts(player: player)
 
         let started = try await Self.press(starts, try Self.album(20), at: 12, rows: "album")
-        try await player.insertEntries([try Self.otherSong("Autoplay A"), try Self.otherSong("Autoplay BB")], afterCurrent: false)
+        try await player.insertEntries(
+            [try Self.otherSong("Autoplay A"), try Self.otherSong("Autoplay BB")], afterCurrent: false)
         let sentBefore = player.commands.count
         let fill = await starts.fillIn(started)
 
@@ -1017,17 +1071,23 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let player = RefusingQueueStarter(refusing: ["6773775282", "1838552993"])
         let starts = Starts(player: player)
 
-        let first = await Self.outcome { try await Self.press(starts, songs, at: 2, rows: "top tracks", holding: "none") }
+        let first = await Self.outcome {
+            try await Self.press(starts, songs, at: 2, rows: "top tracks", holding: "none")
+        }
         XCTAssertEqual(first, "nothing")
         XCTAssertEqual(player.commands.last, "stop")
         XCTAssertTrue(starts.hidesRefusedQueue)
 
-        let second = await Self.outcome { try await Self.press(starts, [songs[3]], rows: "Where's Your Head At", holding: "hidden") }
+        let second = await Self.outcome {
+            try await Self.press(starts, [songs[3]], rows: "Where's Your Head At", holding: "hidden")
+        }
         XCTAssertEqual(second, "nothing", "the hidden refused song doesn't come back as Paused")
         XCTAssertTrue(starts.hidesRefusedQueue)
-        starts.playerPlays() // a media key started it after all
+        starts.playerPlays()  // a media key started it after all
         XCTAssertFalse(starts.hidesRefusedQueue, "what plays shows")
-        _ = await Self.outcome { try await Self.press(starts, [songs[3]], rows: "Where's Your Head At", holding: "hidden") }
+        _ = await Self.outcome {
+            try await Self.press(starts, [songs[3]], rows: "Where's Your Head At", holding: "hidden")
+        }
         XCTAssertTrue(starts.hidesRefusedQueue)
 
         _ = try await Self.press(starts, [songs[1]], rows: "Loca Playa", holding: "hidden")
@@ -1062,10 +1122,10 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
 
         let x = Task { await Self.outcome { try await Self.press(starts, songs, at: 2, rows: "X") } }
         await player.waitForHeldPlays(1)
-        player.releasePlay() // refused at its named start
+        player.releasePlay()  // refused at its named start
         await player.waitForHeldPlays(1)
-        player.releasePlay() // refused from the pressed song on
-        await player.waitForHeldPlays(1) // P going back
+        player.releasePlay()  // refused from the pressed song on
+        await player.waitForHeldPlays(1)  // P going back
         XCTAssertEqual(player.currentEntry?.title, "ITTY BITTY")
         let y = Task { try await Self.press(starts, [songs[3]], rows: "Y", holding: "X") }
         await player.waitForHeldPlays(2)
@@ -1093,9 +1153,9 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         await player.waitForHeldPlays(1)
         let y = Task { await Self.outcome { try await Self.press(starts, [songs[3]], rows: "Y", holding: "X") } }
         await player.waitForHeldPlays(2)
-        player.releasePlay() // X refused
-        player.releasePlay() // Y refused
-        await player.waitForHeldPlays(1) // P going back
+        player.releasePlay()  // X refused
+        player.releasePlay()  // Y refused
+        await player.waitForHeldPlays(1)  // P going back
         player.releasePlay()
 
         let xOutcome = await x.value
@@ -1121,13 +1181,13 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         await player.waitForHeldPlays(1)
         let y = Task { await Self.outcome { try await Self.press(starts, [songs[3]], rows: "Y", holding: "X") } }
         await player.waitForHeldPlays(2)
-        player.releasePlay() // X plays
+        player.releasePlay()  // X plays
         // X's answer is handled before Y's. Released back to back, each press resumes on its own
         // task, and on a busy machine Y's refusal could come first: then nothing had played yet
         // and Y stopped the player (#517).
         let xOutcome = await x.value
-        player.releasePlay() // Y refused
-        await player.waitForHeldPlays(1) // X going back
+        player.releasePlay()  // Y refused
+        await player.waitForHeldPlays(1)  // X going back
         player.releasePlay()
 
         let yOutcome = await y.value
@@ -1192,7 +1252,9 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let xOutcome = await x.value
         XCTAssertEqual(xOutcome, "plays, 0 left out")
         XCTAssertFalse(player.isPlaying)
-        XCTAssertEqual(player.commands.suffix(3), ["play", "stop", "stop"], "the sign-out's stop, then the stop after MusicKit started it")
+        XCTAssertEqual(
+            player.commands.suffix(3), ["play", "stop", "stop"],
+            "the sign-out's stop, then the stop after MusicKit started it")
     }
 
     /// MusicKit keeps its queue after a stop (a sign-out). A refused press after that gives
@@ -1204,7 +1266,9 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let starts = Starts(player: player)
         starts.stop()
 
-        let outcome = await Self.outcome { try await Self.press(starts, [songs[2]], rows: "X", holding: "ended session") }
+        let outcome = await Self.outcome {
+            try await Self.press(starts, [songs[2]], rows: "X", holding: "ended session")
+        }
 
         XCTAssertEqual(outcome, "nothing")
         XCTAssertNotEqual(player.currentEntry?.title, "ITTY BITTY")
@@ -1222,8 +1286,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let x = Task { await Self.outcome { try await Self.press(starts, [songs[2]], rows: "X") } }
         await player.waitForHeldPlays(1)
         starts.paused()
-        player.releasePlay() // X refused
-        await player.waitForHeldPlays(1) // P going back
+        player.releasePlay()  // X refused
+        await player.waitForHeldPlays(1)  // P going back
         player.releasePlay()
 
         let xOutcome = await x.value
@@ -1263,8 +1327,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let x = Task { await Self.outcome { try await Self.press(starts, songs, at: 2, rows: "X") } }
         await player.waitForHeldPlays(1)
         starts.paused()
-        player.releasePlay() // the named start refused
-        await player.waitForHeldPlays(1) // the retry from the pressed song
+        player.releasePlay()  // the named start refused
+        await player.waitForHeldPlays(1)  // the retry from the pressed song
         player.releasePlay()
 
         let xOutcome = await x.value
@@ -1314,7 +1378,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         player.shuffles = true
         player.namedStartRefusalsLeft = 1
 
-        let started = try await Starts(player: player).start(songs, at: 2, shuffles: true, currentRows: "P", rowsPlayed: { _ in "top tracks" })
+        let started = try await Starts(player: player).start(
+            songs, at: 2, shuffles: true, currentRows: "P", rowsPlayed: { _ in "top tracks" })
 
         XCTAssertEqual(started.leftOut, 0)
         XCTAssertEqual(player.currentEntry?.title, "oh yeah?")
@@ -1329,7 +1394,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let player = RefusingQueueStarter()
         player.namedStartRefusalsLeft = 1
 
-        let started = try await Starts(player: player).start(songs, at: 2, currentRows: "P", rowsPlayed: { _ in "top tracks" })
+        let started = try await Starts(player: player).start(
+            songs, at: 2, currentRows: "P", rowsPlayed: { _ in "top tracks" })
 
         XCTAssertEqual(started.leftOut, 2)
         XCTAssertEqual(player.namedStarts, ["oh yeah?", nil])
@@ -1365,18 +1431,22 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         func lookup(_ values: [String: (Any, Bool)]) -> AppleMusicContentRestrictions.Lookup {
             { key, _ in values[key].map { ($0.0, $0.1) } ?? (nil, false) }
         }
-        XCTAssertTrue(AppleMusicContentRestrictions.isExplicitMusicBlocked(
-            lookup: lookup(["restrictExplicit": (true, true)])
-        ), "Screen Time's Clean")
-        XCTAssertTrue(AppleMusicContentRestrictions.isExplicitMusicBlocked(
-            lookup: lookup(["allowExplicitContent": (false, true)])
-        ), "A restrictions profile")
-        XCTAssertFalse(AppleMusicContentRestrictions.isExplicitMusicBlocked(
-            lookup: lookup(["restrictExplicit": (true, false), "allowExplicitContent": (false, false)])
-        ), "Saved but not enforced")
-        XCTAssertFalse(AppleMusicContentRestrictions.isExplicitMusicBlocked(
-            lookup: lookup(["restrictExplicit": (false, true), "allowExplicitContent": (true, true)])
-        ), "Enforced, but explicit allowed")
+        XCTAssertTrue(
+            AppleMusicContentRestrictions.isExplicitMusicBlocked(
+                lookup: lookup(["restrictExplicit": (true, true)])
+            ), "Screen Time's Clean")
+        XCTAssertTrue(
+            AppleMusicContentRestrictions.isExplicitMusicBlocked(
+                lookup: lookup(["allowExplicitContent": (false, true)])
+            ), "A restrictions profile")
+        XCTAssertFalse(
+            AppleMusicContentRestrictions.isExplicitMusicBlocked(
+                lookup: lookup(["restrictExplicit": (true, false), "allowExplicitContent": (false, false)])
+            ), "Saved but not enforced")
+        XCTAssertFalse(
+            AppleMusicContentRestrictions.isExplicitMusicBlocked(
+                lookup: lookup(["restrictExplicit": (false, true), "allowExplicitContent": (true, true)])
+            ), "Enforced, but explicit allowed")
         XCTAssertFalse(AppleMusicContentRestrictions.isExplicitMusicBlocked(lookup: lookup([:])))
     }
 
@@ -1401,7 +1471,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
 
         await session.playFromPlaylist(clickedURI: Self.uris[1], playableURIs: Self.uris)
 
-        guard case let .error(displayError) = session.connectionState else {
+        guard case .error(let displayError) = session.connectionState else {
             return XCTFail("Expected an error, got \(session.connectionState)")
         }
         XCTAssertEqual(displayError.message, SpotiglassL10n.string("error.playback.appleMusic.notPlayable"))
@@ -1423,7 +1493,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertFalse(appleMusic.canReconnectPlayer)
 
         await appleMusic.play(uri: Self.uris[0])
-        guard case let .error(failedPlay) = appleMusic.connectionState else {
+        guard case .error(let failedPlay) = appleMusic.connectionState else {
             return XCTFail("Expected an error, got \(appleMusic.connectionState)")
         }
         XCTAssertEqual(failedPlay.message, SpotiglassL10n.string("error.playback.appleMusic.failed"))
@@ -1438,7 +1508,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
             PlaybackSessionViewModel.displayError(for: CocoaError(.fileReadUnknown)),
         ] {
             appleMusic.setConnectionState(.error(.reported(error)))
-            guard case let .error(shown) = appleMusic.connectionState else { return XCTFail("Expected an error") }
+            guard case .error(let shown) = appleMusic.connectionState else { return XCTFail("Expected an error") }
             XCTAssertNil(shown.action, error.message)
             XCTAssertFalse(shown.message.contains("Reconnect"), shown.message)
             XCTAssertFalse(shown.message.contains("Spotify"), shown.message)
@@ -1458,17 +1528,17 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertTrue(spotify.canReconnectPlayer)
         // Play before the web player reported its device: the player isn't connected.
         await spotify.play(uri: "spotify:track:1")
-        guard case let .error(notConnected) = spotify.connectionState else {
+        guard case .error(let notConnected) = spotify.connectionState else {
             return XCTFail("Expected an error, got \(spotify.connectionState)")
         }
         XCTAssertEqual(notConnected.action, .reconnect)
         spotify.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackHostConnectionTimedOutError())))
-        guard case let .error(timedOut) = spotify.connectionState else { return XCTFail("Expected an error") }
+        guard case .error(let timedOut) = spotify.connectionState else { return XCTFail("Expected an error") }
         XCTAssertEqual(timedOut.action, .reconnect)
         // A command Spotify refused leaves the player connected: Retry, not Reconnect.
         let failedCommand = PlaybackSessionViewModel.displayError(for: SpotifyAPIError.network("offline"))
         spotify.setConnectionState(.error(.reported(failedCommand)))
-        guard case let .error(retry) = spotify.connectionState else { return XCTFail("Expected an error") }
+        guard case .error(let retry) = spotify.connectionState else { return XCTFail("Expected an error") }
         XCTAssertEqual(retry.action, .retryTransfer)
     }
 
@@ -1489,9 +1559,10 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
             try await Self.read(session, player, at: 30)
             XCTAssertTrue(Self.isPlaying(session))
 
-            player.skipFailure = MusicPlaybackError(service: .appleMusic, reason: reason, detail: "MPMusicPlayerControllerErrorDomain 6")
+            player.skipFailure = MusicPlaybackError(
+                service: .appleMusic, reason: reason, detail: "MPMusicPlayerControllerErrorDomain 6")
             await session.next()
-            guard case let .error(failed) = session.connectionState else {
+            guard case .error(let failed) = session.connectionState else {
                 return XCTFail("Expected the failed Next to show, got \(session.connectionState)")
             }
             XCTAssertNil(failed.action)
@@ -1518,7 +1589,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
 
         player.failure = NSError(domain: "MPMusicPlayerControllerErrorDomain", code: 6)
         await session.play(uri: Self.uris[3])
-        guard case let .error(second) = session.connectionState else {
+        guard case .error(let second) = session.connectionState else {
             return XCTFail("Expected the failed play to show, got \(session.connectionState)")
         }
         XCTAssertEqual(second.message, SpotiglassL10n.string("error.playback.appleMusic.failed"))
@@ -1555,7 +1626,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         try await Self.read(session, player, at: 30)
         player.skipFailure = MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "refused")
         await session.next()
-        guard case let .error(failed) = session.connectionState else { return XCTFail("Expected the failed Next") }
+        guard case .error(let failed) = session.connectionState else { return XCTFail("Expected the failed Next") }
         XCTAssertNotNil(session.passingErrorRecoveryTask)
 
         player.holdLookups = true
@@ -1581,20 +1652,27 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
     func testTheBarShowsAStartingSongAtOnceUntilItPlaysOrFails() async throws {
         let (player, session) = try await Self.playingSession()
         var logged: [String] = []
-        let trace = PlaybackTrace(write: { logged.append($0) }, afterDrawing: { drawn in MainActor.assumeIsolated { drawn() } })
+        let trace = PlaybackTrace(
+            write: { logged.append($0) }, afterDrawing: { drawn in MainActor.assumeIsolated { drawn() } })
         let controller = ViewTestHost.host(
-            PlaybackControlsView(viewModel: session, isLyricsPresented: .constant(false), openArtist: { _ in }, trace: trace),
+            PlaybackControlsView(
+                viewModel: session, isLyricsPresented: .constant(false), openArtist: { _ in }, trace: trace),
             size: CGSize(width: 900, height: 120)
         )
         func barLines() -> [String] {
-            logged.filter { $0.hasPrefix("bar updated to") }.map { $0.components(separatedBy: " ").prefix(4).joined(separator: " ") }
+            logged.filter { $0.hasPrefix("bar updated to") }.map {
+                $0.components(separatedBy: " ").prefix(4).joined(separator: " ")
+            }
         }
         defer { ViewTestHost.tearDownAll() }
         func playButtonLabels() -> [String] {
             func buttons(_ view: NSView) -> [NSButton] {
                 ((view as? NSButton).map { [$0] } ?? []) + view.subviews.flatMap(buttons)
             }
-            let labels = [SpotiglassL10n.string("playback.controls.starting"), SpotiglassL10n.string("playback.pause"), SpotiglassL10n.string("playback.play")]
+            let labels = [
+                SpotiglassL10n.string("playback.controls.starting"), SpotiglassL10n.string("playback.pause"),
+                SpotiglassL10n.string("playback.play"),
+            ]
             return buttons(controller.view).compactMap { $0.accessibilityLabel() }.filter(labels.contains)
         }
         let starting = SpotiglassL10n.string("playback.controls.starting")
@@ -1618,7 +1696,9 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         // The log says when the bar showed each: the spinner, and Pause again once it plays
         // (the icon that comes back after the spinner is a new view, #645's line went missing).
         XCTAssertTrue(
-            AppKitTestSupport.pumpRunLoop(until: { barLines() == ["bar updated to starting", "bar updated to playing"] }),
+            AppKitTestSupport.pumpRunLoop(until: {
+                barLines() == ["bar updated to starting", "bar updated to playing"]
+            }),
             "the log's bar lines: \(barLines())"
         )
 
@@ -1637,7 +1717,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
     func testAppleMusicAccessAndSubscriptionErrorsStayOnScreen() async throws {
         for reason in [MusicPlaybackError.Reason.missingPermission, .subscriptionRequired(message: nil)] {
             let clock = ManualPlaybackClock()
-            let (player, session) = try await Self.playingSession(passingErrorRecoveryDelay: .milliseconds(20), clock: clock)
+            let (player, session) = try await Self.playingSession(
+                passingErrorRecoveryDelay: .milliseconds(20), clock: clock)
             player.skipFailure = MusicPlaybackError(service: .appleMusic, reason: reason)
             await session.next()
             guard case .error = session.connectionState else {
@@ -1696,7 +1777,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertFalse(player.commands.contains("resume"))
 
         // Playing a song starts it, and pause then play resumes it.
-        try await provider.play(.items(uris: Self.uris, startURI: Self.uris[0]), deviceID: AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(
+            .items(uris: Self.uris, startURI: Self.uris[0]), deviceID: AppleMusicPlaybackProvider.deviceID)
         try await Self.read(session, player, at: 1)
         XCTAssertTrue(Self.isPlaying(session))
         XCTAssertEqual(session.currentNowPlaying?.uri, Self.uris[0])
@@ -1750,7 +1832,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertEqual(player.commands.last, "next")
         try await Self.read(session, player, at: 0.07)
         XCTAssertEqual(session.currentNowPlaying?.uri, Self.uris[0])
-        XCTAssertGreaterThan(session.currentNowPlaying?.positionMilliseconds ?? 0, 30_000, "the stale position-0 read was applied")
+        XCTAssertGreaterThan(
+            session.currentNowPlaying?.positionMilliseconds ?? 0, 30_000, "the stale position-0 read was applied")
 
         try await Self.read(session, player, at: 1.07)
         XCTAssertEqual(session.currentNowPlaying?.uri, Self.uris[1])
@@ -1806,14 +1889,18 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         for (expectPaused, what) in [(true, "a pause"), (false, "a play")] {
             let pressed = ContinuousClock.now
             player.pressMediaKey()
-            await waitUntil("\(what) from the media key shown", changes: session.objectWillChange, deadline: .seconds(1)) {
+            await waitUntil(
+                "\(what) from the media key shown", changes: session.objectWillChange, deadline: .seconds(1)
+            ) {
                 Self.isPaused(session) == expectPaused
             }
             let shownAfter = pressed.duration(to: .now)
-            XCTAssertLessThanOrEqual(shownAfter, .milliseconds(50), "\(what) from the media key showed after \(shownAfter)")
+            XCTAssertLessThanOrEqual(
+                shownAfter, .milliseconds(50), "\(what) from the media key showed after \(shownAfter)")
         }
         XCTAssertEqual(player.reads - readsBefore, 2, "one read per change, not a poll")
-        XCTAssertEqual(player.commands.filter { $0 == "pause" || $0 == "resume" }, [], "the app sent nothing: MusicKit did it")
+        XCTAssertEqual(
+            player.commands.filter { $0 == "pause" || $0 == "resume" }, [], "the app sent nothing: MusicKit did it")
     }
 
     /// A change notice that arrives while a press is still on its way to the player reads a
@@ -1928,7 +2015,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         player.onPlayerChange?()
         await session.transportSyncSchedulerTask?.value
         XCTAssertEqual(session.currentNowPlaying?.uri, Self.uris[0])
-        XCTAssertGreaterThan(session.currentNowPlaying?.positionMilliseconds ?? 0, 30_000, "the old song jumped to 0:00")
+        XCTAssertGreaterThan(
+            session.currentNowPlaying?.positionMilliseconds ?? 0, 30_000, "the old song jumped to 0:00")
 
         player.advance(by: 1)
         player.onPlayerChange?()
@@ -1943,7 +2031,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         XCTAssertEqual(premium.title, SpotiglassL10n.string("error.playback.premium.title"))
         let expired = PlaybackSessionViewModel.displayError(for: SpotifyAPIError.unauthorized)
         XCTAssertEqual(expired.action, .reauthenticate)
-        let failed = PlaybackSessionViewModel.displayError(for: SpotifyAPIError.server(statusCode: 502, message: nil, details: nil))
+        let failed = PlaybackSessionViewModel.displayError(
+            for: SpotifyAPIError.server(statusCode: 502, message: nil, details: nil))
         // The sentence, not the error's debug text (#470).
         XCTAssertEqual(failed.message, SpotiglassL10n.string("error.spotify.serverProblem"))
     }
@@ -1959,16 +2048,20 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         )
         XCTAssertEqual(permission.message, SpotiglassL10n.string("error.playback.appleMusic.permission.message"))
         XCTAssertNotEqual(permission.action, .reauthenticate, "Apple Music has no Spotify sign-in to repeat")
-        let queue = QueueViewModel.displayError(for: MusicPlaybackError(service: .appleMusic, reason: .missingPermission))
+        let queue = QueueViewModel.displayError(
+            for: MusicPlaybackError(service: .appleMusic, reason: .missingPermission))
         XCTAssertEqual(queue?.message, SpotiglassL10n.string("error.playback.appleMusic.permission.message"))
     }
 
     // MARK: - Lyrics
 
     func testLyricsKeyCoversAppleMusicSongsAndKeepsSpotifyKeys() {
-        XCTAssertEqual(Self.nowPlaying(uri: "spotify:track:4uLU6hMCjMI75M1A2tKUQC").lyricsTrackKey, "4uLU6hMCjMI75M1A2tKUQC")
+        XCTAssertEqual(
+            Self.nowPlaying(uri: "spotify:track:4uLU6hMCjMI75M1A2tKUQC").lyricsTrackKey, "4uLU6hMCjMI75M1A2tKUQC")
         XCTAssertEqual(Self.nowPlaying(uri: "applemusic:song:1440857781").lyricsTrackKey, "applemusic-song-1440857781")
-        XCTAssertEqual(Self.nowPlaying(uri: "applemusic:song:i.B0VNYlBtxzX7aak").lyricsTrackKey, "applemusic-song-i-B0VNYlBtxzX7aak")
+        XCTAssertEqual(
+            Self.nowPlaying(uri: "applemusic:song:i.B0VNYlBtxzX7aak").lyricsTrackKey,
+            "applemusic-song-i-B0VNYlBtxzX7aak")
         XCTAssertNil(Self.nowPlaying(uri: "applemusic:music-video:1").lyricsTrackKey)
         XCTAssertNil(Self.nowPlaying(uri: "spotify:episode:1").lyricsTrackKey)
     }
@@ -2005,7 +2098,8 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         ]
         for (spotifyKey, appleMusicKey) in pairs {
             let spotify = PlaybackControlsView.serviceString(spotifyKey, appleMusic: appleMusicKey, service: .spotify)
-            let appleMusic = PlaybackControlsView.serviceString(spotifyKey, appleMusic: appleMusicKey, service: .appleMusic)
+            let appleMusic = PlaybackControlsView.serviceString(
+                spotifyKey, appleMusic: appleMusicKey, service: .appleMusic)
             XCTAssertEqual(spotify, SpotiglassL10n.string(spotifyKey), spotifyKey)
             XCTAssertTrue(spotify.contains("Spotify"), "\(spotifyKey): \(spotify)")
             XCTAssertFalse(appleMusic.contains("Spotify"), "\(appleMusicKey): \(appleMusic)")
@@ -2095,11 +2189,17 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
 
     func testDetailHeaderPlaysTheAppleMusicContext() {
         let album = PlaylistDetailViewModel(
-            playlist: PlaylistRowViewModel(albumDisplayName: "Album", artistsDisplay: "A", totalTrackCount: 1, artworkURL: nil, albumID: "1440857781"),
+            playlist: PlaylistRowViewModel(
+                albumDisplayName: "Album", artistsDisplay: "A", totalTrackCount: 1, artworkURL: nil,
+                albumID: "1440857781"),
             tracks: []
         )
-        XCTAssertEqual(DetailHeaderPlayback.target(for: album, service: .appleMusic), .context(uri: "applemusic:album:1440857781", playlistID: "1440857781"))
-        XCTAssertEqual(DetailHeaderPlayback.target(for: album, service: .spotify), .context(uri: "spotify:album:1440857781", playlistID: "1440857781"))
+        XCTAssertEqual(
+            DetailHeaderPlayback.target(for: album, service: .appleMusic),
+            .context(uri: "applemusic:album:1440857781", playlistID: "1440857781"))
+        XCTAssertEqual(
+            DetailHeaderPlayback.target(for: album, service: .spotify),
+            .context(uri: "spotify:album:1440857781", playlistID: "1440857781"))
     }
 
     // MARK: - Fixtures
@@ -2107,7 +2207,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
     static let uris = (1...6).map { "applemusic:song:\($0)" }
 
     private static func uri(_ item: MusicPlaybackItem) -> String? {
-        if case let .track(track) = item { return track.uri }
+        if case .track(let track) = item { return track.uri }
         return nil
     }
 
@@ -2146,7 +2246,9 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
     }
 
     /// Moves the scripted player's clock forward and reads, like the session's poll does.
-    private static func read(_ session: PlaybackSessionViewModel, _ player: ScriptedAppleMusicPlayer, at seconds: Double) async throws {
+    private static func read(
+        _ session: PlaybackSessionViewModel, _ player: ScriptedAppleMusicPlayer, at seconds: Double
+    ) async throws {
         player.advance(by: seconds)
         await session.syncTransportFromSpotify()
     }
@@ -2167,7 +2269,9 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
 /// skip already reports position 0 for the old item, as the real player does).
 @MainActor
 final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
-    static let lag: [String: Double] = ["pause": 0.333, "resume": 0.297, "next": 0.305, "previous": 0.189, "stop": 0.074]
+    static let lag: [String: Double] = [
+        "pause": 0.333, "resume": 0.297, "next": 0.305, "previous": 0.189, "stop": 0.074,
+    ]
 
     var authorized = true
     var failure: Error?
@@ -2242,7 +2346,9 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
     func play(_ request: AppleMusicQueueRequest, isCurrent: @escaping @MainActor () -> Bool) async throws {
         if let failure = failure as? MusicPlaybackError { throw failure }
         if let failure { throw MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "\(failure)") }
-        guard case let .items(uris, start) = request else { throw MusicPlaybackError(service: .appleMusic, reason: .notFound) }
+        guard case .items(let uris, let start) = request else {
+            throw MusicPlaybackError(service: .appleMusic, reason: .notFound)
+        }
         await lookup("play \(start ?? uris.first ?? "")")
         // The live player's contract: a play overtaken during its lookup leaves the queue alone.
         guard isCurrent() else { throw CancellationError() }
@@ -2271,7 +2377,10 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
     }
 
     func pause() {
-        later("pause") { [self] in positionBase = position(); playing = false }
+        later("pause") { [self] in
+            positionBase = position()
+            playing = false
+        }
     }
 
     /// Called like MusicKit's own change notice, by ``pressMediaKey()``.
@@ -2289,8 +2398,14 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
     func resume() async throws {
         // Like MusicKit on the queue it restored from the last launch: `play()` returns and
         // nothing plays (#586).
-        if queueIsFromLastLaunch { commands.append("resume"); return }
-        later("resume") { [self] in positionAnchor = now; playing = true }
+        if queueIsFromLastLaunch {
+            commands.append("resume")
+            return
+        }
+        later("resume") { [self] in
+            positionAnchor = now
+            playing = true
+        }
     }
 
     /// The queue MusicKit hands back after a relaunch: paused at 0:00, unplayable.
@@ -2307,7 +2422,10 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
     /// Like the live player: the queue stays, the songs added to it are forgotten.
     func stop() {
         book = AppleMusicQueueBook()
-        later("stop") { [self] in positionBase = position(); playing = false }
+        later("stop") { [self] in
+            positionBase = position()
+            playing = false
+        }
     }
 
     func seek(toMilliseconds milliseconds: Int) {
@@ -2320,14 +2438,22 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         if let skipFailure { throw skipFailure }
         positionBase = 0
         positionAnchor = now
-        later("next") { [self] in index = min(index + 1, queue.count - 1); positionBase = 0; positionAnchor = now }
+        later("next") { [self] in
+            index = min(index + 1, queue.count - 1)
+            positionBase = 0
+            positionAnchor = now
+        }
     }
 
     func skipToPrevious() async throws {
         let restart = index == 0
         positionBase = 0
         positionAnchor = now
-        later("previous") { [self] in if !restart { index -= 1 }; positionBase = 0; positionAnchor = now }
+        later("previous") { [self] in
+            if !restart { index -= 1 }
+            positionBase = 0
+            positionAnchor = now
+        }
     }
 
     func setShuffle(_ enabled: Bool) {
@@ -2342,7 +2468,8 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         guard isCurrent() else { throw CancellationError() }
         commands.append("enqueue \(uri)")
         let current = queue.indices.contains(index) ? index : nil
-        let plan = book.planAdd(AppleMusicQueueBook.Row(uri: uri, title: uri), currentIndex: current, entryCount: queue.count)
+        let plan = book.planAdd(
+            AppleMusicQueueBook.Row(uri: uri, title: uri), currentIndex: current, entryCount: queue.count)
         queue.insert(uri, at: min(plan.index ?? current.map { $0 + 1 } ?? queue.count, queue.count))
         book.finishAdd(plan)
     }
@@ -2352,12 +2479,17 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         await lookup("append \(uri)")
         guard isCurrent() else { throw CancellationError() }
         // Not in the storefront: the live player's lookup finds no item.
-        if refusedURIs.contains(uri) { throw MusicPlaybackError(service: .appleMusic, reason: .notFound, detail: "not available") }
+        if refusedURIs.contains(uri) {
+            throw MusicPlaybackError(service: .appleMusic, reason: .notFound, detail: "not available")
+        }
         if let appendError { throw appendError }
-        if failingURIs.contains(uri) { throw MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "add failed") }
+        if failingURIs.contains(uri) {
+            throw MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "add failed")
+        }
         commands.append("append \(uri)")
         let current = queue.indices.contains(index) ? index : nil
-        let plan = book.planAppend(AppleMusicQueueBook.Row(uri: uri, title: uri), currentIndex: current, entryCount: queue.count)
+        let plan = book.planAppend(
+            AppleMusicQueueBook.Row(uri: uri, title: uri), currentIndex: current, entryCount: queue.count)
         queue.insert(uri, at: min(plan.index ?? queue.count, queue.count))
         book.finishAdd(plan)
         if jumpsAfterAppend, index + 1 < queue.count {
@@ -2373,7 +2505,8 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
     func readState() -> AppleMusicPlayerState {
         reads += 1
         guard queue.indices.contains(index) else {
-            return AppleMusicPlayerState(status: .stopped, current: nil, positionMilliseconds: 0, shuffle: shuffle, repeatMode: repeatMode)
+            return AppleMusicPlayerState(
+                status: .stopped, current: nil, positionMilliseconds: 0, shuffle: shuffle, repeatMode: repeatMode)
         }
         return AppleMusicPlayerState(
             status: playing ? .playing : .paused,
@@ -2533,7 +2666,8 @@ final class RefusingQueueStarter: AppleMusicQueueStarting {
     func insertEntries(_ entries: [MusicPlayer.Queue.Entry], afterCurrent: Bool) async throws {
         commands.append("add \(entries.count) \(afterCurrent ? "after current" : "at the end")")
         if refusesAdds { throw NSError(domain: "MPMusicPlayerControllerErrorDomain", code: 1) }
-        let index = afterCurrent
+        let index =
+            afterCurrent
             ? currentEntry.flatMap { current in self.entries.firstIndex { $0.id == current.id } }.map { $0 + 1 } ?? 0
             : self.entries.count
         self.entries.insert(contentsOf: entries, at: index)
@@ -2603,15 +2737,21 @@ final class RefusingQueueStarter: AppleMusicQueueStarting {
         if namedStartRefusalsLeft > 0, startIsNamed {
             namedStartRefusalsLeft -= 1
             isPlaying = false
-            throw NSError(domain: "MPMusicPlayerControllerErrorDomain", code: 6, userInfo: [NSDebugDescriptionErrorKey: "Prepare queue failed with unexpected start item"])
+            throw NSError(
+                domain: "MPMusicPlayerControllerErrorDomain", code: 6,
+                userInfo: [NSDebugDescriptionErrorKey: "Prepare queue failed with unexpected start item"])
         }
         if refusesNamedStart, startIsNamed {
             isPlaying = false
-            throw NSError(domain: "MPMusicPlayerControllerErrorDomain", code: 6, userInfo: [NSDebugDescriptionErrorKey: "Prepare queue failed with unexpected start item"])
+            throw NSError(
+                domain: "MPMusicPlayerControllerErrorDomain", code: 6,
+                userInfo: [NSDebugDescriptionErrorKey: "Prepare queue failed with unexpected start item"])
         }
-        guard case let .song(song) = currentEntry?.item, refusedIDs.contains(song.id.rawValue) else { return }
+        guard case .song(let song) = currentEntry?.item, refusedIDs.contains(song.id.rawValue) else { return }
         isPlaying = false
         playbackTime = 0
-        throw NSError(domain: "MPMusicPlayerControllerErrorDomain", code: 6, userInfo: [NSDebugDescriptionErrorKey: "Failed to prepare to play"])
+        throw NSError(
+            domain: "MPMusicPlayerControllerErrorDomain", code: 6,
+            userInfo: [NSDebugDescriptionErrorKey: "Failed to prepare to play"])
     }
 }

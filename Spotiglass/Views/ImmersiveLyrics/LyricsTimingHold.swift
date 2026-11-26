@@ -28,7 +28,8 @@ final class LyricsTimingHold {
         rawPositionMs: @escaping () -> Int
     ) -> Bool {
         guard !lines.isEmpty else { return false }
-        let effectivePositionMs = LrcLineParser.effectivePositionMs(positionMs: rawPositionMs(), offsetMs: savedOffsetMs)
+        let effectivePositionMs = LrcLineParser.effectivePositionMs(
+            positionMs: rawPositionMs(), offsetMs: savedOffsetMs)
         let index = LrcLineParser.activeTimedLineIndex(positionMs: effectivePositionMs, lines: lines)
         self.rawPositionMs = rawPositionMs
         session = Session(
@@ -184,28 +185,28 @@ final class LyricsTimingHoldInput {
     /// Handles one event; true when it was the hold's and must not go on to the window.
     func handle(_ event: Event) -> Bool {
         switch (event, phase) {
-        case let (.rightDown(point, inside), .idle):
+        case (.rightDown(let point, let inside), .idle):
             guard inside, context() != nil else { return false }
             phase = .pressed(start: point, last: point)
             schedulePressTimer()
             return true
-        case let (.rightDragged(point), .pressed(start, _)):
+        case (.rightDragged(let point), .pressed(let start, _)):
             phase = .pressed(start: start, last: point)
             if hypot(point.x - start.x, point.y - start.y) > Self.dragSlop {
                 beginHold()
                 dragHold(contentUpBy: point.y - start.y, to: point)
             }
             return true
-        case let (.rightDragged(point), .holding(last, _)):
+        case (.rightDragged(let point), .holding(let last, _)):
             dragHold(contentUpBy: point.y - last.y, to: point)
             return true
-        case let (.scroll(deltaY, precise), .holding(last, lastDrag)):
+        case (.scroll(let deltaY, let precise), .holding(let last, let lastDrag)):
             if lastDrag.map({ clock.now < $0.advanced(by: Self.dragEchoWindow) }) != true {
                 let pitch = context()?.linePitch ?? 0
                 dragHold(contentUpBy: -deltaY * (precise ? 1 : pitch), to: last, isPointerDrag: false)
             }
             return true
-        case let (.rightUp(point), .pressed):
+        case (.rightUp(let point), .pressed):
             endPress()
             if let songID = context()?.songID, store.hasShift(for: songID) {
                 showResetMenu(point, songID)
@@ -259,16 +260,16 @@ final class LyricsTimingHoldInput {
     }
 
     private func beginHold() {
-        guard case let .pressed(_, last) = phase else { return }
+        guard case .pressed(_, let last) = phase else { return }
         pressTask?.cancel()
         pressTask = nil
         guard let context = context(),
-              hold.begin(
-                  songID: context.songID,
-                  lines: context.lines,
-                  savedOffsetMs: context.savedOffsetMs,
-                  rawPositionMs: context.rawPositionMs
-              )
+            hold.begin(
+                songID: context.songID,
+                lines: context.lines,
+                savedOffsetMs: context.savedOffsetMs,
+                rawPositionMs: context.rawPositionMs
+            )
         else {
             phase = .ignoringUntilUp
             return
@@ -278,7 +279,7 @@ final class LyricsTimingHoldInput {
     }
 
     private func dragHold(contentUpBy points: CGFloat, to point: CGPoint, isPointerDrag: Bool = true) {
-        guard case let .holding(_, lastDrag) = phase else { return }
+        guard case .holding(_, let lastDrag) = phase else { return }
         // Only a pointer drag that moved up or down stands for the motion a trackpad may also
         // report as scrolling; a sideways one leaves scrolling working.
         phase = .holding(last: point, lastDrag: isPointerDrag && points != 0 ? clock.now : lastDrag)

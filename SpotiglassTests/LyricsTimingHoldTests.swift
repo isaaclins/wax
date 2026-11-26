@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 /// Fixing a song's lyric timing by holding the lyrics (#640).
@@ -27,7 +28,9 @@ final class LyricsTimingHoldTests: XCTestCase {
     /// One line every 4 s, starting at 10 s.
     private let lines = (0..<8).map { SyncedLyricLine(id: $0, startTimeMs: 10_000 + $0 * 4_000, words: "Line \($0)") }
 
-    private func makeStore(maxSongs: Int = LyricsTimingStore.defaultMaxSongs, now: @escaping () -> Date = Date.init) -> LyricsTimingStore {
+    private func makeStore(maxSongs: Int = LyricsTimingStore.defaultMaxSongs, now: @escaping () -> Date = Date.init)
+        -> LyricsTimingStore
+    {
         LyricsTimingStore(defaults: defaults, maxSongs: maxSongs, now: now)
     }
 
@@ -474,12 +477,15 @@ final class LyricsTimingHoldTests: XCTestCase {
 
     // MARK: - Surface and menu
 
-    private func makeHostedSurface(lyrics: FetchedLyrics?, songID: String? = "song:a") throws -> (LyricsTimingHoldView, NSWindow, LyricsTimingStore) {
+    private func makeHostedSurface(lyrics: FetchedLyrics?, songID: String? = "song:a") throws -> (
+        LyricsTimingHoldView, NSWindow, LyricsTimingStore
+    ) {
         let store = makeStore()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(
-            playbackAPI: MockPlaybackAPI(),
-            webCommander: MockWebPlaybackCommander()
-        ))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(
+                playbackAPI: MockPlaybackAPI(),
+                webCommander: MockWebPlaybackCommander()
+            ))
         let view = Color.black
             .frame(width: 400, height: 300)
             .lyricsTimingHold(
@@ -523,28 +529,34 @@ final class LyricsTimingHoldTests: XCTestCase {
 
         let leftClick = mouse(.leftMouseDown, at: center, in: window)
         XCTAssertTrue(surface.route(leftClick) === leftClick, "left clicks still reach the lyrics")
-        let otherKey = try XCTUnwrap(NSEvent.keyEvent(
-            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
-            windowNumber: window.windowNumber, context: nil, characters: "a",
-            charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0
-        ))
+        let otherKey = try XCTUnwrap(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, characters: "a",
+                charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0
+            ))
         XCTAssertNil(surface.holdEvent(for: otherKey))
-        let escape = try XCTUnwrap(NSEvent.keyEvent(
-            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
-            windowNumber: window.windowNumber, context: nil, characters: "\u{1b}",
-            charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: LyricsTimingHoldView.escapeKeyCode
-        ))
+        let escape = try XCTUnwrap(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, characters: "\u{1b}",
+                charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: LyricsTimingHoldView.escapeKeyCode
+            ))
         XCTAssertEqual(surface.holdEvent(for: escape), .escape)
         XCTAssertTrue(surface.route(escape) === escape, "Esc without a hold still closes the lyrics")
 
-        let scroll = try XCTUnwrap(CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: 12, wheel2: 0, wheel3: 0))
+        let scroll = try XCTUnwrap(
+            CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: 12, wheel2: 0, wheel3: 0))
         let elsewhere = try XCTUnwrap(NSEvent(cgEvent: scroll))
         XCTAssertNil(surface.holdEvent(for: elsewhere), "scrolling in another window stays that window's")
         scroll.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(window.windowNumber))
-        scroll.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(window.windowNumber))
+        scroll.setIntegerValueField(
+            .mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(window.windowNumber))
         let here = try XCTUnwrap(NSEvent(cgEvent: scroll))
         if here.window === window {
-            XCTAssertEqual(surface.holdEvent(for: here), .scroll(deltaY: here.scrollingDeltaY, precise: here.hasPreciseScrollingDeltas))
+            XCTAssertEqual(
+                surface.holdEvent(for: here),
+                .scroll(deltaY: here.scrollingDeltaY, precise: here.hasPreciseScrollingDeltas))
         }
     }
 
@@ -589,7 +601,9 @@ final class LyricsTimingHoldTests: XCTestCase {
 
     private final class RecordingPerformer: NSObject, NSHapticFeedbackPerformer {
         var patterns: [NSHapticFeedbackManager.FeedbackPattern] = []
-        func perform(_ pattern: NSHapticFeedbackManager.FeedbackPattern, performanceTime: NSHapticFeedbackManager.PerformanceTime) {
+        func perform(
+            _ pattern: NSHapticFeedbackManager.FeedbackPattern, performanceTime: NSHapticFeedbackManager.PerformanceTime
+        ) {
             patterns.append(pattern)
         }
     }
@@ -624,8 +638,8 @@ final class LyricsTimingHoldTests: XCTestCase {
     }
 }
 
-private extension NSView {
-    func firstDescendant<T: NSView>(of type: T.Type) -> T? {
+extension NSView {
+    fileprivate func firstDescendant<T: NSView>(of type: T.Type) -> T? {
         if let match = self as? T { return match }
         for subview in subviews {
             if let match = subview.firstDescendant(of: type) { return match }

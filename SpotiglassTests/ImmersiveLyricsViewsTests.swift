@@ -2,6 +2,7 @@ import MusicKit
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -122,7 +123,8 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
     func testMainLayoutWideShowsTrackTitle() async throws {
         let settings = try ViewTestHost.makeSettingsStore()
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api),
             playbackSession: playback,
@@ -158,7 +160,8 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
     func testImmersiveLyricsViewHostsWhenPlaying() async throws {
         let settings = try ViewTestHost.makeSettingsStore()
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api),
             playbackSession: playback,
@@ -206,27 +209,27 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
 
         for mode in [MusicRepeatMode.off, .context, .track] {
             for isCompact in [false, true] {
-            playback.repeatMode = mode
-            let column = ImmersiveLyricsLeftColumnView(
-                playbackViewModel: playback,
-                queueViewModel: queue,
-                navigateToArtist: { _ in },
-                navigateToAlbum: { _, _, _ in },
-                currentTrack: track,
-                isCompact: isCompact
-            )
-            ViewTestHost.host(column, size: CGSize(width: 320, height: 640))
-            XCTAssertNoThrow(try column.inspect().find(text: "Title"), "the title is missing")
-            // ViewInspector can't read accessibility labels on macOS 26+, so look for the icon:
-            // the stray button drew "infinity.circle" / "infinity.circle.fill".
-            let symbols = try column.inspect().findAll(ViewType.Image.self)
-                .compactMap { try? $0.actualImage().name() }
-            XCTAssertFalse(symbols.isEmpty, "the column's images were not read")
-            let repeatSymbols = symbols.filter { $0.contains("infinity") || $0.contains("repeat") }
-            XCTAssertEqual(
-                repeatSymbols, [],
-                "a repeat button is back next to the title with repeat \(mode), compact \(isCompact)"
-            )
+                playback.repeatMode = mode
+                let column = ImmersiveLyricsLeftColumnView(
+                    playbackViewModel: playback,
+                    queueViewModel: queue,
+                    navigateToArtist: { _ in },
+                    navigateToAlbum: { _, _, _ in },
+                    currentTrack: track,
+                    isCompact: isCompact
+                )
+                ViewTestHost.host(column, size: CGSize(width: 320, height: 640))
+                XCTAssertNoThrow(try column.inspect().find(text: "Title"), "the title is missing")
+                // ViewInspector can't read accessibility labels on macOS 26+, so look for the icon:
+                // the stray button drew "infinity.circle" / "infinity.circle.fill".
+                let symbols = try column.inspect().findAll(ViewType.Image.self)
+                    .compactMap { try? $0.actualImage().name() }
+                XCTAssertFalse(symbols.isEmpty, "the column's images were not read")
+                let repeatSymbols = symbols.filter { $0.contains("infinity") || $0.contains("repeat") }
+                XCTAssertEqual(
+                    repeatSymbols, [],
+                    "a repeat button is back next to the title with repeat \(mode), compact \(isCompact)"
+                )
             }
         }
     }
@@ -259,7 +262,8 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
                 linksToLibrary: linksToLibrary
             )
             ViewTestHost.host(column, size: CGSize(width: 320, height: 640))
-            XCTAssertNoThrow(try column.inspect().find(text: "Album"), "the album name is missing, links \(linksToLibrary)")
+            XCTAssertNoThrow(
+                try column.inspect().find(text: "Album"), "the album name is missing, links \(linksToLibrary)")
             let buttons = try column.inspect().findAll(ViewType.Button.self)
             let showsQueue = (try? column.inspect().find(text: nextInQueue)) != nil
             if linksToLibrary {
@@ -318,18 +322,21 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
     func testBackgroundLayerBuildsAllTransparencyAndArtworkBranches() {
         let url = URL(string: "https://example.com/cover.png")!
 
-        _ = ImmersiveLyricsBackgroundLayer(
-            reduceTransparency: true,
-            albumArtURL: nil
-        ).body
-        _ = ImmersiveLyricsBackgroundLayer(
-            reduceTransparency: false,
-            albumArtURL: nil
-        ).body
-        _ = ImmersiveLyricsBackgroundLayer(
-            reduceTransparency: false,
-            albumArtURL: url
-        ).body
+        _ =
+            ImmersiveLyricsBackgroundLayer(
+                reduceTransparency: true,
+                albumArtURL: nil
+            ).body
+        _ =
+            ImmersiveLyricsBackgroundLayer(
+                reduceTransparency: false,
+                albumArtURL: nil
+            ).body
+        _ =
+            ImmersiveLyricsBackgroundLayer(
+                reduceTransparency: false,
+                albumArtURL: url
+            ).body
     }
 
     func testBlurredArtworkRendersInitialImageWithoutInspection() {
@@ -443,9 +450,10 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
             return true
         }
 
-        let host = NSHostingView(rootView: AnyView(
-            ImmersiveBlurredArtwork(url: catalog, initialImage: red, registry: registry)
-        ))
+        let host = NSHostingView(
+            rootView: AnyView(
+                ImmersiveBlurredArtwork(url: catalog, initialImage: red, registry: registry)
+            ))
         host.frame = NSRect(x: 0, y: 0, width: 360, height: 280)
         host.layoutSubtreeIfNeeded()
         // The cover can fade in: wait until it shows, however late a busy machine draws it (#567).
@@ -604,7 +612,10 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
         let active = ImmersiveLyricsLineText("Active line", distance: 0, size: .medium)
         let inactive = ImmersiveLyricsLineText("Far line", distance: 3, size: .large)
         ViewTestHost.host(
-            VStack { active; inactive },
+            VStack {
+                active
+                inactive
+            },
             size: CGSize(width: 360, height: 120)
         )
         XCTAssertNoThrow(try active.inspect().find(text: "Active line"))
@@ -693,22 +704,24 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
 
     func testNextInQueueSectionEmptyAndPopulated() async throws {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api),
             playbackSession: playback,
             pollIntervalNanoseconds: 60_000_000_000
         )
         playback.handle(.ready(deviceID: "device-1"))
-        playback.handle(.stateChanged(
-            PlaybackNowPlaying(
-                name: "Current", artists: ["A"], albumName: "Al", albumID: "al-1",
-                albumArtURL: nil, durationMilliseconds: 180_000, positionMilliseconds: 0,
-                uri: "spotify:track:cur"
-            ),
-            isPaused: false,
-            nextTracks: []
-        ))
+        playback.handle(
+            .stateChanged(
+                PlaybackNowPlaying(
+                    name: "Current", artists: ["A"], albumName: "Al", albumID: "al-1",
+                    albumArtURL: nil, durationMilliseconds: 180_000, positionMilliseconds: 0,
+                    uri: "spotify:track:cur"
+                ),
+                isPaused: false,
+                nextTracks: []
+            ))
         playback.repeatMode = .track
 
         let emptySection = ImmersiveLyricsNextInQueueSectionView(
@@ -731,15 +744,16 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
                 uri: "spotify:track:next"
             )
         ]
-        playback.handle(.stateChanged(
-            PlaybackNowPlaying(
-                name: "Current", artists: ["A"], albumName: "Al", albumID: "al-1",
-                albumArtURL: nil, durationMilliseconds: 180_000, positionMilliseconds: 0,
-                uri: "spotify:track:cur"
-            ),
-            isPaused: false,
-            nextTracks: sdkNext
-        ))
+        playback.handle(
+            .stateChanged(
+                PlaybackNowPlaying(
+                    name: "Current", artists: ["A"], albumName: "Al", albumID: "al-1",
+                    albumArtURL: nil, durationMilliseconds: 180_000, positionMilliseconds: 0,
+                    uri: "spotify:track:cur"
+                ),
+                isPaused: false,
+                nextTracks: sdkNext
+            ))
         playback.repeatMode = .off
         await queue.refreshQueue()
 
@@ -833,6 +847,6 @@ private struct StandInCover: View {
     }
 }
 
-private extension NSColor {
-    var redOverBlack: CGFloat { redComponent * alphaComponent }
+extension NSColor {
+    fileprivate var redOverBlack: CGFloat { redComponent * alphaComponent }
 }

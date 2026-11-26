@@ -78,7 +78,9 @@ final class AppleMusicAutoplaySource: QueueAutoplaySource {
             }
         }
         try await loadProfiles(weightByArtistID.map(\.id))
-        let similarIDs = weightByArtistID.flatMap { profiles[$0.id]?.similarArtistIDs.prefix(Self.similarArtistLimit) ?? [] }
+        let similarIDs = weightByArtistID.flatMap {
+            profiles[$0.id]?.similarArtistIDs.prefix(Self.similarArtistLimit) ?? []
+        }
         try await loadTopSongs(similarIDs)
         return Self.score(
             seedArtists: weightByArtistID,
@@ -114,7 +116,9 @@ final class AppleMusicAutoplaySource: QueueAutoplaySource {
             }
         }
         return artists.enumerated()
-            .sorted { $0.element.weight != $1.element.weight ? $0.element.weight > $1.element.weight : $0.offset < $1.offset }
+            .sorted {
+                $0.element.weight != $1.element.weight ? $0.element.weight > $1.element.weight : $0.offset < $1.offset
+            }
             .map(\.element)
     }
 
@@ -144,7 +148,9 @@ final class AppleMusicAutoplaySource: QueueAutoplaySource {
             add(profile.topSongs, weight: seed.weight * ownSongsFactor)
             for (rank, similarID) in profile.similarArtistIDs.prefix(similarArtistLimit).enumerated() {
                 let similarity = max(0.3, 1 - 0.08 * Double(rank))
-                add(topSongsByArtistID[similarID] ?? profiles[similarID]?.topSongs ?? [], weight: seed.weight * similarity)
+                add(
+                    topSongsByArtistID[similarID] ?? profiles[similarID]?.topSongs ?? [],
+                    weight: seed.weight * similarity)
             }
         }
         return order.compactMap { uri in

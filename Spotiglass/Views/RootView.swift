@@ -351,9 +351,10 @@ struct RootView: View {
         _sceneHost = StateObject(wrappedValue: SpotiglassSceneHost(commandPaletteManager: commandPaletteManager))
         sceneRegistry = nil
         playbackHosts = Self.hosts(spotify: playbackHost)
-        _serviceStore = ObservedObject(wrappedValue: MusicServiceStore(
-            storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
-        ))
+        _serviceStore = ObservedObject(
+            wrappedValue: MusicServiceStore(
+                storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
+            ))
         _appleMusicSession = ObservedObject(wrappedValue: AppleMusicSession())
         appleMusicCatalog = { AppleMusicBrowsingProvider(catalogMatches: .shared) }
     }
@@ -365,7 +366,9 @@ struct RootView: View {
         serviceStore: MusicServiceStore,
         appleMusicSession: AppleMusicSession,
         recentSearches: CommandPaletteRecentSearches = .inMemory(),
-        appleMusicCatalog: @escaping () -> any MusicBrowsingProvider = { AppleMusicBrowsingProvider(catalogMatches: .shared) }
+        appleMusicCatalog: @escaping () -> any MusicBrowsingProvider = {
+            AppleMusicBrowsingProvider(catalogMatches: .shared)
+        }
     ) {
         _sceneHost = StateObject(
             wrappedValue: SpotiglassSceneHost(
@@ -497,7 +500,7 @@ struct RootView: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("RootView")
+            let _ = ViewBodyTally.record("RootView")
         #endif
         content
             // Every screen gives the window a toolbar, not only the libraries: a flexible space
@@ -780,7 +783,7 @@ struct RootView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
             }
-        case let .failed(error):
+        case .failed(let error):
             ErrorBanner(error: error, showsTitle: true)
                 .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
         case .signedIn, .refreshing, .paused:
@@ -793,7 +796,7 @@ struct RootView: View {
     private var spotifySidebarHeader: some View {
         VStack(alignment: .leading, spacing: SpotiglassDesign.spacingXS) {
             serviceSwitcher
-            if case let .paused(pause) = spotifyState {
+            if case .paused(let pause) = spotifyState {
                 Label(pause.message, systemImage: pause.reason == .busy ? "clock" : "wifi.slash")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -814,13 +817,13 @@ struct RootView: View {
         commandPaletteManager: CommandPaletteManager(),
         playbackHost: SpotiglassPlaybackHost(tokenProvider: auth)
     )
-        .environmentObject(SpotiglassSettingsStore(fileURL: settingsURL))
-        .environmentObject(auth)
-        .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
+    .environmentObject(SpotiglassSettingsStore(fileURL: settingsURL))
+    .environmentObject(auth)
+    .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
 }
 
-private extension AppConnectionState {
-    var isPausedOrSigningIn: Bool {
+extension AppConnectionState {
+    fileprivate var isPausedOrSigningIn: Bool {
         switch self {
         case .paused, .signingIn: true
         case .signedOut, .signedIn, .refreshing, .failed: false

@@ -75,8 +75,8 @@ final class InteractionLatencyProbe {
 
     private var nowPlayingURI: String? {
         switch playback.connectionState {
-        case let .playing(song): song.uri
-        case let .paused(song): song?.uri
+        case .playing(let song): song.uri
+        case .paused(let song): song?.uri
         default: nil
         }
     }
@@ -105,7 +105,10 @@ final class InteractionLatencyProbe {
             },
             Step(id: "playback.toggle.click", title: "Click the play/pause button") { probe in
                 let wasPlaying = probe.isPlaying
-                guard probe.click(label: [SpotiglassL10n.string("playback.pause"), SpotiglassL10n.string("playback.play")])
+                guard
+                    probe.click(label: [
+                        SpotiglassL10n.string("playback.pause"), SpotiglassL10n.string("playback.play"),
+                    ])
                 else { return nil }
                 return { probe.isPlaying != wasPlaying }
             },
@@ -238,7 +241,9 @@ final class InteractionLatencyProbe {
                 prepare: { probe in
                     guard await probe.showPage(.home) else { return false }
                     probe.press(.f, [.command])
-                    return await probe.waitUntil { $0.browser?.sidebarSelection == .search && $0.browser?.canNavigateBack == true }
+                    return await probe.waitUntil {
+                        $0.browser?.sidebarSelection == .search && $0.browser?.canNavigateBack == true
+                    }
                 },
                 start: { probe in
                     guard probe.pressMenuShortcut(titled: SpotiglassL10n.string("menu.view.back")) else { return nil }
@@ -345,7 +350,8 @@ final class InteractionLatencyProbe {
                 measurements.append(await measure(step, frameMilliseconds: frame))
             }
         } else {
-            setupFailure = "the library or the player never became ready (window: \(window != nil), "
+            setupFailure =
+                "the library or the player never became ready (window: \(window != nil), "
                 + "playlists: \(browser.map { "\($0.playlistState)" } ?? "none"), player: \(playback.connectionState))"
         }
 
@@ -369,7 +375,8 @@ final class InteractionLatencyProbe {
 
     /// What the app shows now, for a try that went wrong.
     private var stateDescription: String {
-        let key = NSApp.keyWindow.map { $0 === window ? "main" : ($0.identifier?.rawValue ?? "\(type(of: $0))") } ?? "none"
+        let key =
+            NSApp.keyWindow.map { $0 === window ? "main" : ($0.identifier?.rawValue ?? "\(type(of: $0))") } ?? "none"
         let page = browser?.sidebarSelection.map { "\($0)" } ?? "none"
         return "key window \(key), page \(page), palette \(palette.isPresented ? "open" : "closed"), "
             + "player \(isPlaying ? "playing" : "not playing"), skip pending \(playback.isSkipCommandPending), "
@@ -615,7 +622,9 @@ final class InteractionLatencyProbe {
         let wanted = character.lowercased()
         return (0..<UInt16(128)).first { code in
             // Shift, ⌘ and the other modifier keys make a flags-changed event, which has no characters.
-            guard let event = keyEvent(code: code, [], arrow: false, keyDown: true), event.type == .keyDown else { return false }
+            guard let event = keyEvent(code: code, [], arrow: false, keyDown: true), event.type == .keyDown else {
+                return false
+            }
             return event.charactersIgnoringModifiers == wanted
         }
     }
@@ -623,7 +632,9 @@ final class InteractionLatencyProbe {
     /// Clicks the middle of the first element in the main window whose accessibility label is one
     /// of `label`. `false` when there is none.
     private func click(label: [String]) -> Bool {
-        guard let window, let frame = Self.accessibilityFrame(in: window, labelledAnyOf: Set(label)) else { return false }
+        guard let window, let frame = Self.accessibilityFrame(in: window, labelledAnyOf: Set(label)) else {
+            return false
+        }
         click(at: window.convertPoint(fromScreen: NSPoint(x: frame.midX, y: frame.midY)))
         return true
     }
@@ -650,17 +661,19 @@ final class InteractionLatencyProbe {
         guard let window else { return }
         inputSentAt = inputSentAt ?? CACurrentMediaTime()
         for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            guard let event = NSEvent.mouseEvent(
-                with: type,
-                location: point,
-                modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: window.windowNumber,
-                context: nil,
-                eventNumber: 0,
-                clickCount: 1,
-                pressure: type == .leftMouseDown ? 1 : 0
-            ) else { return }
+            guard
+                let event = NSEvent.mouseEvent(
+                    with: type,
+                    location: point,
+                    modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber,
+                    context: nil,
+                    eventNumber: 0,
+                    clickCount: 1,
+                    pressure: type == .leftMouseDown ? 1 : 0
+                )
+            else { return }
             NSApp.postEvent(event, atStart: false)
         }
     }
@@ -715,7 +728,7 @@ final class InteractionLatencyProbe {
         if case .playlist = browser.sidebarSelection, scrollViewUnderTrackList() != nil {
             return true
         }
-        guard case let .loaded(rows) = browser.playlistState,
+        guard case .loaded(let rows) = browser.playlistState,
             let long = rows.first(where: { $0.title == Self.longPlaylist })
         else { return false }
         guard await showPage(.playlist(long.id)) else { return false }
@@ -758,17 +771,20 @@ final class InteractionLatencyProbe {
         let windowPoint = scrollPoint(in: window)
         let screenPoint = window.convertPoint(toScreen: windowPoint)
         let mainHeight = NSScreen.screens.first?.frame.height ?? 0
-        guard let cg = CGEvent(
-            scrollWheelEvent2Source: nil,
-            units: .pixel,
-            wheelCount: 1,
-            wheel1: down ? -120 : 120 * 40,
-            wheel2: 0,
-            wheel3: 0
-        ) else { return nil }
+        guard
+            let cg = CGEvent(
+                scrollWheelEvent2Source: nil,
+                units: .pixel,
+                wheelCount: 1,
+                wheel1: down ? -120 : 120 * 40,
+                wheel2: 0,
+                wheel3: 0
+            )
+        else { return nil }
         cg.location = CGPoint(x: screenPoint.x, y: mainHeight - screenPoint.y)
         cg.setIntegerValueField(.mouseEventWindowUnderMousePointer, value: Int64(window.windowNumber))
-        cg.setIntegerValueField(.mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(window.windowNumber))
+        cg.setIntegerValueField(
+            .mouseEventWindowUnderMousePointerThatCanHandleThisEvent, value: Int64(window.windowNumber))
         // A scroll event made from a CGEvent carries no window, so neither NSApp nor the window
         // can route it: it goes straight to the list's scroll view, where a real one ends up.
         guard let event = NSEvent(cgEvent: cg) else { return nil }

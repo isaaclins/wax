@@ -59,9 +59,9 @@ extension PlaylistBrowserViewModel {
     /// alone would reload Home or the search instead of the album (#465).
     func retryFailedDetail() async {
         switch currentNavigationTarget {
-        case let .artist(id):
+        case .artist(let id):
             await selectArtist(id: id, forceRefresh: true, origin: .backStackReplay, displayName: nil)
-        case let .album(id, title, subtitle, artworkURL):
+        case .album(let id, let title, let subtitle, let artworkURL):
             await selectAlbum(
                 id: id,
                 displayTitle: title,

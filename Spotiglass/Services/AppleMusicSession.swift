@@ -149,7 +149,8 @@ final class AppleMusicSession: ObservableObject {
             // try?: the wait only fails when cancelled (answered, or a newer refresh), checked below.
             try? await clock.sleep(until: clock.now.advanced(by: Self.signInCheckGrace), tolerance: nil)
             guard let self, !Task.isCancelled, generation == self.applyGeneration,
-                  !Self.showsLibraryOrSignIn(self.state) else { return }
+                !Self.showsLibraryOrSignIn(self.state)
+            else { return }
             self.state = .authorized
         }
     }

@@ -1,5 +1,6 @@
 import AppKit
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -37,7 +38,8 @@ final class CommandPaletteManagerTests: XCTestCase {
         manager.viewModel.query = "stale query"
         var wasResetBeforeSignOut = false
         manager.signOut = {
-            wasResetBeforeSignOut = !manager.viewModel.isPresented
+            wasResetBeforeSignOut =
+                !manager.viewModel.isPresented
                 && manager.viewModel.query.isEmpty
                 && !manager.isSignedIn
         }
@@ -147,7 +149,7 @@ final class CommandPaletteManagerTests: XCTestCase {
         manager.execute(commandID: CommandPaletteCommandID.openSettings)
         await fulfillment(of: [settings], timeout: mustHappenTimeout)
 
-        manager.connectPlayback = { }
+        manager.connectPlayback = {}
         manager.execute(commandID: CommandPaletteCommandID.connectPlayback)
 
         let next = expectation(description: "next")
@@ -385,7 +387,7 @@ final class CommandPaletteManagerTests: XCTestCase {
         for state in [
             PlaybackConnectionState.ready(deviceID: "local-device"),
             .paused(track),
-            .playing(track)
+            .playing(track),
         ] {
             playback.setConnectionState(state)
             manager.execute(commandID: CommandPaletteCommandID.togglePlayback)

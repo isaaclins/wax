@@ -1,10 +1,12 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// The service-neutral browsing seam: Spotify behind `MusicBrowsingProvider`,
 /// and the persisted shape of the renamed `Music*` domain models.
 final class MusicBrowsingProviderTests: XCTestCase {
-    private let emptySearchJSON = #"{"tracks":{"items":[],"total":0,"next":null},"artists":{"items":[],"total":0,"next":null},"albums":{"items":[],"total":0,"next":null},"playlists":{"items":[],"total":0,"next":null}}"#
+    private let emptySearchJSON =
+        #"{"tracks":{"items":[],"total":0,"next":null},"artists":{"items":[],"total":0,"next":null},"albums":{"items":[],"total":0,"next":null},"playlists":{"items":[],"total":0,"next":null}}"#
 
     // MARK: - Spotify behind the protocol
 
@@ -52,24 +54,42 @@ final class MusicBrowsingProviderTests: XCTestCase {
     /// edits go quiet with no compile error.
     func testRequirementsWithDefaultsStillReachSpotify() async throws {
         let calls: [(path: String, call: (any MusicBrowsingProvider) async throws -> Void)] = [
-            ("/v1/me/player/recently-played", { _ = try await $0.recentlyPlayedTracks(limit: 10, cacheMode: .bypassCache) }),
-            ("/v1/me/top/tracks", { _ = try await $0.topTracks(limit: 10, timeRange: .shortTerm, cacheMode: .bypassCache) }),
-            ("/v1/me/top/artists", { _ = try await $0.topArtists(limit: 10, timeRange: .shortTerm, cacheMode: .bypassCache) }),
+            (
+                "/v1/me/player/recently-played",
+                { _ = try await $0.recentlyPlayedTracks(limit: 10, cacheMode: .bypassCache) }
+            ),
+            (
+                "/v1/me/top/tracks",
+                { _ = try await $0.topTracks(limit: 10, timeRange: .shortTerm, cacheMode: .bypassCache) }
+            ),
+            (
+                "/v1/me/top/artists",
+                { _ = try await $0.topArtists(limit: 10, timeRange: .shortTerm, cacheMode: .bypassCache) }
+            ),
             ("/v1/me/following", { _ = try await $0.followedArtists(limit: 10, maxPages: 1) }),
-            ("/v1/artists/a1/top-tracks", { _ = try await $0.artistTopTracks(id: "a1", market: nil, cacheMode: .bypassCache) }),
+            (
+                "/v1/artists/a1/top-tracks",
+                { _ = try await $0.artistTopTracks(id: "a1", market: nil, cacheMode: .bypassCache) }
+            ),
             ("/v1/playlists/p1", { try await $0.updatePlaylist(playlistID: "p1", name: "New") }),
-            ("/v1/playlists/p1/items", { try await $0.addTracksToPlaylist(playlistID: "p1", uris: ["spotify:track:t1"]) }),
-            ("/v1/playlists/p1/items", {
-                try await $0.removeTracksFromPlaylist(
-                    playlistID: "p1",
-                    items: [MusicPlaylistTrackRemoval(uri: "spotify:track:t1", positions: [0])],
-                    snapshotID: nil
-                )
-            }),
+            (
+                "/v1/playlists/p1/items",
+                { try await $0.addTracksToPlaylist(playlistID: "p1", uris: ["spotify:track:t1"]) }
+            ),
+            (
+                "/v1/playlists/p1/items",
+                {
+                    try await $0.removeTracksFromPlaylist(
+                        playlistID: "p1",
+                        items: [MusicPlaylistTrackRemoval(uri: "spotify:track:t1", positions: [0])],
+                        snapshotID: nil
+                    )
+                }
+            ),
             ("/v1/me/playlists", { _ = try await $0.createPlaylist(userID: "me", name: "Mix", isPublic: false) }),
             ("/v1/me/tracks", { try await $0.saveTracks(ids: ["t1"]) }),
             ("/v1/me/tracks", { try await $0.removeSavedTracks(ids: ["t1"]) }),
-            ("/v1/me/tracks/contains", { _ = try await $0.savedTrackStatuses(ids: ["t1"]) })
+            ("/v1/me/tracks/contains", { _ = try await $0.savedTrackStatuses(ids: ["t1"]) }),
         ]
 
         for (expectedPath, call) in calls {
@@ -125,10 +145,10 @@ final class MusicBrowsingProviderTests: XCTestCase {
     func testTrackJSONWrittenByEarlierBuildsStillDecodes() throws {
         // Exactly what the playlist cache stored for a `SpotifyTrack` before the rename.
         let stored = #"""
-        {"id":"t1","name":"Song","artists":["A"],"artistRefs":[{"id":"a1","name":"A"}],
-         "albumArtworkURL":"https://i.scdn.co/image/x","albumName":"Album","albumID":"al1",
-         "durationMilliseconds":1000,"isExplicit":false,"isPlayable":true,"uri":"spotify:track:t1"}
-        """#
+            {"id":"t1","name":"Song","artists":["A"],"artistRefs":[{"id":"a1","name":"A"}],
+             "albumArtworkURL":"https://i.scdn.co/image/x","albumName":"Album","albumID":"al1",
+             "durationMilliseconds":1000,"isExplicit":false,"isPlayable":true,"uri":"spotify:track:t1"}
+            """#
         let track = try JSONDecoder().decode(MusicTrack.self, from: Data(stored.utf8))
 
         XCTAssertEqual(track.id, "t1")
@@ -140,14 +160,14 @@ final class MusicBrowsingProviderTests: XCTestCase {
 
     func testPlaylistItemJSONWrittenByEarlierBuildsStillDecodes() throws {
         let stored = #"""
-        [{"id":"row-1","content":{"track":{"_0":{"id":"t1","name":"Song","artists":["A"],
-          "durationMilliseconds":1000,"isExplicit":true,"uri":"spotify:track:t1"}}}},
-         {"id":"row-2","content":{"unavailable":{"reason":"gone"}}}]
-        """#
+            [{"id":"row-1","content":{"track":{"_0":{"id":"t1","name":"Song","artists":["A"],
+              "durationMilliseconds":1000,"isExplicit":true,"uri":"spotify:track:t1"}}}},
+             {"id":"row-2","content":{"unavailable":{"reason":"gone"}}}]
+            """#
         let items = try JSONDecoder().decode([MusicPlaylistTrackItem].self, from: Data(stored.utf8))
 
         XCTAssertEqual(items.map(\.id), ["row-1", "row-2"])
-        guard case let .track(track) = items[0].content else {
+        guard case .track(let track) = items[0].content else {
             return XCTFail("expected a track")
         }
         XCTAssertEqual(track.artistRefs, [])
@@ -169,7 +189,8 @@ final class MusicBrowsingProviderTests: XCTestCase {
 
         // `isCollaborative` joined in #543; a build from before it ignores the key, and one after
         // it reads a summary cached without it as not collaborative.
-        XCTAssertEqual(Set(keys), ["id", "name", "ownerID", "ownerName", "trackCount", "snapshotID", "isCollaborative"])
+        XCTAssertEqual(
+            Set(keys), ["id", "name", "ownerID", "ownerName", "trackCount", "snapshotID", "isCollaborative"])
         XCTAssertEqual(try JSONDecoder().decode(MusicPlaylistSummary.self, from: data), summary)
     }
 }
@@ -205,7 +226,9 @@ private final class FirstPageOnlySearchProvider: MusicBrowsingProvider {
     func artist(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistDetail {
         throw SpotifyAPIError.invalidRequest("unused")
     }
-    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail> {
+    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<
+        MusicArtistDetail
+    > {
         throw SpotifyAPIError.invalidRequest("unused")
     }
     func artistAlbumsCached(

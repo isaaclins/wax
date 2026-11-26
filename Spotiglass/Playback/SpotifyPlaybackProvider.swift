@@ -48,13 +48,13 @@ final class SpotifyPlaybackProvider: MusicPlaybackProvider, MusicPlaybackDeviceT
 
     func play(_ request: MusicPlaybackRequest, deviceID: String) async throws {
         switch request {
-        case let .item(uri):
+        case .item(let uri):
             try await playbackAPI.play(uri: uri, deviceID: deviceID)
-        case let .context(uri):
+        case .context(let uri):
             try await playbackAPI.play(contextURI: uri, deviceID: deviceID)
-        case let .items(uris, startURI?):
+        case .items(let uris, let startURI?):
             try await playbackAPI.play(uris: uris, offsetURI: startURI, deviceID: deviceID)
-        case let .items(uris, nil):
+        case .items(let uris, nil):
             try await playbackAPI.play(uris: uris, deviceID: deviceID)
         }
     }

@@ -56,7 +56,9 @@ struct MusicDataRequestCloudLibrary: AppleMusicCloudLibrary {
 
     @Sendable static func musicDataRequest(_ request: URLRequest) async throws -> Data {
         do {
-            return try await MusicKitContentSource.logged("API \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "")") {
+            return try await MusicKitContentSource.logged(
+                "API \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "")"
+            ) {
                 try await MusicDataRequest(urlRequest: request).response().data
             }
         } catch is CancellationError {
@@ -70,7 +72,9 @@ struct MusicDataRequestCloudLibrary: AppleMusicCloudLibrary {
     }
 
     func addToLibrary(songCatalogIDs: [String], albumCatalogIDs: [String]) async throws {
-        guard let request = AppleMusicCloudRequests.addToLibrary(songs: songCatalogIDs, albums: albumCatalogIDs) else { return }
+        guard let request = AppleMusicCloudRequests.addToLibrary(songs: songCatalogIDs, albums: albumCatalogIDs) else {
+            return
+        }
         _ = try await send(request)
     }
 
@@ -97,7 +101,8 @@ struct MusicDataRequestCloudLibrary: AppleMusicCloudLibrary {
         var pages = 0
         while let path = next, pages < Self.maxPlaylistPages {
             try Task.checkCancellation()
-            let page = try JSONDecoder().decode(ResourceList.self, from: try await send(AppleMusicCloudRequests.get(path)))
+            let page = try JSONDecoder().decode(
+                ResourceList.self, from: try await send(AppleMusicCloudRequests.get(path)))
             playlists += page.data.compactMap { resource in
                 guard resource.attributes?.canEdit == true, let name = resource.attributes?.name else { return nil }
                 return AppleMusicCloudPlaylist(id: resource.id, name: name)
@@ -120,7 +125,8 @@ struct MusicDataRequestCloudLibrary: AppleMusicCloudLibrary {
             } catch AppleMusicLibraryEditError.notFound where pages == 0 {
                 // A new, empty playlist answers 404 for its tracks. Any other failure is a
                 // failure: a timeout or a 5xx must not read as an empty playlist (#595).
-                SpotiglassLog.debug(.api, "Apple Music playlist tracks: 404 on the first page, read as a new empty playlist")
+                SpotiglassLog.debug(
+                    .api, "Apple Music playlist tracks: 404 on the first page, read as a new empty playlist")
                 return []
             }
             let page = try JSONDecoder().decode(SongPage.self, from: data)
@@ -164,7 +170,8 @@ enum AppleMusicCloudRequests {
     /// `POST /v1/me/library?ids[songs]=…&ids[albums]=…`; `nil` when there is nothing to add.
     static func addToLibrary(songs: [String], albums: [String]) -> URLRequest? {
         guard !songs.isEmpty || !albums.isEmpty else { return nil }
-        var components = URLComponents(url: baseURL.appendingPathComponent("/v1/me/library"), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("/v1/me/library"), resolvingAgainstBaseURL: false)!
         var items: [URLQueryItem] = []
         if !songs.isEmpty { items.append(URLQueryItem(name: "ids[songs]", value: songs.joined(separator: ","))) }
         if !albums.isEmpty { items.append(URLQueryItem(name: "ids[albums]", value: albums.joined(separator: ","))) }
@@ -219,4 +226,3 @@ enum AppleMusicCloudRequests {
         return request
     }
 }
-

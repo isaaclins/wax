@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// #388: the browsing and playback layers serve Spotify and Apple Music, so an error that names
@@ -32,9 +33,11 @@ final class ServiceNeutralBrowsingTests: XCTestCase {
             let starting = PlaybackSessionViewModel.playbackHostConnectionFailedError(for: error)
             XCTAssertFalse(starting.message.contains("Spotify"), "\(error): \(starting.message)")
             let queue = QueueViewModel.displayError(for: error)
-            XCTAssertFalse(queue?.message.contains("Spotify") ?? true, "\(error): \(String(describing: queue?.message))")
-            let home: HomeSectionState<[TrackRowViewModel]> = PlaylistBrowserViewModel.homeSectionState(for: error, while: "test")
-            guard case let .failed(shown) = home else { return XCTFail("\(error): \(home)") }
+            XCTAssertFalse(
+                queue?.message.contains("Spotify") ?? true, "\(error): \(String(describing: queue?.message))")
+            let home: HomeSectionState<[TrackRowViewModel]> = PlaylistBrowserViewModel.homeSectionState(
+                for: error, while: "test")
+            guard case .failed(let shown) = home else { return XCTFail("\(error): \(home)") }
             XCTAssertEqual(shown.message, ErrorMessage.appleMusic(for: error)?.message, "\(error)")
         }
         XCTAssertEqual(
@@ -116,21 +119,21 @@ final class ServiceNeutralBrowsingTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         let cachedAt = ISO8601DateFormatter().string(from: Date().addingTimeInterval(-60))
         let written = """
-        {
-          "cachedAt" : "\(cachedAt)",
-          "playlists" : [
             {
-              "id" : "37i9dQZF1DXcBWIGoYBM5M",
-              "imageURL" : "https://i.scdn.co/image/ab67706f00000002",
-              "name" : "Road Trip",
-              "ownerID" : "u",
-              "ownerName" : "Me",
-              "snapshotID" : "MTAsZDVmZDA",
-              "trackCount" : 12
+              "cachedAt" : "\(cachedAt)",
+              "playlists" : [
+                {
+                  "id" : "37i9dQZF1DXcBWIGoYBM5M",
+                  "imageURL" : "https://i.scdn.co/image/ab67706f00000002",
+                  "name" : "Road Trip",
+                  "ownerID" : "u",
+                  "ownerName" : "Me",
+                  "snapshotID" : "MTAsZDVmZDA",
+                  "trackCount" : 12
+                }
+              ]
             }
-          ]
-        }
-        """
+            """
         try Data(written.utf8).write(to: root.appendingPathComponent("playlists.json"))
 
         let api = LimitCapturingBrowsingAPI(playlists: [], tracks: [])
@@ -146,20 +149,25 @@ final class ServiceNeutralBrowsingTests: XCTestCase {
     /// Spotify's scope rule is mapped into the neutral edit check: the same edits as before need
     /// the same scopes, and a session that has them goes ahead.
     func testSpotifyScopesMapIntoTheNeutralEditCheck() async {
-        let readOnly = SpotifyLibraryEditPermissions(scopes: StaticSpotifyScopeProvider(scopes: ["playlist-read-private"]))
+        let readOnly = SpotifyLibraryEditPermissions(
+            scopes: StaticSpotifyScopeProvider(scopes: ["playlist-read-private"]))
         let failure = await readOnly.missingPermission(for: .addToPlaylist)
-        guard case let .insufficientScope(missing, _, _) = failure as? SpotifyAPIError else {
+        guard case .insufficientScope(let missing, _, _) = failure as? SpotifyAPIError else {
             return XCTFail("Expected a missing scope, got \(String(describing: failure))")
         }
         XCTAssertEqual(Set(missing), Set(SpotifyAuthConfiguration.requiredPlaylistModifyScopes))
         let noScopeNeeded = await readOnly.missingPermission(for: .deletePlaylist)
         XCTAssertNil(noScopeNeeded)
 
-        let granted = SpotifyLibraryEditPermissions(scopes: StaticSpotifyScopeProvider(scopes: Set(
-            SpotifyAuthConfiguration.requiredPlaylistModifyScopes + SpotifyAuthConfiguration.requiredSavedTracksModifyScopes
-        )))
+        let granted = SpotifyLibraryEditPermissions(
+            scopes: StaticSpotifyScopeProvider(
+                scopes: Set(
+                    SpotifyAuthConfiguration.requiredPlaylistModifyScopes
+                        + SpotifyAuthConfiguration.requiredSavedTracksModifyScopes
+                )))
         for operation: PlaylistMutationOperation in [
-            .addToPlaylist, .moveBetweenPlaylists, .renamePlaylist, .createPlaylist, .addToLikedSongs, .removeFromLikedSongs,
+            .addToPlaylist, .moveBetweenPlaylists, .renamePlaylist, .createPlaylist, .addToLikedSongs,
+            .removeFromLikedSongs,
         ] {
             let allowed = await granted.missingPermission(for: operation)
             XCTAssertNil(allowed, "\(operation)")

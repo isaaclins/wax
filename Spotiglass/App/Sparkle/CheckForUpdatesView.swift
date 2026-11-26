@@ -96,7 +96,6 @@ struct UpdatesSettingsSection: View {
         _viewModel = StateObject(wrappedValue: AutomaticUpdatesViewModel(updater: updater))
     }
 
-
     var body: some View {
         Section {
             Toggle(
@@ -118,7 +117,7 @@ struct UpdatesSettingsSection: View {
             Text(SpotiglassL10n.string("settings.updates.header"))
         } footer: {
             Text(SpotiglassL10n.string(viewModel.footerKey))
-            .foregroundStyle(.secondary)
+                .foregroundStyle(.secondary)
         }
     }
 }

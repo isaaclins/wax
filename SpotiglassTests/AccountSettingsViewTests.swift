@@ -1,6 +1,7 @@
 import MusicKit
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor

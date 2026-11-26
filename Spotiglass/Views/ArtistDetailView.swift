@@ -129,7 +129,7 @@ struct ArtistDetailContent: View {
                 onFirstVisibleTrackChanged: { _ in },
                 playSelection: { selectedIDs in
                     guard let track = detail.tracks.first(where: { selectedIDs.contains($0.id) }),
-                          let uri = track.playableURI
+                        let uri = track.playableURI
                     else { return }
                     playTrack(uri)
                 },
@@ -155,7 +155,8 @@ struct ArtistDetailContent: View {
         VStack(alignment: .leading, spacing: SpotiglassDesign.Layout.sectionSpacing) {
             albumStrip(title: SpotiglassL10n.string("browser.albums"), albums: detail.albums, group: .album)
             albumStrip(title: SpotiglassL10n.string("browser.singles"), albums: detail.singles, group: .single)
-            albumStrip(title: SpotiglassL10n.string("browser.compilations"), albums: detail.compilations, group: .compilation)
+            albumStrip(
+                title: SpotiglassL10n.string("browser.compilations"), albums: detail.compilations, group: .compilation)
             albumStrip(title: SpotiglassL10n.string("browser.appearsOn"), albums: detail.appearsOn, group: .appearsOn)
             if detail.canLoadMoreAlbums || detail.isLoadingMoreAlbums {
                 loadMoreButton
@@ -171,7 +172,8 @@ struct ArtistDetailContent: View {
                 // the sibling playlist screen explains itself (#135).
                 EmptyStateView(
                     title: SpotiglassL10n.string("browser.artist.empty.title"),
-                    message: SpotiglassL10n.format("browser.artist.empty.message", MusicServiceSelection.current.displayName)
+                    message: SpotiglassL10n.format(
+                        "browser.artist.empty.message", MusicServiceSelection.current.displayName)
                 )
             }
         }
@@ -280,25 +282,28 @@ struct ArtistDetailContent: View {
             drawsRowHighlights: false,
             isKeyboardFocusable: false,
             trackOpsMenuItems: {
-                AnyView(TrackOpsMenuItems(
-                    targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
-                    browserViewModel: browserViewModel,
-                    sourcePlaylistID: nil,
-                    onRequestCreatePlaylist: onRequestCreatePlaylist,
-                    onRequestLibraryContinuation: onRequestLibraryContinuation,
-                    openArtist: { target in
-                        if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
-                    },
-                    addToQueue: addToQueue,
-                    hasPlaybackDevice: hasPlaybackDevice,
-                    copyableURI: track.playableURI
-                ))
+                AnyView(
+                    TrackOpsMenuItems(
+                        targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
+                        browserViewModel: browserViewModel,
+                        sourcePlaylistID: nil,
+                        onRequestCreatePlaylist: onRequestCreatePlaylist,
+                        onRequestLibraryContinuation: onRequestLibraryContinuation,
+                        openArtist: { target in
+                            if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
+                        },
+                        addToQueue: addToQueue,
+                        hasPlaybackDevice: hasPlaybackDevice,
+                        copyableURI: track.playableURI
+                    ))
             }
         )
     }
 
     @ViewBuilder
-    private func albumStrip(title: String?, albums: [ArtistAlbumRowViewModel], group: MusicArtistAlbumGroup) -> some View {
+    private func albumStrip(title: String?, albums: [ArtistAlbumRowViewModel], group: MusicArtistAlbumGroup)
+        -> some View
+    {
         if albums.isEmpty {
             EmptyView()
         } else {
@@ -418,7 +423,10 @@ struct ArtistDetailContent: View {
                     ProgressView()
                         .controlSize(.small)
                 }
-                Text(detail.isLoadingMoreAlbums ? SpotiglassL10n.string("browser.artist.loadingMore") : SpotiglassL10n.string("browser.artist.loadMore"))
+                Text(
+                    detail.isLoadingMoreAlbums
+                        ? SpotiglassL10n.string("browser.artist.loadingMore")
+                        : SpotiglassL10n.string("browser.artist.loadMore"))
             }
             .frame(maxWidth: .infinity)
         }

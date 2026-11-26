@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 /// macOS colors only the key window's controls. AppKit and the standard SwiftUI controls

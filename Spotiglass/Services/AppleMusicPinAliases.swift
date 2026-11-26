@@ -82,7 +82,8 @@ final class AppleMusicPinAliasRegistry: @unchecked Sendable {
         let pinID = PinnedItem.id(forKind: .album, spotifyID: albumID)
         lock.withLock {
             if let old = albumKeys.value(forKey: pinID), old != matchKey,
-               var oldKey = albumsByKey.value(forKey: old) {
+                var oldKey = albumsByKey.value(forKey: old)
+            {
                 oldKey.pinIDs.remove(pinID)
                 albumsByKey.setValue(oldKey, forKey: old)
             }
@@ -100,10 +101,10 @@ final class AppleMusicPinAliasRegistry: @unchecked Sendable {
     func takeUnsearchedKey(ofPinID pinID: String) -> (key: String, query: AppleMusicAlbumQuery)? {
         lock.withLock {
             guard let keyName = albumKeys.value(forKey: pinID),
-                  var key = albumsByKey.value(forKey: keyName),
-                  key.catalogPinIDs == nil, !key.isSearching,
-                  key.pinIDs.contains(where: Self.isSavedAlbum),
-                  key.pinIDs.contains(where: { !Self.isSavedAlbum($0) })
+                var key = albumsByKey.value(forKey: keyName),
+                key.catalogPinIDs == nil, !key.isSearching,
+                key.pinIDs.contains(where: Self.isSavedAlbum),
+                key.pinIDs.contains(where: { !Self.isSavedAlbum($0) })
             else { return nil }
             key.isSearching = true
             albumsByKey.setValue(key, forKey: keyName)
@@ -113,9 +114,12 @@ final class AppleMusicPinAliasRegistry: @unchecked Sendable {
 
     /// Records the albums a search found under `key`: catalog releases and saved albums, each
     /// with its track count and release day when known.
-    func recordSearch(key keyName: String, catalog: [String: AppleMusicAlbumDetail], library: [String: AppleMusicAlbumDetail]) {
+    func recordSearch(
+        key keyName: String, catalog: [String: AppleMusicAlbumDetail], library: [String: AppleMusicAlbumDetail]
+    ) {
         func pinIDs(_ albums: [String: AppleMusicAlbumDetail]) -> [String: AppleMusicAlbumDetail] {
-            Dictionary(albums.map { (PinnedItem.id(forKind: .album, spotifyID: $0.key), $0.value) }) { first, _ in first }
+            Dictionary(albums.map { (PinnedItem.id(forKind: .album, spotifyID: $0.key), $0.value) }) { first, _ in first
+            }
         }
         let catalog = pinIDs(catalog)
         let library = pinIDs(library)
@@ -144,7 +148,9 @@ final class AppleMusicPinAliasRegistry: @unchecked Sendable {
     /// Every other pin ID of the same item the registry knows or can work out.
     func aliases(ofPinID pinID: String) -> Set<String> {
         var result = lock.withLock {
-            albumKeys.value(forKey: pinID).flatMap { albumsByKey.value(forKey: $0) }.map { Self.albumPair($0, for: pinID) } ?? []
+            albumKeys.value(forKey: pinID).flatMap { albumsByKey.value(forKey: $0) }.map {
+                Self.albumPair($0, for: pinID)
+            } ?? []
         }
         if let alias = alias(ofPinID: pinID) { result.insert(alias) }
         result.remove(pinID)
@@ -173,7 +179,8 @@ final class AppleMusicPinAliasRegistry: @unchecked Sendable {
         // own release and list just another one of that name.
         let releaseDetail = key.details[release]
         if let releaseTracks = releaseDetail?.trackCount, let savedTracks = savedDetail?.trackCount,
-           releaseTracks != savedTracks {
+            releaseTracks != savedTracks
+        {
             return []
         }
         if let releaseDay = releaseDetail?.releaseDay, let savedDay = savedDetail?.releaseDay, releaseDay != savedDay {
@@ -191,8 +198,8 @@ final class AppleMusicPinAliasRegistry: @unchecked Sendable {
         let thunk: @Sendable () -> String?
         switch lock.withLock({ entries.value(forKey: pinID) }) {
         case nil: return nil
-        case let .resolved(alias): return alias
-        case let .pending(read): thunk = read
+        case .resolved(let alias): return alias
+        case .pending(let read): thunk = read
         }
         // Read outside the lock: encoding the item is the slow part.
         let alias = PinnedItem.kind(ofPinID: pinID).flatMap { kind in
@@ -306,7 +313,8 @@ final class AppleMusicPinAliases: PinnedItemAliasResolving {
         }
         var aliases = registry.aliases(ofPinID: pinID)
         if PinnedItem.kind(ofPinID: pinID) == .track, let itemID = PinnedItem.itemID(ofPinID: pinID),
-           let reference = songReferences.reference(for: itemID) {
+            let reference = songReferences.reference(for: itemID)
+        {
             aliases.formUnion(reference.matchKeys.map { PinnedItem.id(forKind: .track, spotifyID: $0) })
             aliases.remove(pinID)
         }
@@ -390,7 +398,8 @@ final class AppleMusicPinAliases: PinnedItemAliasResolving {
                 do {
                     others = try await lookUp(kind, batch)
                 } catch {
-                    SpotiglassLog.error(SpotiglassLog.pinning, "Pin identity lookup failed: \(error.localizedDescription)")
+                    SpotiglassLog.error(
+                        SpotiglassLog.pinning, "Pin identity lookup failed: \(error.localizedDescription)")
                     continue
                 }
                 for itemID in batch {

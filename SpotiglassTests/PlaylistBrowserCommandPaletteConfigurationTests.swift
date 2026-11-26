@@ -1,5 +1,6 @@
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -13,7 +14,8 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
                 cache: MockBrowsingCache()
             )
             let playback = PlaybackSessionViewModel(
-                provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander())
+                provider: SpotifyPlaybackProvider(
+                    playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander())
             )
             let manager = CommandPaletteManager()
             PlaylistBrowserCommandPaletteConfiguration.apply(
@@ -21,7 +23,8 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
                 dependencies: .init(
                     viewModel: viewModel,
                     playbackViewModel: playback,
-                    queueViewModel: QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playback),
+                    queueViewModel: QueueViewModel(
+                        provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playback),
                     commandPaletteManager: manager,
                     pinnedStore: PinnedItemsStore(cache: InMemoryPinnedItemsCache()),
                     catalogProvider: MockBrowsingAPI(playlistResults: [], trackResults: [:]),
@@ -60,7 +63,8 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
     /// nothing to connect, and running it restarted the player session. Spotify keeps it.
     func testConnectPlaybackIsOfferedOnlyForAPlayerWithAConnection() throws {
         func menu(
-            _ registry: SpotiglassSceneRegistry, keymap: CommandPaletteKeymapStore, service: MusicService, isSignedIn: Bool = true
+            _ registry: SpotiglassSceneRegistry, keymap: CommandPaletteKeymapStore, service: MusicService,
+            isSignedIn: Bool = true
         ) -> SpotiglassMenuCommands {
             let settingsURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("SpotiglassConnectPlayback-\(UUID().uuidString)", isDirectory: true)
@@ -85,7 +89,8 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
             if let existing {
                 manager = existing
             } else {
-                let keymap = CommandPaletteKeymapStore(settingsStore: SpotiglassSettingsStore(fileURL: makeCommandPaletteTestsTempSettingsURL()))
+                let keymap = CommandPaletteKeymapStore(
+                    settingsStore: SpotiglassSettingsStore(fileURL: makeCommandPaletteTestsTempSettingsURL()))
                 try keymap.setBinding(
                     commandID: CommandPaletteCommandID.connectPlayback,
                     shortcut: try CommandShortcut(keystroke: "shift-cmd-k"),
@@ -133,7 +138,8 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
 
         // Apple Music, playing: neither the menu, the palette nor the shortcut offers Connect,
         // and running the command anyway leaves the music alone.
-        let appleMusic = PlaybackSessionViewModel(provider: AppleMusicPlaybackProvider(player: ScriptedAppleMusicPlayer()))
+        let appleMusic = PlaybackSessionViewModel(
+            provider: AppleMusicPlaybackProvider(player: ScriptedAppleMusicPlayer()))
         appleMusic.deviceID = AppleMusicPlaybackProvider.deviceID
         appleMusic.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
         appleMusic.setConnectionState(.ready(deviceID: AppleMusicPlaybackProvider.deviceID))
@@ -178,7 +184,8 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
 
         // With every window closed the menu follows the selected service.
         let noWindow = SpotiglassSceneRegistry()
-        XCTAssertFalse(menu(noWindow, keymap: spotifyManager.keymapStore, service: .appleMusic).isConnectPlaybackOffered)
+        XCTAssertFalse(
+            menu(noWindow, keymap: spotifyManager.keymapStore, service: .appleMusic).isConnectPlaybackOffered)
         XCTAssertTrue(menu(noWindow, keymap: spotifyManager.keymapStore, service: .spotify).isConnectPlaybackOffered)
 
         // Until the window is signed in, its palette may still hold the last service's wiring
@@ -190,8 +197,10 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
         let signedOutSpotify = menu(window, keymap: spotifyManager.keymapStore, service: .spotify, isSignedIn: false)
         XCTAssertTrue(signedOutSpotify.isConnectPlaybackOffered, "signed-out Spotify lost its dimmed Connect Playback")
         spotifyManager.connectPlayback = {}
-        let appleMusicPermission = menu(window, keymap: spotifyManager.keymapStore, service: .appleMusic, isSignedIn: false)
-        XCTAssertFalse(appleMusicPermission.isConnectPlaybackOffered, "Apple Music's permission screen offers Spotify's Connect")
+        let appleMusicPermission = menu(
+            window, keymap: spotifyManager.keymapStore, service: .appleMusic, isSignedIn: false)
+        XCTAssertFalse(
+            appleMusicPermission.isConnectPlaybackOffered, "Apple Music's permission screen offers Spotify's Connect")
     }
 
     func testApplyWiresCallbacksWithoutHostingView() async throws {
@@ -203,7 +212,8 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
         await viewModel.load()
         let playback = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
-        let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playback)
+        let queue = QueueViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playback)
         let manager = CommandPaletteManager()
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         store.bind(userID: "u1")
@@ -220,7 +230,9 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
                 catalogProvider: SpotifyAPIClient(
                     tokenProvider: StaticSpotifyAccessTokenProvider(token: "tok"),
                     httpClient: QueueHTTPClient([
-                        .json(#"{"tracks":{"items":[]},"artists":{"items":[]},"albums":{"items":[]},"playlists":{"items":[]}}"#),
+                        .json(
+                            #"{"tracks":{"items":[]},"artists":{"items":[]},"albums":{"items":[]},"playlists":{"items":[]}}"#
+                        )
                     ])
                 ),
                 signOut: {},
@@ -237,18 +249,19 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
         XCTAssertTrue(manager.canTogglePlayback)
         manager.execute(commandID: CommandPaletteCommandID.toggleLyrics)
         XCTAssertFalse(lyricsVisible)
-        playback.setConnectionState(.playing(
-            PlaybackNowPlaying(
-                name: "Song",
-                artists: ["Artist"],
-                albumName: "Album",
-                albumID: nil,
-                albumArtURL: nil,
-                durationMilliseconds: 180_000,
-                positionMilliseconds: 0,
-                uri: "spotify:track:lyrics-config"
-            )
-        ))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Song",
+                    artists: ["Artist"],
+                    albumName: "Album",
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 180_000,
+                    positionMilliseconds: 0,
+                    uri: "spotify:track:lyrics-config"
+                )
+            ))
         manager.toggleQueue?()
         XCTAssertTrue(queueVisible)
         manager.execute(commandID: CommandPaletteCommandID.toggleLyrics)
@@ -271,12 +284,13 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
         let queue = QueueViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()),
             playbackSession: PlaybackSessionViewModel(
-                provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+                provider: SpotifyPlaybackProvider(
+                    playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
         )
         let manager = CommandPaletteManager()
         var pinnedIDs: Set<String> = []
         let http = QueueHTTPClient([
-            .json(#"{"tracks":{"items":[]},"artists":{"items":[]},"albums":{"items":[]},"playlists":{"items":[]}}"#),
+            .json(#"{"tracks":{"items":[]},"artists":{"items":[]},"albums":{"items":[]},"playlists":{"items":[]}}"#)
         ])
         let client = SpotifyAPIClient(
             tokenProvider: StaticSpotifyAccessTokenProvider(token: "tok"),
@@ -297,4 +311,3 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
         XCTAssertTrue(results.tracks.isEmpty)
     }
 }
-

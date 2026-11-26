@@ -110,12 +110,14 @@ struct PlaybackTransportArrangementLayout: Layout {
     private func frames(forWidth proposedWidth: CGFloat?, subviews: Subviews) -> Frames {
         func index(of part: Part) -> Int? { subviews.firstIndex { $0[PartKey.self] == part } }
         guard let summary = index(of: .summary),
-              let controls = index(of: .controls),
-              let scrubber = index(of: .scrubber)
+            let controls = index(of: .controls),
+            let scrubber = index(of: .scrubber)
         else {
             return Frames(size: .zero, subviews: subviews.map { _ in .zero })
         }
-        let recovery = index(of: .recovery), device = index(of: .device), volume = index(of: .volume)
+        let recovery = index(of: .recovery)
+        let device = index(of: .device)
+        let volume = index(of: .volume)
 
         func measuredWidth(_ index: Int?, _ offer: CGFloat?) -> CGFloat {
             guard let index else { return 0 }
@@ -133,16 +135,19 @@ struct PlaybackTransportArrangementLayout: Layout {
         let sliderMinimum = measuredWidth(volume, PlaybackTransportVolumeSlot<EmptyView, EmptyView>.switchOverWidth)
         let sliderMaximum = measuredWidth(volume, .infinity)
         let compactVolume = measuredWidth(volume, 0)
-        let deviceMinimum = measuredWidth(device, 0), deviceIdeal = measuredWidth(device, nil)
+        let deviceMinimum = measuredWidth(device, 0)
+        let deviceIdeal = measuredWidth(device, nil)
 
         // The narrowest each side can be: the summary's floor, or with a
         // Reconnect or Retry button, the artwork and the button's compact form.
         let recoveryMinimum = measuredWidth(recovery, 0)
-        let leadingMinimum = recoveryMinimum > 0
+        let leadingMinimum =
+            recoveryMinimum > 0
             ? PlaybackTransportLayoutPolicy.nowPlayingArtworkSize + spacing + recoveryMinimum
             : PlaybackTransportLayoutPolicy.nowPlayingSummaryMinimumWidth
         let trailingMinimum = deviceMinimum + gap(compactVolume) + compactVolume
-        let sliderIdeal = sliderMinimum
+        let sliderIdeal =
+            sliderMinimum
             + PlaybackTransportLayoutPolicy.volumeSliderWidths.ideal
             - PlaybackTransportLayoutPolicy.volumeSliderWidths.minimum
         let trailingIdeal = deviceIdeal + gap(sliderIdeal) + sliderIdeal
@@ -183,7 +188,8 @@ struct PlaybackTransportArrangementLayout: Layout {
         // Stacked, each side keeps the room it has where the bar stops
         // stacking, so the title and the volume never lose room as the window
         // widens past that point.
-        let side = isStacked
+        let side =
+            isStacked
             ? min((width - controlsWidth) / 2 - spacing, sideMinimum)
             : centredSide
 
@@ -193,7 +199,8 @@ struct PlaybackTransportArrangementLayout: Layout {
         // narrowest, the compact volume button otherwise.
         if let volume {
             let sliderFits = side >= deviceMinimum + spacing + sliderMinimum
-            widths[volume] = sliderFits
+            widths[volume] =
+                sliderFits
                 ? measuredWidth(volume, min(max(side - deviceIdeal - spacing, sliderMinimum), sliderMaximum))
                 : compactVolume
         }
@@ -213,11 +220,13 @@ struct PlaybackTransportArrangementLayout: Layout {
         }
         let recoveryWidth = recovery.map { widths[$0] } ?? 0
         let summaryRoom = max(side - gap(recoveryWidth) - recoveryWidth, 0)
-        widths[summary] = recoveryWidth > 0
+        widths[summary] =
+            recoveryWidth > 0
             ? measuredWidth(summary, min(summaryIdeal, summaryRoom))
             : measuredWidth(summary, summaryRoom)
 
-        let scrubberWidth = isStacked
+        let scrubberWidth =
+            isStacked
             ? max(min(width, PlaybackTransportLayoutPolicy.scrubberMaximumWidth), scrubberMinimum)
             : centredScrubberWidth
         let controlsHeight = height(controls, controlsWidth)
@@ -369,7 +378,7 @@ struct PlaybackControlsView: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("PlaybackControlsView")
+            let _ = ViewBodyTally.record("PlaybackControlsView")
         #endif
         GlassPanel {
             adaptiveTransportLayout
@@ -629,7 +638,9 @@ struct PlaybackControlsView: View {
 
             PlaybackTransportButton(
                 accessibilityLabel: SpotiglassL10n.string("playback.controls.previous"),
-                accessibilityHint: Self.serviceString("playback.controls.previous.hint", appleMusic: "playback.controls.previous.appleMusic.hint", service: shownService),
+                accessibilityHint: Self.serviceString(
+                    "playback.controls.previous.hint", appleMusic: "playback.controls.previous.appleMusic.hint",
+                    service: shownService),
                 size: SpotiglassDesign.Layout.iconButtonFrame,
                 isEnabled: canSkip && !viewModel.isSkipCommandPending,
                 action: { Task { await viewModel.previous() } }
@@ -643,7 +654,9 @@ struct PlaybackControlsView: View {
 
             PlaybackTransportButton(
                 accessibilityLabel: playPauseAccessibilityLabel,
-                accessibilityHint: Self.serviceString("playback.controls.playPause.hint", appleMusic: "playback.controls.playPause.appleMusic.hint", service: shownService),
+                accessibilityHint: Self.serviceString(
+                    "playback.controls.playPause.hint", appleMusic: "playback.controls.playPause.appleMusic.hint",
+                    service: shownService),
                 size: SpotiglassDesign.Layout.iconButtonFrame,
                 isEnabled: viewModel.isPlaybackToggleReady,
                 action: { viewModel.requestTogglePlayPause() }
@@ -680,7 +693,9 @@ struct PlaybackControlsView: View {
 
             PlaybackTransportButton(
                 accessibilityLabel: SpotiglassL10n.string("playback.controls.next"),
-                accessibilityHint: Self.serviceString("playback.controls.next.hint", appleMusic: "playback.controls.next.appleMusic.hint", service: shownService),
+                accessibilityHint: Self.serviceString(
+                    "playback.controls.next.hint", appleMusic: "playback.controls.next.appleMusic.hint",
+                    service: shownService),
                 size: SpotiglassDesign.Layout.iconButtonFrame,
                 isEnabled: canSkip
                     && !viewModel.isSkipCommandPending
@@ -755,11 +770,12 @@ struct PlaybackControlsView: View {
                             }
                         } label: {
                             // A failed refresh keeps the last list; the heading says it may be old (#598).
-                            Text(SpotiglassL10n.string(
-                                viewModel.connectDevicesRefreshFailed
-                                    ? "playback.controls.connectDevices.stale"
-                                    : "playback.controls.connectDevices"
-                            ))
+                            Text(
+                                SpotiglassL10n.string(
+                                    viewModel.connectDevicesRefreshFailed
+                                        ? "playback.controls.connectDevices.stale"
+                                        : "playback.controls.connectDevices"
+                                ))
                         }
                         .pickerStyle(.inline)
 
@@ -808,7 +824,10 @@ struct PlaybackControlsView: View {
             .opacity(hasReadyDevice ? 1 : 0.45)
             .help(SpotiglassL10n.string("tooltip.playback.device"))
             .accessibilityLabel(SpotiglassL10n.string("playback.controls.device"))
-            .accessibilityHint(Self.serviceString("playback.controls.device.hint", appleMusic: "playback.controls.device.appleMusic.hint", service: shownService))
+            .accessibilityHint(
+                Self.serviceString(
+                    "playback.controls.device.hint", appleMusic: "playback.controls.device.appleMusic.hint",
+                    service: shownService))
         }
     }
 
@@ -859,7 +878,7 @@ struct PlaybackControlsView: View {
         }
         .frame(width: SpotiglassDesign.Layout.iconButtonSize, height: SpotiglassDesign.Layout.iconButtonSize)
         .popover(isPresented: $isVolumePopoverPresented) {
-            Slider(value: playbackVolumeBinding, in: 0 ... 1)
+            Slider(value: playbackVolumeBinding, in: 0...1)
                 .controlSize(.small)
                 .frame(width: PlaybackTransportLayoutPolicy.volumeSliderWidths.maximum)
                 .padding()
@@ -879,7 +898,7 @@ struct PlaybackControlsView: View {
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
-            Slider(value: playbackVolumeBinding, in: 0 ... 1)
+            Slider(value: playbackVolumeBinding, in: 0...1)
                 .controlSize(.small)
                 .frame(
                     minWidth: PlaybackTransportLayoutPolicy.volumeSliderWidths.minimum,
@@ -939,7 +958,7 @@ struct PlaybackControlsView: View {
             ProgressView()
                 .controlSize(.small)
                 .accessibilityLabel(SpotiglassL10n.string("playback.controls.connecting"))
-        case let .error(error):
+        case .error(let error):
             switch error.action {
             case .reconnect:
                 recoveryButton(
@@ -954,12 +973,14 @@ struct PlaybackControlsView: View {
                     title: SpotiglassL10n.string("playback.controls.retry"),
                     systemImage: "arrow.clockwise",
                     // A failed command is sent again; a failed move of playback here is retried.
-                    accessibilityLabel: SpotiglassL10n.string(viewModel.retriesFailedCommand
-                        ? "playback.controls.retryCommand.label"
-                        : "playback.controls.retry.label"),
-                    accessibilityHint: SpotiglassL10n.string(viewModel.retriesFailedCommand
-                        ? "playback.controls.retryCommand.hint"
-                        : "playback.controls.retry.hint"),
+                    accessibilityLabel: SpotiglassL10n.string(
+                        viewModel.retriesFailedCommand
+                            ? "playback.controls.retryCommand.label"
+                            : "playback.controls.retry.label"),
+                    accessibilityHint: SpotiglassL10n.string(
+                        viewModel.retriesFailedCommand
+                            ? "playback.controls.retryCommand.hint"
+                            : "playback.controls.retry.hint"),
                     action: { Task { await viewModel.retryAfterError() } }
                 )
             case .reauthenticate:
@@ -1021,7 +1042,9 @@ struct PlaybackControlsView: View {
     }
 
     private var title: String {
-        if let status = Self.statusLines(for: viewModel.connectionState, playerPushesState: viewModel.playerPushesState, service: shownService) {
+        if let status = Self.statusLines(
+            for: viewModel.connectionState, playerPushesState: viewModel.playerPushesState, service: shownService)
+        {
             return status.title
         }
         return viewModel.connectionState.currentTrack?.name ?? ""
@@ -1045,12 +1068,18 @@ struct PlaybackControlsView: View {
         case .disconnected:
             (
                 SpotiglassL10n.string("playback.controls.state.disconnected.title"),
-                serviceString("playback.controls.state.disconnected.subtitle", appleMusic: "playback.controls.state.disconnected.subtitle.appleMusic", service: service)
+                serviceString(
+                    "playback.controls.state.disconnected.subtitle",
+                    appleMusic: "playback.controls.state.disconnected.subtitle.appleMusic", service: service)
             )
         case .connecting:
             (
-                serviceString("playback.controls.state.connecting.title", appleMusic: "playback.controls.state.connecting.title.appleMusic", service: service),
-                serviceString("playback.controls.state.connecting.subtitle", appleMusic: "playback.controls.state.connecting.subtitle.appleMusic", service: service)
+                serviceString(
+                    "playback.controls.state.connecting.title",
+                    appleMusic: "playback.controls.state.connecting.title.appleMusic", service: service),
+                serviceString(
+                    "playback.controls.state.connecting.subtitle",
+                    appleMusic: "playback.controls.state.connecting.subtitle.appleMusic", service: service)
             )
         case .ready:
             (
@@ -1065,15 +1094,15 @@ struct PlaybackControlsView: View {
                 SpotiglassL10n.string("playback.controls.state.transferring.title"),
                 SpotiglassL10n.string("playback.controls.state.transferring.subtitle")
             )
-        case let .unavailable(message):
+        case .unavailable(let message):
             (SpotiglassL10n.string("playback.controls.state.unavailable.title"), message.string)
-        case let .error(error):
+        case .error(let error):
             (error.title, error.message)
         }
     }
 
     private var shouldShowPausedIndicator: Bool {
-        if case let .paused(item) = viewModel.connectionState {
+        if case .paused(let item) = viewModel.connectionState {
             return item != nil
         }
         return false
@@ -1104,7 +1133,9 @@ struct PlaybackControlsView: View {
         if let refused = viewModel.refusedPlayPause {
             return refused.title
         }
-        if let status = Self.statusLines(for: viewModel.connectionState, playerPushesState: viewModel.playerPushesState, service: shownService) {
+        if let status = Self.statusLines(
+            for: viewModel.connectionState, playerPushesState: viewModel.playerPushesState, service: shownService)
+        {
             return status.subtitle
         }
         return viewModel.connectionState.currentTrack?.artistText ?? ""
@@ -1163,7 +1194,7 @@ struct PlaybackControlsView: View {
         case .disconnected: viewModel.canReconnectPlayer ? "disconnected" : "transport"
         case .unavailable: viewModel.canReconnectPlayer ? "unavailable" : "transport"
         case .connecting: "connecting"
-        case let .error(error):
+        case .error(let error):
             switch error.action {
             case .reconnect: "error.reconnect"
             case .retryTransfer, .retry: "error.retry"
@@ -1221,9 +1252,9 @@ struct PlaybackControlsView: View {
 
     private var nowPlaying: PlaybackNowPlaying? {
         switch viewModel.connectionState {
-        case let .playing(item):
+        case .playing(let item):
             item
-        case let .paused(item):
+        case .paused(let item):
             item
         default:
             nil

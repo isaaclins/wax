@@ -28,7 +28,9 @@ struct CatalogSearchView: View {
     @Environment(\.commandPalettePresence) private var palettePresence
 
     private let cardColumns = [
-        GridItem(.adaptive(minimum: SpotiglassDesign.Layout.cardWidth), spacing: SpotiglassDesign.spacingM, alignment: .leading)
+        GridItem(
+            .adaptive(minimum: SpotiglassDesign.Layout.cardWidth), spacing: SpotiglassDesign.spacingM,
+            alignment: .leading)
     ]
 
     init(
@@ -99,7 +101,8 @@ struct CatalogSearchView: View {
             .onChange(of: searchViewModel.query) { _, _ in
                 searchViewModel.queryDidChange()
             }
-            .accessibilityLabel(SpotiglassL10n.format("search.field.placeholder", MusicServiceSelection.current.displayName))
+            .accessibilityLabel(
+                SpotiglassL10n.format("search.field.placeholder", MusicServiceSelection.current.displayName))
 
             if !searchViewModel.query.isEmpty {
                 Button {
@@ -149,7 +152,7 @@ struct CatalogSearchView: View {
             ProgressView(SpotiglassL10n.string("search.state.searching"))
                 .controlSize(.small)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case let .empty(text):
+        case .empty(let text):
             let message = text.string
             EmptyStateView(
                 title: SpotiglassL10n.string("search.empty.title"),
@@ -159,25 +162,28 @@ struct CatalogSearchView: View {
                     ? SpotiglassL10n.format("search.empty.guidance", MusicServiceSelection.current.displayName)
                     : message
             )
-        case let .error(error):
+        case .error(let error):
             ErrorPage(error: error, retry: error.canRetry ? { searchViewModel.refreshSearch() } : nil)
-        case let .loaded(results):
+        case .loaded(let results):
             resultSections(results.filtered(to: searchViewModel.category))
-        case let .refreshing(results):
+        case .refreshing(let results):
             resultSections(results.filtered(to: searchViewModel.category))
-        case let .staleCache(results, error):
+        case .staleCache(let results, let error):
             // Search used to fold staleCache into loaded and discard the error,
             // so cached results looked live here while the sidebar and the
             // detail column both showed a banner for the same state (#136).
             VStack(spacing: 0) {
-                ErrorBanner(error: error, style: .floating, retry: error?.canRetry == true ? { searchViewModel.refreshSearch() } : nil)
+                ErrorBanner(
+                    error: error, style: .floating,
+                    retry: error?.canRetry == true ? { searchViewModel.refreshSearch() } : nil)
                 resultSections(results.filtered(to: searchViewModel.category))
             }
         }
     }
 
     private func resultSections(_ results: CatalogSearchResults) -> some View {
-        let showsLoadMore = searchViewModel.category != .all
+        let showsLoadMore =
+            searchViewModel.category != .all
             && (searchViewModel.canLoadMore || searchViewModel.isLoadingMore)
         return ScrollView {
             VStack(alignment: .leading, spacing: SpotiglassDesign.Layout.sectionSpacing) {
@@ -252,27 +258,33 @@ struct CatalogSearchView: View {
                         isCurrent: mark.isCurrent,
                         isPlaying: mark.isPlaying,
                         openArtist: { artist in
-                            Task { await viewModel.selectArtist(id: artist.id, origin: .extend, displayName: artist.name) }
+                            Task {
+                                await viewModel.selectArtist(id: artist.id, origin: .extend, displayName: artist.name)
+                            }
                         },
                         isSelected: trackSelection.contains(track.id),
                         trackOpsMenuItems: {
-                            AnyView(TrackOpsMenuItems(
-                                targets: trackSelection.menuTargets(for: track, in: tracks),
-                                browserViewModel: viewModel,
-                                sourcePlaylistID: nil,
-                                onRequestCreatePlaylist: onRequestCreatePlaylist,
-                                onRequestLibraryContinuation: onRequestLibraryContinuation,
-                                openArtist: { target in
-                                    if let id = target.id {
-                                        Task { await viewModel.selectArtist(id: id, origin: .extend, displayName: target.name) }
-                                    }
-                                },
-                                addToQueue: { uri in
-                                    await queueViewModel.addToQueue(uri: uri)
-                                },
-                                hasPlaybackDevice: hasPlaybackDevice,
-                                copyableURI: track.playableURI
-                            ))
+                            AnyView(
+                                TrackOpsMenuItems(
+                                    targets: trackSelection.menuTargets(for: track, in: tracks),
+                                    browserViewModel: viewModel,
+                                    sourcePlaylistID: nil,
+                                    onRequestCreatePlaylist: onRequestCreatePlaylist,
+                                    onRequestLibraryContinuation: onRequestLibraryContinuation,
+                                    openArtist: { target in
+                                        if let id = target.id {
+                                            Task {
+                                                await viewModel.selectArtist(
+                                                    id: id, origin: .extend, displayName: target.name)
+                                            }
+                                        }
+                                    },
+                                    addToQueue: { uri in
+                                        await queueViewModel.addToQueue(uri: uri)
+                                    },
+                                    hasPlaybackDevice: hasPlaybackDevice,
+                                    copyableURI: track.playableURI
+                                ))
                         }
                     )
                     .trackStackSelectable(track.id, in: order, selection: $trackSelection)

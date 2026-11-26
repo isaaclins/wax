@@ -28,7 +28,7 @@ enum SpotifyTokenClientError: Error, Equatable, LocalizedError {
         // The HTTP status is a developer fact and stays on the error case for
         // the log (`AuthFailureDescription`); the sentence says what happened and what
         // to do (#157).
-        case let .httpError(_, description, oauthError, _):
+        case .httpError(_, let description, let oauthError, _):
             if let description, !description.isEmpty {
                 return SpotiglassL10n.format("auth.token.rejectedWithDescription", description)
             }
@@ -49,16 +49,18 @@ enum AuthFailureDescription {
             switch tokenError {
             case .invalidResponse:
                 return "token endpoint sent no HTTP response"
-            case let .httpError(status, description, oauthError, retryAfter):
+            case .httpError(let status, let description, let oauthError, let retryAfter):
                 var parts = ["token endpoint HTTP \(status)"]
                 if let oauthError, !oauthError.isEmpty { parts.append(oauthError) }
-                if let description, !description.isEmpty, description != oauthError { parts.append("\"\(description)\"") }
+                if let description, !description.isEmpty, description != oauthError {
+                    parts.append("\"\(description)\"")
+                }
                 if let retryAfter { parts.append("Retry-After \(Int(retryAfter.rounded())) s") }
                 return parts.joined(separator: " ")
             }
         case let keychainError as KeychainRefreshTokenStoreError:
             switch keychainError {
-            case let .unexpectedStatus(status):
+            case .unexpectedStatus(let status):
                 return "Keychain OSStatus \(status)"
             case .invalidStoredData:
                 return "Keychain item holds unreadable data"
@@ -66,7 +68,7 @@ enum AuthFailureDescription {
         case let callbackError as LoopbackOAuthCallbackError:
             return "callback " + (callbackError.diagnosticDetails ?? String(describing: callbackError))
         case let apiError as SpotifyAPIError:
-            if case let .insufficientScope(requiredScopes, _, details) = apiError {
+            if case .insufficientScope(let requiredScopes, _, let details) = apiError {
                 // The missing ones when the thrower knows them, else everything required.
                 return "token lacks " + (details ?? "required scopes \(requiredScopes.sorted().joined(separator: " "))")
             }
@@ -109,7 +111,7 @@ struct SpotifyTokenClient {
             URLQueryItem(name: "grant_type", value: "authorization_code"),
             URLQueryItem(name: "code", value: code),
             URLQueryItem(name: "redirect_uri", value: redirectURI.absoluteString),
-            URLQueryItem(name: "code_verifier", value: codeVerifier)
+            URLQueryItem(name: "code_verifier", value: codeVerifier),
         ]
 
         return try await sendTokenRequest(body: body)
@@ -119,7 +121,7 @@ struct SpotifyTokenClient {
         let body = [
             URLQueryItem(name: "client_id", value: clientID),
             URLQueryItem(name: "grant_type", value: "refresh_token"),
-            URLQueryItem(name: "refresh_token", value: refreshToken)
+            URLQueryItem(name: "refresh_token", value: refreshToken),
         ]
         return try await sendRefreshTokenRequestWithRetry(body: body)
     }
@@ -180,7 +182,8 @@ struct SpotifyTokenClient {
 
     private func shouldRetryRefresh(_ error: Error) -> Bool {
         if let tokenError = error as? SpotifyTokenClientError,
-           case let .httpError(status, _, oauthError, _) = tokenError {
+            case .httpError(let status, _, let oauthError, _) = tokenError
+        {
             if status == 429 || (500...599).contains(status) {
                 return true
             }
@@ -189,7 +192,8 @@ struct SpotifyTokenClient {
                 if normalized == "invalid_grant"
                     || normalized == "invalid_client"
                     || normalized == "invalid_request"
-                    || normalized == "unauthorized_client" {
+                    || normalized == "unauthorized_client"
+                {
                     return false
                 }
             }
@@ -206,9 +210,10 @@ struct SpotifyTokenClient {
         let jitterUpperBound = min(pow(2.0, Double(attempt)), 5.0)
         let jitterDelay = random(0...jitterUpperBound)
         if let tokenError = error as? SpotifyTokenClientError,
-           case let .httpError(status, _, _, retryAfter) = tokenError,
-           status == 429,
-           let retryAfter {
+            case .httpError(let status, _, _, let retryAfter) = tokenError,
+            status == 429,
+            let retryAfter
+        {
             guard retryAfter <= Self.longestInlineRetryAfter else { return nil }
             return max(jitterDelay, retryAfter)
         }
@@ -216,9 +221,11 @@ struct SpotifyTokenClient {
     }
 
     private static func retryAfter(from headers: [AnyHashable: Any], now: Date) -> TimeInterval? {
-        guard let raw = headers.first(where: {
-            String(describing: $0.key).caseInsensitiveCompare("Retry-After") == .orderedSame
-        })?.value as? String else {
+        guard
+            let raw = headers.first(where: {
+                String(describing: $0.key).caseInsensitiveCompare("Retry-After") == .orderedSame
+            })?.value as? String
+        else {
             return nil
         }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -267,8 +274,8 @@ private struct SpotifyTokenErrorResponse: Decodable {
     }
 }
 
-private extension Array where Element == URLQueryItem {
-    func formURLEncodedData() -> Data {
+extension Array where Element == URLQueryItem {
+    fileprivate func formURLEncodedData() -> Data {
         var components = URLComponents()
         components.queryItems = self
         return Data((components.percentEncodedQuery ?? "").utf8)

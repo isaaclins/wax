@@ -96,10 +96,10 @@ final class MultitouchActuators {
     private static func load(_ path: String) -> Functions? {
         guard let handle = dlopen(path, RTLD_LAZY) else { return nil }
         guard let createDeviceList = dlsym(handle, "MTDeviceCreateList"),
-              let getDeviceID = dlsym(handle, "MTDeviceGetDeviceID"),
-              let createActuator = dlsym(handle, "MTActuatorCreateFromDeviceID"),
-              let open = dlsym(handle, "MTActuatorOpen"),
-              let actuate = dlsym(handle, "MTActuatorActuate")
+            let getDeviceID = dlsym(handle, "MTDeviceGetDeviceID"),
+            let createActuator = dlsym(handle, "MTActuatorCreateFromDeviceID"),
+            let open = dlsym(handle, "MTActuatorOpen"),
+            let actuate = dlsym(handle, "MTActuatorActuate")
         else { return nil }
         return Functions(
             createDeviceList: unsafeBitCast(createDeviceList, to: CreateDeviceList.self),
@@ -117,8 +117,8 @@ final class MultitouchActuators {
             guard let device = CFArrayGetValueAtIndex(devices, index) else { continue }
             var deviceID: UInt64 = 0
             guard functions.getDeviceID(device, &deviceID) == 0,
-                  let actuator = functions.createActuator(deviceID)?.takeRetainedValue(),
-                  functions.open(actuator) == 0
+                let actuator = functions.createActuator(deviceID)?.takeRetainedValue(),
+                functions.open(actuator) == 0
             else { continue }
             opened.append(actuator)
         }

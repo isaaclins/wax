@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -17,11 +18,13 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
         await viewModel.seek(to: 12_000)
         await viewModel.seekDispatchTask?.value
 
-        XCTAssertEqual(playbackAPI.actions.filter { $0.hasPrefix("next:") || $0.hasPrefix("previous:") || $0.hasPrefix("seek:") }, [
-            "next:device-1",
-            "previous:device-1",
-            "seek:device-1:12000"
-        ])
+        XCTAssertEqual(
+            playbackAPI.actions.filter { $0.hasPrefix("next:") || $0.hasPrefix("previous:") || $0.hasPrefix("seek:") },
+            [
+                "next:device-1",
+                "previous:device-1",
+                "seek:device-1:12000",
+            ])
         let transportBridgeCommands = commander.commands.filter { $0.command != .setVolume }
         XCTAssertTrue(
             transportBridgeCommands.isEmpty,
@@ -200,7 +203,7 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
         viewModel.handle(.stateChanged(trackB, isPaused: false, nextTracks: []))
 
-        guard case let .playing(nowPlaying) = viewModel.connectionState else {
+        guard case .playing(let nowPlaying) = viewModel.connectionState else {
             return XCTFail("Expected the different track to establish playback state")
         }
         XCTAssertEqual(nowPlaying.uri, trackB.uri)
@@ -298,7 +301,7 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
             api.actions.filter { $0.hasPrefix("seek:") },
             ["seek:device-1:30000"]
         )
-        guard case let .playing(nowPlaying) = viewModel.connectionState else {
+        guard case .playing(let nowPlaying) = viewModel.connectionState else {
             return XCTFail("Expected the new track to remain authoritative")
         }
         XCTAssertEqual(nowPlaying.uri, trackB.uri)
@@ -385,13 +388,14 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
         await viewModel.seek(to: 92_000)
         viewModel.handle(.stateChanged(initialTrack.with(positionMilliseconds: 7_000), isPaused: false, nextTracks: []))
 
-        guard case let .playing(afterStale) = viewModel.connectionState else {
+        guard case .playing(let afterStale) = viewModel.connectionState else {
             return XCTFail("Expected playing state after stale update")
         }
         XCTAssertEqual(afterStale.positionMilliseconds, 92_000)
 
-        viewModel.handle(.stateChanged(initialTrack.with(positionMilliseconds: 92_300), isPaused: false, nextTracks: []))
-        guard case let .playing(afterMatch) = viewModel.connectionState else {
+        viewModel.handle(
+            .stateChanged(initialTrack.with(positionMilliseconds: 92_300), isPaused: false, nextTracks: []))
+        guard case .playing(let afterMatch) = viewModel.connectionState else {
             return XCTFail("Expected playing state after matching update")
         }
         XCTAssertEqual(afterMatch.positionMilliseconds, 92_300)
@@ -413,11 +417,13 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
     func testCycleRepeatAdvancesRepeatMode() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
             postRepeatSyncDelay: .milliseconds(50)
@@ -441,11 +447,13 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
     func testCycleRepeatFromContextTargetsTrack() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .context),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .context),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
             postRepeatSyncDelay: .seconds(10)
@@ -461,13 +469,16 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
     func testCycleRepeatRevertsWhenSetRepeatFails() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         api.setRepeatError = SpotifyAPIError.notFound(message: nil)
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         viewModel.handle(.ready(deviceID: "device-1"))
         await viewModel.syncTransportFromSpotify()
         XCTAssertEqual(viewModel.repeatMode, .off)
@@ -482,11 +493,13 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
     func testCycleRepeatFromTrackTargetsOff() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .track),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .track),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
             postRepeatSyncDelay: .seconds(10)
@@ -518,7 +531,9 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
         XCTAssertEqual(viewModel.repeatMode, .context)
 
         await viewModel.syncTransportFromSpotify()
-        XCTAssertEqual(viewModel.repeatMode, .context, "Stale transport read should not overwrite optimistic repeat while pending.")
+        XCTAssertEqual(
+            viewModel.repeatMode, .context, "Stale transport read should not overwrite optimistic repeat while pending."
+        )
     }
 
     func testRepeatPendingClearsWhenTransportMatchesExpectedMode() async {
@@ -527,7 +542,7 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
             MusicPlaybackTransport(shuffle: false, repeatMode: .off),
             MusicPlaybackTransport(shuffle: false, repeatMode: .off),
             MusicPlaybackTransport(shuffle: false, repeatMode: .context),
-            MusicPlaybackTransport(shuffle: false, repeatMode: .off)
+            MusicPlaybackTransport(shuffle: false, repeatMode: .off),
         ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
@@ -545,7 +560,8 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
         XCTAssertEqual(viewModel.repeatMode, .context, "First stale read should be suppressed.")
 
         await viewModel.syncTransportFromSpotify()
-        XCTAssertEqual(viewModel.repeatMode, .context, "Matching transport should keep mode and clear pending suppression.")
+        XCTAssertEqual(
+            viewModel.repeatMode, .context, "Matching transport should keep mode and clear pending suppression.")
 
         await viewModel.syncTransportFromSpotify()
         XCTAssertEqual(viewModel.repeatMode, .off, "After pending clears, transport reads apply normally.")
@@ -555,7 +571,7 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
         let api = MockPlaybackAPI()
         api.transportResponses = [
             MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            MusicPlaybackTransport(shuffle: false, repeatMode: .off)
+            MusicPlaybackTransport(shuffle: false, repeatMode: .off),
         ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
@@ -571,16 +587,19 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
         viewModel.pendingRepeatDeadline = viewModel.clock.now
         await viewModel.syncTransportFromSpotify()
-        XCTAssertEqual(viewModel.repeatMode, .off, "After timeout, transport value should be accepted to avoid long-lived drift.")
+        XCTAssertEqual(
+            viewModel.repeatMode, .off, "After timeout, transport value should be accepted to avoid long-lived drift.")
     }
 
     func testCycleRepeatRapidTapsCoalesceWritesAndConvergeToLatestIntent() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         let firstWrite = MockCallHold()
         api.setRepeatHold = firstWrite
         let viewModel = PlaybackSessionViewModel(
@@ -591,13 +610,17 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
         viewModel.handle(.ready(deviceID: "device-1"))
         await viewModel.syncTransportFromSpotify()
 
-        let tap1 = Task { await viewModel.cycleRepeat() } // off -> context
+        let tap1 = Task { await viewModel.cycleRepeat() }  // off -> context
         let didSendFirstWrite = await firstWrite.entered.wait(timeout: .seconds(mustHappenTimeout))
         XCTAssertTrue(didSendFirstWrite, "the first repeat write should be in flight before the next taps")
-        guard await finishes("the next repeat taps waited for the first write instead of returning", elseRelease: firstWrite.release, {
-            await viewModel.cycleRepeat() // context -> track
-            await viewModel.cycleRepeat() // track -> off
-        }) else { return }
+        guard
+            await finishes(
+                "the next repeat taps waited for the first write instead of returning", elseRelease: firstWrite.release,
+                {
+                    await viewModel.cycleRepeat()  // context -> track
+                    await viewModel.cycleRepeat()  // track -> off
+                })
+        else { return }
         firstWrite.release()
         await tap1.value
 
@@ -610,11 +633,13 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
     func testCycleRepeatRapidTapsAvoidSendingIntermediateModes() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         let firstWrite = MockCallHold()
         api.setRepeatHold = firstWrite
         let viewModel = PlaybackSessionViewModel(
@@ -625,30 +650,39 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
         viewModel.handle(.ready(deviceID: "device-1"))
         await viewModel.syncTransportFromSpotify()
 
-        let tap1 = Task { await viewModel.cycleRepeat() } // off -> context
+        let tap1 = Task { await viewModel.cycleRepeat() }  // off -> context
         let didSendFirstWrite = await firstWrite.entered.wait(timeout: .seconds(mustHappenTimeout))
         XCTAssertTrue(didSendFirstWrite, "the first repeat write should be in flight before the second tap")
-        guard await finishes("the second repeat tap waited for the first write instead of returning", elseRelease: firstWrite.release, {
-            await viewModel.cycleRepeat() // context -> track
-        }) else { return }
+        guard
+            await finishes(
+                "the second repeat tap waited for the first write instead of returning",
+                elseRelease: firstWrite.release,
+                {
+                    await viewModel.cycleRepeat()  // context -> track
+                })
+        else { return }
         firstWrite.release()
         await tap1.value
 
         let repeatWrites = api.actions.filter { $0.hasPrefix("setRepeat:") }
         XCTAssertEqual(repeatWrites.count, 2)
-        XCTAssertEqual(repeatWrites, [
-            "setRepeat:device-1:context",
-            "setRepeat:device-1:track"
-        ])
+        XCTAssertEqual(
+            repeatWrites,
+            [
+                "setRepeat:device-1:context",
+                "setRepeat:device-1:track",
+            ])
     }
 
     func testToggleShuffleFlipsShuffleEnabled() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
             postShuffleSyncDelay: .milliseconds(20)
@@ -671,11 +705,13 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
     func testToggleShuffleFromEnabledTargetsDisabled() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: true, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: true, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
             postShuffleSyncDelay: .seconds(10)
@@ -691,13 +727,16 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
     func testToggleShuffleRevertsWhenSetShuffleFails() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         api.setShuffleError = SpotifyAPIError.notFound(message: nil)
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         viewModel.handle(.ready(deviceID: "device-1"))
         await viewModel.syncTransportFromSpotify()
 
@@ -725,7 +764,9 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
         XCTAssertTrue(viewModel.shuffleEnabled)
 
         await viewModel.syncTransportFromSpotify()
-        XCTAssertTrue(viewModel.shuffleEnabled, "Stale shuffle transport read should not overwrite optimistic local state while pending.")
+        XCTAssertTrue(
+            viewModel.shuffleEnabled,
+            "Stale shuffle transport read should not overwrite optimistic local state while pending.")
     }
 
     func testShufflePendingClearsWhenTransportMatchesExpectedState() async {
@@ -734,7 +775,7 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
             MusicPlaybackTransport(shuffle: false, repeatMode: .off),
             MusicPlaybackTransport(shuffle: false, repeatMode: .off),
             MusicPlaybackTransport(shuffle: true, repeatMode: .off),
-            MusicPlaybackTransport(shuffle: false, repeatMode: .off)
+            MusicPlaybackTransport(shuffle: false, repeatMode: .off),
         ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
@@ -762,7 +803,7 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
         let api = MockPlaybackAPI()
         api.transportResponses = [
             MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            MusicPlaybackTransport(shuffle: false, repeatMode: .off)
+            MusicPlaybackTransport(shuffle: false, repeatMode: .off),
         ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
@@ -783,11 +824,13 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
     func testRapidShuffleTogglesCoalesceInFlightWrites() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         let firstWrite = MockCallHold()
         api.setShuffleHold = firstWrite
         let viewModel = PlaybackSessionViewModel(
@@ -804,9 +847,14 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
             didSendFirstWrite,
             "the first shuffle write should be in flight before the second toggle"
         )
-        guard await finishes("the second shuffle toggle waited for the first write instead of returning", elseRelease: firstWrite.release, {
-            await viewModel.toggleShuffle()
-        }) else { return }
+        guard
+            await finishes(
+                "the second shuffle toggle waited for the first write instead of returning",
+                elseRelease: firstWrite.release,
+                {
+                    await viewModel.toggleShuffle()
+                })
+        else { return }
         firstWrite.release()
         await firstToggle.value
 
@@ -817,11 +865,13 @@ final class PlaybackTransportSeekRepeatShuffleTests: XCTestCase {
 
     func testOlderShuffleSyncDoesNotOverrideNewerMutation() async {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()),
             postShuffleSyncDelay: .seconds(10)

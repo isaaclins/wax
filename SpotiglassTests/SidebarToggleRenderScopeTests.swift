@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// ⌘S hides or shows the sidebar within 50 ms (#672). It took 80-100 ms because one toggle
@@ -23,11 +24,13 @@ final class SidebarToggleRenderScopeTests: XCTestCase {
     /// The real browser window, wide enough for the sidebar, with a 20-track playlist open.
     private func hostBrowser() async throws -> (CommandPaletteManager, PlaylistBrowserViewModel) {
         let api = MockBrowsingAPI(
-            playlistResults: [.success([
-                PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Focus"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p3", name: "Gym"),
-            ])],
+            playlistResults: [
+                .success([
+                    PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Focus"),
+                    PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
+                    PlaylistBrowsingTestFixtures.playlist(id: "p3", name: "Gym"),
+                ])
+            ],
             trackResults: ["p1": [.success(Self.trackIDs.map(PlaylistBrowsingTestFixtures.track(id:)))]]
         )
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
@@ -76,8 +79,11 @@ final class SidebarToggleRenderScopeTests: XCTestCase {
     }
 
     private func assertRenderedOnce(_ counts: [String: Int], _ what: String, line: UInt = #line) {
-        for view in ["PlaylistBrowserView", "PlaylistBrowserSidebar", "PlaylistBrowserMainDetailColumn", "PlaylistDetailContent"] {
-            XCTAssertLessThanOrEqual(counts[view] ?? 0, 1, "\(view) rendered \(counts[view] ?? 0) times to \(what)", line: line)
+        for view in [
+            "PlaylistBrowserView", "PlaylistBrowserSidebar", "PlaylistBrowserMainDetailColumn", "PlaylistDetailContent",
+        ] {
+            XCTAssertLessThanOrEqual(
+                counts[view] ?? 0, 1, "\(view) rendered \(counts[view] ?? 0) times to \(what)", line: line)
         }
         for id in Self.trackIDs {
             let runs = counts["TrackListRow:\(id)"] ?? 0

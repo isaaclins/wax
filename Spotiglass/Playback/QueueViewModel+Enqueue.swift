@@ -95,40 +95,48 @@ extension QueueViewModel {
         let key = EnqueueKey(uri: uri, deviceID: deviceID)
         clearExpiredEnqueueGuards()
         if inFlightEnqueueKeys.contains(key) {
-            lastError = report(nil, while: "adding a song that is already being added to the queue", level: .info, showing: ErrorMessage(
-                title: SpotiglassL10n.string("error.queue.alreadyAdding.title"),
-                message: SpotiglassL10n.string("error.queue.alreadyAdding.message"),
-                canRetry: false
-            ))
+            lastError = report(
+                nil, while: "adding a song that is already being added to the queue", level: .info,
+                showing: ErrorMessage(
+                    title: SpotiglassL10n.string("error.queue.alreadyAdding.title"),
+                    message: SpotiglassL10n.string("error.queue.alreadyAdding.message"),
+                    canRetry: false
+                ))
             return false
         }
         if let blockedUntil = enqueueSuccessCooldownUntil[key], blockedUntil > clock.now {
-            lastError = report(nil, while: "adding a song that was just queued", level: .info, showing: ErrorMessage(
-                title: SpotiglassL10n.string("error.queue.alreadyQueued.title"),
-                message: SpotiglassL10n.string("error.queue.alreadyQueued.message"),
-                canRetry: false
-            ))
+            lastError = report(
+                nil, while: "adding a song that was just queued", level: .info,
+                showing: ErrorMessage(
+                    title: SpotiglassL10n.string("error.queue.alreadyQueued.title"),
+                    message: SpotiglassL10n.string("error.queue.alreadyQueued.message"),
+                    canRetry: false
+                ))
             return false
         }
         if let blockedUntil = enqueueUnknownOutcomeUntil[key], blockedUntil > clock.now {
-            lastError = report(nil, while: "adding a song whose last add has no answer yet", level: .info, showing: ErrorMessage(
-                title: SpotiglassL10n.string("error.queue.statusPending.title"),
-                message: SpotiglassL10n.string("error.queue.statusPending.message"),
-                canRetry: true
-            ))
+            lastError = report(
+                nil, while: "adding a song whose last add has no answer yet", level: .info,
+                showing: ErrorMessage(
+                    title: SpotiglassL10n.string("error.queue.statusPending.title"),
+                    message: SpotiglassL10n.string("error.queue.statusPending.message"),
+                    canRetry: true
+                ))
             return false
         }
         if let blockedUntil = enqueueRateLimitUntil[key], blockedUntil > clock.now {
             let remaining = clock.now.duration(to: blockedUntil).timeInterval
-            lastError = report(nil, while: "adding a song to the queue while rate limited", level: .info, showing: ErrorMessage(
-                title: SpotiglassL10n.string("error.queue.rateLimited.title"),
-                message: String(
-                    format: SpotiglassL10n.string("error.queue.rateLimited.message"),
-                    SpotifyRateLimitDisplay.retryAfterClause(seconds: remaining)
-                ),
-                canRetry: true,
-                diagnosticDetails: SpotifyRateLimitDisplay.rawRetryDiagnostic(seconds: remaining)
-            ))
+            lastError = report(
+                nil, while: "adding a song to the queue while rate limited", level: .info,
+                showing: ErrorMessage(
+                    title: SpotiglassL10n.string("error.queue.rateLimited.title"),
+                    message: String(
+                        format: SpotiglassL10n.string("error.queue.rateLimited.message"),
+                        SpotifyRateLimitDisplay.retryAfterClause(seconds: remaining)
+                    ),
+                    canRetry: true,
+                    diagnosticDetails: SpotifyRateLimitDisplay.rawRetryDiagnostic(seconds: remaining)
+                ))
             return false
         }
 
@@ -145,7 +153,7 @@ extension QueueViewModel {
             }
             return true
         } catch {
-            if case let .rateLimited(retryAfter) = MusicPlaybackError.from(error)?.reason {
+            if case .rateLimited(let retryAfter) = MusicPlaybackError.from(error)?.reason {
                 let retryDelay = Self.retryDelay(
                     retryAfter: retryAfter,
                     minimumDelay: enqueueMinimumRetryDelay.timeInterval
@@ -166,19 +174,23 @@ extension QueueViewModel {
 
     /// Apple Music with nothing loaded (#396): start something first, like Play.
     private func publishNothingLoadedError() {
-        lastError = report(nil, while: "using the queue with nothing loaded", level: .info, showing: ErrorMessage(
-            title: SpotiglassL10n.string("error.queue.nothingLoaded.title"),
-            message: SpotiglassL10n.string("error.queue.nothingLoaded.message"),
-            canRetry: false
-        ))
+        lastError = report(
+            nil, while: "using the queue with nothing loaded", level: .info,
+            showing: ErrorMessage(
+                title: SpotiglassL10n.string("error.queue.nothingLoaded.title"),
+                message: SpotiglassL10n.string("error.queue.nothingLoaded.message"),
+                canRetry: false
+            ))
     }
 
     private func publishPlaybackUnavailableError() {
-        lastError = report(nil, while: "using the queue without a player", showing: ErrorMessage(
-            title: SpotiglassL10n.string("error.queue.playbackUnavailable.title"),
-            message: SpotiglassL10n.string("error.queue.playbackUnavailable.message"),
-            canRetry: false
-        ))
+        lastError = report(
+            nil, while: "using the queue without a player",
+            showing: ErrorMessage(
+                title: SpotiglassL10n.string("error.queue.playbackUnavailable.title"),
+                message: SpotiglassL10n.string("error.queue.playbackUnavailable.message"),
+                canRetry: false
+            ))
     }
 
     private func scheduleRateLimitedRetry(for key: EnqueueKey, retryDelay: TimeInterval) {

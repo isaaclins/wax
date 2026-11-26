@@ -1,5 +1,6 @@
 import MusicKit
 import XCTest
+
 @testable import Spotiglass
 
 /// The two edit routes behind Apple Music library edits, with both mocked: which route each edit
@@ -47,7 +48,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     }
 
     func testLikeOfASongAlreadyInTheLibraryOnlyLovesIt() async throws {
-        lookup.songsByID["i.aJGomv4H36dmrrA"] = Self.librarySong("i.aJGomv4H36dmrrA", catalog: "1710983273", persistent: "367911FB05FE6876")
+        lookup.songsByID["i.aJGomv4H36dmrrA"] = Self.librarySong(
+            "i.aJGomv4H36dmrrA", catalog: "1710983273", persistent: "367911FB05FE6876")
 
         try await editor.saveSongs(ids: ["i.aJGomv4H36dmrrA"])
 
@@ -55,7 +57,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     }
 
     func testUnlikeRemovesTheSongThroughMusicByPersistentIDAndClearsTheLove() async throws {
-        lookup.songsByID["i.aJGomv4H36dmrrA"] = Self.librarySong("i.aJGomv4H36dmrrA", catalog: "1710983273", persistent: "367911FB05FE6876")
+        lookup.songsByID["i.aJGomv4H36dmrrA"] = Self.librarySong(
+            "i.aJGomv4H36dmrrA", catalog: "1710983273", persistent: "367911FB05FE6876")
 
         try await editor.removeSongs(ids: ["i.aJGomv4H36dmrrA"])
 
@@ -77,9 +80,15 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
 
         try await editor.removeSongs(ids: ["699902614"])
 
-        XCTAssertEqual(musicApp.matches, [[
-            .metadata(name: "Computer Love", artist: "Kraftwerk", album: "Computer World (Remastered)", addedSince: savedAt),
-        ]])
+        XCTAssertEqual(
+            musicApp.matches,
+            [
+                [
+                    .metadata(
+                        name: "Computer Love", artist: "Kraftwerk", album: "Computer World (Remastered)",
+                        addedSince: savedAt)
+                ]
+            ])
         XCTAssertFalse(pending.isSaved(["699902614"]))
         let statuses = try await editor.songStatuses(ids: ["699902614"])
         XCTAssertEqual(statuses, [false])
@@ -98,15 +107,17 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
         let margin = 20 + MusicAppScripts.addedSinceMarginSeconds
         XCTAssertTrue(script.hasPrefix("set scriptNow to (current date)\ntell application \"Music\""), script)
         XCTAssertTrue(script.contains("set cutoff to (scriptNow - \(margin))"), script)
-        XCTAssertTrue(script.contains(
-            #"name is "Computer Love" and artist is "Kraftwerk" and album is "Computer World" and date added is greater than cutoff"#
-        ), script)
+        XCTAssertTrue(
+            script.contains(
+                #"name is "Computer Love" and artist is "Kraftwerk" and album is "Computer World" and date added is greater than cutoff"#
+            ), script)
     }
 
     /// Unlike, then like again while MusicKit's copy of the library still lists the song: the like
     /// must save it again, not only love it.
     func testLikeRightAfterAnUnlikeSavesTheSongAgain() async throws {
-        lookup.songsByID["i.aJGomv4H36dmrrA"] = Self.librarySong("i.aJGomv4H36dmrrA", catalog: "1710983273", persistent: "367911FB05FE6876")
+        lookup.songsByID["i.aJGomv4H36dmrrA"] = Self.librarySong(
+            "i.aJGomv4H36dmrrA", catalog: "1710983273", persistent: "367911FB05FE6876")
         try await editor.removeSongs(ids: ["i.aJGomv4H36dmrrA"])
         cloud.calls = []
 
@@ -121,7 +132,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     /// The time limit starts when the like was sent, with seconds of slack, so a song with the
     /// same details imported minutes earlier is outside it.
     func testTheRecentSongMatchStartsWhenTheLikeWasSent() async throws {
-        lookup.catalogTracksByID["699902614"] = Self.track(id: "699902614", name: "Computer Love", album: "Computer World")
+        lookup.catalogTracksByID["699902614"] = Self.track(
+            id: "699902614", name: "Computer Love", album: "Computer World")
         let before = Date()
         try await editor.saveSongs(ids: ["699902614"])
         let after = Date()
@@ -134,7 +146,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
             [.metadata(name: "Computer Love", artist: "Kraftwerk", album: "Computer World", addedSince: sent)],
             now: sent.addingTimeInterval(120)
         )
-        XCTAssertTrue(script.contains("set cutoff to (scriptNow - \(120 + MusicAppScripts.addedSinceMarginSeconds))"), script)
+        XCTAssertTrue(
+            script.contains("set cutoff to (scriptNow - \(120 + MusicAppScripts.addedSinceMarginSeconds))"), script)
     }
 
     /// #400 saw Liked Songs drop to one below the right count after liking a catalog song and
@@ -144,12 +157,16 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     /// show exactly the songs that were there before the like.
     func testLikeThenUnlikeAlwaysLeavesTheCountItStartedWith() async throws {
         let meta = { (name: String) in AppleMusicPendingLibraryEdits.metadataKey(name: name, artist: "Rihanna") }
-        let others = [("i.one", "1001", "Umbrella"), ("i.two", "1002", "Diamonds (Remix)"), ("i.three", "1003", "Stay")]
-            .map { id, catalog, name in
-                (track: Self.track(id: id, name: name, artist: "Rihanna"), keys: Set([id, catalog, meta(name)]))
-            }
-        let diamonds = (track: Self.track(id: "i.dia", name: "Diamonds", artist: "Rihanna"),
-                        keys: Set(["i.dia", "565345164", meta("Diamonds")]))
+        let others = [
+            ("i.one", "1001", "Umbrella"), ("i.two", "1002", "Diamonds (Remix)"), ("i.three", "1003", "Stay"),
+        ]
+        .map { id, catalog, name in
+            (track: Self.track(id: id, name: name, artist: "Rihanna"), keys: Set([id, catalog, meta(name)]))
+        }
+        let diamonds = (
+            track: Self.track(id: "i.dia", name: "Diamonds", artist: "Rihanna"),
+            keys: Set(["i.dia", "565345164", meta("Diamonds")])
+        )
 
         for unlikeFromLibraryRow in [false, true] {
             for libraryListsTheUnlikedSong in [false, true] {
@@ -161,10 +178,13 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
                 XCTAssertEqual(pending.applied(toLibrarySongs: others, isComplete: true).count, 4, "like, stale read")
                 let rowID: String
                 if unlikeFromLibraryRow {
-                    XCTAssertEqual(pending.applied(toLibrarySongs: [diamonds] + others, isComplete: true).count, 4, "like, caught up")
+                    XCTAssertEqual(
+                        pending.applied(toLibrarySongs: [diamonds] + others, isComplete: true).count, 4,
+                        "like, caught up")
                     lookup.songsByID["i.dia"] = AppleMusicSongReference(
                         itemID: "i.dia", catalogID: "565345164", cloudLibraryID: "i.dia",
-                        musicAppPersistentID: "367911FB05FE6876", isInLibrary: true, title: "Diamonds", artistName: "Rihanna"
+                        musicAppPersistentID: "367911FB05FE6876", isInLibrary: true, title: "Diamonds",
+                        artistName: "Rihanna"
                     )
                     rowID = "i.dia"
                 } else {
@@ -175,8 +195,9 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
 
                 let read = (libraryListsTheUnlikedSong ? [diamonds] : []) + others
                 let shown = pending.applied(toLibrarySongs: read, isComplete: true)
-                XCTAssertEqual(shown.map(\.id), others.map(\.track.id),
-                               "row \(rowID), library still lists it: \(libraryListsTheUnlikedSong)")
+                XCTAssertEqual(
+                    shown.map(\.id), others.map(\.track.id),
+                    "row \(rowID), library still lists it: \(libraryListsTheUnlikedSong)")
                 // A second read (the library catching up) keeps the count.
                 XCTAssertEqual(pending.applied(toLibrarySongs: others, isComplete: true).count, 3)
             }
@@ -197,7 +218,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     // MARK: - Albums
 
     func testSavingACatalogAlbumAddsItThroughTheAPI() async throws {
-        lookup.albumsByID["1440"] = AppleMusicAlbumReference(itemID: "1440", catalogID: "1440", isInLibrary: false, librarySongs: [])
+        lookup.albumsByID["1440"] = AppleMusicAlbumReference(
+            itemID: "1440", catalogID: "1440", isInLibrary: false, librarySongs: [])
 
         try await editor.saveAlbums(ids: ["1440"])
 
@@ -208,8 +230,11 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
 
     /// Liked Songs are the library, so a saved album's songs show there before MusicKit has them.
     func testSavingAnAlbumShowsItsSongsInLikedSongsAtOnce() async throws {
-        lookup.albumsByID["1440"] = AppleMusicAlbumReference(itemID: "1440", catalogID: "1440", isInLibrary: false, librarySongs: [])
-        lookup.catalogAlbumTracksByID["1440"] = [Self.track(id: "11", name: "Numbers"), Self.track(id: "12", name: "Computer World")]
+        lookup.albumsByID["1440"] = AppleMusicAlbumReference(
+            itemID: "1440", catalogID: "1440", isInLibrary: false, librarySongs: [])
+        lookup.catalogAlbumTracksByID["1440"] = [
+            Self.track(id: "11", name: "Numbers"), Self.track(id: "12", name: "Computer World"),
+        ]
 
         try await editor.saveAlbums(ids: ["1440"])
 
@@ -219,14 +244,18 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     }
 
     func testRemovingAnAlbumRemovesItsLibrarySongsThroughMusic() async throws {
-        lookup.albumsByID["-24"] = AppleMusicAlbumReference(itemID: "-24", catalogID: "1440", isInLibrary: true, librarySongs: [
-            Self.librarySong("i.1", catalog: "11", persistent: "000000000000000A"),
-            Self.librarySong("i.2", catalog: "12", persistent: "000000000000000B"),
-        ])
+        lookup.albumsByID["-24"] = AppleMusicAlbumReference(
+            itemID: "-24", catalogID: "1440", isInLibrary: true,
+            librarySongs: [
+                Self.librarySong("i.1", catalog: "11", persistent: "000000000000000A"),
+                Self.librarySong("i.2", catalog: "12", persistent: "000000000000000B"),
+            ])
 
         try await editor.removeAlbums(ids: ["-24"])
 
-        XCTAssertEqual(musicApp.calls, ["removeFromLibrary([persistentID(\"000000000000000A\"), persistentID(\"000000000000000B\")])"])
+        XCTAssertEqual(
+            musicApp.calls,
+            ["removeFromLibrary([persistentID(\"000000000000000A\"), persistentID(\"000000000000000B\")])"])
         let statuses = try await editor.albumStatuses(ids: ["-24"])
         XCTAssertEqual(statuses, [false])
         XCTAssertTrue(pending.isRemoved(["i.1"]))
@@ -246,7 +275,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     }
 
     func testAddingToANewPlaylistUsesItsCloudIDAndCatalogIDs() async throws {
-        lookup.songsByID["i.9oJZd2gHPRg0YYW"] = Self.librarySong("i.9oJZd2gHPRg0YYW", catalog: "506650076", persistent: "D620206AAF4A44E8")
+        lookup.songsByID["i.9oJZd2gHPRg0YYW"] = Self.librarySong(
+            "i.9oJZd2gHPRg0YYW", catalog: "506650076", persistent: "D620206AAF4A44E8")
 
         try await editor.addToPlaylist(playlistID: "p.3VKWkReubWBYJJ7", songIDs: ["i.9oJZd2gHPRg0YYW"])
 
@@ -271,7 +301,9 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
 
     func testTwoPlaylistsWithTheSameNameAreNotGuessed() async {
         lookup.playlistsByID["-1"] = AppleMusicPlaylistReference(name: "Mix", musicAppPersistentID: "FFFFFFFFFFFFFFFF")
-        cloud.playlists = [AppleMusicCloudPlaylist(id: "p.a", name: "Mix"), AppleMusicCloudPlaylist(id: "p.b", name: "Mix")]
+        cloud.playlists = [
+            AppleMusicCloudPlaylist(id: "p.a", name: "Mix"), AppleMusicCloudPlaylist(id: "p.b", name: "Mix"),
+        ]
 
         await XCTAssertThrowsEditError(.ambiguousPlaylist) {
             try await self.editor.addToPlaylist(playlistID: "-1", songIDs: ["699902614"])
@@ -290,19 +322,23 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
             shownTracks: [Self.track(id: "-1", name: "Other"), Self.track(id: "-3017376107758730008", name: "Song")]
         )
 
-        XCTAssertEqual(musicApp.calls, [
-            "removeFromPlaylist(persistentID(\"FE82FB07F4D3B511\"),[persistentID(\"D620206AAF4A44E8\")@[1]])",
-        ])
+        XCTAssertEqual(
+            musicApp.calls,
+            [
+                "removeFromPlaylist(persistentID(\"FE82FB07F4D3B511\"),[persistentID(\"D620206AAF4A44E8\")@[1]])"
+            ])
     }
 
     func testRenameAndDeleteFindAPlaylistByPersistentID() async throws {
         try await editor.renamePlaylist(playlistID: "-107247429512612591", name: "Spotiglass test renamed")
         try await editor.deletePlaylist(playlistID: "-107247429512612591")
 
-        XCTAssertEqual(musicApp.calls, [
-            "rename(persistentID(\"FE82FB07F4D3B511\"),Spotiglass test renamed)",
-            "delete(persistentID(\"FE82FB07F4D3B511\"))",
-        ])
+        XCTAssertEqual(
+            musicApp.calls,
+            [
+                "rename(persistentID(\"FE82FB07F4D3B511\"),Spotiglass test renamed)",
+                "delete(persistentID(\"FE82FB07F4D3B511\"))",
+            ])
     }
 
     func testRenameOfAPlaylistCreatedMomentsAgoFindsItByName() async throws {
@@ -323,7 +359,9 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
         _ = try await editor.createPlaylist(name: "Same", ownerName: "You", existingIDsWithSameName: ["-1"])
 
         await XCTAssertThrowsEditError(.ambiguousPlaylist) { try await self.editor.deletePlaylist(playlistID: "p.new") }
-        await XCTAssertThrowsEditError(.ambiguousPlaylist) { try await self.editor.renamePlaylist(playlistID: "p.new", name: "Other") }
+        await XCTAssertThrowsEditError(.ambiguousPlaylist) {
+            try await self.editor.renamePlaylist(playlistID: "p.new", name: "Other")
+        }
         XCTAssertEqual(musicApp.calls, [])
     }
 
@@ -331,10 +369,14 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     func testANamesakeThatDiffersOnlyInCaseStopsTheNameFallback() async {
         cloud.createdPlaylistID = "p.new"
         _ = try? await editor.createPlaylist(name: "mix", ownerName: "You")
-        cloud.playlists = [AppleMusicCloudPlaylist(id: "p.new", name: "mix"), AppleMusicCloudPlaylist(id: "p.old", name: "Mix")]
+        cloud.playlists = [
+            AppleMusicCloudPlaylist(id: "p.new", name: "mix"), AppleMusicCloudPlaylist(id: "p.old", name: "Mix"),
+        ]
 
         await XCTAssertThrowsEditError(.ambiguousPlaylist) { try await self.editor.deletePlaylist(playlistID: "p.new") }
-        await XCTAssertThrowsEditError(.ambiguousPlaylist) { try await self.editor.renamePlaylist(playlistID: "p.new", name: "Other") }
+        await XCTAssertThrowsEditError(.ambiguousPlaylist) {
+            try await self.editor.renamePlaylist(playlistID: "p.new", name: "Other")
+        }
         XCTAssertEqual(musicApp.calls, [])
     }
 
@@ -342,7 +384,9 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     func testANamesakeInTheCloudStopsTheNameFallback() async {
         cloud.createdPlaylistID = "p.new"
         _ = try? await editor.createPlaylist(name: "Same", ownerName: "You")
-        cloud.playlists = [AppleMusicCloudPlaylist(id: "p.new", name: "Same"), AppleMusicCloudPlaylist(id: "p.old", name: "Same")]
+        cloud.playlists = [
+            AppleMusicCloudPlaylist(id: "p.new", name: "Same"), AppleMusicCloudPlaylist(id: "p.old", name: "Same"),
+        ]
 
         await XCTAssertThrowsEditError(.ambiguousPlaylist) { try await self.editor.deletePlaylist(playlistID: "p.new") }
         XCTAssertEqual(musicApp.calls, [])
@@ -352,7 +396,9 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     /// B, goes to A: its cloud ID was learned before the rename.
     func testAnAddAfterARenameGoesToTheRenamedPlaylist() async throws {
         lookup.playlistsByID["-1"] = AppleMusicPlaylistReference(name: "A", musicAppPersistentID: "FFFFFFFFFFFFFFFF")
-        cloud.playlists = [AppleMusicCloudPlaylist(id: "p.a", name: "A"), AppleMusicCloudPlaylist(id: "p.b", name: "B")]
+        cloud.playlists = [
+            AppleMusicCloudPlaylist(id: "p.a", name: "A"), AppleMusicCloudPlaylist(id: "p.b", name: "B"),
+        ]
 
         try await editor.renamePlaylist(playlistID: "-1", name: "B")
         try await editor.addToPlaylist(playlistID: "-1", songIDs: ["699902614"])
@@ -364,7 +410,9 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     func testAnAddAfterARenameWaitsWhileTheCloudListIsStale() async {
         lookup.playlistsByID["-1"] = AppleMusicPlaylistReference(name: "A", musicAppPersistentID: "FFFFFFFFFFFFFFFF")
         pending.recordRenamedPlaylist("-1", name: "B")
-        cloud.playlists = [AppleMusicCloudPlaylist(id: "p.a", name: "A"), AppleMusicCloudPlaylist(id: "p.b", name: "B")]
+        cloud.playlists = [
+            AppleMusicCloudPlaylist(id: "p.a", name: "A"), AppleMusicCloudPlaylist(id: "p.b", name: "B"),
+        ]
 
         await XCTAssertThrowsEditError(.notInMusicYet) {
             try await self.editor.addToPlaylist(playlistID: "-1", songIDs: ["699902614"])
@@ -386,9 +434,12 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     // MARK: - IDs
 
     func testPersistentIDsConvertToMusicsHexForm() {
-        XCTAssertEqual(AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: "3925188320065120374"), "367911FB05FE6876")
-        XCTAssertEqual(AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: "-3017376107758730008"), "D620206AAF4A44E8")
-        XCTAssertEqual(AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: "-107247429512612591"), "FE82FB07F4D3B511")
+        XCTAssertEqual(
+            AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: "3925188320065120374"), "367911FB05FE6876")
+        XCTAssertEqual(
+            AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: "-3017376107758730008"), "D620206AAF4A44E8")
+        XCTAssertEqual(
+            AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: "-107247429512612591"), "FE82FB07F4D3B511")
         XCTAssertNil(AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: "i.aJGomv4H36dmrrA"))
         XCTAssertNil(AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: "p.3VKWkReubWBYJJ7"))
     }
@@ -405,8 +456,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     /// JSON as MusicKit encodes a library song on macOS (trimmed from a real one).
     func testSongIdentityReadsTheIDsMusicKitEncodes() {
         let json = #"""
-        {"id":"i.xrXvb5YUMXrPzza","type":"library-songs","attributes":{"name":"!ly (feat. Coez)","playParams":{"kind":"song","musicKit_persistentID":"260349940219299206","id":"i.xrXvb5YUMXrPzza","catalogId":"1677797557","musicKit_libraryID":"i.xrXvb5YUMXrPzza","isLibrary":true}}}
-        """#
+            {"id":"i.xrXvb5YUMXrPzza","type":"library-songs","attributes":{"name":"!ly (feat. Coez)","playParams":{"kind":"song","musicKit_persistentID":"260349940219299206","id":"i.xrXvb5YUMXrPzza","catalogId":"1677797557","musicKit_libraryID":"i.xrXvb5YUMXrPzza","isLibrary":true}}}
+            """#
         let identity = AppleMusicSongIdentity(encoded: Data(json.utf8))
 
         XCTAssertEqual(identity.catalogID, "1677797557")
@@ -418,8 +469,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     /// A library song MusicKit has only on this Mac: no cloud ID, catalog ID in `meta`.
     func testSongIdentityFallsBackToTheIdentifierSet() {
         let json = #"""
-        {"id":"-4954366973876942249","type":"songs","attributes":{"name":"#BrooklynBloodPop!"},"meta":{"musicKit_identifierSet":{"deviceLocalID":{"value":"-4954366973876942249"},"catalogID":{"kind":"subscriptionAdamID","value":"1600513002"}}}}
-        """#
+            {"id":"-4954366973876942249","type":"songs","attributes":{"name":"#BrooklynBloodPop!"},"meta":{"musicKit_identifierSet":{"deviceLocalID":{"value":"-4954366973876942249"},"catalogID":{"kind":"subscriptionAdamID","value":"1600513002"}}}}
+            """#
         let identity = AppleMusicSongIdentity(encoded: Data(json.utf8))
 
         XCTAssertEqual(identity.catalogID, "1600513002")
@@ -479,7 +530,9 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
 
 final class AppleMusicPendingLibraryEditsTests: XCTestCase {
     private func summary(_ id: String, _ name: String) -> MusicPlaylistSummary {
-        MusicPlaylistSummary(id: id, name: name, ownerID: "apple-music-library", ownerName: "You", imageURL: nil, trackCount: nil, snapshotID: "applemusic")
+        MusicPlaylistSummary(
+            id: id, name: name, ownerID: "apple-music-library", ownerName: "You", imageURL: nil, trackCount: nil,
+            snapshotID: "applemusic")
     }
 
     func testCreatedPlaylistStaysUntilTheLibraryShowsOneWithItsName() {
@@ -488,8 +541,11 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
 
         XCTAssertEqual(pending.applied(toPlaylists: [summary("-1", "Italian")]).map(\.id), ["p.new", "-1"])
         // The library on this Mac now has it, under its persistent ID.
-        XCTAssertEqual(pending.applied(toPlaylists: [summary("-2", "Spotiglass test"), summary("-1", "Italian")]).map(\.id), ["-2", "-1"])
-        XCTAssertEqual(pending.applied(toPlaylists: [summary("-1", "Italian")]).map(\.id), ["-1"], "reconciled: not shown twice")
+        XCTAssertEqual(
+            pending.applied(toPlaylists: [summary("-2", "Spotiglass test"), summary("-1", "Italian")]).map(\.id),
+            ["-2", "-1"])
+        XCTAssertEqual(
+            pending.applied(toPlaylists: [summary("-1", "Italian")]).map(\.id), ["-1"], "reconciled: not shown twice")
     }
 
     /// A new playlist named like one I already have stays until the library lists a second one.
@@ -499,7 +555,8 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
 
         XCTAssertEqual(pending.applied(toPlaylists: [summary("-1", "Same")]).map(\.id), ["p.new", "-1"])
         XCTAssertEqual(pending.createdPlaylist(id: "p.new")?.name, "Same", "rename and delete still find it")
-        XCTAssertEqual(pending.applied(toPlaylists: [summary("-2", "Same"), summary("-1", "Same")]).map(\.id), ["-2", "-1"])
+        XCTAssertEqual(
+            pending.applied(toPlaylists: [summary("-2", "Same"), summary("-1", "Same")]).map(\.id), ["-2", "-1"])
         XCTAssertNil(pending.createdPlaylist(id: "p.new"))
     }
 
@@ -525,14 +582,16 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         XCTAssertEqual(pending.applied(toPlaylists: stale).map(\.name), ["New"])
         XCTAssertEqual(pending.applied(toPlaylists: [summary("-1", "New")]).map(\.name), ["New"])
         XCTAssertNil(pending.renamedName(for: "-1"), "reconciled once the library shows the new name")
-        XCTAssertEqual(pending.applied(toPlaylists: [summary("-2", "Gone")]).map(\.name), ["Gone"],
-                       "the deletion ended once the library no longer listed the playlist")
+        XCTAssertEqual(
+            pending.applied(toPlaylists: [summary("-2", "Gone")]).map(\.name), ["Gone"],
+            "the deletion ended once the library no longer listed the playlist")
     }
 
     func testLikedSongsShowSavesOnTopAndHideRemovals() {
         let pending = AppleMusicPendingLibraryEdits()
         let liked = AppleMusicLibraryEditorTests.track(id: "699902614", name: "Computer Love")
-        pending.recordSavedSong(liked, reference: AppleMusicSongReference(itemID: "699902614", catalogID: "699902614", isInLibrary: false))
+        pending.recordSavedSong(
+            liked, reference: AppleMusicSongReference(itemID: "699902614", catalogID: "699902614", isInLibrary: false))
         pending.recordRemovedSong(["i.gone"])
         let library = [
             (track: AppleMusicLibraryEditorTests.track(id: "i.kept", name: "Kept"), keys: Set(["i.kept", "1"])),
@@ -543,7 +602,10 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
 
         // The library has caught up: the like shows under its library ID, the removal is gone.
         let caughtUp = [
-            (track: AppleMusicLibraryEditorTests.track(id: "i.new", name: "Computer Love"), keys: Set(["i.new", "699902614"])),
+            (
+                track: AppleMusicLibraryEditorTests.track(id: "i.new", name: "Computer Love"),
+                keys: Set(["i.new", "699902614"])
+            ),
             (track: AppleMusicLibraryEditorTests.track(id: "i.kept", name: "Kept"), keys: Set(["i.kept", "1"])),
         ]
         XCTAssertEqual(pending.applied(toLibrarySongs: caughtUp, isComplete: true).map(\.id), ["i.new", "i.kept"])
@@ -566,7 +628,8 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         let stale = [(track: song, keys: Set(["-30"])), (track: song, keys: Set(["-30"]))]
         XCTAssertEqual(pending.applied(toPlaylistTracks: stale, playlistID: "-1").count, 1)
         let caughtUp = [(track: song, keys: Set(["-30"]))]
-        XCTAssertEqual(pending.applied(toPlaylistTracks: caughtUp, playlistID: "-1").count, 1, "the kept occurrence stays")
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: caughtUp, playlistID: "-1").count, 1, "the kept occurrence stays")
         XCTAssertFalse(pending.hasPendingTracks(playlistID: "-1"))
     }
 
@@ -574,11 +637,17 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         let pending = AppleMusicPendingLibraryEdits()
         let added = AppleMusicLibraryEditorTests.track(id: "506650076", name: "Disparate Youth")
         pending.recordPlaylistAdditions(
-            [(added, AppleMusicSongReference(itemID: "i.9", catalogID: "506650076", isInLibrary: true))], route: .api, playlistID: "-1", shown: []
+            [(added, AppleMusicSongReference(itemID: "i.9", catalogID: "506650076", isInLibrary: true))], route: .api,
+            playlistID: "-1", shown: []
         )
 
         XCTAssertEqual(pending.applied(toPlaylistTracks: [], playlistID: "-1").map(\.id), ["506650076"])
-        let caughtUp = [(track: AppleMusicLibraryEditorTests.track(id: "-30", name: "Disparate Youth"), keys: Set(["-30", "506650076"]))]
+        let caughtUp = [
+            (
+                track: AppleMusicLibraryEditorTests.track(id: "-30", name: "Disparate Youth"),
+                keys: Set(["-30", "506650076"])
+            )
+        ]
         XCTAssertEqual(pending.applied(toPlaylistTracks: caughtUp, playlistID: "-1").map(\.id), ["-30"])
     }
 
@@ -589,11 +658,15 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         let b = AppleMusicLibraryEditorTests.track(id: "-31", name: "B")
         pending.recordPlaylistRemoval(at: [0], playlistID: "-1", shown: [a, b, a])
 
-        let stale = [(track: a, keys: Set(["-30", "first"])), (track: b, keys: Set(["-31"])), (track: a, keys: Set(["-30", "second"]))]
+        let stale = [
+            (track: a, keys: Set(["-30", "first"])), (track: b, keys: Set(["-31"])),
+            (track: a, keys: Set(["-30", "second"])),
+        ]
         let shown = pending.applied(toPlaylistTracks: stale, playlistID: "-1")
         XCTAssertEqual(shown.map(\.name), ["B", "A"])
         XCTAssertTrue(pending.hasPendingTracks(playlistID: "-1"))
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [(b, ["-31"]), (a, ["-30"])], playlistID: "-1").map(\.name), ["B", "A"])
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [(b, ["-31"]), (a, ["-30"])], playlistID: "-1").map(\.name), ["B", "A"])
         XCTAssertFalse(pending.hasPendingTracks(playlistID: "-1"), "the library shows the removal")
     }
 
@@ -629,12 +702,16 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         let pending = AppleMusicPendingLibraryEdits()
         let song = AppleMusicLibraryEditorTests.track(id: "506650076", name: "Disparate Youth")
         let reference = AppleMusicSongReference(itemID: "506650076", catalogID: "506650076", isInLibrary: true)
-        let listed = (track: AppleMusicLibraryEditorTests.track(id: "-30", name: "Disparate Youth"), keys: Set(["-30", "506650076"]))
+        let listed = (
+            track: AppleMusicLibraryEditorTests.track(id: "-30", name: "Disparate Youth"),
+            keys: Set(["-30", "506650076"])
+        )
         pending.recordPlaylistAdditions([(song, reference)], route: .api, playlistID: "-1", shown: [listed.track])
 
         XCTAssertEqual(pending.applied(toPlaylistTracks: [listed], playlistID: "-1").map(\.id), ["-30", "506650076"])
         XCTAssertTrue(pending.hasPendingTracks(playlistID: "-1"))
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [listed, listed], playlistID: "-1").map(\.id), ["-30", "-30"])
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [listed, listed], playlistID: "-1").map(\.id), ["-30", "-30"])
         XCTAssertFalse(pending.hasPendingTracks(playlistID: "-1"))
     }
 
@@ -656,11 +733,18 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         )
 
         XCTAssertEqual(pending.applied(toPlaylistTracks: [listed], playlistID: "-1").map(\.id), ["-30"], "stale read")
-        XCTAssertTrue(pending.hasPendingTracks(playlistID: "-1"), "a read with the removal only must still show the song (#393)")
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [], playlistID: "-1").map(\.id), ["506650076"], "the removal without the re-add")
-        let synced = (track: AppleMusicLibraryEditorTests.track(id: "-31", name: "Disparate Youth", artist: "Santigold"),
-                      keys: Set(["-31", AppleMusicPendingLibraryEdits.metadataKey(song)]))
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [synced], playlistID: "-1").map(\.id), ["-31"], "the library has it again")
+        XCTAssertTrue(
+            pending.hasPendingTracks(playlistID: "-1"), "a read with the removal only must still show the song (#393)")
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [], playlistID: "-1").map(\.id), ["506650076"],
+            "the removal without the re-add")
+        let synced = (
+            track: AppleMusicLibraryEditorTests.track(id: "-31", name: "Disparate Youth", artist: "Santigold"),
+            keys: Set(["-31", AppleMusicPendingLibraryEdits.metadataKey(song)])
+        )
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [synced], playlistID: "-1").map(\.id), ["-31"], "the library has it again"
+        )
     }
 
     /// The real case: a library song added to a new playlist, then MusicKit lists the playlist with
@@ -672,12 +756,19 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
             musicAppPersistentID: "367911FB05FE6876", isInLibrary: true
         )
         pending.recordPlaylistAdditions(
-            [(AppleMusicLibraryEditorTests.track(id: "1710983273", name: "WHERE SHE GOES", artist: "Bad Bunny"), reference)], route: .api, playlistID: "p.new", shown: []
+            [
+                (
+                    AppleMusicLibraryEditorTests.track(id: "1710983273", name: "WHERE SHE GOES", artist: "Bad Bunny"),
+                    reference
+                )
+            ], route: .api, playlistID: "p.new", shown: []
         )
-        let listed = AppleMusicLibraryEditorTests.track(id: "3925188320065120374", name: "WHERE SHE GOES", artist: "Bad Bunny")
+        let listed = AppleMusicLibraryEditorTests.track(
+            id: "3925188320065120374", name: "WHERE SHE GOES", artist: "Bad Bunny")
 
         XCTAssertEqual(reference.musicKitPersistentID, "3925188320065120374")
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [(listed, ["3925188320065120374"])], playlistID: "p.new").count, 1)
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [(listed, ["3925188320065120374"])], playlistID: "p.new").count, 1)
         XCTAssertFalse(pending.hasPendingTracks(playlistID: "p.new"))
     }
 
@@ -687,11 +778,13 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         let pending = AppleMusicPendingLibraryEdits()
         let added = AppleMusicLibraryEditorTests.track(id: "699902614", name: "Computer Love")
         pending.recordPlaylistAdditions(
-            [(added, AppleMusicSongReference(itemID: "699902614", catalogID: "699902614", isInLibrary: false))], route: .api, playlistID: "-1", shown: []
+            [(added, AppleMusicSongReference(itemID: "699902614", catalogID: "699902614", isInLibrary: false))],
+            route: .api, playlistID: "-1", shown: []
         )
         let listed = AppleMusicLibraryEditorTests.track(id: "-77", name: "Computer Love")
 
-        let shown = pending.applied(toPlaylistTracks: [(listed, ["-77", AppleMusicPendingLibraryEdits.metadataKey(listed)])], playlistID: "-1")
+        let shown = pending.applied(
+            toPlaylistTracks: [(listed, ["-77", AppleMusicPendingLibraryEdits.metadataKey(listed)])], playlistID: "-1")
         XCTAssertEqual(shown.map(\.id), ["-77"])
     }
 
@@ -704,14 +797,17 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         let c = AppleMusicLibraryEditorTests.track(id: "506650078", name: "C")
         pending.recordPlaylistRemoval(at: [0], playlistID: "-1", shown: [a, b])
         pending.recordPlaylistAdditions(
-            [(c, AppleMusicSongReference(itemID: "506650078", catalogID: "506650078", isInLibrary: true))], route: .api, playlistID: "-1", shown: [b]
+            [(c, AppleMusicSongReference(itemID: "506650078", catalogID: "506650078", isInLibrary: true))], route: .api,
+            playlistID: "-1", shown: [b]
         )
         let rowA = (track: a, keys: Set(["-30"]))
         let rowB = (track: b, keys: Set(["-31"]))
 
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [rowB], playlistID: "-1").map(\.name), ["B", "C"], "the newer read")
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [rowB], playlistID: "-1").map(\.name), ["B", "C"], "the newer read")
         _ = pending.applied(toPlaylistTracks: [rowA, rowB], playlistID: "-1")
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [rowB], playlistID: "-1").map(\.name), ["B", "C"], "the next fresh read")
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [rowB], playlistID: "-1").map(\.name), ["B", "C"], "the next fresh read")
     }
 
     /// Two songs added at once to a playlist of 9,999 rows: a read cut at its 10,000-row limit
@@ -721,10 +817,11 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         let base = (0..<9_999).map { AppleMusicLibraryEditorTests.track(id: "row-\($0)", name: "Row \($0)") }
         let a = AppleMusicLibraryEditorTests.track(id: "101", name: "A")
         let b = AppleMusicLibraryEditorTests.track(id: "102", name: "B")
-        pending.recordPlaylistAdditions([
-            (a, AppleMusicSongReference(itemID: "101", catalogID: "101", isInLibrary: true)),
-            (b, AppleMusicSongReference(itemID: "102", catalogID: "102", isInLibrary: true)),
-        ], route: .api, playlistID: "-1", shown: base)
+        pending.recordPlaylistAdditions(
+            [
+                (a, AppleMusicSongReference(itemID: "101", catalogID: "101", isInLibrary: true)),
+                (b, AppleMusicSongReference(itemID: "102", catalogID: "102", isInLibrary: true)),
+            ], route: .api, playlistID: "-1", shown: base)
         // Both additions have arrived, but the caller caps its read at 10,000 rows.
         let capped = (base + [a]).map { (track: $0, keys: Set([$0.id])) }
         let result = pending.applied(toPlaylistTracks: capped, playlistID: "-1", isComplete: false)
@@ -744,9 +841,11 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
             [(a, AppleMusicSongReference(itemID: "101", catalogID: "101", isInLibrary: true))],
             route: .api, playlistID: "-1", shown: [b]
         )
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [(b, ["102"]), (a, ["101"])], playlistID: "-1").map(\.name), ["B", "A"])
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [(b, ["102"]), (a, ["101"])], playlistID: "-1").map(\.name), ["B", "A"])
         // Another read captured before the two edits completes after the caught-up read.
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [(a, ["101"]), (b, ["102"])], playlistID: "-1").map(\.name), ["B", "A"])
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [(a, ["101"]), (b, ["102"])], playlistID: "-1").map(\.name), ["B", "A"])
     }
 
     /// 20 adds and 20 removes in a 10,000-row playlist: the caught-up read is shown as it is.
@@ -783,9 +882,11 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         let d = AppleMusicLibraryEditorTests.track(id: "506650079", name: "D")
         // C goes in through the Music app: the next read lists it.
         pending.recordPlaylistAdditions(
-            [(c, AppleMusicSongReference(itemID: "-32", isInLibrary: true))], route: .musicApp, playlistID: "-1", shown: [a]
+            [(c, AppleMusicSongReference(itemID: "-32", isInLibrary: true))], route: .musicApp, playlistID: "-1",
+            shown: [a]
         )
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [(a, ["-30"]), (c, ["-32"])], playlistID: "-1").map(\.name), ["A", "C"])
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [(a, ["-30"]), (c, ["-32"])], playlistID: "-1").map(\.name), ["A", "C"])
 
         clock.now += 10
         // D goes in through the API: the library lists it half an hour later.
@@ -793,11 +894,13 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
             [(d, AppleMusicSongReference(itemID: "506650079", catalogID: "506650079", isInLibrary: true))],
             route: .api, playlistID: "-1", shown: [a, c]
         )
-        XCTAssertTrue(pending.hasPendingTracks(playlistID: "-1"), "D is not in the library yet, so counts must apply it")
+        XCTAssertTrue(
+            pending.hasPendingTracks(playlistID: "-1"), "D is not in the library yet, so counts must apply it")
 
         clock.now += AppleMusicPendingLibraryEdits.settledGrace
         XCTAssertEqual(
-            pending.applied(toPlaylistTracks: [(a, ["-30"]), (c, ["-32"])], playlistID: "-1").map(\.name), ["A", "C", "D"],
+            pending.applied(toPlaylistTracks: [(a, ["-30"]), (c, ["-32"])], playlistID: "-1").map(\.name),
+            ["A", "C", "D"],
             "the add I made a minute ago"
         )
     }
@@ -822,7 +925,8 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         // I remove D where it is shown; the Music app takes it out at once.
         pending.recordPlaylistRemoval(at: [2], playlistID: "-1", shown: shown)
 
-        XCTAssertEqual(pending.applied(toPlaylistTracks: [row(b), row(c)], playlistID: "-1").map(\.name), ["B", "C", "X"])
+        XCTAssertEqual(
+            pending.applied(toPlaylistTracks: [row(b), row(c)], playlistID: "-1").map(\.name), ["B", "C", "X"])
     }
 
     /// 20 adds through the API and 20 removals through the Music app in a 10,000-row playlist,
@@ -857,10 +961,11 @@ final class AppleMusicPendingLibraryEditsTests: XCTestCase {
         let a = AppleMusicLibraryEditorTests.track(id: "-30", name: "A")
         let b = AppleMusicLibraryEditorTests.track(id: "-31", name: "B")
         let c = AppleMusicLibraryEditorTests.track(id: "-32", name: "C")
-        pending.recordPlaylistAdditions([
-            (a, AppleMusicSongReference(itemID: "-30", isInLibrary: true)),
-            (c, AppleMusicSongReference(itemID: "-32", isInLibrary: true)),
-        ], route: .musicApp, playlistID: "-1", shown: [b])
+        pending.recordPlaylistAdditions(
+            [
+                (a, AppleMusicSongReference(itemID: "-30", isInLibrary: true)),
+                (c, AppleMusicSongReference(itemID: "-32", isInLibrary: true)),
+            ], route: .musicApp, playlistID: "-1", shown: [b])
 
         let read = [(track: b, keys: Set(["-31"])), (track: a, keys: Set(["-30"]))]
         XCTAssertEqual(pending.applied(toPlaylistTracks: read, playlistID: "-1").map(\.name), ["B", "A", "C"])
@@ -915,7 +1020,9 @@ final class MusicAppScriptsTests: XCTestCase {
         ])
 
         XCTAssertTrue(script.contains(#"every track of lib whose persistent ID is "367911FB05FE6876""#))
-        XCTAssertTrue(script.contains(#"name is "Computer Love" and artist is "Kraftwerk" and album is "Computer World (Remastered)""#))
+        XCTAssertTrue(
+            script.contains(
+                #"name is "Computer Love" and artist is "Kraftwerk" and album is "Computer World (Remastered)""#))
         // Two copies of a song are the song's own error, never "Two playlists have this name".
         XCTAssertTrue(script.contains("error \"ambiguous\" number 9004"))
         XCTAssertFalse(script.contains("number 9002"))
@@ -929,14 +1036,18 @@ final class MusicAppScriptsTests: XCTestCase {
     }
 
     func testPlaylistRemovalsRunFromTheLastPositionToTheFirst() throws {
-        let script = MusicAppScripts.removeFromPlaylist(.persistentID("FE82FB07F4D3B511"), removals: [
-            MusicAppPlaylistRemoval(track: .persistentID("A"), positions: [0, 4]),
-            MusicAppPlaylistRemoval(track: .persistentID("B"), positions: [2]),
-        ])
+        let script = MusicAppScripts.removeFromPlaylist(
+            .persistentID("FE82FB07F4D3B511"),
+            removals: [
+                MusicAppPlaylistRemoval(track: .persistentID("A"), positions: [0, 4]),
+                MusicAppPlaylistRemoval(track: .persistentID("B"), positions: [2]),
+            ])
 
         let indexes = script.components(separatedBy: "\n")
             .filter { $0.hasPrefix("set t to track ") }
-            .map { $0.replacingOccurrences(of: "set t to track ", with: "").replacingOccurrences(of: " of pl", with: "") }
+            .map {
+                $0.replacingOccurrences(of: "set t to track ", with: "").replacingOccurrences(of: " of pl", with: "")
+            }
         XCTAssertEqual(indexes, ["5", "3", "1"])
         XCTAssertTrue(script.contains(#"every user playlist whose persistent ID is "FE82FB07F4D3B511""#))
         XCTAssertTrue(script.contains("if smart of pl then error"))
@@ -944,22 +1055,29 @@ final class MusicAppScriptsTests: XCTestCase {
 
     /// One of the songs is already gone: nothing may be deleted before every occurrence is found.
     func testPlaylistRemovalFindsEveryOccurrenceBeforeDeletingAny() throws {
-        let script = MusicAppScripts.removeFromPlaylist(.persistentID("FE82FB07F4D3B511"), removals: [
-            MusicAppPlaylistRemoval(track: .persistentID("A"), positions: [0]),
-            MusicAppPlaylistRemoval(track: .persistentID("C"), positions: [2]),
-        ])
+        let script = MusicAppScripts.removeFromPlaylist(
+            .persistentID("FE82FB07F4D3B511"),
+            removals: [
+                MusicAppPlaylistRemoval(track: .persistentID("A"), positions: [0]),
+                MusicAppPlaylistRemoval(track: .persistentID("C"), positions: [2]),
+            ])
 
         let lastLookup = try XCTUnwrap(script.range(of: "set end of targetIDs", options: .backwards))
         let firstDelete = try XCTUnwrap(script.range(of: "delete "))
         XCTAssertLessThan(lastLookup.lowerBound, firstDelete.lowerBound)
-        XCTAssertEqual(script.components(separatedBy: "if picked is missing value then error \"not found\" number 9001").count - 1, 2)
+        XCTAssertEqual(
+            script.components(separatedBy: "if picked is missing value then error \"not found\" number 9001").count - 1,
+            2)
         XCTAssertTrue(script.contains("delete (every track of pl whose id is (contents of targetID))"))
-        XCTAssertTrue(script.contains("targetIDs does not contain (id of candidate)"), "two removals never pick the same entry")
+        XCTAssertTrue(
+            script.contains("targetIDs does not contain (id of candidate)"), "two removals never pick the same entry")
     }
 
     func testRenameAndDeleteScripts() {
-        XCTAssertTrue(MusicAppScripts.renamePlaylist(.name("Spotiglass test"), to: "New").contains(#"set name of pl to "New""#))
-        XCTAssertTrue(MusicAppScripts.deletePlaylist(.name("Spotiglass test")).contains(#"whose name is "Spotiglass test""#))
+        XCTAssertTrue(
+            MusicAppScripts.renamePlaylist(.name("Spotiglass test"), to: "New").contains(#"set name of pl to "New""#))
+        XCTAssertTrue(
+            MusicAppScripts.deletePlaylist(.name("Spotiglass test")).contains(#"whose name is "Spotiglass test""#))
     }
 
     func testScriptErrorsMapToCalmMessages() {
@@ -976,7 +1094,8 @@ final class MusicAppScriptsTests: XCTestCase {
         let runner = RecordingScriptRunner()
         let scripting = MusicAppLibraryScripting(runner: runner)
         try await scripting.removeFromLibrary([])
-        try await scripting.removeFromPlaylist(.name("x"), removals: [MusicAppPlaylistRemoval(track: .persistentID("A"), positions: [])])
+        try await scripting.removeFromPlaylist(
+            .name("x"), removals: [MusicAppPlaylistRemoval(track: .persistentID("A"), positions: [])])
         try await scripting.deletePlaylist(.name("x"))
         XCTAssertEqual(runner.scripts.count, 1)
     }
@@ -988,30 +1107,38 @@ final class AppleMusicCloudRequestsTests: XCTestCase {
     func testAddToLibraryNamesSongsAndAlbums() throws {
         let request = try XCTUnwrap(AppleMusicCloudRequests.addToLibrary(songs: ["1", "2"], albums: ["3"]))
         XCTAssertEqual(request.httpMethod, "POST")
-        XCTAssertEqual(request.url?.absoluteString, "https://api.music.apple.com/v1/me/library?ids%5Bsongs%5D=1,2&ids%5Balbums%5D=3")
+        XCTAssertEqual(
+            request.url?.absoluteString,
+            "https://api.music.apple.com/v1/me/library?ids%5Bsongs%5D=1,2&ids%5Balbums%5D=3")
         XCTAssertNil(AppleMusicCloudRequests.addToLibrary(songs: [], albums: []))
     }
 
     func testCreatePlaylistAndAddTracksBodies() throws {
         let create = AppleMusicCloudRequests.createPlaylist(name: "Spotiglass test")
         XCTAssertEqual(create.url?.path, "/v1/me/library/playlists")
-        XCTAssertEqual(String(decoding: try XCTUnwrap(create.httpBody), as: UTF8.self),
-                       #"{"attributes":{"description":"","name":"Spotiglass test"}}"#)
+        XCTAssertEqual(
+            String(decoding: try XCTUnwrap(create.httpBody), as: UTF8.self),
+            #"{"attributes":{"description":"","name":"Spotiglass test"}}"#)
 
-        let add = AppleMusicCloudRequests.addToPlaylist(cloudPlaylistID: "p.3VKWkReubWBYJJ7", songs: [
-            AppleMusicCloudSong(id: "506650076", kind: .catalog),
-            AppleMusicCloudSong(id: "i.9", kind: .library),
-        ])
+        let add = AppleMusicCloudRequests.addToPlaylist(
+            cloudPlaylistID: "p.3VKWkReubWBYJJ7",
+            songs: [
+                AppleMusicCloudSong(id: "506650076", kind: .catalog),
+                AppleMusicCloudSong(id: "i.9", kind: .library),
+            ])
         XCTAssertEqual(add.url?.path, "/v1/me/library/playlists/p.3VKWkReubWBYJJ7/tracks")
-        XCTAssertEqual(String(decoding: try XCTUnwrap(add.httpBody), as: UTF8.self),
-                       #"{"data":[{"id":"506650076","type":"songs"},{"id":"i.9","type":"library-songs"}]}"#)
+        XCTAssertEqual(
+            String(decoding: try XCTUnwrap(add.httpBody), as: UTF8.self),
+            #"{"data":[{"id":"506650076","type":"songs"},{"id":"i.9","type":"library-songs"}]}"#)
     }
 
     func testRatingsPutAndDelete() throws {
         let love = AppleMusicCloudRequests.rating(.love, songID: "699902614", isLibraryID: false)
         XCTAssertEqual(love.httpMethod, "PUT")
         XCTAssertEqual(love.url?.path, "/v1/me/ratings/songs/699902614")
-        XCTAssertEqual(String(decoding: try XCTUnwrap(love.httpBody), as: UTF8.self), #"{"attributes":{"value":1},"type":"rating"}"#)
+        XCTAssertEqual(
+            String(decoding: try XCTUnwrap(love.httpBody), as: UTF8.self),
+            #"{"attributes":{"value":1},"type":"rating"}"#)
 
         let clear = AppleMusicCloudRequests.rating(nil, songID: "i.9", isLibraryID: true)
         XCTAssertEqual(clear.httpMethod, "DELETE")
@@ -1022,7 +1149,9 @@ final class AppleMusicCloudRequestsTests: XCTestCase {
     /// The 201 body a real create returned, trimmed.
     func testCreatedPlaylistIDComesFromTheResponse() async throws {
         let library = MusicDataRequestCloudLibrary { _ in
-            Data(#"{"data":[{"id":"p.2P6WZ1KcVElPee9","type":"library-playlists","attributes":{"canEdit":true,"name":"Spotiglass test"}}]}"#.utf8)
+            Data(
+                #"{"data":[{"id":"p.2P6WZ1KcVElPee9","type":"library-playlists","attributes":{"canEdit":true,"name":"Spotiglass test"}}]}"#
+                    .utf8)
         }
         let id = try await library.createPlaylist(name: "Spotiglass test", songs: [])
         XCTAssertEqual(id, "p.2P6WZ1KcVElPee9")
@@ -1035,16 +1164,21 @@ final class AppleMusicCloudRequestsTests: XCTestCase {
             if request.url?.query?.contains("offset=100") == true {
                 return Data(#"{"data":[{"id":"p.c","attributes":{"name":"C","canEdit":true}}]}"#.utf8)
             }
-            return Data(#"{"next":"/v1/me/library/playlists?offset=100","data":[{"id":"p.a","attributes":{"name":"A","canEdit":true}},{"id":"p.b","attributes":{"name":"Apple's","canEdit":false}}]}"#.utf8)
+            return Data(
+                #"{"next":"/v1/me/library/playlists?offset=100","data":[{"id":"p.a","attributes":{"name":"A","canEdit":true}},{"id":"p.b","attributes":{"name":"Apple's","canEdit":false}}]}"#
+                    .utf8)
         }
 
         let playlists = try await library.editablePlaylists()
 
-        XCTAssertEqual(playlists, [AppleMusicCloudPlaylist(id: "p.a", name: "A"), AppleMusicCloudPlaylist(id: "p.c", name: "C")])
-        XCTAssertEqual(paths.values, [
-            "https://api.music.apple.com/v1/me/library/playlists?limit=100",
-            "https://api.music.apple.com/v1/me/library/playlists?offset=100",
-        ])
+        XCTAssertEqual(
+            playlists, [AppleMusicCloudPlaylist(id: "p.a", name: "A"), AppleMusicCloudPlaylist(id: "p.c", name: "C")])
+        XCTAssertEqual(
+            paths.values,
+            [
+                "https://api.music.apple.com/v1/me/library/playlists?limit=100",
+                "https://api.music.apple.com/v1/me/library/playlists?offset=100",
+            ])
     }
 
     func testANewEmptyPlaylistReadsAsNoTracks() async throws {
@@ -1079,7 +1213,10 @@ final class AppleMusicBrowsingProviderLibraryEditTests: XCTestCase {
         let provider = AppleMusicBrowsingProvider(editor: editor)
         let edits: [(String, () async throws -> Void)] = [
             ("add non-song", { try await provider.addTracksToPlaylist(playlistID: "p.1", uris: ["spotify:track:1"]) }),
-            ("remove non-song", { try await provider.removeTracksFromPlaylist(playlistID: "p.1", items: [], snapshotID: nil) }),
+            (
+                "remove non-song",
+                { try await provider.removeTracksFromPlaylist(playlistID: "p.1", items: [], snapshotID: nil) }
+            ),
             ("unlike unknown", { try await provider.removeSavedTracks(ids: ["1"]) }),
         ]
         for (name, edit) in edits {
@@ -1135,11 +1272,12 @@ final class MockLibraryLookup: AppleMusicLibraryLookup, @unchecked Sendable {
 
     func songs(ids: [String]) async throws -> [AppleMusicSongReference] {
         ids.map { id in
-            songsByID[id] ?? AppleMusicSongReference(
-                itemID: id,
-                catalogID: MusicKitLibraryLookup.isCatalogID(id) ? id : nil,
-                isInLibrary: false
-            )
+            songsByID[id]
+                ?? AppleMusicSongReference(
+                    itemID: id,
+                    catalogID: MusicKitLibraryLookup.isCatalogID(id) ? id : nil,
+                    isInLibrary: false
+                )
         }
     }
 
@@ -1157,7 +1295,9 @@ final class MockLibraryLookup: AppleMusicLibraryLookup, @unchecked Sendable {
     }
 
     func albums(ids: [String]) async throws -> [AppleMusicAlbumReference] {
-        ids.map { albumsByID[$0] ?? AppleMusicAlbumReference(itemID: $0, catalogID: $0, isInLibrary: false, librarySongs: []) }
+        ids.map {
+            albumsByID[$0] ?? AppleMusicAlbumReference(itemID: $0, catalogID: $0, isInLibrary: false, librarySongs: [])
+        }
     }
 
     func playlist(id: String) async throws -> AppleMusicPlaylistReference? {
@@ -1178,7 +1318,9 @@ final class MockCloudLibrary: AppleMusicCloudLibrary, @unchecked Sendable {
     var ratingError: Error?
 
     func addToLibrary(songCatalogIDs: [String], albumCatalogIDs: [String]) async throws {
-        calls.append("addToLibrary(songs:\(songCatalogIDs.joined(separator: ",")) albums:\(albumCatalogIDs.joined(separator: ",")))")
+        calls.append(
+            "addToLibrary(songs:\(songCatalogIDs.joined(separator: ",")) albums:\(albumCatalogIDs.joined(separator: ",")))"
+        )
     }
 
     var createError: Error?
@@ -1191,7 +1333,9 @@ final class MockCloudLibrary: AppleMusicCloudLibrary, @unchecked Sendable {
     }
 
     func addToPlaylist(cloudPlaylistID: String, songs: [AppleMusicCloudSong]) async throws {
-        calls.append("addToPlaylist(\(cloudPlaylistID),[\(songs.map { "\($0.kind.rawValue):\($0.id)" }.joined(separator: ","))])")
+        calls.append(
+            "addToPlaylist(\(cloudPlaylistID),[\(songs.map { "\($0.kind.rawValue):\($0.id)" }.joined(separator: ","))])"
+        )
     }
 
     func setRating(_ rating: AppleMusicRating?, songID: String, isLibraryID: Bool) async throws {
@@ -1242,9 +1386,12 @@ final class MockMusicApp: MusicAppLibraryControlling, @unchecked Sendable {
         calls.append("addToPlaylist(\(Self.describe(playlist)),[\(tracks.map(Self.describe).joined(separator: ", "))])")
     }
 
-    func reorderPlaylist(_ playlist: MusicAppPlaylistMatch, expectedPersistentIDs: [String], moveToEnd: [Int]) async throws {
+    func reorderPlaylist(_ playlist: MusicAppPlaylistMatch, expectedPersistentIDs: [String], moveToEnd: [Int])
+        async throws
+    {
         if let error { throw error }
-        calls.append("reorder(\(Self.describe(playlist)),[\(expectedPersistentIDs.joined(separator: ","))],\(moveToEnd))")
+        calls.append(
+            "reorder(\(Self.describe(playlist)),[\(expectedPersistentIDs.joined(separator: ","))],\(moveToEnd))")
     }
 
     var createdPersistentID = "00000000000000FF"
@@ -1309,10 +1456,13 @@ final class AppleMusicProviderEditWiringTests: XCTestCase {
     }
 
     func testEveryProviderEditReachesItsRoute() async throws {
-        lookup.songsByID["i.1"] = AppleMusicLibraryEditorTests.librarySong("i.1", catalog: "11", persistent: "000000000000000A")
-        lookup.albumsByID["-5"] = AppleMusicAlbumReference(itemID: "-5", catalogID: "50", isInLibrary: true, librarySongs: [
-            AppleMusicLibraryEditorTests.librarySong("i.2", catalog: "12", persistent: "000000000000000B"),
-        ])
+        lookup.songsByID["i.1"] = AppleMusicLibraryEditorTests.librarySong(
+            "i.1", catalog: "11", persistent: "000000000000000A")
+        lookup.albumsByID["-5"] = AppleMusicAlbumReference(
+            itemID: "-5", catalogID: "50", isInLibrary: true,
+            librarySongs: [
+                AppleMusicLibraryEditorTests.librarySong("i.2", catalog: "12", persistent: "000000000000000B")
+            ])
         cloud.createdPlaylistID = "p.new"
 
         try await provider.saveTracks(ids: ["699902614"])
@@ -1335,12 +1485,14 @@ final class AppleMusicProviderEditWiringTests: XCTestCase {
         XCTAssertEqual(albumStatuses, [true, false])
         XCTAssertEqual(created.id, "p.new")
         XCTAssertEqual(created.ownerName, SpotiglassL10n.string("appleMusic.library.owner"))
-        XCTAssertEqual(cloud.calls.filter { !$0.hasPrefix("rate") }, [
-            "addToLibrary(songs:699902614 albums:)",
-            "addToLibrary(songs: albums:1440)",
-            "createPlaylist(Spotiglass test)",
-            "addToPlaylist(p.new,[songs:11])",
-        ])
+        XCTAssertEqual(
+            cloud.calls.filter { !$0.hasPrefix("rate") },
+            [
+                "addToLibrary(songs:699902614 albums:)",
+                "addToLibrary(songs: albums:1440)",
+                "createPlaylist(Spotiglass test)",
+                "addToPlaylist(p.new,[songs:11])",
+            ])
         XCTAssertEqual(musicApp.calls.count, 5)
     }
 
@@ -1351,13 +1503,18 @@ final class AppleMusicProviderEditWiringTests: XCTestCase {
         ]
         source.tracksByPlaylistID["-1"] = [.song(try AppleMusicFixtures.song(id: "-30", title: "In playlist"))]
         pending.recordRemovedSong(["i.gone"])
-        pending.recordCreatedPlaylist(MusicPlaylistSummary(
-            id: "p.new", name: "Spotiglass test", ownerID: "apple-music-library", ownerName: "You",
-            imageURL: nil, trackCount: 0, snapshotID: "applemusic"
-        ))
+        pending.recordCreatedPlaylist(
+            MusicPlaylistSummary(
+                id: "p.new", name: "Spotiglass test", ownerID: "apple-music-library", ownerName: "You",
+                imageURL: nil, trackCount: 0, snapshotID: "applemusic"
+            ))
         pending.recordPlaylistAdditions(
-            [(AppleMusicLibraryEditorTests.track(id: "506650076", name: "Added"),
-              AppleMusicSongReference(itemID: "506650076", catalogID: "506650076", isInLibrary: true))],
+            [
+                (
+                    AppleMusicLibraryEditorTests.track(id: "506650076", name: "Added"),
+                    AppleMusicSongReference(itemID: "506650076", catalogID: "506650076", isInLibrary: true)
+                )
+            ],
             route: .api, playlistID: "-1",
             shown: [AppleMusicLibraryEditorTests.track(id: "-30", name: "In playlist")]
         )
@@ -1399,16 +1556,20 @@ final class MusicDataRequestCloudLibraryTests: XCTestCase {
         try await library.addToPlaylist(cloudPlaylistID: "p.1", songs: [])
         try await library.setRating(.dislike, songID: "1", isLibraryID: false)
 
-        XCTAssertEqual(paths.values, [
-            "POST /v1/me/library",
-            "POST /v1/me/library/playlists/p.1/tracks",
-            "PUT /v1/me/ratings/songs/1",
-        ])
+        XCTAssertEqual(
+            paths.values,
+            [
+                "POST /v1/me/library",
+                "POST /v1/me/library/playlists/p.1/tracks",
+                "PUT /v1/me/ratings/songs/1",
+            ])
     }
 
     func testPlaylistTracksDecodeLibrarySongs() async throws {
         let library = MusicDataRequestCloudLibrary { _ in
-            Data(#"{"data":[{"id":"i.9","type":"library-songs","attributes":{"name":"Disparate Youth","artistName":"Santigold","playParams":{"id":"i.9","kind":"song","catalogId":"506650076","isLibrary":true}}}]}"#.utf8)
+            Data(
+                #"{"data":[{"id":"i.9","type":"library-songs","attributes":{"name":"Disparate Youth","artistName":"Santigold","playParams":{"id":"i.9","kind":"song","catalogId":"506650076","isLibrary":true}}}]}"#
+                    .utf8)
         }
         let songs = try await library.playlistTracks(cloudPlaylistID: "p.1")
         XCTAssertEqual(songs.map(\.id.rawValue), ["i.9"])
@@ -1421,9 +1582,9 @@ final class MusicDataRequestCloudLibraryTests: XCTestCase {
     }
 }
 
-private extension MusicPlaylistTrackItem {
-    var trackID: String? {
-        if case let .track(track) = content { return track.id }
+extension MusicPlaylistTrackItem {
+    fileprivate var trackID: String? {
+        if case .track(let track) = content { return track.id }
         return nil
     }
 }
@@ -1475,7 +1636,9 @@ final class EditTestContentSource: AppleMusicContentSource, @unchecked Sendable 
     func tracks(of album: Album, limit: Int) async throws -> [Track] { [] }
     func albums(of artist: Artist, limit: Int) async throws -> [Album] { [] }
     func artistTopSongs(artistID: String) async throws -> [Song] { [] }
-    func catalogSearch(term: String, limit: Int, offset: Int) async throws -> AppleMusicSearchItems { AppleMusicSearchItems() }
+    func catalogSearch(term: String, limit: Int, offset: Int) async throws -> AppleMusicSearchItems {
+        AppleMusicSearchItems()
+    }
     func librarySearch(term: String, limit: Int) async throws -> AppleMusicSearchItems { AppleMusicSearchItems() }
     func storefrontCountryCode() async throws -> String { "ch" }
     func catalogSongReleases(catalogIDs: [String]) async throws -> [String: AppleMusicCatalogRelease] { [:] }
@@ -1522,9 +1685,11 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     func testAddingALibraryPlaylistRowToAPlaylistGoesThroughMusic() async throws {
         try await editor.addToPlaylist(playlistID: "-107247429512612591", songIDs: [rowID])
 
-        XCTAssertEqual(musicApp.calls, [
-            "addToPlaylist(persistentID(\"FE82FB07F4D3B511\"),[persistentID(\"\(rowPersistentID)\")])",
-        ])
+        XCTAssertEqual(
+            musicApp.calls,
+            [
+                "addToPlaylist(persistentID(\"FE82FB07F4D3B511\"),[persistentID(\"\(rowPersistentID)\")])"
+            ])
         XCTAssertEqual(cloud.calls, [], "the API has no ID for this song")
     }
 
@@ -1534,7 +1699,11 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     func testAPlaylistRowNotInTheLibraryIsFoundInItsPlaylist() async throws {
         let registry = AppleMusicSongReferenceRegistry()
         registry.remember(
-            [.song(try AppleMusicFixtures.song(id: "-1192152853020385209", title: "Don't Stop The Music", artist: "Rihanna"))],
+            [
+                .song(
+                    try AppleMusicFixtures.song(
+                        id: "-1192152853020385209", title: "Don't Stop The Music", artist: "Rihanna"))
+            ],
             playlistID: "-1157253837592488300"
         )
         var reference = try XCTUnwrap(registry.reference(for: "-1192152853020385209"))
@@ -1547,9 +1716,11 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
 
         try await editor.addToPlaylist(playlistID: "-107247429512612591", songIDs: ["-1192152853020385209"])
 
-        XCTAssertEqual(musicApp.calls, [
-            "addToPlaylist(persistentID(\"FE82FB07F4D3B511\"),[playlistEntry(persistentID: \"EF749F4BE5C06047\", playlistPersistentID: \"EFF09BC41F579694\")])",
-        ])
+        XCTAssertEqual(
+            musicApp.calls,
+            [
+                "addToPlaylist(persistentID(\"FE82FB07F4D3B511\"),[playlistEntry(persistentID: \"EF749F4BE5C06047\", playlistPersistentID: \"EFF09BC41F579694\")])"
+            ])
     }
 
     func testMusicLooksForAPlaylistEntryInTheLibraryFirstThenInItsPlaylist() throws {
@@ -1558,7 +1729,8 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
             tracks: [.playlistEntry(persistentID: "EF749F4BE5C06047", playlistPersistentID: "EFF09BC41F579694")]
         )
 
-        let library = try XCTUnwrap(script.range(of: "set found to (every track of lib whose persistent ID is \"EF749F4BE5C06047\")"))
+        let library = try XCTUnwrap(
+            script.range(of: "set found to (every track of lib whose persistent ID is \"EF749F4BE5C06047\")"))
         let source = try XCTUnwrap(script.range(of: "every user playlist whose persistent ID is \"EFF09BC41F579694\""))
         let notFound = try XCTUnwrap(script.range(of: "if (count of found) is 0 then error"))
         XCTAssertLessThan(library.lowerBound, source.lowerBound)
@@ -1630,21 +1802,28 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     }
 
     func testMusicCreatesThePlaylistOnlyAfterFindingEverySongAndDeletesItOnFailure() throws {
-        let script = MusicAppScripts.createPlaylist(name: "Spotiglass \"test\"", tracks: [.persistentID(rowPersistentID)])
+        let script = MusicAppScripts.createPlaylist(
+            name: "Spotiglass \"test\"", tracks: [.persistentID(rowPersistentID)])
 
         let lookupLine = try XCTUnwrap(script.range(of: "whose persistent ID is \"\(rowPersistentID)\""))
-        let makeLine = try XCTUnwrap(script.range(of: "make new user playlist with properties {name:\"Spotiglass \\\"test\\\"\"}"))
-        XCTAssertLessThan(lookupLine.lowerBound, makeLine.lowerBound, "a song Music can't find stops it before the playlist exists")
-        let rollback = try XCTUnwrap(script.range(of: "end if\ntry\nif newID is not \"\" then delete pl\non error cleanupMessage number cleanupNumber"))
+        let makeLine = try XCTUnwrap(
+            script.range(of: "make new user playlist with properties {name:\"Spotiglass \\\"test\\\"\"}"))
+        XCTAssertLessThan(
+            lookupLine.lowerBound, makeLine.lowerBound, "a song Music can't find stops it before the playlist exists")
+        let rollback = try XCTUnwrap(
+            script.range(
+                of: "end if\ntry\nif newID is not \"\" then delete pl\non error cleanupMessage number cleanupNumber"))
         XCTAssertLessThan(makeLine.lowerBound, rollback.lowerBound)
         XCTAssertTrue(script.contains("set newID to (persistent ID of pl)"))
         XCTAssertTrue(script.hasSuffix("return newID\nend tell"))
     }
 
     func testMusicAddFindsThePlaylistAndEverySongBeforeAddingAny() throws {
-        let script = MusicAppScripts.addToPlaylist(.persistentID("FE82FB07F4D3B511"), tracks: [.persistentID(rowPersistentID)])
+        let script = MusicAppScripts.addToPlaylist(
+            .persistentID("FE82FB07F4D3B511"), tracks: [.persistentID(rowPersistentID)])
 
-        let playlist = try XCTUnwrap(script.range(of: "every user playlist whose persistent ID is \"FE82FB07F4D3B511\""))
+        let playlist = try XCTUnwrap(
+            script.range(of: "every user playlist whose persistent ID is \"FE82FB07F4D3B511\""))
         let song = try XCTUnwrap(script.range(of: "every track of lib whose persistent ID is \"\(rowPersistentID)\""))
         let duplicate = try XCTUnwrap(script.range(of: "duplicate (contents of songItem) to pl"))
         XCTAssertLessThan(playlist.lowerBound, duplicate.lowerBound)
@@ -1657,25 +1836,29 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         let track = MusicAppTrackMatch.persistentID(rowPersistentID)
         let saved = MusicAppTrackMatch.metadata(name: "S&M", artist: "Rihanna", album: "Loud", addedSince: Date())
         let playlist = MusicAppPlaylistMatch.persistentID("FE82FB07F4D3B511")
-        let entry = MusicAppTrackMatch.playlistEntry(persistentID: rowPersistentID, playlistPersistentID: "EFF09BC41F579694")
-        let scripts = [
-            MusicAppScripts.addToPlaylist(playlist, tracks: [track, saved, entry]),
-            MusicAppScripts.createPlaylist(name: "Spotiglass test", tracks: [track, saved]),
-            MusicAppScripts.removeFromLibrary([track, saved]),
-            MusicAppScripts.removeFromPlaylist(playlist, removals: [MusicAppPlaylistRemoval(track: saved, positions: [0, 2])]),
-            MusicAppScripts.renamePlaylist(.name("Spotiglass test"), to: "Renamed"),
-            MusicAppScripts.deletePlaylist(playlist),
-        ] + [
-            // What an edit runs after one of its changes answered late (#411), as the runner sends it.
-            MusicAppScripts.finishRemovingFromLibrary([track, saved]),
-            MusicAppScripts.finishRemovingFromPlaylist(playlist, entryIDs: ["4021", "4022"]),
-            MusicAppScripts.finishRenaming(.name("Spotiglass test"), to: "Renamed"),
-            MusicAppScripts.finishRenaming(playlist, to: "Renamed"),
-            MusicAppScripts.finishDeleting(playlist),
-            MusicAppScripts.takeBackAdd(playlist, progress: "5|\(rowPersistentID),EF749F4BE5C06047|"),
-            MusicAppScripts.takeBackCreate(name: "Spotiglass test", progress: "FE82FB07F4D3B512|"),
-            MusicAppScripts.takeBackCreate(name: "Spotiglass test", progress: "|FE82FB07F4D3B512"),
-        ].map { MusicAppScripts.settling($0, seconds: 600) }
+        let entry = MusicAppTrackMatch.playlistEntry(
+            persistentID: rowPersistentID, playlistPersistentID: "EFF09BC41F579694")
+        let scripts =
+            [
+                MusicAppScripts.addToPlaylist(playlist, tracks: [track, saved, entry]),
+                MusicAppScripts.createPlaylist(name: "Spotiglass test", tracks: [track, saved]),
+                MusicAppScripts.removeFromLibrary([track, saved]),
+                MusicAppScripts.removeFromPlaylist(
+                    playlist, removals: [MusicAppPlaylistRemoval(track: saved, positions: [0, 2])]),
+                MusicAppScripts.renamePlaylist(.name("Spotiglass test"), to: "Renamed"),
+                MusicAppScripts.deletePlaylist(playlist),
+            ]
+            + [
+                // What an edit runs after one of its changes answered late (#411), as the runner sends it.
+                MusicAppScripts.finishRemovingFromLibrary([track, saved]),
+                MusicAppScripts.finishRemovingFromPlaylist(playlist, entryIDs: ["4021", "4022"]),
+                MusicAppScripts.finishRenaming(.name("Spotiglass test"), to: "Renamed"),
+                MusicAppScripts.finishRenaming(playlist, to: "Renamed"),
+                MusicAppScripts.finishDeleting(playlist),
+                MusicAppScripts.takeBackAdd(playlist, progress: "5|\(rowPersistentID),EF749F4BE5C06047|"),
+                MusicAppScripts.takeBackCreate(name: "Spotiglass test", progress: "FE82FB07F4D3B512|"),
+                MusicAppScripts.takeBackCreate(name: "Spotiglass test", progress: "|FE82FB07F4D3B512"),
+            ].map { MusicAppScripts.settling($0, seconds: 600) }
         for source in scripts {
             let timed = MusicAppScripts.withTimeout(source, seconds: 60)
             let script = try XCTUnwrap(NSAppleScript(source: timed))
@@ -1687,7 +1870,8 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     func testMusicPlaylistIDsMustComeBackAsHex() async {
         let runner = StubScriptRunner(result: "not an id")
         await XCTAssertThrowsEditError(.requestFailed) {
-            _ = try await MusicAppLibraryScripting(runner: runner).createPlaylist(name: "x", tracks: [.persistentID(self.rowPersistentID)])
+            _ = try await MusicAppLibraryScripting(runner: runner).createPlaylist(
+                name: "x", tracks: [.persistentID(self.rowPersistentID)])
         }
         let created = try? await MusicAppLibraryScripting(runner: StubScriptRunner(result: "FE82FB07F4D3B511\n"))
             .createPlaylist(name: "x", tracks: [.persistentID(rowPersistentID)])
@@ -1695,10 +1879,12 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     }
 
     func testTheCreateRequestCarriesItsSongs() throws {
-        let create = AppleMusicCloudRequests.createPlaylist(name: "Spotiglass test", songs: [
-            AppleMusicCloudSong(id: "506650076", kind: .catalog),
-            AppleMusicCloudSong(id: "i.9", kind: .library),
-        ])
+        let create = AppleMusicCloudRequests.createPlaylist(
+            name: "Spotiglass test",
+            songs: [
+                AppleMusicCloudSong(id: "506650076", kind: .catalog),
+                AppleMusicCloudSong(id: "i.9", kind: .library),
+            ])
         XCTAssertEqual(
             String(decoding: try XCTUnwrap(create.httpBody), as: UTF8.self),
             #"{"attributes":{"description":"","name":"Spotiglass test"},"relationships":{"tracks":{"data":[{"id":"506650076","type":"songs"},{"id":"i.9","type":"library-songs"}]}}}"#
@@ -1714,8 +1900,9 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
             itemID: "506650076", catalogID: "506650076", musicAppPersistentID: "0000000000000001", isInLibrary: true
         )
 
-        try await editor.removeFromPlaylist(playlistID: "p.new", removals: [(songID: "506650076", positions: [0])],
-                                        shownTracks: [AppleMusicLibraryEditorTests.track(id: "506650076", name: "Song")])
+        try await editor.removeFromPlaylist(
+            playlistID: "p.new", removals: [(songID: "506650076", positions: [0])],
+            shownTracks: [AppleMusicLibraryEditorTests.track(id: "506650076", name: "Song")])
 
         XCTAssertEqual(pending.applied(toPlaylists: []).first?.trackCount, 0, "not the 1 it was created with")
     }
@@ -1749,7 +1936,7 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
 
     private static func names(_ items: [MusicPlaylistTrackItem]) -> [String] {
         items.compactMap { item in
-            guard case let .track(track) = item.content else { return nil }
+            guard case .track(let track) = item.content else { return nil }
             return track.name
         }
     }
@@ -1759,7 +1946,11 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     private func remembered18P1Row() throws -> AppleMusicSongReference {
         let registry = AppleMusicSongReferenceRegistry()
         registry.remember(
-            [.song(try AppleMusicFixtures.song(id: "-1192152853020385209", title: "Don't Stop The Music", artist: "Rihanna"))],
+            [
+                .song(
+                    try AppleMusicFixtures.song(
+                        id: "-1192152853020385209", title: "Don't Stop The Music", artist: "Rihanna"))
+            ],
             playlistID: "-1157253837592488300"
         )
         var reference = try XCTUnwrap(registry.reference(for: "-1192152853020385209"))
@@ -1787,7 +1978,9 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         let playlistID = "-107247429512612591"
         let source = EditTestContentSource()
         source.playlists = [try AppleMusicFixtures.playlist(id: playlistID, name: "Spotiglass test")]
-        source.tracksByPlaylistID[playlistID] = [.song(try AppleMusicFixtures.song(id: "i.1", title: "One", artist: "Someone"))]
+        source.tracksByPlaylistID[playlistID] = [
+            .song(try AppleMusicFixtures.song(id: "i.1", title: "One", artist: "Someone"))
+        ]
         let provider = AppleMusicBrowsingProvider(source: source, editor: editor)
         _ = try await provider.currentUserPlaylists(limit: 50)
         let before = await provider.playlistTrackCounts(playlistIDs: [playlistID])
@@ -1832,7 +2025,8 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         let playlistID = "-107247429512612591"
         let source = EditTestContentSource()
         source.playlists = [try AppleMusicFixtures.playlist(id: playlistID, name: "Spotiglass test")]
-        let removed = Track.song(try AppleMusicFixtures.song(id: rowID, title: "Don't Stop The Music", artist: "Rihanna"))
+        let removed = Track.song(
+            try AppleMusicFixtures.song(id: rowID, title: "Don't Stop The Music", artist: "Rihanna"))
         let kept = Track.song(try AppleMusicFixtures.song(id: "i.1", title: "One", artist: "Someone"))
         source.tracksByPlaylistID[playlistID] = [removed, kept]
         let provider = AppleMusicBrowsingProvider(source: source, editor: editor)
@@ -1880,7 +2074,9 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         await started.wait()
         source.libraryTracksGate = nil
         // The library lists the added song now, and opening the playlist sees it.
-        source.tracksByPlaylistID[edited] = [one, .song(try AppleMusicFixtures.song(id: row.itemID, title: "Don't Stop The Music", artist: "Rihanna"))]
+        source.tracksByPlaylistID[edited] = [
+            one, .song(try AppleMusicFixtures.song(id: row.itemID, title: "Don't Stop The Music", artist: "Rihanna")),
+        ]
         _ = try await provider.playlistTracks(playlistID: edited, limit: 100, maxPages: 1)
         XCTAssertFalse(pending.hasPendingTracks(playlistID: edited))
         gate.open()
@@ -1964,7 +2160,8 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         let before = try XCTUnwrap(script.range(of: "set countBefore to (count of tracks of pl)"))
         let noted = try XCTUnwrap(script.range(of: "set end of addedIDs to songID"))
         let add = try XCTUnwrap(script.range(of: "duplicate (contents of songItem) to pl"))
-        let rollback = try XCTUnwrap(script.range(of: "end if\ntry\nrepeat with i from (count of tracks of pl) to (countBefore + 1) by -1"))
+        let rollback = try XCTUnwrap(
+            script.range(of: "end if\ntry\nrepeat with i from (count of tracks of pl) to (countBefore + 1) by -1"))
         XCTAssertLessThan(before.lowerBound, add.lowerBound)
         // Noted only once its add went through: a failed add must not claim a copy another
         // device appended meanwhile.
@@ -1973,7 +2170,8 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         // A song another device appended meanwhile has another persistent ID and stays.
         let guarded = try XCTUnwrap(script.range(of: "if addedIDs contains entryID then\ndelete track i of pl"))
         XCTAssertLessThan(rollback.lowerBound, guarded.lowerBound)
-        XCTAssertTrue(script.contains("error errorMessage number errorNumber\nend try"), "the failure still reaches the editor")
+        XCTAssertTrue(
+            script.contains("error errorMessage number errorNumber\nend try"), "the failure still reaches the editor")
     }
 
     func testACatalogSongIsNeverAddedToANamesakeOfAPlaylistMusicJustCreated() async throws {
@@ -2010,7 +2208,11 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
             lookup: registryLookup, cloud: cloud, musicApp: musicApp, pending: pending, songReferences: registry
         )
         registry.remember(
-            [.song(try AppleMusicFixtures.song(id: "-1192152853020385209", title: "Don't Stop The Music", artist: "Rihanna"))],
+            [
+                .song(
+                    try AppleMusicFixtures.song(
+                        id: "-1192152853020385209", title: "Don't Stop The Music", artist: "Rihanna"))
+            ],
             playlistID: "-1157253837592488300"
         )
         // The real row encodes no catalog or cloud library ID (the fixture does).
@@ -2024,9 +2226,12 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         }
         let provider = AppleMusicBrowsingProvider(source: source, editor: editor)
 
-        try await provider.addTracksToPlaylist(playlistID: "-107247429512612591", uris: ["applemusic:song:-1192152853020385209"])
+        try await provider.addTracksToPlaylist(
+            playlistID: "-107247429512612591", uris: ["applemusic:song:-1192152853020385209"])
 
-        XCTAssertEqual(musicApp.calls.last?.contains("playlistEntry(persistentID: \"EF749F4BE5C06047\", playlistPersistentID: \"EFF09BC41F579694\")"), true)
+        XCTAssertEqual(
+            musicApp.calls.last?.contains(
+                "playlistEntry(persistentID: \"EF749F4BE5C06047\", playlistPersistentID: \"EFF09BC41F579694\")"), true)
     }
 
     // Item 4
@@ -2045,10 +2250,12 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     @MainActor
     func testScriptsRunOffTheMainThreadWithATimeout() async throws {
         let seen = ScriptCapture()
-        let runner = AppleEventMusicAppScriptRunner(prepare: {}, execute: { source in
-            seen.record(source: source, onMain: Thread.isMainThread)
-            return "done"
-        })
+        let runner = AppleEventMusicAppScriptRunner(
+            prepare: {},
+            execute: { source in
+                seen.record(source: source, onMain: Thread.isMainThread)
+                return "done"
+            })
 
         let result = try await runner.run("tell application \"Music\" to get name")
 
@@ -2074,11 +2281,12 @@ private final class RegistryLookup: AppleMusicLibraryLookup, @unchecked Sendable
 
     func songs(ids: [String]) async throws -> [AppleMusicSongReference] {
         ids.map { id in
-            registry.reference(for: id) ?? AppleMusicSongReference(
-                itemID: id,
-                musicAppPersistentID: AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: id),
-                isInLibrary: true
-            )
+            registry.reference(for: id)
+                ?? AppleMusicSongReference(
+                    itemID: id,
+                    musicAppPersistentID: AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: id),
+                    isInLibrary: true
+                )
         }
     }
 
@@ -2184,9 +2392,11 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
             _ = try await self.editor.createPlaylist(name: "Spotiglass test", ownerName: "You", songIDs: [self.rowID])
         }
 
-        XCTAssertEqual(runner.settled, [
-            "tell application \"Music\"\ndelete (every user playlist whose persistent ID is \"FE82FB07F4D3B512\")\nend tell",
-        ])
+        XCTAssertEqual(
+            runner.settled,
+            [
+                "tell application \"Music\"\ndelete (every user playlist whose persistent ID is \"FE82FB07F4D3B512\")\nend tell"
+            ])
     }
 
     func testAPlaylistMusicMadeLateIsFoundAmongTheNamesakes() {
@@ -2194,7 +2404,8 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
         let settle = MusicAppScripts.takeBackCreate(name: "Spotiglass test", progress: "|AAAAAAAAAAAAAAAA")
 
         XCTAssertTrue(settle.contains("set namesakesBefore to {\"AAAAAAAAAAAAAAAA\"}"))
-        XCTAssertTrue(settle.contains("repeat with candidate in (every user playlist whose name is \"Spotiglass test\")"))
+        XCTAssertTrue(
+            settle.contains("repeat with candidate in (every user playlist whose name is \"Spotiglass test\")"))
         XCTAssertTrue(settle.contains("if (count of made) is 1 then delete (item 1 of made)"))
     }
 
@@ -2229,7 +2440,9 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
             shownTracks: [rowID, "-1", "-2", rowID].map { AppleMusicLibraryEditorTests.track(id: $0, name: "Song") }
         )
 
-        XCTAssertEqual(runner.settled.first?.contains("delete (every track of pl whose id is 4021)\ndelete (every track of pl whose id is 4022)"), true)
+        XCTAssertEqual(
+            runner.settled.first?.contains(
+                "delete (every track of pl whose id is 4021)\ndelete (every track of pl whose id is 4022)"), true)
         XCTAssertTrue(pending.hasPendingTracks(playlistID: playlistID), "the page shows the removal")
     }
 
@@ -2240,17 +2453,19 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
 
         XCTAssertEqual(runner.settled.count, 2)
         XCTAssertTrue(runner.settled[0].contains("set name of pl to \"Renamed\""))
-        XCTAssertTrue(runner.settled[1].hasPrefix(
-            "tell application \"Music\"\nif (count of (every user playlist whose persistent ID is \"FE82FB07F4D3B511\")) is 0 then return"
-        ), "a playlist the late delete took is done")
+        XCTAssertTrue(
+            runner.settled[1].hasPrefix(
+                "tell application \"Music\"\nif (count of (every user playlist whose persistent ID is \"FE82FB07F4D3B511\")) is 0 then return"
+            ), "a playlist the late delete took is done")
     }
 
     func testARenameByNameIsDoneOnceTheNewNameIsThere() {
         let settle = MusicAppScripts.finishRenaming(.name("Spotiglass test"), to: "Renamed")
 
-        XCTAssertTrue(settle.contains(
-            "if (count of (every user playlist whose name is \"Spotiglass test\")) is 0 and (count of (every user playlist whose name is \"Renamed\")) is greater than 0 then return"
-        ))
+        XCTAssertTrue(
+            settle.contains(
+                "if (count of (every user playlist whose name is \"Spotiglass test\")) is 0 and (count of (every user playlist whose name is \"Renamed\")) is greater than 0 then return"
+            ))
     }
 
     /// An unlike timed out, Music carried the delete out, then quit before the settle got an
@@ -2288,10 +2503,10 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
     // what a change that timed out raises).
 
     func testAChangeThatTimesOutReportsItsProgress() throws {
-        let source = (
-            ["set targetIDs to {4021, 4022}"]
-                + MusicAppScripts.changes(["error \"Music got a time out.\" number -1712"], progress: "(targetIDs as text)")
-        ).joined(separator: "\n")
+        let source =
+            (["set targetIDs to {4021, 4022}"]
+            + MusicAppScripts.changes(["error \"Music got a time out.\" number -1712"], progress: "(targetIDs as text)"))
+            .joined(separator: "\n")
 
         XCTAssertThrowsError(try AppleEventMusicAppScriptRunner.executeAppleScript(source)) { error in
             XCTAssertEqual(error as? MusicAppLateChange, MusicAppLateChange(progress: "4021,4022"))
@@ -2301,13 +2516,21 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
     func testAnAddThatTimesOutReportsWhatItAdded() throws {
         // The add script's change part up to its timeout branch (the rollback after it needs
         // Music's dictionary), with Music's add replaced by the timeout it answered with.
-        let script = MusicAppScripts.addToPlaylist(.persistentID("FE82FB07F4D3B511"), tracks: [.persistentID(rowPersistentID)])
+        let script = MusicAppScripts.addToPlaylist(
+            .persistentID("FE82FB07F4D3B511"), tracks: [.persistentID(rowPersistentID)])
         let start = try XCTUnwrap(script.range(of: "set countBefore to (count of tracks of pl)"))
-        let branch = try XCTUnwrap(script.range(of: "number \(MusicAppScripts.lateChangeError)\nend if", range: start.upperBound..<script.endIndex))
-        var part = (String(script[start.lowerBound..<branch.upperBound]) + "\nerror errorMessage number errorNumber\nend try")
+        let branch = try XCTUnwrap(
+            script.range(
+                of: "number \(MusicAppScripts.lateChangeError)\nend if", range: start.upperBound..<script.endIndex))
+        var part =
+            (String(script[start.lowerBound..<branch.upperBound]) + "\nerror errorMessage number errorNumber\nend try")
             .replacingOccurrences(of: "set countBefore to (count of tracks of pl)", with: "set countBefore to 5")
-            .replacingOccurrences(of: "repeat with songItem in pickedSongs", with: "repeat with songItem in {\"A1\", \"B2\"}")
-            .replacingOccurrences(of: "set songID to (persistent ID of (contents of songItem))", with: "set songID to (contents of songItem)")
+            .replacingOccurrences(
+                of: "repeat with songItem in pickedSongs", with: "repeat with songItem in {\"A1\", \"B2\"}"
+            )
+            .replacingOccurrences(
+                of: "set songID to (persistent ID of (contents of songItem))",
+                with: "set songID to (contents of songItem)")
         part = part.replacingOccurrences(
             of: "duplicate (contents of songItem) to pl",
             with: "if songID is \"B2\" then error \"Music got a time out.\" number -1712"
@@ -2322,21 +2545,27 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
     /// rollback stopped before A. The edit must take back what is left once Music answers.
     func testARollbackThatTimesOutHalfwayIsFinishedAfterwards() throws {
         let rollback = ["if \"B2\" is not \"\" then error \"Music got a time out.\" number -1712"]
-        let part = (["set countBefore to 5", "set addedIDs to {\"A1\", \"B2\"}"]
+        let part =
+            (["set countBefore to 5", "set addedIDs to {\"A1\", \"B2\"}"]
             + MusicAppScripts.cleanup(rollback, progress: "(countBefore as text) & \"|\" & (addedIDs as text) & \"|\""))
             .joined(separator: "\n")
 
         XCTAssertThrowsError(try AppleEventMusicAppScriptRunner.executeAppleScript(part)) { error in
             XCTAssertEqual(error as? MusicAppLateChange, MusicAppLateChange(progress: "5|A1,B2|"))
         }
-        let add = MusicAppScripts.addToPlaylist(.persistentID("FE82FB07F4D3B511"), tracks: [.persistentID(rowPersistentID)])
+        let add = MusicAppScripts.addToPlaylist(
+            .persistentID("FE82FB07F4D3B511"), tracks: [.persistentID(rowPersistentID)])
         XCTAssertTrue(add.contains("on error cleanupMessage number cleanupNumber"), "the add's rollback can end late")
         let create = MusicAppScripts.createPlaylist(name: "Spotiglass test", tracks: [.persistentID(rowPersistentID)])
-        XCTAssertTrue(create.contains("try\nif newID is not \"\" then delete pl\non error cleanupMessage"), "so can the new playlist's delete")
+        XCTAssertTrue(
+            create.contains("try\nif newID is not \"\" then delete pl\non error cleanupMessage"),
+            "so can the new playlist's delete")
     }
 
     func testALookupThatTimesOutChangedNothing() throws {
-        XCTAssertThrowsError(try AppleEventMusicAppScriptRunner.executeAppleScript("error \"Music got a time out.\" number -1712")) { error in
+        XCTAssertThrowsError(
+            try AppleEventMusicAppScriptRunner.executeAppleScript("error \"Music got a time out.\" number -1712")
+        ) { error in
             XCTAssertEqual(error as? AppleMusicLibraryEditError, .musicUnavailable)
         }
     }
@@ -2353,20 +2582,25 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
     func testTheRunnerWaitsLongerOnlyWhenSettling() async throws {
         let seen = PathRecorder()
         let queues = PathRecorder()
-        let runner = AppleEventMusicAppScriptRunner(prepare: {}, execute: { source in
-            seen.append(source)
-            queues.append(String(cString: __dispatch_queue_get_label(nil)))
-            return nil
-        })
+        let runner = AppleEventMusicAppScriptRunner(
+            prepare: {},
+            execute: { source in
+                seen.append(source)
+                queues.append(String(cString: __dispatch_queue_get_label(nil)))
+                return nil
+            })
 
         try await runner.run("get name")
         try await runner.settle("get name")
 
         // One at a time on Music's own queue, waiting or not.
         XCTAssertEqual(queues.values, Array(repeating: "com.isaaclins.spotiglass.music-scripts", count: 2))
-        XCTAssertTrue(seen.values[0].hasPrefix("with timeout of \(AppleEventMusicAppScriptRunner.eventTimeoutSeconds) seconds"))
-        XCTAssertTrue(seen.values[1].hasPrefix("with timeout of \(AppleEventMusicAppScriptRunner.settleTimeoutSeconds) seconds"))
-        XCTAssertGreaterThan(AppleEventMusicAppScriptRunner.settleTimeoutSeconds, AppleEventMusicAppScriptRunner.eventTimeoutSeconds)
+        XCTAssertTrue(
+            seen.values[0].hasPrefix("with timeout of \(AppleEventMusicAppScriptRunner.eventTimeoutSeconds) seconds"))
+        XCTAssertTrue(
+            seen.values[1].hasPrefix("with timeout of \(AppleEventMusicAppScriptRunner.settleTimeoutSeconds) seconds"))
+        XCTAssertGreaterThan(
+            AppleEventMusicAppScriptRunner.settleTimeoutSeconds, AppleEventMusicAppScriptRunner.eventTimeoutSeconds)
     }
 }
 
@@ -2421,14 +2655,18 @@ final class AppleMusicPlaylistOnlySongTests: XCTestCase {
         )
         // Its library entry, as MusicKit encodes it under the cloud library ID.
         lookup.libraryIdentitiesByPersistentID[rowID] = AppleMusicSongIdentity(
-            encoded: Data(#"{"id":"i.aJGod6dt36dmrrA","type":"library-songs","attributes":{"name":"Don't Stop The Music","playParams":{"catalogId":"1441154439","musicKit_persistentID":"-1192152853020385209","kind":"song","isLibrary":true,"id":"i.aJGod6dt36dmrrA","musicKit_libraryID":"i.aJGod6dt36dmrrA"}}}"#.utf8)
+            encoded: Data(
+                #"{"id":"i.aJGod6dt36dmrrA","type":"library-songs","attributes":{"name":"Don't Stop The Music","playParams":{"catalogId":"1441154439","musicKit_persistentID":"-1192152853020385209","kind":"song","isLibrary":true,"id":"i.aJGod6dt36dmrrA","musicKit_libraryID":"i.aJGod6dt36dmrrA"}}}"#
+                    .utf8)
         )
     }
 
     /// The row exactly as MusicKit listed it in 18P1 (its `libraryAddedDate` was nil).
     private func row() throws -> Song {
-        let attributes = #""artistName":"Rihanna","albumName":"Good Girl Gone Bad: Reloaded","name":"Don't Stop The Music","durationInMillis":267080,"playParams":{"musicKit_persistentID":"-1192152853020385209","id":"-1192152853020385209","kind":"song","musicKit_databaseID":"785BA2D7E82AE547","isLibrary":true}"#
-        let json = #"{"id":"-1192152853020385209","type":"songs","attributes":{\#(attributes)},"meta":{"musicKit_identifierSet":{"isLibrary":true,"dataSources":["localLibrary","legacyModel"],"deviceLocalID":{"databaseID":"785BA2D7E82AE547","value":"-1192152853020385209"},"type":"Song","id":"-1192152853020385209"}}}"#
+        let attributes =
+            #""artistName":"Rihanna","albumName":"Good Girl Gone Bad: Reloaded","name":"Don't Stop The Music","durationInMillis":267080,"playParams":{"musicKit_persistentID":"-1192152853020385209","id":"-1192152853020385209","kind":"song","musicKit_databaseID":"785BA2D7E82AE547","isLibrary":true}"#
+        let json =
+            #"{"id":"-1192152853020385209","type":"songs","attributes":{\#(attributes)},"meta":{"musicKit_identifierSet":{"isLibrary":true,"dataSources":["localLibrary","legacyModel"],"deviceLocalID":{"databaseID":"785BA2D7E82AE547","value":"-1192152853020385209"},"type":"Song","id":"-1192152853020385209"}}}"#
         return try AppleMusicFixtures.decode(Song.self, json)
     }
 
@@ -2459,10 +2697,12 @@ final class AppleMusicPlaylistOnlySongTests: XCTestCase {
 
         try await editor.saveSongs(ids: [rowID])
 
-        XCTAssertEqual(cloud.calls, [
-            "addToLibrary(songs:1441154439 albums:)",
-            "rate(love,1441154439,catalog)",
-        ])
+        XCTAssertEqual(
+            cloud.calls,
+            [
+                "addToLibrary(songs:1441154439 albums:)",
+                "rate(love,1441154439,catalog)",
+            ])
         XCTAssertEqual(editor.knownSongStatus(id: rowID), true, "the menu now offers Remove")
         let statuses = try await editor.songStatuses(ids: [rowID])
         XCTAssertEqual(statuses, [true])
@@ -2489,7 +2729,12 @@ final class AppleMusicPlaylistOnlySongTests: XCTestCase {
         try await editor.saveSongs(ids: [rowID])
 
         _ = pending.applied(
-            toLibrarySongs: [(track: AppleMusicLibraryEditorTests.track(id: "i.aJGod6dt36dmrrA", name: "Don't Stop The Music"), keys: Set(["i.aJGod6dt36dmrrA", "1441154439", rowID]))],
+            toLibrarySongs: [
+                (
+                    track: AppleMusicLibraryEditorTests.track(id: "i.aJGod6dt36dmrrA", name: "Don't Stop The Music"),
+                    keys: Set(["i.aJGod6dt36dmrrA", "1441154439", rowID])
+                )
+            ],
             isComplete: true
         )
 
@@ -2509,7 +2754,12 @@ final class AppleMusicPlaylistOnlySongTests: XCTestCase {
 
         try await editor.saveSongs(ids: ["1441154439"])
         _ = pending.applied(
-            toLibrarySongs: [(track: AppleMusicLibraryEditorTests.track(id: "i.aJGod6dt36dmrrA", name: "Don't Stop The Music"), keys: Set(["i.aJGod6dt36dmrrA", "1441154439", rowID]))],
+            toLibrarySongs: [
+                (
+                    track: AppleMusicLibraryEditorTests.track(id: "i.aJGod6dt36dmrrA", name: "Don't Stop The Music"),
+                    keys: Set(["i.aJGod6dt36dmrrA", "1441154439", rowID])
+                )
+            ],
             isComplete: true
         )
 
@@ -2524,7 +2774,8 @@ final class AppleMusicPlaylistOnlySongTests: XCTestCase {
             title: "Kept", artistName: "Rihanna", albumTitle: "Good Girl Gone Bad: Reloaded"
         )
         registry.remember(librarySong)
-        lookup.albumsByID["-7"] = AppleMusicAlbumReference(itemID: "-7", catalogID: "70", isInLibrary: true, librarySongs: [librarySong])
+        lookup.albumsByID["-7"] = AppleMusicAlbumReference(
+            itemID: "-7", catalogID: "70", isInLibrary: true, librarySongs: [librarySong])
 
         try await editor.removeAlbums(ids: ["-7"])
 
@@ -2570,7 +2821,9 @@ final class AppleMusicPlaylistOnlySongTests: XCTestCase {
 
         try await editor.removeAlbums(ids: ["l.album"])
 
-        XCTAssertEqual(musicApp.calls, ["removeFromLibrary([persistentID(\"0000000000000001\"), persistentID(\"\(rowPersistentID)\")])"])
+        XCTAssertEqual(
+            musicApp.calls,
+            ["removeFromLibrary([persistentID(\"0000000000000001\"), persistentID(\"\(rowPersistentID)\")])"])
         XCTAssertEqual(editor.knownSongStatus(id: rowID), false)
     }
 }
@@ -2591,7 +2844,9 @@ private final class RegistryBackedLookup: AppleMusicLibraryLookup, @unchecked Se
     }
 
     func catalogTracks(ids: [String]) async throws -> [MusicTrack] { try await base.catalogTracks(ids: ids) }
-    func catalogAlbumTracks(albumIDs: [String]) async throws -> [MusicTrack] { try await base.catalogAlbumTracks(albumIDs: albumIDs) }
+    func catalogAlbumTracks(albumIDs: [String]) async throws -> [MusicTrack] {
+        try await base.catalogAlbumTracks(albumIDs: albumIDs)
+    }
     func albums(ids: [String]) async throws -> [AppleMusicAlbumReference] { try await base.albums(ids: ids) }
     func playlist(id: String) async throws -> AppleMusicPlaylistReference? { try await base.playlist(id: id) }
     func libraryIdentity(of reference: AppleMusicSongReference) async throws -> AppleMusicSongIdentity? {
@@ -2628,7 +2883,8 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
             lookup: lookup, cloud: cloud, musicApp: musicApp, pending: pending,
             songReferences: AppleMusicSongReferenceRegistry()
         )
-        lookup.playlistsByID[playlistID] = AppleMusicPlaylistReference(name: "Spotiglass test", musicAppPersistentID: "FE82FB07F4D3B511")
+        lookup.playlistsByID[playlistID] = AppleMusicPlaylistReference(
+            name: "Spotiglass test", musicAppPersistentID: "FE82FB07F4D3B511")
         // A library song: the playlist lists it under its persistent ID, the API adds it by its
         // catalog ID, and the added copy shows as the catalog song until the library has it.
         lookup.songsByID[songA] = AppleMusicSongReference(
@@ -2637,23 +2893,26 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
             isInLibrary: true, title: "A", artistName: "Santigold"
         )
         lookup.songsByID["506650076"] = lookup.songsByID[songA]
-        lookup.catalogTracksByID["506650076"] = AppleMusicLibraryEditorTests.track(id: "506650076", name: "A", artist: "Santigold")
+        lookup.catalogTracksByID["506650076"] = AppleMusicLibraryEditorTests.track(
+            id: "506650076", name: "A", artist: "Santigold")
         source = EditTestContentSource()
         provider = AppleMusicBrowsingProvider(source: source, editor: editor)
     }
 
     private func library(_ names: String...) throws {
         source.tracksByPlaylistID[playlistID] = try names.map { name in
-            .song(try AppleMusicFixtures.song(
-                id: name == "A" ? songA : (name == "B" ? songB : "-3017376107758730010"), title: name, artist: "Santigold",
-                catalogID: name == "A" ? "506650076" : (name == "B" ? "506650077" : "506650078")
-            ))
+            .song(
+                try AppleMusicFixtures.song(
+                    id: name == "A" ? songA : (name == "B" ? songB : "-3017376107758730010"), title: name,
+                    artist: "Santigold",
+                    catalogID: name == "A" ? "506650076" : (name == "B" ? "506650077" : "506650078")
+                ))
         }
     }
 
     private func shown() async throws -> [String] {
         try await provider.playlistTracks(playlistID: playlistID, limit: 100, maxPages: 1).compactMap { item in
-            guard case let .track(track) = item.content else { return nil }
+            guard case .track(let track) = item.content else { return nil }
             return track.name
         }
     }
@@ -2792,7 +3051,8 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
             musicAppPersistentID: AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: songB),
             isInLibrary: true, title: "B", artistName: "Santigold"
         )
-        lookup.catalogTracksByID["506650077"] = AppleMusicLibraryEditorTests.track(id: "506650077", name: "B", artist: "Santigold")
+        lookup.catalogTracksByID["506650077"] = AppleMusicLibraryEditorTests.track(
+            id: "506650077", name: "B", artist: "Santigold")
         try library("A", "B", "C")
         try await remove(songA, at: 0)
         try await add(songA)
@@ -2811,7 +3071,8 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
             musicAppPersistentID: AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: songB),
             isInLibrary: true, title: "B", artistName: "Santigold"
         )
-        lookup.catalogTracksByID["506650077"] = AppleMusicLibraryEditorTests.track(id: "506650077", name: "B", artist: "Santigold")
+        lookup.catalogTracksByID["506650077"] = AppleMusicLibraryEditorTests.track(
+            id: "506650077", name: "B", artist: "Santigold")
         try library("A", "B")
         try await remove(songA, at: 0)
         try await add(songA)
@@ -2843,8 +3104,10 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
     /// playlist shows there at once, from the library song's own details.
     func testAnUploadedSongShowsInThePlaylistAtOnce() async throws {
         // An uploaded file is a library song with no catalog release to name.
-        let uploaded = try AppleMusicFixtures.song(id: "i.uploadedDemo", title: "Demo Take", artist: "Me", persistentID: "4221837312334433019")
-        var reference = MusicKitLibraryLookup.reference(uploaded, identity: AppleMusicSongIdentity(encoding: uploaded), itemID: "i.uploadedDemo", isInLibrary: true)
+        let uploaded = try AppleMusicFixtures.song(
+            id: "i.uploadedDemo", title: "Demo Take", artist: "Me", persistentID: "4221837312334433019")
+        var reference = MusicKitLibraryLookup.reference(
+            uploaded, identity: AppleMusicSongIdentity(encoding: uploaded), itemID: "i.uploadedDemo", isInLibrary: true)
         reference.catalogID = nil
         reference.cloudLibraryID = "i.uploadedDemo"
         lookup.songsByID["i.uploadedDemo"] = reference
@@ -2863,7 +3126,8 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
             musicAppPersistentID: AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID: songB),
             isInLibrary: true, title: "B", artistName: "Santigold"
         )
-        lookup.catalogTracksByID["506650077"] = AppleMusicLibraryEditorTests.track(id: "506650077", name: "B", artist: "Santigold")
+        lookup.catalogTracksByID["506650077"] = AppleMusicLibraryEditorTests.track(
+            id: "506650077", name: "B", artist: "Santigold")
     }
 
     /// The add goes through the API (slow), the removal through the Music app (local): a read can
@@ -2933,7 +3197,8 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
 
         try library("B", "C")
 
-        try await expectShown(["B", "C", "A"], "the Music app's add is in, the API's is on its way after the rows the read has")
+        try await expectShown(
+            ["B", "C", "A"], "the Music app's add is in, the API's is on its way after the rows the read has")
     }
 
     /// The same, and I remove C where it is shown: the Music app has C, so it goes through.
@@ -3020,7 +3285,10 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         let ids = ["A": songA, "B": songB, "C": songC]
         source.tracksByPlaylistID[playlistID] = try names.enumerated().map { _, name in
             let id = ids[name] ?? "-30173761077587300\(Int(name.unicodeScalars.first!.value))"
-            return .song(try AppleMusicFixtures.song(id: id, title: name, artist: "Santigold", catalogID: "5066\(Int(name.unicodeScalars.first!.value))"))
+            return .song(
+                try AppleMusicFixtures.song(
+                    id: id, title: name, artist: "Santigold", catalogID: "5066\(Int(name.unicodeScalars.first!.value))")
+            )
         }
     }
 
@@ -3041,7 +3309,9 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
 
         // The Music app's playlist is [C, B, C]: the copy I picked is its row 2.
         let call = try XCTUnwrap(musicApp.calls.last)
-        XCTAssertTrue(call.hasSuffix("@[2]])"), "the Music app was told \(call); on its [C, B, C] that takes the first C, not the one I picked")
+        XCTAssertTrue(
+            call.hasSuffix("@[2]])"),
+            "the Music app was told \(call); on its [C, B, C] that takes the first C, not the one I picked")
     }
 
     /// [A, B] with my add of a second B on its way. I unlike A (Music takes it out of every
@@ -3139,8 +3409,9 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         let provider = provider!
         let playlistID = playlistID
         let read = Task {
-            try await provider.playlistTracks(playlistID: playlistID, limit: 100, maxPages: 1).compactMap { item -> MusicTrack? in
-                guard case let .track(track) = item.content else { return nil }
+            try await provider.playlistTracks(playlistID: playlistID, limit: 100, maxPages: 1).compactMap {
+                item -> MusicTrack? in
+                guard case .track(let track) = item.content else { return nil }
                 return track
             }
         }
@@ -3159,7 +3430,9 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         let c = AppleMusicLibraryEditorTests.track(id: songC, name: "C", artist: "Santigold")
         let b = AppleMusicLibraryEditorTests.track(id: songB, name: "B", artist: "Santigold")
         let listed = [c] + Array(repeating: b, count: 9_999)
-        let row = { (track: MusicTrack) in (track: track, keys: Set([track.id, AppleMusicPendingLibraryEdits.metadataKey(track)])) }
+        let row = { (track: MusicTrack) in
+            (track: track, keys: Set([track.id, AppleMusicPendingLibraryEdits.metadataKey(track)]))
+        }
         pending.recordPlaylistAdditions(
             [(c, try XCTUnwrap(lookup.songsByID[songC]))], route: .musicApp, playlistID: playlistID, shown: listed
         )
@@ -3168,7 +3441,8 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         XCTAssertEqual(shown.count, 10_001)
 
         do {
-            try await editor.removeFromPlaylist(playlistID: playlistID, removals: [(songID: songC, positions: [10_000])], shownTracks: shown)
+            try await editor.removeFromPlaylist(
+                playlistID: playlistID, removals: [(songID: songC, positions: [10_000])], shownTracks: shown)
             XCTFail("the removal went through")
         } catch {
             XCTAssertEqual(error as? AppleMusicLibraryEditError, .notInMusicYet)
@@ -3187,22 +3461,29 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         _ = await provider.playlistTrackCounts(playlistIDs: [playlistID])
         let counted = await provider.lastReadPlaylistTracks(playlistID: playlistID) ?? []
         let listed = counted.compactMap { item -> MusicTrack? in
-            guard case let .track(track) = item.content else { return nil }
+            guard case .track(let track) = item.content else { return nil }
             return track
         }
         XCTAssertEqual(listed.count, 10_000)
         pending.recordPlaylistAdditions(
-            [(AppleMusicLibraryEditorTests.track(id: songC, name: "C", artist: "Santigold"), try XCTUnwrap(lookup.songsByID[songC]))],
+            [
+                (
+                    AppleMusicLibraryEditorTests.track(id: songC, name: "C", artist: "Santigold"),
+                    try XCTUnwrap(lookup.songsByID[songC])
+                )
+            ],
             route: .musicApp, playlistID: playlistID, shown: listed
         )
-        let shown = (await provider.lastReadPlaylistTracks(playlistID: playlistID) ?? []).compactMap { item -> MusicTrack? in
-            guard case let .track(track) = item.content else { return nil }
+        let shown = (await provider.lastReadPlaylistTracks(playlistID: playlistID) ?? []).compactMap {
+            item -> MusicTrack? in
+            guard case .track(let track) = item.content else { return nil }
             return track
         }
         XCTAssertEqual(shown.count, 10_001)
 
         do {
-            try await editor.removeFromPlaylist(playlistID: playlistID, removals: [(songID: songC, positions: [10_000])], shownTracks: shown)
+            try await editor.removeFromPlaylist(
+                playlistID: playlistID, removals: [(songID: songC, positions: [10_000])], shownTracks: shown)
             XCTFail("the removal went through")
         } catch {
             XCTAssertEqual(error as? AppleMusicLibraryEditError, .notInMusicYet)
@@ -3256,7 +3537,8 @@ final class AppleMusicCrossingPlaylistEditsTests: XCTestCase {
         let calls = musicApp.calls
 
         do {
-            try await editor.removeFromPlaylist(playlistID: playlistID, removals: [(songID: songC, positions: [0])], shownTracks: shown)
+            try await editor.removeFromPlaylist(
+                playlistID: playlistID, removals: [(songID: songC, positions: [0])], shownTracks: shown)
             XCTFail("the removal went through")
         } catch {
             XCTAssertEqual(error as? AppleMusicLibraryEditError, .notInMusicYet)

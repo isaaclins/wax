@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// Artist album pagination as the app runs it: the artist page in `PlaylistBrowserViewModel`
@@ -17,7 +18,8 @@ final class SpotifyAPIClientArtistAlbumsPaginationTests: XCTestCase {
         let first = try XCTUnwrap(requests.first.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false) })
         XCTAssertEqual(first.path, "/v1/artists/ar1/albums")
         XCTAssertEqual(first.queryItems?.first { $0.name == "limit" }?.value, "10")
-        XCTAssertEqual(requests.last, ArtistAlbumsHTTPClient.pageURL(offset: 10), "the second page is Spotify's next URL")
+        XCTAssertEqual(
+            requests.last, ArtistAlbumsHTTPClient.pageURL(offset: 10), "the second page is Spotify's next URL")
         XCTAssertEqual(try shownAlbumIDs(viewModel), ["alb-0", "alb-1"])
         XCTAssertFalse(try shownDetail(viewModel).canLoadMoreAlbums)
     }
@@ -76,7 +78,7 @@ final class SpotifyAPIClientArtistAlbumsPaginationTests: XCTestCase {
     }
 
     private func shownDetail(_ viewModel: PlaylistBrowserViewModel) throws -> ArtistDetailViewModel {
-        guard case let .loaded(.artist(detail)) = viewModel.detailState else {
+        guard case .loaded(.artist(let detail)) = viewModel.detailState else {
             XCTFail("expected a loaded artist, got \(viewModel.detailState)")
             throw ArtistNotShown()
         }
@@ -117,7 +119,8 @@ private final class ArtistAlbumsHTTPClient: HTTPClient {
         } else if path == "/v1/artists/ar1/albums" {
             body = albumPage(for: url)
         } else if path == "/v1/artists/ar1" {
-            body = #"{"id":"ar1","name":"Paged Artist","images":[],"followers":{"total":1},"genres":[],"uri":"spotify:artist:ar1"}"#
+            body =
+                #"{"id":"ar1","name":"Paged Artist","images":[],"followers":{"total":1},"genres":[],"uri":"spotify:artist:ar1"}"#
         } else if path == "/v1/search" {
             body = "{}"
         } else if path.hasPrefix("/v1/albums/") {
@@ -143,22 +146,22 @@ private final class ArtistAlbumsHTTPClient: HTTPClient {
             next = "null"
         }
         return """
-        {
-          "limit": 10,
-          "next": \(next),
-          "total": \(albumPages),
-          "items": [
             {
-              "id": "alb-\(index)",
-              "name": "Album \(index)",
-              "images": [],
-              "release_date": "2020-01-01",
-              "total_tracks": 1,
-              "uri": "spotify:album:alb-\(index)",
-              "album_group": "album"
+              "limit": 10,
+              "next": \(next),
+              "total": \(albumPages),
+              "items": [
+                {
+                  "id": "alb-\(index)",
+                  "name": "Album \(index)",
+                  "images": [],
+                  "release_date": "2020-01-01",
+                  "total_tracks": 1,
+                  "uri": "spotify:album:alb-\(index)",
+                  "album_group": "album"
+                }
+              ]
             }
-          ]
-        }
-        """
+            """
     }
 }

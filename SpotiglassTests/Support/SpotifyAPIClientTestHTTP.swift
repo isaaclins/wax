@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+
 @testable import Spotiglass
 
 // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -289,7 +290,8 @@ final class TokenAwareUnauthorizedHTTPClient: HTTPClient {
             }
         }
         let statusCode = isStale ? 401 : 200
-        let payload = isStale
+        let payload =
+            isStale
             ? #"{"error":{"status":401,"message":"Expired"}}"#
             : #"{"id":"user-1","display_name":"AfterRefresh","images":[],"country":null,"product":"premium"}"#
         return (

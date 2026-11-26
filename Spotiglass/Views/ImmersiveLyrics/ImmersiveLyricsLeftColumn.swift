@@ -53,7 +53,8 @@ struct ImmersiveLyricsLeftColumnView: View {
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            ImmersiveLyricsArtistLineView(track: track, linksToArtists: linksToLibrary, navigateToArtist: navigateToArtist)
+            ImmersiveLyricsArtistLineView(
+                track: track, linksToArtists: linksToLibrary, navigateToArtist: navigateToArtist)
 
             if let album = track.albumName, !album.isEmpty {
                 if linksToLibrary {

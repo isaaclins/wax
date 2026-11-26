@@ -101,15 +101,21 @@ enum CallLog {
     /// An HTTP request through `session`: method, URL, status, bytes and time. A status of 400 or
     /// more is logged as an error too, though the caller still gets the response, unless it is
     /// one of `expected` (LRCLIB's 404 is "no lyrics for this song", an answer).
-    static func http(_ request: URLRequest, session: URLSession, expected: Set<Int> = []) async throws -> (Data, URLResponse) {
+    static func http(_ request: URLRequest, session: URLSession, expected: Set<Int> = []) async throws -> (
+        Data, URLResponse
+    ) {
         let method = request.httpMethod ?? "GET"
         let url = request.url?.absoluteString ?? "(no URL)"
-        return try await runHTTP("\(method) \(url)", expected: expected) { try await session.data(for: request, delegate: nil) }
+        return try await runHTTP("\(method) \(url)", expected: expected) {
+            try await session.data(for: request, delegate: nil)
+        }
     }
 
     /// An HTTP GET of `url` through `session`.
     static func http(_ url: URL, session: URLSession) async throws -> (Data, URLResponse) {
-        try await runHTTP("GET \(url.absoluteString)", expected: []) { try await session.data(from: url, delegate: nil) }
+        try await runHTTP("GET \(url.absoluteString)", expected: []) {
+            try await session.data(from: url, delegate: nil)
+        }
     }
 
     private static func runHTTP(
@@ -167,11 +173,13 @@ enum CallLog {
     private static func end(_ id: Int, outcome: String, failed: Bool) {
         let at = now()
         guard let call = state.withLock({ $0.running.removeValue(forKey: id) }) else { return }
-        var line = "← #\(id) \(call.kind.rawValue) \(call.name) \(failed ? "failed" : "done") after \(milliseconds(at - call.start))"
+        var line =
+            "← #\(id) \(call.kind.rawValue) \(call.name) \(failed ? "failed" : "done") after \(milliseconds(at - call.start))"
         // An error's text can carry what a request sent (MusicKit's prints its headers).
         if !outcome.isEmpty { line += ": \(SpotiglassLog.redactSecrets(outcome))" }
         if let interaction = call.interaction, at - interaction.at > slowInteraction {
-            line += " — SLOW: interaction #\(interaction.id) \(interaction.label) waited \(seconds(at - interaction.at)) for this"
+            line +=
+                " — SLOW: interaction #\(interaction.id) \(interaction.label) waited \(seconds(at - interaction.at)) for this"
         }
         write(failed, line)
     }

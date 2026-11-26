@@ -1,5 +1,6 @@
 import AppKit
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -41,17 +42,17 @@ final class CommandPaletteModelsTests: XCTestCase {
 
     func testKeymapDecodingParsesContextAndArgs() throws {
         let json = """
-        {
-          "bindings": [
             {
-              "keystrokes": ["cmd-k"],
-              "command": "palette.open",
-              "when": "always",
-              "args": { "uri": "spotify:track:1" }
+              "bindings": [
+                {
+                  "keystrokes": ["cmd-k"],
+                  "command": "palette.open",
+                  "when": "always",
+                  "args": { "uri": "spotify:track:1" }
+                }
+              ]
             }
-          ]
-        }
-        """
+            """
 
         let file = try JSONDecoder().decode(CommandPaletteKeymapFile.self, from: Data(json.utf8))
         XCTAssertEqual(file.bindings.count, 1)
@@ -87,13 +88,19 @@ final class CommandPaletteModelsTests: XCTestCase {
         defer { MusicServiceSelection.current = previous }
 
         MusicServiceSelection.current = .appleMusic
-        XCTAssertEqual(CommandPaletteScopePresentation.searchPlaceholder(scope: .songs, category: .all), "Search Apple Music")
-        XCTAssertEqual(SpotiglassL10n.format("palette.searching", MusicServiceSelection.current.displayName), "Searching Apple Music")
-        let openSearch = CommandPaletteCommandCatalog.editable.first { $0.commandID == CommandPaletteCommandID.openSearch }
+        XCTAssertEqual(
+            CommandPaletteScopePresentation.searchPlaceholder(scope: .songs, category: .all), "Search Apple Music")
+        XCTAssertEqual(
+            SpotiglassL10n.format("palette.searching", MusicServiceSelection.current.displayName),
+            "Searching Apple Music")
+        let openSearch = CommandPaletteCommandCatalog.editable.first {
+            $0.commandID == CommandPaletteCommandID.openSearch
+        }
         XCTAssertEqual(openSearch?.subtitle, "Search Apple Music for tracks, albums, artists and playlists")
 
         MusicServiceSelection.current = .spotify
-        XCTAssertEqual(CommandPaletteScopePresentation.searchPlaceholder(scope: .songs, category: .all), "Search Spotify")
+        XCTAssertEqual(
+            CommandPaletteScopePresentation.searchPlaceholder(scope: .songs, category: .all), "Search Spotify")
         XCTAssertEqual(openSearch?.subtitle, "Search Spotify for tracks, albums, artists and playlists")
     }
 }

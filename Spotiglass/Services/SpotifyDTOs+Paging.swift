@@ -1,7 +1,5 @@
 import Foundation
 
-import Foundation
-
 struct SpotifyPagingDTO<Item: Decodable>: Decodable {
     let limit: Int
     let next: URL?
@@ -29,4 +27,3 @@ struct SpotifyPagingDTO<Item: Decodable>: Decodable {
         }
     }
 }
-

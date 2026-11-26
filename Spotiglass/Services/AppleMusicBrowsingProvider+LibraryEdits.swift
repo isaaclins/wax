@@ -48,7 +48,9 @@ extension AppleMusicBrowsingProvider {
 
     /// The songs go in with the create itself, so a song that can't be added leaves no empty
     /// playlist behind (#395).
-    func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws -> MusicPlaylistSummary {
+    func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws
+        -> MusicPlaylistSummary
+    {
         let songIDs = trackURIs.compactMap(AppleMusicItemMapping.songID(fromURI:))
         guard songIDs.count == trackURIs.count else { throw AppleMusicLibraryEditError.notEditable }
         return try await editor.createPlaylist(
@@ -68,7 +70,10 @@ extension AppleMusicBrowsingProvider {
             return Set(existing.filter { AppleMusicLibraryEditor.isSamePlaylistName($0.nameAsSent, name) }.map(\.id))
         } catch {
             guard let listed = editor.pending.lastListedPlaylistIDs(named: name) else {
-                SpotiglassLog.error(.browsing, "New playlist not created: the library's playlists could not be read — \(error.localizedDescription)")
+                SpotiglassLog.error(
+                    .browsing,
+                    "New playlist not created: the library's playlists could not be read — \(error.localizedDescription)"
+                )
                 throw error
             }
             SpotiglassLog.error(
@@ -94,7 +99,7 @@ extension AppleMusicBrowsingProvider {
         let shown = (try? await playlistTracks(playlistID: playlistID, limit: 100, maxPages: 100)) ?? []
         adding.forEach(editor.songReferences.remember)
         let shownTracks = shown.compactMap { item -> MusicTrack? in
-            if case let .track(track) = item.content { return track }
+            if case .track(let track) = item.content { return track }
             return nil
         }
         try await editor.addToPlaylist(playlistID: playlistID, songIDs: ids, shownTracks: shownTracks)
@@ -115,7 +120,7 @@ extension AppleMusicBrowsingProvider {
         // when the library shows the removal.
         let shown = (try? await playlistTracks(playlistID: playlistID, limit: 100, maxPages: 100)) ?? []
         let shownTracks = shown.compactMap { item -> MusicTrack? in
-            if case let .track(track) = item.content { return track }
+            if case .track(let track) = item.content { return track }
             return nil
         }
         try await editor.removeFromPlaylist(playlistID: playlistID, removals: removals, shownTracks: shownTracks)
@@ -159,14 +164,16 @@ extension AppleMusicBrowsingProvider {
     }
 
     /// `isComplete` is false when the read stopped at its limit.
-    func applyingPendingEdits(toPlaylistTracks tracks: [Track], playlistID: String, isComplete: Bool = true) -> [MusicTrack] {
+    func applyingPendingEdits(toPlaylistTracks tracks: [Track], playlistID: String, isComplete: Bool = true)
+        -> [MusicTrack]
+    {
         editor.songReferences.remember(tracks, playlistID: playlistID)
         // Removing a song from the library also takes it out of every playlist.
         guard editor.pending.laysEditsOver(playlistID: playlistID) || editor.pending.hasPendingSongs else {
             return tracks.map { AppleMusicItemMapping.track($0) }
         }
         let identified = tracks.map { track -> (track: MusicTrack, keys: Set<String>) in
-            if case let .song(song) = track { return Self.identified(song) }
+            if case .song(let song) = track { return Self.identified(song) }
             let mapped = AppleMusicItemMapping.track(track)
             return (mapped, [track.id.rawValue, AppleMusicPendingLibraryEdits.metadataKey(mapped)])
         }
@@ -188,7 +195,7 @@ extension AppleMusicBrowsingProvider {
 
     /// Every key a pending edit may know a track by.
     private static func pendingKeys(_ track: Track) -> Set<String> {
-        if case let .song(song) = track { return identified(song).keys }
+        if case .song(let song) = track { return identified(song).keys }
         return [track.id.rawValue, AppleMusicPendingLibraryEdits.metadataKey(AppleMusicItemMapping.track(track))]
     }
 

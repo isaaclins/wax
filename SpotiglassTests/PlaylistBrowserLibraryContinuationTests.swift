@@ -99,7 +99,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
             artists: ["Artist a", "Artist b"],
             artistRefs: [
                 MusicArtistRef(id: "artist-a", name: "Artist a"),
-                MusicArtistRef(id: "artist-b", name: "Artist b")
+                MusicArtistRef(id: "artist-b", name: "Artist b"),
             ],
             albumArtworkURL: nil,
             durationMilliseconds: 180_000,
@@ -264,10 +264,12 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         let api = MockBrowsingAPI(
             playlistResults: [],
             trackResults: [:],
-            savedTracksResult: .success(MusicSavedTracksResult(
-                tracks: [item(seed)] + ["one", "two", "three", "four", "five"].map { item(track($0, artistID: "artist")) },
-                totalAvailable: 6
-            ))
+            savedTracksResult: .success(
+                MusicSavedTracksResult(
+                    tracks: [item(seed)]
+                        + ["one", "two", "three", "four", "five"].map { item(track($0, artistID: "artist")) },
+                    totalAvailable: 6
+                ))
         )
         api.topTracksHandler = { _, _ in throw SampleError() }
         let viewModel = makeViewModel(api: api, cache: MockBrowsingCache())
@@ -293,10 +295,11 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         let api = MockBrowsingAPI(
             playlistResults: [],
             trackResults: [:],
-            savedTracksResult: .success(MusicSavedTracksResult(
-                tracks: [item(seed)] + ["one", "two", "three", "four"].map { item(track($0, artistID: "artist")) },
-                totalAvailable: 5
-            ))
+            savedTracksResult: .success(
+                MusicSavedTracksResult(
+                    tracks: [item(seed)] + ["one", "two", "three", "four"].map { item(track($0, artistID: "artist")) },
+                    totalAvailable: 5
+                ))
         )
         api.artistTopTracksHandler = { _, _ in throw SampleError() }
         let cache = MockBrowsingCache()
@@ -318,7 +321,8 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         let api = MockBrowsingAPI(
             playlistResults: [],
             trackResults: [:],
-            savedTracksResult: .success(MusicSavedTracksResult(tracks: [item(seed), item(track("one", artistID: "artist"))], totalAvailable: 2))
+            savedTracksResult: .success(
+                MusicSavedTracksResult(tracks: [item(seed), item(track("one", artistID: "artist"))], totalAvailable: 2))
         )
         api.topTracksHandler = { _, _ in throw SampleError() }
         let cache = MockBrowsingCache()
@@ -327,7 +331,8 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
             QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
         }
-        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.format("library.continuation.shortLoadFailed", Int64(1)))
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text, SpotiglassL10n.format("library.continuation.shortLoadFailed", Int64(1)))
         XCTAssertNil(cache.savedLibraryContinuation, "a collection with a failed source was saved as fresh")
     }
 

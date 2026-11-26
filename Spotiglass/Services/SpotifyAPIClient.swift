@@ -47,7 +47,11 @@ struct SpotifyAPIClient {
     }
 
     func makeRequest(path: String, queryItems: [URLQueryItem] = [], accessToken: String) throws -> URLRequest {
-        guard var components = URLComponents(url: baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))), resolvingAgainstBaseURL: false) else {
+        guard
+            var components = URLComponents(
+                url: baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))),
+                resolvingAgainstBaseURL: false)
+        else {
             throw SpotifyAPIError.invalidRequest("Invalid Spotify API path: \(path)")
         }
         components.queryItems = queryItems.isEmpty ? nil : queryItems
@@ -85,15 +89,16 @@ struct SpotifyAPIClient {
                     path: path,
                     queryItems: [
                         URLQueryItem(name: "limit", value: String(limit)),
-                        URLQueryItem(name: "offset", value: String(offset))
+                        URLQueryItem(name: "offset", value: String(offset)),
                     ]
                 )
             }
 
             let startIndex = results.count
-            results.append(contentsOf: page.items.enumerated().map { index, item in
-                transform(item, startIndex + index)
-            })
+            results.append(
+                contentsOf: page.items.enumerated().map { index, item in
+                    transform(item, startIndex + index)
+                })
 
             pagesFetched += 1
             if let pageCap, pagesFetched >= pageCap {
@@ -143,13 +148,16 @@ struct SpotifyAPIClient {
                 cacheMode: cacheMode
             )
             if traceSearch {
-                SpotiglassLog.info(.api, "GET \(path) token=\(tokenMs)ms net=\(Int(Date().timeIntervalSince(operationStart) * 1000))ms")
+                SpotiglassLog.info(
+                    .api, "GET \(path) token=\(tokenMs)ms net=\(Int(Date().timeIntervalSince(operationStart) * 1000))ms"
+                )
             }
             return result
         } catch {
             logRequestFailure(request: request, method: "GET", fallbackPath: path, error: error)
             if traceSearch {
-                SpotiglassLog.info(.api, "GET \(path) net=\(Int(Date().timeIntervalSince(operationStart) * 1000))ms error")
+                SpotiglassLog.info(
+                    .api, "GET \(path) net=\(Int(Date().timeIntervalSince(operationStart) * 1000))ms error")
             }
             throw error
         }
@@ -208,12 +216,13 @@ struct SpotifyAPIClient {
     ) async throws -> MusicCachedResponse<Response> {
         try await enforceScopeRequirement(for: request)
         if !didRefreshAfterUnauthorized,
-           cacheMode != .bypassCache,
-           let cache = getResponseCache,
-           SpotifyGETResponseCachePolicy.shouldCache(request),
-           let key = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request),
-           let cacheHit = cache.cachedEntry(forCacheKey: key, allowExpired: cacheMode == .allowStale),
-           let cachedValue = try? decoder.decode(Response.self, from: cacheHit.data) {
+            cacheMode != .bypassCache,
+            let cache = getResponseCache,
+            SpotifyGETResponseCachePolicy.shouldCache(request),
+            let key = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request),
+            let cacheHit = cache.cachedEntry(forCacheKey: key, allowExpired: cacheMode == .allowStale),
+            let cachedValue = try? decoder.decode(Response.self, from: cacheHit.data)
+        {
             return MusicCachedResponse(value: cachedValue, isStale: cacheHit.isExpired)
         }
 
@@ -235,19 +244,22 @@ struct SpotifyAPIClient {
     ) async throws -> Response {
         try await enforceScopeRequirement(for: request)
         if !didRefreshAfterUnauthorized,
-           cacheMode != .bypassCache,
-           let cache = getResponseCache,
-           SpotifyGETResponseCachePolicy.shouldCache(request),
-           let key = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request),
-           let cachedData = cache.cachedEntry(forCacheKey: key, allowExpired: cacheMode == .allowStale)?.data,
-           let cachedValue = try? decoder.decode(Response.self, from: cachedData) {
+            cacheMode != .bypassCache,
+            let cache = getResponseCache,
+            SpotifyGETResponseCachePolicy.shouldCache(request),
+            let key = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request),
+            let cachedData = cache.cachedEntry(forCacheKey: key, allowExpired: cacheMode == .allowStale)?.data,
+            let cachedValue = try? decoder.decode(Response.self, from: cachedData)
+        {
             return cachedValue
         }
 
-        let writeOwnership = cacheWriteOwnership ?? beginCacheWriteOwnership(
-            for: request,
-            didRefreshAfterUnauthorized: didRefreshAfterUnauthorized
-        )
+        let writeOwnership =
+            cacheWriteOwnership
+            ?? beginCacheWriteOwnership(
+                for: request,
+                didRefreshAfterUnauthorized: didRefreshAfterUnauthorized
+            )
 
         do {
             let (data, response) = try await httpClient.data(for: request)
@@ -284,12 +296,13 @@ struct SpotifyAPIClient {
                     headers: response.allHeaderFields,
                     request: request
                 )
-                if case let .rateLimited(retryAfter) = mappedError,
-                   shouldRetryAfterRateLimit(
-                       request: request,
-                       rateLimitRetryCount: rateLimitRetryCount,
-                       retryAfter: retryAfter
-                   ) {
+                if case .rateLimited(let retryAfter) = mappedError,
+                    shouldRetryAfterRateLimit(
+                        request: request,
+                        rateLimitRetryCount: rateLimitRetryCount,
+                        retryAfter: retryAfter
+                    )
+                {
                     try await sleepBeforeRateLimitRetry(retryAfter: retryAfter, retryCount: rateLimitRetryCount)
                     return try await send(
                         request: request,
@@ -304,12 +317,13 @@ struct SpotifyAPIClient {
             do {
                 let value = try decoder.decode(Response.self, from: data)
                 if !didRefreshAfterUnauthorized,
-                   let cache = getResponseCache,
-                   SpotifyGETResponseCachePolicy.shouldCache(request),
-                   let cacheKey = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request),
-                   let url = request.url,
-                   let ttl = SpotifyGETResponseCachePolicy.ttl(for: url),
-                   let writeOwnership {
+                    let cache = getResponseCache,
+                    SpotifyGETResponseCachePolicy.shouldCache(request),
+                    let cacheKey = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request),
+                    let url = request.url,
+                    let ttl = SpotifyGETResponseCachePolicy.ttl(for: url),
+                    let writeOwnership
+                {
                     cache.store(body: data, cacheKey: cacheKey, ttl: ttl, ownership: writeOwnership)
                 }
                 return value
@@ -335,9 +349,10 @@ struct SpotifyAPIClient {
         didRefreshAfterUnauthorized: Bool
     ) -> SpotifyGETResponseCacheWriteOwnership? {
         guard !didRefreshAfterUnauthorized,
-              let cache = getResponseCache,
-              SpotifyGETResponseCachePolicy.shouldCache(request),
-              let key = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request) else {
+            let cache = getResponseCache,
+            SpotifyGETResponseCachePolicy.shouldCache(request),
+            let key = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request)
+        else {
             return nil
         }
         return cache.beginWrite(forCacheKey: key)
@@ -381,7 +396,8 @@ struct SpotifyAPIClient {
         try await Task.sleep(nanoseconds: nanoseconds)
     }
 
-    func mapHTTPError(statusCode: Int, data: Data, headers: [AnyHashable: Any], request: URLRequest) -> SpotifyAPIError {
+    func mapHTTPError(statusCode: Int, data: Data, headers: [AnyHashable: Any], request: URLRequest) -> SpotifyAPIError
+    {
         let message = try? decoder.decode(SpotifyAPIErrorResponse.self, from: data).error.message
         let details = diagnosticDetails(statusCode: statusCode, data: data, headers: headers, request: request)
         switch statusCode {
@@ -417,7 +433,8 @@ struct SpotifyAPIClient {
 
     private func retryAfter(from headers: [AnyHashable: Any]) -> TimeInterval? {
         guard let raw = headerValue(named: "Retry-After", in: headers)?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty else {
+            !raw.isEmpty
+        else {
             return nil
         }
         if let seconds = TimeInterval(raw), seconds >= 0 {
@@ -464,22 +481,23 @@ struct SpotifyAPIClient {
         let body = String(data: data, encoding: .utf8) ?? "<non-UTF8 response body>"
 
         return """
-        \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "<missing URL>")
-        HTTP \(statusCode)
+            \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "<missing URL>")
+            HTTP \(statusCode)
 
-        Response headers:
-        \(headers.rawHeaderDump)
+            Response headers:
+            \(headers.rawHeaderDump)
 
-        Response body:
-        \(body)
-        """
+            Response body:
+            \(body)
+            """
     }
 
     private func requiredScopes(for request: URLRequest) -> [String] {
         let listed = scopeRequirement(for: request).listedScopes
         guard listed.isEmpty,
-              request.httpMethod?.uppercased() == "GET",
-              request.url?.path.hasPrefix("/v1/playlists/") == true else {
+            request.httpMethod?.uppercased() == "GET",
+            request.url?.path.hasPrefix("/v1/playlists/") == true
+        else {
             return listed
         }
         // Keep the read capability in explicit `insufficient_scope` diagnostics
@@ -500,12 +518,15 @@ struct SpotifyAPIClient {
                 return SpotifyScopeRequirement(allOf: SpotifyAuthConfiguration.requiredPlaylistReadScopes)
             }
             if method == "POST" {
-                let isPublic = request.httpBody
+                let isPublic =
+                    request.httpBody
                     .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["public"] as? Bool
                 return SpotifyScopeRequirement(
-                    allOf: [isPublic == true
-                        ? SpotifyAuthConfiguration.requiredPlaylistModifyScopes[1]
-                        : SpotifyAuthConfiguration.requiredPlaylistModifyScopes[0]]
+                    allOf: [
+                        isPublic == true
+                            ? SpotifyAuthConfiguration.requiredPlaylistModifyScopes[1]
+                            : SpotifyAuthConfiguration.requiredPlaylistModifyScopes[0]
+                    ]
                 )
             }
         }
@@ -537,9 +558,10 @@ struct SpotifyAPIClient {
             )
         }
         if path.hasPrefix("/v1/me/player/") {
-            return SpotifyScopeRequirement(allOf: method == "GET"
-                ? SpotifyAuthConfiguration.requiredPlaybackReadScopes
-                : SpotifyAuthConfiguration.requiredPlaybackModifyScopes)
+            return SpotifyScopeRequirement(
+                allOf: method == "GET"
+                    ? SpotifyAuthConfiguration.requiredPlaybackReadScopes
+                    : SpotifyAuthConfiguration.requiredPlaybackModifyScopes)
         }
         if path.hasPrefix("/v1/playlists/") && method != "GET" {
             // The playlist's visibility is not present in every summary, so
@@ -562,7 +584,8 @@ struct SpotifyAPIClient {
         let missing = requirement.missingScopes(from: await scopeProvider.grantedScopes())
         guard !missing.isEmpty else { return }
 
-        let details = "Scope preflight denied \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "<missing URL>"): missing \(missing.joined(separator: ", "))"
+        let details =
+            "Scope preflight denied \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "<missing URL>"): missing \(missing.joined(separator: ", "))"
         SpotiglassLog.error(.api, details)
         throw SpotifyAPIError.insufficientScope(
             requiredScopes: missing,
@@ -583,13 +606,13 @@ struct SpotifyAPIClient {
         }
 
         switch decodingError {
-        case let .keyNotFound(key, context):
+        case .keyNotFound(let key, let context):
             return "Missing key '\(key.stringValue)' at \(context.codingPath.readablePath)."
-        case let .valueNotFound(type, context):
+        case .valueNotFound(let type, let context):
             return "Missing \(type) value at \(context.codingPath.readablePath)."
-        case let .typeMismatch(type, context):
+        case .typeMismatch(let type, let context):
             return "Expected \(type) at \(context.codingPath.readablePath): \(context.debugDescription)"
-        case let .dataCorrupted(context):
+        case .dataCorrupted(let context):
             return "Invalid data at \(context.codingPath.readablePath): \(context.debugDescription)"
         @unknown default:
             return error.localizedDescription
@@ -597,23 +620,23 @@ struct SpotifyAPIClient {
     }
 }
 
-private extension JSONDecoder {
-    static var spotifyWebAPI: JSONDecoder {
+extension JSONDecoder {
+    fileprivate static var spotifyWebAPI: JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
     }
 }
 
-private extension Array where Element == CodingKey {
-    var readablePath: String {
+extension Array where Element == CodingKey {
+    fileprivate var readablePath: String {
         guard !isEmpty else { return "response root" }
         return map(\.stringValue).joined(separator: ".")
     }
 }
 
-private extension Dictionary where Key == AnyHashable, Value == Any {
-    var rawHeaderDump: String {
+extension Dictionary where Key == AnyHashable, Value == Any {
+    fileprivate var rawHeaderDump: String {
         guard !isEmpty else {
             return "<none>"
         }

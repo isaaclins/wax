@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -76,8 +77,10 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
             XCTAssertEqual(fields.count, bindable.count, "\(presentation): one recorder per bindable command")
             let frames = fields.map { $0.convert($0.bounds, to: nil) }
             for frame in frames {
-                XCTAssertEqual(frame.width, SpotiglassDesign.Layout.shortcutFieldWidth, accuracy: 0.5, "\(presentation)")
-                XCTAssertEqual(frame.minX, frames[0].minX, accuracy: 0.5, "\(presentation): a shortcut field left the column")
+                XCTAssertEqual(
+                    frame.width, SpotiglassDesign.Layout.shortcutFieldWidth, accuracy: 0.5, "\(presentation)")
+                XCTAssertEqual(
+                    frame.minX, frames[0].minX, accuracy: 0.5, "\(presentation): a shortcut field left the column")
             }
         }
     }
@@ -106,7 +109,8 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
             let columns = try view.inspect().findAll(where: {
                 (try? $0.fixedWidth()) == SpotiglassDesign.Layout.shortcutFieldWidth
             })
-            XCTAssertEqual(columns.count, CommandPaletteCommandCatalog.bindable.count, "\(presentation): no row without a field")
+            XCTAssertEqual(
+                columns.count, CommandPaletteCommandCatalog.bindable.count, "\(presentation): no row without a field")
         }
 
         // The store refuses it too, so no other path gives Disconnect a keypress.
@@ -141,13 +145,15 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
 
         func type(_ text: String) {
             search.stringValue = text
-            search.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: search))
+            search.delegate?.controlTextDidChange?(
+                Notification(name: NSControl.textDidChangeNotification, object: search))
             // The list redraws on SwiftUI's next update: wait for the row count, not for a time.
             let expected = CommandPaletteSettingsView.commands(matching: text).count
-            XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: {
-                controller.view.layoutSubtreeIfNeeded()
-                return recorderFields(in: controller.view).count == expected
-            }), "\"\(text)\": \(expected) rows")
+            XCTAssertTrue(
+                AppKitTestSupport.pumpRunLoop(until: {
+                    controller.view.layoutSubtreeIfNeeded()
+                    return recorderFields(in: controller.view).count == expected
+                }), "\"\(text)\": \(expected) rows")
         }
 
         let lyricsTitle = SpotiglassL10n.string(forKey: "palette.command.\(CommandPaletteCommandID.toggleLyrics).title")
@@ -169,21 +175,27 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
         let cancel = try XCTUnwrap((search.cell as? NSSearchFieldCell)?.cancelButtonCell)
         XCTAssertTrue(NSApp.sendAction(try XCTUnwrap(cancel.action), to: cancel.target, from: cancel))
         XCTAssertEqual(search.stringValue, "")
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: {
-            controller.view.layoutSubtreeIfNeeded()
-            return recorderFields(in: controller.view).count == CommandPaletteCommandCatalog.bindable.count
-        }), "every command is listed again after the search field's clear button")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: {
+                controller.view.layoutSubtreeIfNeeded()
+                return recorderFields(in: controller.view).count == CommandPaletteCommandCatalog.bindable.count
+            }), "every command is listed again after the search field's clear button")
     }
 
     func testCommandSearchMatchesTitleAndSubtitleInTheAppLanguage() {
-        XCTAssertEqual(CommandPaletteSettingsView.commands(matching: "  ").count, CommandPaletteCommandCatalog.bindable.count)
+        XCTAssertEqual(
+            CommandPaletteSettingsView.commands(matching: "  ").count, CommandPaletteCommandCatalog.bindable.count)
         for spec in CommandPaletteCommandCatalog.bindable {
             XCTAssertTrue(
-                CommandPaletteSettingsView.commands(matching: spec.title.lowercased()).contains { $0.commandID == spec.commandID },
+                CommandPaletteSettingsView.commands(matching: spec.title.lowercased()).contains {
+                    $0.commandID == spec.commandID
+                },
                 spec.commandID
             )
             XCTAssertTrue(
-                CommandPaletteSettingsView.commands(matching: spec.subtitle).contains { $0.commandID == spec.commandID },
+                CommandPaletteSettingsView.commands(matching: spec.subtitle).contains {
+                    $0.commandID == spec.commandID
+                },
                 spec.commandID
             )
         }
@@ -210,17 +222,19 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
 
         settings.testing_beginKeyCapture()
         XCTAssertEqual(taken, try CommandShortcut(keystroke: "cmd-k"), "the default palette chord")
-        let event = try XCTUnwrap(NSEvent.keyEvent(
-            with: .keyDown, location: .zero, modifierFlags: taken.modifiers, timestamp: 0,
-            windowNumber: 0, context: nil, characters: taken.key, charactersIgnoringModifiers: taken.key,
-            isARepeat: false, keyCode: 40
-        ))
+        let event = try XCTUnwrap(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: taken.modifiers, timestamp: 0,
+                windowNumber: 0, context: nil, characters: taken.key, charactersIgnoringModifiers: taken.key,
+                isARepeat: false, keyCode: 40
+            ))
         settings.keyDown(with: event)
         // The row's state reaches its field on SwiftUI's next update: wait for it, not for a time.
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: {
-            controller.view.layoutSubtreeIfNeeded()
-            return (try? field(CommandPaletteCommandID.openSettings))?.showsProblem == true
-        }), "the row hands the conflict to its field")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: {
+                controller.view.layoutSubtreeIfNeeded()
+                return (try? field(CommandPaletteCommandID.openSettings))?.showsProblem == true
+            }), "the row hands the conflict to its field")
 
         let shown = try field(CommandPaletteCommandID.openSettings)
         XCTAssertFalse(shown.isRecording)
@@ -229,28 +243,32 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
         XCTAssertFalse(shown.showsClearControl)
         XCTAssertEqual(keymap.primaryShortcut(for: CommandPaletteCommandID.openSettings), saved, "nothing saved yet")
 
-
         // Recording again drops the conflict, and Esc puts the saved chord back.
         shown.testing_beginKeyCapture()
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: {
-            controller.view.layoutSubtreeIfNeeded()
-            return (try? field(CommandPaletteCommandID.openSettings))?.showsProblem == false
-        }))
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: {
+                controller.view.layoutSubtreeIfNeeded()
+                return (try? field(CommandPaletteCommandID.openSettings))?.showsProblem == false
+            }))
         let again = try field(CommandPaletteCommandID.openSettings)
         XCTAssertTrue(again.isRecording)
         XCTAssertFalse(again.showsProblem, "a new attempt starts clean")
-        again.keyDown(with: try XCTUnwrap(NSEvent.keyEvent(
-            with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
-            characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53
-        )))
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: {
-            controller.view.layoutSubtreeIfNeeded()
-            return (try? field(CommandPaletteCommandID.openSettings))?.content == .keys(saved.displayChips)
-        }))
+        again.keyDown(
+            with: try XCTUnwrap(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil,
+                    characters: "\u{1b}", charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53
+                )))
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: {
+                controller.view.layoutSubtreeIfNeeded()
+                return (try? field(CommandPaletteCommandID.openSettings))?.content == .keys(saved.displayChips)
+            }))
         let restored = try field(CommandPaletteCommandID.openSettings)
         XCTAssertEqual(restored.content, .keys(saved.displayChips))
         XCTAssertFalse(restored.showsProblem)
-        XCTAssertEqual(keymap.primaryShortcut(for: CommandPaletteCommandID.openPalette), taken, "the other command keeps it")
+        XCTAssertEqual(
+            keymap.primaryShortcut(for: CommandPaletteCommandID.openPalette), taken, "the other command keeps it")
     }
 
     func testShortcutFieldFitsEveryStateInEveryLanguage() {
@@ -391,17 +409,20 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
 
         vm.testingReplaceSections([
             (.tracks, [sampleItem()]),
-            (.commands, [
-                CommandPaletteItem(
-                    id: "cmd",
-                    title: "Refresh",
-                    subtitle: nil,
-                    iconSystemName: "arrow.clockwise",
-                    section: .commands,
-                    keywords: [],
-                    action: {}
-                ),
-            ]),
+            (
+                .commands,
+                [
+                    CommandPaletteItem(
+                        id: "cmd",
+                        title: "Refresh",
+                        subtitle: nil,
+                        iconSystemName: "arrow.clockwise",
+                        section: .commands,
+                        keywords: [],
+                        action: {}
+                    )
+                ]
+            ),
         ])
         let body = CommandPaletteResultsBodyView(
             viewModel: vm,

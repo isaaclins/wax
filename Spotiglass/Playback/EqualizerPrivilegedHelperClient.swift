@@ -83,11 +83,13 @@ final class EqualizerPrivilegedHelperClient: @unchecked Sendable, EqualizerDrive
             // one this app ships, and only while the registration is approved:
             // unregistering an unapproved service throws its approval away and
             // the next register needs the user again.
-            guard Self.shouldReRegister(
-                after: error,
-                helperIsThisBuild: helperVersionMarkerMatches(),
-                isEnabled: service.status == .enabled
-            ) else { throw error }
+            guard
+                Self.shouldReRegister(
+                    after: error,
+                    helperIsThisBuild: helperVersionMarkerMatches(),
+                    isEnabled: service.status == .enabled
+                )
+            else { throw error }
             try reRegister()
             try awaitEnabledService()
             try sendRequest(send)

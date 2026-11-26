@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class AppBundleMigrationTests: XCTestCase {
@@ -14,7 +15,9 @@ final class AppBundleMigrationTests: XCTestCase {
         let destination = try XCTUnwrap(AppBundleMigration.moveLegacyBundle(at: source))
         XCTAssertEqual(destination.lastPathComponent, "Wax.app")
         XCTAssertFalse(FileManager.default.fileExists(atPath: source.path))
-        XCTAssertEqual(try destination.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier as? NSObject, id)
+        XCTAssertEqual(
+            try destination.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier as? NSObject,
+            id)
         var stale = false
         let resolved = try URL(resolvingBookmarkData: bookmark, bookmarkDataIsStale: &stale)
         XCTAssertEqual(resolved.standardizedFileURL, destination.standardizedFileURL)
@@ -37,7 +40,9 @@ final class AppBundleMigrationTests: XCTestCase {
 
     func testCustomNamesAreRespected() throws {
         XCTAssertNil(try AppBundleMigration.moveLegacyBundle(at: URL(fileURLWithPath: "/Applications/My Player.app")))
-        XCTAssertNil(try AppBundleMigration.moveLegacyBundle(at: URL(fileURLWithPath: "/private/AppTranslocation/test/Spotiglass.app")))
+        XCTAssertNil(
+            try AppBundleMigration.moveLegacyBundle(
+                at: URL(fileURLWithPath: "/private/AppTranslocation/test/Spotiglass.app")))
     }
     func testRelaunchSuccessAndFailure() throws {
         for succeeds in [true, false] {
@@ -49,14 +54,17 @@ final class AppBundleMigrationTests: XCTestCase {
             var registered: URL?
             var finished = false
             var messages: [String] = []
-            AppBundleMigration.migrate(source: source, register: { registered = $0 }, relaunch: { url, completion in
-                XCTAssertEqual(url, registered)
-                XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
-                XCTAssertTrue(completion(succeeds))
-            }, finish: { url in
-                XCTAssertEqual(url, registered)
-                finished = true
-            }, log: { messages.append($0) })
+            AppBundleMigration.migrate(
+                source: source, register: { registered = $0 },
+                relaunch: { url, completion in
+                    XCTAssertEqual(url, registered)
+                    XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
+                    XCTAssertTrue(completion(succeeds))
+                },
+                finish: { url in
+                    XCTAssertEqual(url, registered)
+                    finished = true
+                }, log: { messages.append($0) })
             XCTAssertEqual(finished, succeeds)
             XCTAssertEqual(FileManager.default.fileExists(atPath: source.path), !succeeds)
             XCTAssertEqual(messages.isEmpty, succeeds)
@@ -75,9 +83,11 @@ final class AppBundleMigrationTests: XCTestCase {
         var pending: ((Bool) -> Bool)?
         var finished = false
         var messages: [String] = []
-        AppBundleMigration.migrate(source: source, register: { _ in }, relaunch: { _, completion in
-            pending = completion
-        }, finish: { _ in finished = true }, log: { messages.append($0) }, timeout: .milliseconds(50))
+        AppBundleMigration.migrate(
+            source: source, register: { _ in },
+            relaunch: { _, completion in
+                pending = completion
+            }, finish: { _ in finished = true }, log: { messages.append($0) }, timeout: .milliseconds(50))
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("Wax.app").path))
@@ -90,9 +100,13 @@ final class AppBundleMigrationTests: XCTestCase {
 
     func testMigrationFailureDoesNotRelaunch() {
         var messages: [String] = []
-        AppBundleMigration.migrate(source: URL(fileURLWithPath: "/missing/Spotiglass.app"), register: { _ in XCTFail() }, relaunch: { _, _ in XCTFail() }, finish: { _ in XCTFail() }, log: { messages.append($0) })
+        AppBundleMigration.migrate(
+            source: URL(fileURLWithPath: "/missing/Spotiglass.app"), register: { _ in XCTFail() },
+            relaunch: { _, _ in XCTFail() }, finish: { _ in XCTFail() }, log: { messages.append($0) })
         XCTAssertEqual(messages.count, 1)
-        AppBundleMigration.migrate(source: URL(fileURLWithPath: "/Applications/Wax.app"), register: { _ in XCTFail() }, relaunch: { _, _ in XCTFail() }, finish: { _ in XCTFail() }, log: { _ in XCTFail() })
+        AppBundleMigration.migrate(
+            source: URL(fileURLWithPath: "/Applications/Wax.app"), register: { _ in XCTFail() },
+            relaunch: { _, _ in XCTFail() }, finish: { _ in XCTFail() }, log: { _ in XCTFail() })
     }
 
 }

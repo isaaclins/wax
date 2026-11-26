@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -32,7 +33,7 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         )
 
         await vm.selectArtist(id: "artist-1")
-        guard case let .loaded(.artist(detail)) = vm.detailState else {
+        guard case .loaded(.artist(let detail)) = vm.detailState else {
             return XCTFail("expected cached artist detail")
         }
         XCTAssertEqual(detail.artist.name, "Cached Artist")
@@ -94,21 +95,31 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         )
         await viewModel.selectArtist(id: artist.id)
 
-        guard case let .artist(detail)? = viewModel.detailState.currentValue,
-              let savedRow = detail.libraryTracks.first(where: { $0.id == saved.id })
+        guard case .artist(let detail)? = viewModel.detailState.currentValue,
+            let savedRow = detail.libraryTracks.first(where: { $0.id == saved.id })
         else { return XCTFail("the artist page has no library section with the saved song") }
-        XCTAssertEqual(viewModel.effectiveTrackTargets(for: savedRow, selectedRows: viewModel.selectedRowsForMenus).map(\.id), [saved.id])
+        XCTAssertEqual(
+            viewModel.effectiveTrackTargets(for: savedRow, selectedRows: viewModel.selectedRowsForMenus).map(\.id),
+            [saved.id])
         viewModel.selectedDetailTrackIDs = [top.id, saved.id]
-        XCTAssertEqual(viewModel.effectiveTrackTargets(for: savedRow, selectedRows: viewModel.selectedRowsForMenus).map(\.id), [top.id, saved.id])
+        XCTAssertEqual(
+            viewModel.effectiveTrackTargets(for: savedRow, selectedRows: viewModel.selectedRowsForMenus).map(\.id),
+            [top.id, saved.id])
     }
 
-    private func apiWithOneAlbum(albumTracks: @escaping (String, String?, Int) async throws -> [MusicTrack]) -> MockBrowsingAPI {
+    private func apiWithOneAlbum(albumTracks: @escaping (String, String?, Int) async throws -> [MusicTrack])
+        -> MockBrowsingAPI
+    {
         MockBrowsingAPI(
             playlistResults: [.success([])],
             trackResults: [:],
             artistAlbumsPageHandler: { _, _, _, _, _ in
                 MusicArtistAlbumsPage(
-                    items: [MusicArtistAlbum(id: "al1", name: "Album", imageURL: nil, releaseYear: "2024", totalTracks: 3, group: .album, uri: "applemusic:album:al1")],
+                    items: [
+                        MusicArtistAlbum(
+                            id: "al1", name: "Album", imageURL: nil, releaseYear: "2024", totalTracks: 3, group: .album,
+                            uri: "applemusic:album:al1")
+                    ],
                     next: nil
                 )
             },
@@ -118,14 +129,17 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
 
     /// Apple Music's top songs are the page's songs; nothing else is asked for them (#658).
     func testAnArtistPageUsesTheServicesTopSongs() async {
-        let api = apiWithOneAlbum { _, _, _ in XCTFail("no stand-in songs needed"); return [] }
+        let api = apiWithOneAlbum { _, _, _ in
+            XCTFail("no stand-in songs needed")
+            return []
+        }
         let top = PlaylistBrowsingTestFixtures.fallbackTrack(id: "top-1", name: "Top", artistId: "a1")
         api.artistPageExtrasHandler = { _ in MusicArtistPageExtras(topTracks: [top]) }
         let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
 
         await vm.selectArtist(id: "a1")
 
-        guard case let .loaded(.artist(detail)) = vm.detailState else { return XCTFail("the page opens") }
+        guard case .loaded(.artist(let detail)) = vm.detailState else { return XCTFail("the page opens") }
         XCTAssertEqual(detail.tracks.map(\.id), ["top-1"])
     }
 
@@ -139,7 +153,7 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         await vm.selectArtist(id: "a1")
 
         // It opens with what loaded, under a banner that says a part didn't (#608).
-        guard case let .staleCache(.artist(detail), shown) = vm.detailState, shown != nil else {
+        guard case .staleCache(.artist(let detail), let shown) = vm.detailState, shown != nil else {
             return XCTFail("the page opens with a banner, got \(vm.detailState)")
         }
         XCTAssertEqual(detail.tracks.map(\.id), ["album-song"])
@@ -157,13 +171,14 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         await vm.selectArtist(id: "a1")
 
         // Without songs, and with a banner: a failure isn't an artist with no songs (#608).
-        guard case let .staleCache(.artist(detail), shown) = vm.detailState, shown != nil else {
+        guard case .staleCache(.artist(let detail), let shown) = vm.detailState, shown != nil else {
             return XCTFail("the page opens with a banner, got \(vm.detailState)")
         }
         XCTAssertTrue(detail.tracks.isEmpty)
         XCTAssertEqual(detail.libraryTracks.map(\.id), ["saved-1"])
 
-        let spotify = PlaylistBrowserViewModel(api: apiWithOneAlbum { _, _, _ in throw URLError(.timedOut) }, cache: MockBrowsingCache())
+        let spotify = PlaylistBrowserViewModel(
+            api: apiWithOneAlbum { _, _, _ in throw URLError(.timedOut) }, cache: MockBrowsingCache())
         await spotify.selectArtist(id: "a1")
         guard case .error = spotify.detailState else { return XCTFail("Spotify's page fails as before") }
     }
@@ -174,7 +189,9 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
             trackResults: ["one": [.success([PlaylistBrowsingTestFixtures.track(id: "t1")])]],
             searchHandler: { _, _ in
                 MusicSearchResults(
-                    tracks: [PlaylistBrowsingTestFixtures.fallbackTrack(id: "search", name: "Search", artistId: "artist-net")],
+                    tracks: [
+                        PlaylistBrowsingTestFixtures.fallbackTrack(id: "search", name: "Search", artistId: "artist-net")
+                    ],
                     artists: [],
                     albums: [],
                     playlists: []
@@ -189,7 +206,7 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         await vm.load()
 
         await vm.selectArtist(id: "artist-net")
-        guard case let .loaded(.artist(detail)) = vm.detailState else {
+        guard case .loaded(.artist(let detail)) = vm.detailState else {
             return XCTFail("expected loaded artist")
         }
         XCTAssertEqual(detail.artist.id, "artist-net")
@@ -251,7 +268,7 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         )
 
         await vm.selectArtist(id: "force-1", forceRefresh: true)
-        guard case let .loaded(.artist(detail)) = vm.detailState else {
+        guard case .loaded(.artist(let detail)) = vm.detailState else {
             return XCTFail("expected loaded artist after force refresh")
         }
         XCTAssertEqual(detail.artist.id, "force-1")
@@ -298,12 +315,13 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
 
         await vm.selectArtist(id: "stale-art")
 
-        guard case let .loaded(.artist(detail)) = vm.detailState else {
+        guard case .loaded(.artist(let detail)) = vm.detailState else {
             return XCTFail("expected the refetched artist, got \(vm.detailState)")
         }
         XCTAssertEqual(detail.artist.name, "Artist stale-art", "the expired snapshot was shown instead of asking again")
         XCTAssertEqual(api.artistAlbumsPageCallCount, 1, "an expired snapshot must be fetched again")
-        XCTAssertEqual(vm.cachedArtistSnapshots["stale-art"]?.fetchedAt, opened, "the new answer replaces the old snapshot")
+        XCTAssertEqual(
+            vm.cachedArtistSnapshots["stale-art"]?.fetchedAt, opened, "the new answer replaces the old snapshot")
         XCTAssertEqual(vm.cachedArtistSnapshots["stale-art"]?.snapshot.artistDetail.name, "Artist stale-art")
     }
 
@@ -326,7 +344,8 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         vm.cachedArtistSnapshots["fresh-art"] = PlaylistBrowserViewModel.CachedArtistSnapshot(
             snapshot: PlaylistBrowserViewModel.ArtistDetailSnapshot(
                 artistDetail: MusicArtistDetail(
-                    id: "fresh-art", name: "Cached Name", imageURL: nil, followersTotal: 0, genres: [], uri: "spotify:artist:fresh-art"
+                    id: "fresh-art", name: "Cached Name", imageURL: nil, followersTotal: 0, genres: [],
+                    uri: "spotify:artist:fresh-art"
                 ),
                 albums: [],
                 tracks: [],
@@ -338,7 +357,7 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
 
         await vm.selectArtist(id: "fresh-art")
 
-        guard case let .loaded(.artist(detail)) = vm.detailState else {
+        guard case .loaded(.artist(let detail)) = vm.detailState else {
             return XCTFail("expected the cached artist, got \(vm.detailState)")
         }
         XCTAssertEqual(detail.artist.name, "Cached Name")
@@ -354,7 +373,7 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         let vm = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await vm.load()
         await vm.selectArtist(id: "named", displayName: "Display")
-        guard case let .loaded(.artist(detail)) = vm.detailState else {
+        guard case .loaded(.artist(let detail)) = vm.detailState else {
             return XCTFail("expected artist detail")
         }
         XCTAssertEqual(detail.artist.id, "named")

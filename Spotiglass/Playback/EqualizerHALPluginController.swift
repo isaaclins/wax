@@ -114,39 +114,48 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
     ) {
         self.halDirectory = halDirectory
         self.fileManager = fileManager
-        let usesSystemHALDirectory = halDirectory.standardizedFileURL
+        let usesSystemHALDirectory =
+            halDirectory.standardizedFileURL
             == Self.defaultHALDirectory.standardizedFileURL
-        self.driverInstaller = driverInstaller ?? {
-            if usesSystemHALDirectory {
-                return EqualizerPrivilegedHelperClient(
-                    bundle: bundle,
-                    fileManager: fileManager
-                )
-            }
-            // Tests use an isolated directory, where a direct copy preserves
-            // the lifecycle seam without registering a real system daemon.
-            return EqualizerFileDriverInstaller(fileManager: fileManager)
-        }()
+        self.driverInstaller =
+            driverInstaller
+            ?? {
+                if usesSystemHALDirectory {
+                    return EqualizerPrivilegedHelperClient(
+                        bundle: bundle,
+                        fileManager: fileManager
+                    )
+                }
+                // Tests use an isolated directory, where a direct copy preserves
+                // the lifecycle seam without registering a real system daemon.
+                return EqualizerFileDriverInstaller(fileManager: fileManager)
+            }()
         self.outputBackupURL = defaultOutputBackupURL
-        self.outputDeviceIDForUID = outputDeviceIDForUID ?? { uid in
-            AudioDeviceEnumerator.deviceID(forUID: uid)
-        }
-        self.outputDeviceUID = outputDeviceUID ?? { deviceID in
-            AudioDeviceEnumerator.uid(of: deviceID)
-        }
-        self.virtualDeviceIDProvider = virtualDeviceIDProvider ?? {
-            AudioDeviceEnumerator.allOutputDevices().first(where: Self.isVirtualDevice)?.id
-        }
-        self.defaultOutputDeviceIDProvider = defaultOutputDeviceIDProvider ?? {
-            try Self.currentDefaultOutputDeviceIDInCoreAudio()
-        }
-        self.defaultOutputSetter = defaultOutputSetter ?? { deviceID in
-            try Self.setDefaultOutputDeviceInCoreAudio(to: deviceID)
-        }
+        self.outputDeviceIDForUID =
+            outputDeviceIDForUID ?? { uid in
+                AudioDeviceEnumerator.deviceID(forUID: uid)
+            }
+        self.outputDeviceUID =
+            outputDeviceUID ?? { deviceID in
+                AudioDeviceEnumerator.uid(of: deviceID)
+            }
+        self.virtualDeviceIDProvider =
+            virtualDeviceIDProvider ?? {
+                AudioDeviceEnumerator.allOutputDevices().first(where: Self.isVirtualDevice)?.id
+            }
+        self.defaultOutputDeviceIDProvider =
+            defaultOutputDeviceIDProvider ?? {
+                try Self.currentDefaultOutputDeviceIDInCoreAudio()
+            }
+        self.defaultOutputSetter =
+            defaultOutputSetter ?? { deviceID in
+                try Self.setDefaultOutputDeviceInCoreAudio(to: deviceID)
+            }
         self.routerStatusURL = routerStatusURL
-        self.routerStatusReader = routerStatusReader ?? {
-            Self.readRouterStatus(from: routerStatusURL)
-        }
+        self.routerStatusReader =
+            routerStatusReader ?? {
+                Self.readRouterStatus(from: routerStatusURL)
+            }
         self.routerReadinessTimeout = max(0, routerReadinessTimeout)
         self.driverLoadTimeout = max(0, driverLoadTimeout)
         self.activeSampleRateObservationStarter = activeSampleRateObservationStarter
@@ -250,7 +259,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
             )
         }
         guard let virtualDeviceID = lookupSpotiglassEQDeviceID(),
-              (try? currentDefaultOutputDeviceID()) == virtualDeviceID
+            (try? currentDefaultOutputDeviceID()) == virtualDeviceID
         else { return true }
         let preferred = [fallbackUID, Self.fallbackForwardingUID]
             .compactMap { $0 }
@@ -281,7 +290,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
         // The router reports nothing when its target is unplugged later; the
         // EQ device stays the default and plays into nothing.
         guard outputDeviceIDForUID(targetUID) != nil else { return true }
-        if case let .failed(failedUID, _)? = routerStatusReader(), failedUID == targetUID {
+        if case .failed(let failedUID, _)? = routerStatusReader(), failedUID == targetUID {
             return true
         }
         return false
@@ -296,7 +305,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
     /// example by an older build that failed half way. Puts it back.
     func releaseStrandedOutput() {
         guard let virtualDeviceID = lookupSpotiglassEQDeviceID(),
-              (try? currentDefaultOutputDeviceID()) == virtualDeviceID
+            (try? currentDefaultOutputDeviceID()) == virtualDeviceID
         else { return }
         releaseOutputFromEqualizerDevice(fallbackUID: currentForwardingTargetUID())
     }
@@ -340,10 +349,13 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
     /// device re-enumeration. A missing device is reported distinctly so the
     /// backup can remain available if that device is connected again later.
     func restorePreviousDefaultOutput() throws {
-        guard let previousUID = previousDefaultOutputUID ?? Self.readDefaultOutputBackup(
-            from: outputBackupURL,
-            fileManager: fileManager
-        ) else {
+        guard
+            let previousUID = previousDefaultOutputUID
+                ?? Self.readDefaultOutputBackup(
+                    from: outputBackupURL,
+                    fileManager: fileManager
+                )
+        else {
             throw EqualizerHALPluginError.previousOutputBackupMissing
         }
         previousDefaultOutputUID = previousUID
@@ -477,10 +489,12 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
     /// it back from disk (driver's source of truth) so the picker stays
     /// in sync with whatever EQRouter is actually forwarding to.
     func currentForwardingTargetUID() -> String? {
-        guard let data = try? String(
-            contentsOf: Self.forwardingTargetURL,
-            encoding: .utf8
-        ) else { return nil }
+        guard
+            let data = try? String(
+                contentsOf: Self.forwardingTargetURL,
+                encoding: .utf8
+            )
+        else { return nil }
         let trimmed = data.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
@@ -549,7 +563,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
             throw EqualizerHALPluginError.embeddedDriverMissing
         }
         let bundledState = Self.driverState(at: source, fileManager: fileManager)
-        guard case let .version(bundledVersion) = bundledState else {
+        guard case .version(let bundledVersion) = bundledState else {
             throw EqualizerHALPluginError.embeddedDriverMetadataMissing
         }
 
@@ -586,18 +600,18 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
         guard fileManager.fileExists(atPath: url.path) else { return .missing }
         let infoURL = url.appendingPathComponent("Contents/Info.plist", isDirectory: false)
         guard let data = try? Data(contentsOf: infoURL),
-              let propertyList = try? PropertyListSerialization.propertyList(
-                  from: data,
-                  options: [],
-                  format: nil
-              ),
-              let dictionary = propertyList as? [String: Any],
-              let shortVersion = dictionary["CFBundleShortVersionString"] as? String,
-              let build = dictionary["CFBundleVersion"] as? String,
-              let version = EqualizerDriverVersion(
-                  shortVersion: shortVersion,
-                  build: build
-              )
+            let propertyList = try? PropertyListSerialization.propertyList(
+                from: data,
+                options: [],
+                format: nil
+            ),
+            let dictionary = propertyList as? [String: Any],
+            let shortVersion = dictionary["CFBundleShortVersionString"] as? String,
+            let build = dictionary["CFBundleVersion"] as? String,
+            let version = EqualizerDriverVersion(
+                shortVersion: shortVersion,
+                build: build
+            )
         else { return .unreadable }
         return .version(version)
     }
@@ -620,7 +634,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
                 .appendingPathComponent("Contents/Library/Audio/Plug-Ins/HAL", isDirectory: true)
                 .appendingPathComponent(driverBundleName, isDirectory: true),
             bundle.resourceURL?
-                .appendingPathComponent(driverBundleName, isDirectory: true)
+                .appendingPathComponent(driverBundleName, isDirectory: true),
         ].compactMap { $0 }
         return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
     }
@@ -640,7 +654,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
     private func beginActiveSampleRateObservation(for deviceID: AudioObjectID) throws {
         removeActiveSampleRateObservation()
         guard let nominalRate = readNominalSampleRate(from: deviceID),
-              let rate = normalizedSampleRate(nominalRate)
+            let rate = normalizedSampleRate(nominalRate)
         else {
             throw EqualizerHALPluginError.coreAudioStatus(
                 kAudioHardwareUnknownPropertyError
@@ -672,7 +686,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
 
     private func removeActiveSampleRateObservation() {
         guard let listener = activeSampleRateListener,
-              let deviceID = observedSampleRateDeviceID
+            let deviceID = observedSampleRateDeviceID
         else {
             activeSampleRateListener = nil
             observedSampleRateDeviceID = nil
@@ -695,8 +709,8 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
 
     private func normalizedSampleRate(_ nominalRate: Double) -> UInt32? {
         guard nominalRate.isFinite,
-              nominalRate > 0,
-              nominalRate <= Double(UInt32.max)
+            nominalRate > 0,
+            nominalRate <= Double(UInt32.max)
         else { return nil }
         let rate = UInt32(nominalRate.rounded())
         return rate > 0 ? rate : nil
@@ -736,10 +750,12 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
             // A relaunch starts with Wax EQ still selected as the system
             // default. Keep the durable hardware UID instead of overwriting it
             // with the virtual device's identity.
-            previousDefaultOutputUID = previousDefaultOutputUID ?? Self.readDefaultOutputBackup(
-                from: outputBackupURL,
-                fileManager: fileManager
-            )
+            previousDefaultOutputUID =
+                previousDefaultOutputUID
+                ?? Self.readDefaultOutputBackup(
+                    from: outputBackupURL,
+                    fileManager: fileManager
+                )
             previousDefaultOutputID = previousDefaultOutputUID.flatMap(outputDeviceIDForUID)
             return
         }
@@ -816,9 +832,9 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
         repeat {
             if let status = routerStatusReader() {
                 switch status {
-                case let .ready(readyUID) where readyUID == targetUID:
+                case .ready(let readyUID) where readyUID == targetUID:
                     return
-                case let .failed(failedUID, reasonCode) where failedUID == targetUID:
+                case .failed(let failedUID, let reasonCode) where failedUID == targetUID:
                     throw EqualizerHALPluginError.routerTargetOpenFailed(
                         targetUID: targetUID,
                         reasonCode: reasonCode
@@ -835,7 +851,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
     }
 
     private func prepareRouterReadiness(for targetUID: String) {
-        if case let .ready(readyUID)? = routerStatusReader(), readyUID == targetUID {
+        if case .ready(let readyUID)? = routerStatusReader(), readyUID == targetUID {
             return
         }
         clearRouterStatus()
@@ -869,7 +885,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
         fileManager: FileManager = .default
     ) -> String? {
         guard fileManager.fileExists(atPath: url.path),
-              let contents = try? String(contentsOf: url, encoding: .utf8)
+            let contents = try? String(contentsOf: url, encoding: .utf8)
         else { return nil }
         let uid = contents.trimmingCharacters(in: .whitespacesAndNewlines)
         return uid.isEmpty ? nil : uid
@@ -923,7 +939,7 @@ enum EqualizerHALPluginError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .embeddedDriverMissing,
-             .embeddedDriverMetadataMissing:
+            .embeddedDriverMetadataMissing:
             SpotiglassL10n.string("eq.error.embeddedDriverMissing")
         case .driverInstallationFailed:
             SpotiglassL10n.string("eq.error.driverInstallationFailed")
@@ -960,31 +976,33 @@ enum EqualizerHALPluginError: LocalizedError {
             return "missing bundle: SpotiglassEQDriver.driver"
         case .embeddedDriverMetadataMissing:
             return "bundled driver metadata is missing or invalid"
-        case let .driverInstallationFailed(diagnostic):
+        case .driverInstallationFailed(let diagnostic):
             return diagnostic
-        case let .driverRemovalFailed(diagnostic):
+        case .driverRemovalFailed(let diagnostic):
             return diagnostic
         case .outputStuckOnEqualizerDevice:
             return "No other output device took the default output, so the driver was left installed"
         case .driverInstallApprovalRequired:
             return "Wax is not allowed to run in the background, so launchd refused to register the equalizer helper"
-        case let .driverNotLoadedYet(installedPath):
-            return "installed driver: \(installedPath)\ncoreaudiod did not enumerate the driver after the helper restart"
-        case let .coreAudioStatus(status):
+        case .driverNotLoadedYet(let installedPath):
+            return
+                "installed driver: \(installedPath)\ncoreaudiod did not enumerate the driver after the helper restart"
+        case .coreAudioStatus(let status):
             return "CoreAudio OSStatus \(status) while routing the default output device"
         case .outputDeviceUIDUnavailable:
             return "CoreAudio did not provide a stable UID for the current default output device"
         case .previousOutputBackupMissing:
             return "No persisted pre-EQ output device UID is available"
-        case let .previousOutputDeviceUnavailable(uid):
+        case .previousOutputDeviceUnavailable(let uid):
             return "Persisted pre-EQ output device UID is not currently available: \(uid)"
         case .previousOutputRestoreFailed(let underlying):
-            let details = (underlying as? EqualizerHALPluginError)?.diagnosticDetails
+            let details =
+                (underlying as? EqualizerHALPluginError)?.diagnosticDetails
                 ?? String(describing: underlying)
             return "CoreAudio failed while restoring the previous default output: \(details)"
-        case let .routerTargetOpenFailed(targetUID, reasonCode):
+        case .routerTargetOpenFailed(let targetUID, let reasonCode):
             return "EQRouter could not open target UID \(targetUID) (reason \(reasonCode))"
-        case let .routerReadinessTimedOut(targetUID):
+        case .routerReadinessTimedOut(let targetUID):
             return "EQRouter did not report readiness for target UID \(targetUID)"
         }
     }
@@ -1046,11 +1064,11 @@ enum AudioDeviceEnumerator {
 
     static func supportsEQForwarding(format: AudioStreamBasicDescription) -> Bool {
         guard format.mFormatID == kAudioFormatLinearPCM,
-              format.mFormatFlags & kAudioFormatFlagIsFloat != 0,
-              format.mFormatFlags & kAudioFormatFlagIsPacked != 0,
-              format.mBitsPerChannel == 32,
-              format.mChannelsPerFrame == 2,
-              format.mFramesPerPacket == 1
+            format.mFormatFlags & kAudioFormatFlagIsFloat != 0,
+            format.mFormatFlags & kAudioFormatFlagIsPacked != 0,
+            format.mBitsPerChannel == 32,
+            format.mChannelsPerFrame == 2,
+            format.mFramesPerPacket == 1
         else { return false }
         let nonInterleaved = format.mFormatFlags & kAudioFormatFlagIsNonInterleaved != 0
         let bytesPerFrame: UInt32 = nonInterleaved ? 4 : 8

@@ -10,7 +10,9 @@ enum PlaylistBrowserTapTargetResolver {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let escaped = trimmed.replacingOccurrences(of: "\"", with: "")
-        let firstArtist = artistHint.split(separator: ",").first.map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
+        let firstArtist =
+            artistHint.split(separator: ",").first.map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            ?? ""
         let query: String
         if firstArtist.isEmpty {
             query = "album:\"\(escaped)\""
@@ -123,7 +125,9 @@ enum PlaylistBrowserTapTargetResolver {
             var lower = pieceStart
             var upper = end
             while lower < upper, credit[lower].isWhitespace { lower = credit.index(after: lower) }
-            while lower < upper, credit[credit.index(before: upper)].isWhitespace { upper = credit.index(before: upper) }
+            while lower < upper, credit[credit.index(before: upper)].isWhitespace {
+                upper = credit.index(before: upper)
+            }
             if lower < upper { pieces.append(lower..<upper) }
         }
         while index < credit.endIndex {

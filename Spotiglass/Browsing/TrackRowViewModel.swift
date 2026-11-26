@@ -73,57 +73,78 @@ struct TrackRowViewModel: Equatable, Identifiable {
         self.id = item.id
 
         switch item.content {
-        case let .track(track):
+        case .track(let track):
             self.spotifyTrackID = PinnedItem.canonicalTrackID(for: track)
             self.titleText = .musicName(track.name, kind: .track)
             self.subtitleText = .musicNames(track.artists, kind: .artist)
             self.artworkURL = track.albumArtworkURL
             self.durationText = TrackDuration.text(milliseconds: track.durationMilliseconds)
             self.durationMilliseconds = max(0, track.durationMilliseconds)
-            self.badge = track.isPlayable == false
-                ? LocalizedText(SpotiglassL10n.string("browser.trackBadge.unavailable"), comparedByKey: "browser.trackBadge.unavailable")
-                : (track.isExplicit ? LocalizedText(SpotiglassL10n.string("browser.trackBadge.explicit"), comparedByKey: "browser.trackBadge.explicit") : nil)
+            self.badge =
+                track.isPlayable == false
+                ? LocalizedText(
+                    SpotiglassL10n.string("browser.trackBadge.unavailable"),
+                    comparedByKey: "browser.trackBadge.unavailable")
+                : (track.isExplicit
+                    ? LocalizedText(
+                        SpotiglassL10n.string("browser.trackBadge.explicit"),
+                        comparedByKey: "browser.trackBadge.explicit") : nil)
             self.isUnavailable = track.isPlayable == false
             self.isExplicit = track.isExplicit
             self.playableURI = track.isPlayable == false ? nil : track.uri
             self.artistRefs = track.artistRefs
-        case let .episode(episode):
+        case .episode(let episode):
             self.spotifyTrackID = nil
             self.titleText = .musicName(episode.name, kind: .episode)
-            self.subtitleText = episode.showName.map { name in LocalizedText(verbatim: name) }
-                ?? LocalizedText(SpotiglassL10n.string("browser.trackBadge.podcastEpisode"), comparedByKey: "browser.trackBadge.podcastEpisode")
+            self.subtitleText =
+                episode.showName.map { name in LocalizedText(verbatim: name) }
+                ?? LocalizedText(
+                    SpotiglassL10n.string("browser.trackBadge.podcastEpisode"),
+                    comparedByKey: "browser.trackBadge.podcastEpisode")
             self.artworkURL = episode.artworkURL
             self.durationText = TrackDuration.text(milliseconds: episode.durationMilliseconds)
             self.durationMilliseconds = max(0, episode.durationMilliseconds)
-            self.badge = episode.isPlayable == false
-                ? LocalizedText(SpotiglassL10n.string("browser.trackBadge.unavailableEpisode"), comparedByKey: "browser.trackBadge.unavailableEpisode")
-                : LocalizedText(SpotiglassL10n.string("browser.trackBadge.episode"), comparedByKey: "browser.trackBadge.episode")
+            self.badge =
+                episode.isPlayable == false
+                ? LocalizedText(
+                    SpotiglassL10n.string("browser.trackBadge.unavailableEpisode"),
+                    comparedByKey: "browser.trackBadge.unavailableEpisode")
+                : LocalizedText(
+                    SpotiglassL10n.string("browser.trackBadge.episode"), comparedByKey: "browser.trackBadge.episode")
             self.isUnavailable = episode.isPlayable == false
             self.isExplicit = false
             self.playableURI = episode.isPlayable == false ? nil : episode.uri
             self.artistRefs = []
-        case let .localTrack(track):
+        case .localTrack(let track):
             self.spotifyTrackID = nil
             self.titleText = .musicName(track.name, kind: .track)
-            self.subtitleText = track.artists.isEmpty
-                ? LocalizedText(SpotiglassL10n.string("browser.trackBadge.localTrack"), comparedByKey: "browser.trackBadge.localTrack")
+            self.subtitleText =
+                track.artists.isEmpty
+                ? LocalizedText(
+                    SpotiglassL10n.string("browser.trackBadge.localTrack"),
+                    comparedByKey: "browser.trackBadge.localTrack")
                 : .musicNames(track.artists, kind: .artist)
             self.artworkURL = nil
             self.durationText = TrackDuration.text(milliseconds: track.durationMilliseconds)
             self.durationMilliseconds = max(0, track.durationMilliseconds)
-            self.badge = LocalizedText(SpotiglassL10n.string("browser.trackBadge.local"), comparedByKey: "browser.trackBadge.local")
+            self.badge = LocalizedText(
+                SpotiglassL10n.string("browser.trackBadge.local"), comparedByKey: "browser.trackBadge.local")
             self.isUnavailable = false
             self.isExplicit = false
             self.playableURI = nil
             self.artistRefs = []
-        case let .unavailable(reason):
+        case .unavailable(let reason):
             self.spotifyTrackID = nil
-            self.titleText = LocalizedText(SpotiglassL10n.string("browser.trackBadge.unavailableItem"), comparedByKey: "browser.trackBadge.unavailableItem")
+            self.titleText = LocalizedText(
+                SpotiglassL10n.string("browser.trackBadge.unavailableItem"),
+                comparedByKey: "browser.trackBadge.unavailableItem")
             self.subtitleText = LocalizedText(Self.text(for: reason), comparedBy: reason)
             self.artworkURL = nil
             self.durationText = TrackDuration.unknownText
             self.durationMilliseconds = 0
-            self.badge = LocalizedText(SpotiglassL10n.string("browser.trackBadge.unavailable"), comparedByKey: "browser.trackBadge.unavailable")
+            self.badge = LocalizedText(
+                SpotiglassL10n.string("browser.trackBadge.unavailable"), comparedByKey: "browser.trackBadge.unavailable"
+            )
             self.isUnavailable = true
             self.isExplicit = false
             self.playableURI = nil
@@ -140,9 +161,15 @@ struct TrackRowViewModel: Equatable, Identifiable {
         self.artworkURL = track.albumArtworkURL
         self.durationText = TrackDuration.text(milliseconds: track.durationMilliseconds)
         self.durationMilliseconds = max(0, track.durationMilliseconds)
-        self.badge = track.isPlayable == false
-            ? LocalizedText(SpotiglassL10n.string("browser.trackBadge.unavailable"), comparedByKey: "browser.trackBadge.unavailable")
-            : (track.isExplicit ? LocalizedText(SpotiglassL10n.string("browser.trackBadge.explicit"), comparedByKey: "browser.trackBadge.explicit") : nil)
+        self.badge =
+            track.isPlayable == false
+            ? LocalizedText(
+                SpotiglassL10n.string("browser.trackBadge.unavailable"), comparedByKey: "browser.trackBadge.unavailable"
+            )
+            : (track.isExplicit
+                ? LocalizedText(
+                    SpotiglassL10n.string("browser.trackBadge.explicit"), comparedByKey: "browser.trackBadge.explicit")
+                : nil)
         self.isUnavailable = track.isPlayable == false
         self.isExplicit = track.isExplicit
         self.playableURI = track.isPlayable == false ? nil : track.uri
@@ -168,8 +195,10 @@ struct TrackRowViewModel: Equatable, Identifiable {
         self.artworkURL = item.albumArtURL
         self.durationText = TrackDuration.text(milliseconds: item.durationMilliseconds)
         self.durationMilliseconds = max(0, item.durationMilliseconds)
-        self.badge = uri?.hasPrefix("spotify:episode:") == true
-            ? LocalizedText(SpotiglassL10n.string("browser.trackBadge.episode"), comparedByKey: "browser.trackBadge.episode")
+        self.badge =
+            uri?.hasPrefix("spotify:episode:") == true
+            ? LocalizedText(
+                SpotiglassL10n.string("browser.trackBadge.episode"), comparedByKey: "browser.trackBadge.episode")
             : nil
         self.isUnavailable = uri == nil
         self.isExplicit = false
@@ -193,10 +222,14 @@ struct TrackRowViewModel: Equatable, Identifiable {
     /// same way the palette pins it.
     private func pinnableTrack() -> MusicTrack? {
         guard let spotifyTrackID,
-              let playableURI,
-              Self.pinnableURIPrefixes.contains(where: playableURI.hasPrefix) else { return nil }
-        let names: [String] = artistRefs.map(\.name).isEmpty
-            ? subtitle.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            let playableURI,
+            Self.pinnableURIPrefixes.contains(where: playableURI.hasPrefix)
+        else { return nil }
+        let names: [String] =
+            artistRefs.map(\.name).isEmpty
+            ? subtitle.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter {
+                !$0.isEmpty
+            }
             : artistRefs.map(\.name)
         return MusicTrack(
             id: spotifyTrackID,

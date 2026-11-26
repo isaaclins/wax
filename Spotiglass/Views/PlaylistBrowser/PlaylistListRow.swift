@@ -22,11 +22,12 @@ struct PlaylistListRow: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("PlaylistListRow:\(playlist.id)")
+            let _ = ViewBodyTally.record("PlaylistListRow:\(playlist.id)")
         #endif
         SidebarRow(subtitle: playlist.ownerTracksLine(currentUserID: currentUserID, locale: spotiglassLocale)) {
             if isLikedSongsRow {
-                LikedSongsArtwork(size: artworkSize, isEmphasized: isListSelected, cornerRadius: SpotiglassDesign.cornerXS)
+                LikedSongsArtwork(
+                    size: artworkSize, isEmphasized: isListSelected, cornerRadius: SpotiglassDesign.cornerXS)
             } else {
                 // The cover the Music app shows, Apple's generated ones included; the placeholder
                 // only when there is no artwork at all (#477).

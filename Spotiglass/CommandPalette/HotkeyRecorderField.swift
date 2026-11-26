@@ -50,7 +50,8 @@ struct HotkeyRecorderField: NSViewRepresentable {
         private var flagsMonitor: Any?
         private var keyDownMonitor: Any?
         private var shouldSuspendMenuKeyEquivalents = false
-        private var suspendedMenuKeyEquivalents: [(item: NSMenuItem, key: String, modifiers: NSEvent.ModifierFlags)] = []
+        private var suspendedMenuKeyEquivalents: [(item: NSMenuItem, key: String, modifiers: NSEvent.ModifierFlags)] =
+            []
 
         init(_ parent: HotkeyRecorderField) {
             self.parent = parent
@@ -89,7 +90,8 @@ struct HotkeyRecorderField: NSViewRepresentable {
                 guard self.shouldSuspendMenuKeyEquivalents, view.isRecording else { return }
                 self.suspendMenuKeyEquivalents()
             }
-            mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak view] event in
+            mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
+                [weak view] event in
                 guard let view, view.isRecording else { return event }
                 guard event.window === view.window else { return event }
                 let p = view.convert(event.locationInWindow, from: nil)
@@ -115,9 +117,9 @@ struct HotkeyRecorderField: NSViewRepresentable {
                 guard let self, let view else { return event }
                 let handled = MainActor.assumeIsolated {
                     guard let window = view.window,
-                          view.isRecording,
-                          window.isKeyWindow,
-                          event.window == nil || event.window === window
+                        view.isRecording,
+                        window.isKeyWindow,
+                        event.window == nil || event.window === window
                     else { return false }
                     self.handleKeyDown(event, in: view)
                     return true
@@ -176,7 +178,7 @@ struct HotkeyRecorderField: NSViewRepresentable {
                 view.moveFocus(backwards: mods.contains(.shift))
                 return
             }
-            if (event.keyCode == 51 || event.keyCode == 117), mods.isEmpty {
+            if event.keyCode == 51 || event.keyCode == 117, mods.isEmpty {
                 view.finishRecordingAndResign()
                 clearBinding()
                 return
@@ -186,7 +188,7 @@ struct HotkeyRecorderField: NSViewRepresentable {
             // A key the keymap can't store (an F key, say) is as unusable as a
             // lone modifier: same reason, and recording goes on.
             guard let shortcut = CommandShortcut(recordingKeyDown: event),
-                  (try? shortcut.canonicalToken()) != nil
+                (try? shortcut.canonicalToken()) != nil
             else {
                 let message = CommandPaletteKeymapErrorPresenter.recordingUnsupported()
                 parent.keymapStore.lastError = message
@@ -203,7 +205,7 @@ struct HotkeyRecorderField: NSViewRepresentable {
                 view.finishRecordingAndResign()
             } catch let conflict as KeymapConflictError {
                 switch conflict {
-                case let .conflict(otherID):
+                case .conflict(let otherID):
                     // Ends recording: Replace on the row is the next step.
                     view.finishRecordingAndResign()
                     parent.onCaptureConflict(shortcut, otherID)
@@ -399,9 +401,9 @@ final class RecorderKeyContainerView: NSView, FocusedKeyEventOwner {
     /// and the clear control beside saved keys (checked per language in tests).
     static func contentWidth(for content: RecorderFieldContent) -> CGFloat {
         switch content {
-        case let .prompt(text):
+        case .prompt(let text):
             return (text as NSString).size(withAttributes: promptAttributes).width
-        case let .keys(chips):
+        case .keys(let chips):
             return capWidths(chips).reduce(0, +) + capSpacing * CGFloat(max(0, chips.count - 1))
         }
     }
@@ -442,7 +444,7 @@ final class RecorderKeyContainerView: NSView, FocusedKeyEventOwner {
         var area = bounds.insetBy(dx: Self.inset, dy: 0)
         area.size.width = Self.contentRoom(inFieldWidth: bounds.width, showsClearControl: showsClearControl)
         switch content {
-        case let .prompt(text):
+        case .prompt(let text):
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: Self.promptFont,
                 .foregroundColor: isRecording ? accent : NSColor.secondaryLabelColor,
@@ -450,7 +452,7 @@ final class RecorderKeyContainerView: NSView, FocusedKeyEventOwner {
             let size = (text as NSString).size(withAttributes: attributes)
             let origin = NSPoint(x: area.midX - Self.contentWidth(for: content) / 2, y: area.midY - size.height / 2)
             (text as NSString).draw(at: origin, withAttributes: attributes)
-        case let .keys(chips):
+        case .keys(let chips):
             let attributes: [NSAttributedString.Key: Any] = [
                 .font: Self.capFont,
                 .foregroundColor: problem ? NSColor.systemOrange : NSColor.labelColor,
@@ -468,7 +470,9 @@ final class RecorderKeyContainerView: NSView, FocusedKeyEventOwner {
             var x: CGFloat = 0
             for (chip, width) in zip(chips, widths) {
                 let cap = NSRect(x: x, y: 0, width: width, height: Self.capHeight)
-                (problem ? NSColor.systemOrange.withAlphaComponent(0.14) : NSColor.labelColor.withAlphaComponent(isRecording ? 0.14 : 0.09)).setFill()
+                (problem
+                    ? NSColor.systemOrange.withAlphaComponent(0.14)
+                    : NSColor.labelColor.withAlphaComponent(isRecording ? 0.14 : 0.09)).setFill()
                 NSBezierPath(roundedRect: cap, xRadius: 4, yRadius: 4).fill()
                 let size = (chip as NSString).size(withAttributes: attributes)
                 (chip as NSString).draw(
@@ -494,8 +498,8 @@ final class RecorderKeyContainerView: NSView, FocusedKeyEventOwner {
 
     override func accessibilityLabel() -> String? {
         switch content {
-        case let .keys(chips): chips.joined(separator: " ")
-        case let .prompt(text): text
+        case .keys(let chips): chips.joined(separator: " ")
+        case .prompt(let text): text
         }
     }
 

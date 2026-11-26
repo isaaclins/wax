@@ -58,7 +58,7 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             case remove([Entry])
 
             var route: EditRoute {
-                if case let .add(_, route) = self { return route }
+                if case .add(_, let route) = self { return route }
                 return .musicApp
             }
         }
@@ -159,22 +159,22 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             var removed = Set<Entry>()
             for edit in edits(in: step) {
                 switch edit {
-                case let .add(indices, _): added.formUnion(indices)
-                case let .remove(entries): removed.formUnion(entries)
+                case .add(let indices, _): added.formUnion(indices)
+                case .remove(let entries): removed.formUnion(entries)
                 }
             }
             let appended = additions.indices.filter { !placed.contains($0) }.map(Entry.added)
             return (layout + appended).filter { entry in
                 if removed.contains(entry) { return false }
-                if case let .added(index) = entry { return added.contains(index) }
+                if case .added(let index) = entry { return added.contains(index) }
                 return true
             }
         }
 
         func keys(of entry: Entry) -> Set<String> {
             switch entry {
-            case let .listed(index): listed[index]
-            case let .added(index): additions[index].keys
+            case .listed(let index): listed[index]
+            case .added(let index): additions[index].keys
             }
         }
 
@@ -186,7 +186,7 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
         /// Also returns the entry of each row of the view.
         func rebased(on view: View, at now: Date) -> (PlaylistEdits, [Entry]) {
             var removedByEdits = Set<Entry>()
-            for case let .remove(entries) in edits {
+            for case .remove(let entries) in edits {
                 removedByEdits.formUnion(entries)
             }
             let inRead = Set(view.read.compactMap(\.entry))
@@ -209,11 +209,11 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             var newListed: [Int: Int] = [:]
             func keep(_ entry: Entry) {
                 switch entry {
-                case let .listed(index):
+                case .listed(let index):
                     newListed[index] = listedKeys.count
                     layout.append(.listed(listedKeys.count))
                     listedKeys.append(listed[index])
-                case let .added(index):
+                case .added(let index):
                     layout.append(entry)
                     placed.insert(index)
                 }
@@ -221,12 +221,13 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             var readEntries: [Entry] = []
             for row in view.read {
                 row.entry.flatMap { keptBefore[$0] }?.forEach(keep)
-                if case let .added(index) = row.entry {
+                if case .added(let index) = row.entry {
                     // The library may list it under an ID the add didn't know.
-                    additions[index] = Addition(track: additions[index].track, keys: additions[index].keys.union(row.keys))
+                    additions[index] = Addition(
+                        track: additions[index].track, keys: additions[index].keys.union(row.keys))
                     keep(.added(index))
                 } else {
-                    if case let .listed(index) = row.entry { newListed[index] = listedKeys.count }
+                    if case .listed(let index) = row.entry { newListed[index] = listedKeys.count }
                     layout.append(.listed(listedKeys.count))
                     listedKeys.append(row.keys)
                 }
@@ -240,23 +241,24 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             record.shownStep = shownStep
             // The same edits in the same order, so steps count as before.
             record.edits = edits.map { edit in
-                guard case let .remove(entries) = edit else { return edit }
-                return .remove(entries.compactMap { entry in
-                    guard case let .listed(index) = entry else { return entry }
-                    return newListed[index].map(Entry.listed)
-                })
+                guard case .remove(let entries) = edit else { return edit }
+                return .remove(
+                    entries.compactMap { entry in
+                        guard case .listed(let index) = entry else { return entry }
+                        return newListed[index].map(Entry.listed)
+                    })
             }
             let rows = view.rows.map { row -> Entry in
                 switch row {
-                case let .read(index): readEntries[index]
-                case let .pending(index): .added(index)
+                case .read(let index): readEntries[index]
+                case .pending(let index): .added(index)
                 }
             }
             return (record, rows)
         }
 
         func isPlaced(_ entry: Entry) -> Bool {
-            if case let .added(index) = entry { return placed.contains(index) }
+            if case .added(let index) = entry { return placed.contains(index) }
             return false
         }
     }
@@ -305,7 +307,9 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             // Music takes it out of every playlist: an edit of each record, so adding the song
             // back later doesn't bring its old copies back.
             for (id, var playlist) in playlistEdits {
-                let copies = playlist.entries(after: playlist.lastStep).filter { !playlist.keys(of: $0).isDisjoint(with: keys) }
+                let copies = playlist.entries(after: playlist.lastStep).filter {
+                    !playlist.keys(of: $0).isDisjoint(with: keys)
+                }
                 guard !copies.isEmpty else { continue }
                 playlist.edits.append(.remove(copies))
                 playlist.settledAt = nil
@@ -361,7 +365,9 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
                 createdPlaylists[index].summary = createdPlaylists[index].summary.renamed(name)
             }
             renamedPlaylists[id] = (name, now())
-            if renamedPlaylists.count > Self.maxEntries, let oldest = renamedPlaylists.min(by: { $0.value.at < $1.value.at }) {
+            if renamedPlaylists.count > Self.maxEntries,
+                let oldest = renamedPlaylists.min(by: { $0.value.at < $1.value.at })
+            {
                 renamedPlaylists[oldest.key] = nil
             }
         }
@@ -370,7 +376,9 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
     func recordCloudPlaylistID(_ cloudID: String, for playlistID: String) {
         locked {
             cloudPlaylistIDs[playlistID] = (cloudID, now())
-            if cloudPlaylistIDs.count > Self.maxEntries, let oldest = cloudPlaylistIDs.min(by: { $0.value.at < $1.value.at }) {
+            if cloudPlaylistIDs.count > Self.maxEntries,
+                let oldest = cloudPlaylistIDs.min(by: { $0.value.at < $1.value.at })
+            {
                 cloudPlaylistIDs[oldest.key] = nil
             }
         }
@@ -400,7 +408,9 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             editPlaylist(playlistID, shown: shown) { playlist, _ in
                 let first = playlist.additions.count
                 playlist.additions += songs.map { song in
-                    .init(track: song.track, keys: song.reference.matchKeys.union([song.track.id, Self.metadataKey(song.track)]))
+                    .init(
+                        track: song.track,
+                        keys: song.reference.matchKeys.union([song.track.id, Self.metadataKey(song.track)]))
                 }
                 let added = Array(first..<playlist.additions.count)
                 // One API request adds every song at once; the Music app adds them one by one, so
@@ -436,15 +446,18 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
     func isOnItsWayFromTheCloud(_ positions: [Int], playlistID: String, shown: [MusicTrack]) -> Bool {
         locked {
             let ids = shown.map(\.id)
-            guard let playlist = playlistEdits[playlistID], let view = playlist.views.last(where: { $0.ids == ids }) else {
+            guard let playlist = playlistEdits[playlistID], let view = playlist.views.last(where: { $0.ids == ids })
+            else {
                 return false
             }
             var fromTheAPI = Set<Int>()
-            for case let .add(indices, .api) in playlist.edits {
+            for case .add(let indices, .api) in playlist.edits {
                 fromTheAPI.formUnion(indices)
             }
             return positions.contains { position in
-                guard view.rows.indices.contains(position), case let .pending(index) = view.rows[position] else { return false }
+                guard view.rows.indices.contains(position), case .pending(let index) = view.rows[position] else {
+                    return false
+                }
                 return fromTheAPI.contains(index)
             }
         }
@@ -466,7 +479,8 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
     func musicAppPositions(_ positions: [Int], playlistID: String, shown: [MusicTrack]) -> [Int?]? {
         locked {
             let ids = shown.map(\.id)
-            guard let playlist = playlistEdits[playlistID], let view = playlist.views.last(where: { $0.ids == ids }) else {
+            guard let playlist = playlistEdits[playlistID], let view = playlist.views.last(where: { $0.ids == ids })
+            else {
                 return nil
             }
             let final = Set(playlist.entries(after: playlist.lastStep))
@@ -476,12 +490,13 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
                 inMusic[index] = count
                 count += 1
             }
-            let pending = Set(view.rows.compactMap { row -> Int? in
-                if case let .pending(index) = row { return index }
-                return nil
-            })
+            let pending = Set(
+                view.rows.compactMap { row -> Int? in
+                    if case .pending(let index) = row { return index }
+                    return nil
+                })
             var addedInMusic: [Int: Int] = [:]
-            for case let .add(indices, .musicApp) in playlist.edits {
+            for case .add(let indices, .musicApp) in playlist.edits {
                 for index in indices where pending.contains(index) {
                     addedInMusic[index] = count
                     count += 1
@@ -490,8 +505,8 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             return positions.map { position -> Int? in
                 guard view.rows.indices.contains(position) else { return position }
                 switch view.rows[position] {
-                case let .read(index): return inMusic[index] ?? position
-                case let .pending(index):
+                case .read(let index): return inMusic[index] ?? position
+                case .pending(let index):
                     guard view.isComplete, !playlist.placed.contains(index) else { return nil }
                     return addedInMusic[index] ?? position
                 }
@@ -515,8 +530,8 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             if let view = existing.views.last(where: { $0.ids == ids }) {
                 let entries = view.rows.map { row -> PlaylistEdits.Entry? in
                     switch row {
-                    case let .read(index): view.read[index].entry
-                    case let .pending(index): .added(index)
+                    case .read(let index): view.read[index].entry
+                    case .pending(let index): .added(index)
                     }
                 }
                 if entries.allSatisfy({ $0 != nil }) {
@@ -662,15 +677,17 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             deletedPlaylists = deletedPlaylists.filter { shownIDs.contains($0.key) }
             // Names as sent, not the stand-in two different names may both show (#547).
             createdPlaylists.removeAll { created in
-                shownIDs.contains(created.summary.id) || playlists.contains { playlist in
-                    AppleMusicLibraryEditor.isSamePlaylistName(playlist.nameAsSent, created.summary.nameAsSent)
-                        && !created.existingIDsWithSameName.contains(playlist.id)
-                }
+                shownIDs.contains(created.summary.id)
+                    || playlists.contains { playlist in
+                        AppleMusicLibraryEditor.isSamePlaylistName(playlist.nameAsSent, created.summary.nameAsSent)
+                            && !created.existingIDsWithSameName.contains(playlist.id)
+                    }
             }
             for playlist in playlists where renamedPlaylists[playlist.id]?.name == playlist.nameAsSent {
                 renamedPlaylists[playlist.id] = nil
             }
-            let shown = playlists
+            let shown =
+                playlists
                 .filter { deletedPlaylists[$0.id] == nil }
                 .map { playlist in renamedPlaylists[playlist.id].map { playlist.renamed($0.name) } ?? playlist }
             return createdPlaylists.map(\.summary) + shown
@@ -709,10 +726,14 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
                 playlist.shownStep = fit.step
                 // The read has every copy added, and every step from this one on lists the rows
                 // the edits leave: nothing is left to lay over a read.
-                let settled = final.allSatisfy { entry in
-                    if case .added = entry { return read.contains(entry) }
-                    return true
-                } && playlist.steps(from: fit.step).filter { $0.has(fit.step) }.allSatisfy { fit.entries($0) == final }
+                let settled =
+                    final.allSatisfy { entry in
+                        if case .added = entry { return read.contains(entry) }
+                        return true
+                    }
+                    && playlist.steps(from: fit.step).filter { $0.has(fit.step) }.allSatisfy {
+                        fit.entries($0) == final
+                    }
                 if settled {
                     if playlist.settledAt == nil { playlist.settledAt = now() }
                     playlist.views = Array((playlist.views + [rawView]).suffix(Self.keptViews))
@@ -737,7 +758,7 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
                 }
             }
             for entry in final where !read.contains(entry) {
-                guard case let .added(index) = entry else { continue }
+                guard case .added(let index) = entry else { continue }
                 let group = fit.group(of: entry)
                 rows.append(.pending(index))
                 if let standIn = standIns.firstIndex(where: { fit.group(ofRow: $0) == group }) {
@@ -746,7 +767,9 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
                     shown.append(playlist.additions[index].track)
                 }
             }
-            playlist.views = Array((playlist.views + [.init(ids: shown.map(\.id), rows: rows, read: rawView.read, isComplete: isComplete)]).suffix(Self.keptViews))
+            playlist.views = Array(
+                (playlist.views + [.init(ids: shown.map(\.id), rows: rows, read: rawView.read, isComplete: isComplete)])
+                    .suffix(Self.keptViews))
             playlistEdits[playlistID] = playlist
             return shown
         }
@@ -786,7 +809,9 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
     /// The step a read fits best. Each step is counted per song first (cheap); among the ones
     /// that list every song as often as the read, the first whose rows are in the read's order
     /// wins, else the first that leaves the fewest rows and entries unpaired.
-    private func fitting(_ rows: [(track: MusicTrack, keys: Set<String>)], to playlist: PlaylistEdits, isComplete: Bool) -> Fit {
+    private func fitting(_ rows: [(track: MusicTrack, keys: Set<String>)], to playlist: PlaylistEdits, isComplete: Bool)
+        -> Fit
+    {
         // Songs: every key of a row or entry joins its group.
         var parent: [String: String] = [:]
         func root(_ key: String) -> String {
@@ -803,7 +828,9 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
                 if other != target { parent[other] = target }
             }
         }
-        let allEntries = playlist.listed.indices.map(PlaylistEdits.Entry.listed) + playlist.additions.indices.map(PlaylistEdits.Entry.added)
+        let allEntries =
+            playlist.listed.indices.map(PlaylistEdits.Entry.listed)
+            + playlist.additions.indices.map(PlaylistEdits.Entry.added)
         allEntries.forEach { join(playlist.keys(of: $0)) }
         rows.forEach { join($0.keys) }
         var groupNumbers: [String: Int] = [:]
@@ -814,10 +841,11 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             groupNumbers[key] = groupNumbers.count
             return groupNumbers.count - 1
         }
-        let hidden = Set(allEntries.filter { entry in
-            let keys = playlist.keys(of: entry)
-            return removedSongs.keys.contains { !$0.isDisjoint(with: keys) }
-        })
+        let hidden = Set(
+            allEntries.filter { entry in
+                let keys = playlist.keys(of: entry)
+                return removedSongs.keys.contains { !$0.isDisjoint(with: keys) }
+            })
         var fit = Fit(
             playlist: playlist,
             visible: { !hidden.contains($0) },
@@ -844,7 +872,7 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             case .api: apiEdits.append(edit)
             case .musicApp: musicAppEdits.append(edit)
             }
-            if case let .add(indices, route) = edit {
+            if case .add(let indices, let route) = edit {
                 let count = route == .api ? apiEdits.count : musicAppEdits.count
                 indices.forEach { addedBy[$0] = (route, count) }
             }
@@ -856,21 +884,26 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             var count = listedCount
             func move(_ entry: PlaylistEdits.Entry, by delta: Int) {
                 let group = fit.group(of: entry)
-                let read = inRead[group] ?? 0, listed = inListed[group] ?? 0, before = change[group] ?? 0
+                let read = inRead[group] ?? 0
+                let listed = inListed[group] ?? 0
+                let before = change[group] ?? 0
                 paired += min(read, listed + before + delta) - min(read, listed + before)
                 change[group] = before + delta
                 count += delta
             }
             func apply(_ edit: PlaylistEdits.Edit) {
                 switch edit {
-                case let .add(indices, _):
+                case .add(let indices, _):
                     for index in indices where !hidden.contains(.added(index)) {
                         move(.added(index), by: 1)
                     }
-                case let .remove(entries):
+                case .remove(let entries):
                     for entry in entries where !hidden.contains(entry) {
                         // A copy whose add this step doesn't have isn't there to take out.
-                        if case let .added(index) = entry, let add = addedBy[index], add.route == .api, add.count > api { continue }
+                        if case .added(let index) = entry, let add = addedBy[index], add.route == .api, add.count > api
+                        {
+                            continue
+                        }
                         move(entry, by: -1)
                     }
                 }

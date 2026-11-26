@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// The progress bar lost the first click while a track played, and its
@@ -103,7 +104,7 @@ final class ScrubberViewTests: XCTestCase {
         }
         // Ten seconds of ticks show every whole second of position exactly once.
         let seconds = ticks.map { anchor.interpolatedPositionMs(at: $0) / 1_000 }
-        XCTAssertEqual(Set(seconds), Set(12 ... 22))
+        XCTAssertEqual(Set(seconds), Set(12...22))
         let secondStarts = ticks.filter { anchor.interpolatedPositionMs(at: $0) % 1_000 < 10 }
         XCTAssertEqual(secondStarts.count, 10, "a tick lands right after every whole second")
     }
@@ -126,9 +127,12 @@ final class ScrubberViewTests: XCTestCase {
             )
             let labels: [(name: String, boundary: Int, text: (Int) -> String)] = [
                 ("elapsed", 0, { PlaybackProgressScrubberGroup.elapsedText(positionMs: $0) }),
-                ("remaining", progress.remainingBoundaryMilliseconds, {
-                    PlaybackProgressScrubberGroup.remainingText(positionMs: $0, durationMs: duration)
-                }),
+                (
+                    "remaining", progress.remainingBoundaryMilliseconds,
+                    {
+                        PlaybackProgressScrubberGroup.remainingText(positionMs: $0, durationMs: duration)
+                    }
+                ),
             ]
             for label in labels {
                 let ticks = Array(
@@ -138,7 +142,7 @@ final class ScrubberViewTests: XCTestCase {
                 )
                 // Every 10 ms over ten seconds. A tick lands 2 ms after its
                 // boundary, so the text may still be the one from 3 ms ago.
-                for step in 0 ..< 1_000 {
+                for step in 0..<1_000 {
                     let now = anchorDate.addingTimeInterval(Double(step) / 100 + 0.005)
                     guard let shown = ticks.last(where: { $0 <= now }) else { continue }
                     let shownText = label.text(progress.positionMilliseconds(at: shown))
@@ -213,7 +217,8 @@ final class ScrubberViewTests: XCTestCase {
     /// bar, as it always did. Drawn in a canvas exactly as wide as the bar, its
     /// right half was clipped away.
     func testThumbAtTheEndOfTheTrackIsDrawnWhole() throws {
-        let barWidth: CGFloat = 200, margin: CGFloat = 20
+        let barWidth: CGFloat = 200
+        let margin: CGFloat = 20
         let view = ScrubberView(
             progress: ScrubberProgress(
                 anchor: PlaybackProgressAnchor(
@@ -255,7 +260,8 @@ final class ScrubberViewTests: XCTestCase {
     /// VoiceOver (the bar's value reads them), so this reads their pixels.
     func testTimesSitOnTheScrubbersCentreLine() throws {
         for (scheme, background) in [(ColorScheme.dark, Color.black), (.light, Color.white)] {
-            let width: CGFloat = 400, height: CGFloat = 60
+            let width: CGFloat = 400
+            let height: CGFloat = 60
             let view = PlaybackProgressScrubberGroup(
                 progressAnchor: PlaybackProgressAnchor(
                     positionMilliseconds: 60_000,
@@ -288,7 +294,9 @@ final class ScrubberViewTests: XCTestCase {
                 var rows: [Int] = []
                 for row in 0..<bitmap.pixelsHigh {
                     let inked = stride(from: Int(minX * scale), to: Int(maxX * scale), by: 1).contains { column in
-                        guard let color = bitmap.colorAt(x: column, y: row)?.usingColorSpace(.sRGB) else { return false }
+                        guard let color = bitmap.colorAt(x: column, y: row)?.usingColorSpace(.sRGB) else {
+                            return false
+                        }
                         return [color.redComponent, color.greenComponent, color.blueComponent]
                             .contains { abs($0 - backgroundLevel) > 0.25 }
                     }
@@ -301,7 +309,8 @@ final class ScrubberViewTests: XCTestCase {
             // 40; the played part of the bar starts 8 pt after the elapsed time.
             let bar = try XCTUnwrap(inkCentre(fromX: 60, toX: 80), "the played part of the bar is not drawn, \(scheme)")
             let elapsed = try XCTUnwrap(inkCentre(fromX: 0, toX: 36), "the elapsed time is not drawn, \(scheme)")
-            let remaining = try XCTUnwrap(inkCentre(fromX: width - 40, toX: width), "the remaining time is not drawn, \(scheme)")
+            let remaining = try XCTUnwrap(
+                inkCentre(fromX: width - 40, toX: width), "the remaining time is not drawn, \(scheme)")
             // Digits sit a little above their line's middle, so 1.5 pt of
             // slack; the Lyrics button was 8 pt off.
             XCTAssertEqual(elapsed, bar, accuracy: 1.5, "the elapsed time is off the bar's centre line, \(scheme)")

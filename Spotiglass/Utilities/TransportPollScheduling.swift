@@ -11,17 +11,17 @@ enum TransportPollScheduling {
             "disconnected"
         case .connecting:
             "connecting"
-        case let .ready(deviceID):
+        case .ready(let deviceID):
             "ready:\(deviceID)"
-        case let .transferring(deviceID):
+        case .transferring(let deviceID):
             "transferring:\(deviceID)"
-        case let .playing(nowPlaying), let .paused(.some(nowPlaying)):
+        case .playing(let nowPlaying), .paused(.some(let nowPlaying)):
             "track:\(resolvedTrackURI(nowPlaying.uri))"
         case .paused(.none):
             "paused-empty"
-        case let .unavailable(message):
+        case .unavailable(let message):
             "unavailable:\(message.string)"
-        case let .error(error):
+        case .error(let error):
             "error:\(error.title)"
         }
     }
@@ -70,7 +70,8 @@ enum TransportPollScheduling {
             return .seconds(15)
         }
         if inputs.localMutationSettleTicksRemaining > 0 || inputs.hasPendingVolumeMutation
-            || inputs.isAwaitingReadOnlyPlayerStart {
+            || inputs.isAwaitingReadOnlyPlayerStart
+        {
             return .seconds(1)
         }
         if inputs.transportTransientErrorCount > 0 {

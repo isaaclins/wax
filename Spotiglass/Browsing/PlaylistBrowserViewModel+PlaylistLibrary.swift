@@ -9,15 +9,20 @@ extension PlaylistBrowserViewModel {
 
     func load() async {
         if let bundle = try? cache.loadPlaylistsBundle(now: now()),
-           !bundle.playlists.isEmpty,
-           let cachedPlaylists = try? validatedPlaylistSummaries(bundle.playlists),
-           !cachedPlaylists.isEmpty {
+            !bundle.playlists.isEmpty,
+            let cachedPlaylists = try? validatedPlaylistSummaries(bundle.playlists),
+            !cachedPlaylists.isEmpty
+        {
             // Counts saved with the list are shown, but counted again like any listing's, so
             // the provider's rules for how long a count holds still apply.
-            let savedCounts = api.listsPlaylistsWithoutTrackCounts ? cachedPlaylists.compactMap { summary in
-                summary.trackCount.map { (summary.id, $0) }
-            } : []
-            let listed = api.listsPlaylistsWithoutTrackCounts ? cachedPlaylists.map { $0.with(trackCount: nil) } : cachedPlaylists
+            let savedCounts =
+                api.listsPlaylistsWithoutTrackCounts
+                ? cachedPlaylists.compactMap { summary in
+                    summary.trackCount.map { (summary.id, $0) }
+                } : []
+            let listed =
+                api.listsPlaylistsWithoutTrackCounts
+                ? cachedPlaylists.map { $0.with(trackCount: nil) } : cachedPlaylists
             apply(
                 playlists: listed,
                 state: .loaded(listed.map(PlaylistRowViewModel.init)),
@@ -67,8 +72,9 @@ extension PlaylistBrowserViewModel {
             if playlists.isEmpty {
                 playlistsByID = [:]
                 playlistState = .empty(LocalizedText.noPlaylists(on: MusicServiceSelection.current))
-                if case let .playlist(id) = sidebarSelection,
-                   knownPlaylistSummariesByID[id] != nil {
+                if case .playlist(let id) = sidebarSelection,
+                    knownPlaylistSummariesByID[id] != nil
+                {
                     return
                 }
                 await selectHomeIfNoDetailIsShown()
@@ -76,12 +82,13 @@ extension PlaylistBrowserViewModel {
             }
             let selectionBefore = sidebarSelection
             let playlistIDBefore: String? = {
-                if case let .playlist(id) = selectionBefore { return id }
+                if case .playlist(let id) = selectionBefore { return id }
                 return nil
             }()
             let snapshotBeforeRefresh = playlistIDBefore.flatMap { playlistsByID[$0]?.snapshotID }
 
-            apply(playlists: playlists, state: .loaded(playlists.map(PlaylistRowViewModel.init)), preserveSelection: true)
+            apply(
+                playlists: playlists, state: .loaded(playlists.map(PlaylistRowViewModel.init)), preserveSelection: true)
 
             guard let selectionAfter = sidebarSelection else { return }
 
@@ -91,8 +98,8 @@ extension PlaylistBrowserViewModel {
                     return false
                 case .home, .search, .pinnedItem:
                     return selectionBefore != selectionAfter
-                case let .playlist(idAfter):
-                    if case let .playlist(idBefore) = selectionBefore, idBefore == idAfter {
+                case .playlist(let idAfter):
+                    if case .playlist(let idBefore) = selectionBefore, idBefore == idAfter {
                         let newSnap = playlistsByID[idAfter]?.snapshotID
                         return newSnap != snapshotBeforeRefresh
                     }
@@ -181,7 +188,8 @@ extension PlaylistBrowserViewModel {
         }
         // A part still arriving has already set up the next look.
         guard generation == libraryArrivalGeneration, libraryPartsArriving.isEmpty,
-              libraryArrivalReads < Self.maxLibraryArrivalReads else { return }
+            libraryArrivalReads < Self.maxLibraryArrivalReads
+        else { return }
         let covers = coversOnScreen
         if let coversBefore, covers <= coversBefore { return }
         libraryCoversSeen = covers
@@ -200,7 +208,7 @@ extension PlaylistBrowserViewModel {
     /// The covers of the library on screen: the sidebar's playlists and the open Liked Songs.
     private var coversOnScreen: Int {
         let playlistCovers = playlistsByID.values.filter { $0.imageURL != nil }.count
-        guard showsLikedSongs, case let .playlist(detail)? = detailState.currentValue else { return playlistCovers }
+        guard showsLikedSongs, case .playlist(let detail)? = detailState.currentValue else { return playlistCovers }
         return playlistCovers + detail.tracks.filter { $0.artworkURL != nil }.count
     }
 
@@ -218,7 +226,8 @@ extension PlaylistBrowserViewModel {
     /// route, keep it available even when the library has no usable response.
     private func selectHomeIfNoDetailIsShown() async {
         guard detailState.currentValue == nil,
-              sidebarSelection == nil || sidebarSelection == .home else {
+            sidebarSelection == nil || sidebarSelection == .home
+        else {
             return
         }
         await selectSidebar(.home)
@@ -232,10 +241,11 @@ extension PlaylistBrowserViewModel {
         }
 
         if trigger == .userInitiated,
-           let lastManualPlaylistRefreshAt,
-           now().timeIntervalSince(lastManualPlaylistRefreshAt) < manualPlaylistRefreshCooldown,
-           let cached = currentPlaylistSummariesFromLoadedState(),
-           !cached.isEmpty {
+            let lastManualPlaylistRefreshAt,
+            now().timeIntervalSince(lastManualPlaylistRefreshAt) < manualPlaylistRefreshCooldown,
+            let cached = currentPlaylistSummariesFromLoadedState(),
+            !cached.isEmpty
+        {
             return cached
         }
 
@@ -278,7 +288,9 @@ extension PlaylistBrowserViewModel {
         }
         guard currentUserID?.isEmpty ?? true, !profileFailureNoted else { return }
         profileFailureNoted = true
-        trackMutationToast = Self.failureToast(nil, while: "loading the profile, so own playlists read as someone else's", SpotiglassL10n.string("library.profile.loadFailed"))
+        trackMutationToast = Self.failureToast(
+            nil, while: "loading the profile, so own playlists read as someone else's",
+            SpotiglassL10n.string("library.profile.loadFailed"))
     }
 
     private nonisolated static func optionalProfile(_ api: any MusicBrowsingProvider) async -> MusicUserProfile? {
@@ -286,7 +298,8 @@ extension PlaylistBrowserViewModel {
             return try await api.currentUserProfile()
         } catch {
             if !(error is CancellationError) {
-                SpotiglassLog.error(.browsing, "Profile didn't load with the playlists: \(SpotiglassLog.describe(error))")
+                SpotiglassLog.error(
+                    .browsing, "Profile didn't load with the playlists: \(SpotiglassLog.describe(error))")
             }
             return nil
         }
@@ -332,7 +345,7 @@ extension PlaylistBrowserViewModel {
 
         if preserveSelection, let selection = sidebarSelection {
             switch selection {
-            case let .playlist(id) where playlistsByID[id] != nil || knownPlaylistSummariesByID[id] != nil:
+            case .playlist(let id) where playlistsByID[id] != nil || knownPlaylistSummariesByID[id] != nil:
                 return
             case .likedSongs, .home, .search, .pinnedItem:
                 return
@@ -341,20 +354,22 @@ extension PlaylistBrowserViewModel {
             }
         }
 
-        if case let .playlist(missingID) = sidebarSelection,
-           playlistsByID[missingID] == nil,
-           knownPlaylistSummariesByID[missingID] == nil {
-            detailState = .error(ErrorReporting.report(
-                nil,
-                while: "showing the selected playlist after a library refresh",
-                in: .browsing,
-                context: [.private("playlist", missingID)],
-                showing: ErrorMessage(
-                    title: SpotiglassL10n.string("error.browsing.playlistUnavailable.title"),
-                    message: SpotiglassL10n.string("error.browsing.playlistUnavailable.deleted"),
-                    canRetry: true
-                )
-            ))
+        if case .playlist(let missingID) = sidebarSelection,
+            playlistsByID[missingID] == nil,
+            knownPlaylistSummariesByID[missingID] == nil
+        {
+            detailState = .error(
+                ErrorReporting.report(
+                    nil,
+                    while: "showing the selected playlist after a library refresh",
+                    in: .browsing,
+                    context: [.private("playlist", missingID)],
+                    showing: ErrorMessage(
+                        title: SpotiglassL10n.string("error.browsing.playlistUnavailable.title"),
+                        message: SpotiglassL10n.string("error.browsing.playlistUnavailable.deleted"),
+                        canRetry: true
+                    )
+                ))
         }
         // Default landing surface is Home, not the first playlist.
         sidebarSelection = .home
@@ -448,7 +463,9 @@ extension PlaylistBrowserViewModel {
         let edits = playlistTrackCountEdits[playlistID]
         Task { [weak self, api] in
             let counts = await api.playlistTrackCounts(playlistIDs: [playlistID])
-            guard let self, self.playlistTrackCountEdits[playlistID] == edits, let count = counts[playlistID] else { return }
+            guard let self, self.playlistTrackCountEdits[playlistID] == edits, let count = counts[playlistID] else {
+                return
+            }
             self.applyPlaylistTrackCounts([playlistID: count], replacing: [playlistID])
         }
     }
@@ -461,15 +478,17 @@ extension PlaylistBrowserViewModel {
         var patchedIDs = Set<String>()
         for (id, count) in counts {
             guard let summary = playlistsByID[id],
-                  summary.trackCount != count,
-                  summary.trackCount == nil || playlistTrackCountStandIns.contains(id) || replacing.contains(id) else { continue }
+                summary.trackCount != count,
+                summary.trackCount == nil || playlistTrackCountStandIns.contains(id) || replacing.contains(id)
+            else { continue }
             playlistsByID[id] = summary.with(trackCount: count)
             patchedIDs.insert(id)
         }
         guard !patchedIDs.isEmpty else { return }
-        if case let .playlist(detail)? = detailState.currentValue,
-           patchedIDs.contains(detail.playlist.id),
-           let summary = playlistsByID[detail.playlist.id] {
+        if case .playlist(let detail)? = detailState.currentValue,
+            patchedIDs.contains(detail.playlist.id),
+            let summary = playlistsByID[detail.playlist.id]
+        {
             let counted = PlaylistDetailViewModel(playlist: PlaylistRowViewModel(summary), tracks: detail.tracks)
             switch detailState {
             case .loading, .empty, .error:
@@ -478,7 +497,7 @@ extension PlaylistBrowserViewModel {
                 detailState = .loaded(.playlist(counted))
             case .refreshing:
                 detailState = .refreshing(.playlist(counted))
-            case let .staleCache(_, displayError):
+            case .staleCache(_, let displayError):
                 detailState = .staleCache(.playlist(counted), displayError)
             }
         }
@@ -494,7 +513,7 @@ extension PlaylistBrowserViewModel {
             playlistState = .loaded(patched)
         case .refreshing:
             playlistState = .refreshing(patched)
-        case let .staleCache(_, displayError):
+        case .staleCache(_, let displayError):
             playlistState = .staleCache(patched, displayError)
         }
     }

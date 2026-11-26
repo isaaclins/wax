@@ -117,13 +117,16 @@ enum QueueRemovalPlan {
         let before = seen.map { QueueSnapshot(current: now.current == nil ? nil : $0.current, upcoming: $0.upcoming) }
         if let before, let ended = endedCount(seen: before.all, now: now.all) {
             let shift = ended + (now.current == nil ? 0 : 1) - (before.current == nil ? 0 : 1)
-            return Array(Set(removals.compactMap { removal -> Int? in
-                let position = removal.position - shift
-                guard position >= 0, upcomingURIs.indices.contains(position),
-                      same(upcomingURIs[position], removal.uri)
-                else { return nil }
-                return position
-            })).sorted()
+            return Array(
+                Set(
+                    removals.compactMap { removal -> Int? in
+                        let position = removal.position - shift
+                        guard position >= 0, upcomingURIs.indices.contains(position),
+                            same(upcomingURIs[position], removal.uri)
+                        else { return nil }
+                        return position
+                    })
+            ).sorted()
         }
         var taken: Set<Int> = []
         for removal in removals.sorted(by: { $0.position < $1.position }) {
@@ -261,7 +264,8 @@ extension MusicPlaybackProvider {
 
     func didStartLocalPlayback(uri: String) async throws {}
 
-    func appendToQueueEnd(_ track: MusicTrack, deviceID: String, isWanted: @escaping @MainActor () -> Bool) async throws {
+    func appendToQueueEnd(_ track: MusicTrack, deviceID: String, isWanted: @escaping @MainActor () -> Bool) async throws
+    {
         guard isWanted() else { throw CancellationError() }
         try await enqueue(uri: track.uri, deviceID: deviceID)
     }

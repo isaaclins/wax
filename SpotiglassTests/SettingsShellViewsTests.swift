@@ -1,6 +1,7 @@
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -28,7 +29,7 @@ final class SettingsShellViewsTests: XCTestCase {
             "settings.section.equalizer",
             "settings.section.appearance",
             "settings.section.account",
-            "settings.section.keyboard"
+            "settings.section.keyboard",
         ] {
             ViewTestHost.assertFindLocalizedText(key, in: view)
         }

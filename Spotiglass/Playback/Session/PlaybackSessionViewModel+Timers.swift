@@ -65,17 +65,18 @@ extension PlaybackSessionViewModel {
         if let rateLimitedUntil = transportRateLimitedUntil, rateLimitedUntil <= clock.now {
             transportRateLimitedUntil = nil
         }
-        return TransportPollScheduling.pollDelay(for: TransportPollScheduling.PollDelayInputs(
-            now: clock.now,
-            transportRateLimitedUntil: transportRateLimitedUntil,
-            localMutationSettleTicksRemaining: localMutationSettleTicksRemaining,
-            hasPendingVolumeMutation: pendingVolumeMutation != nil,
-            isAwaitingReadOnlyPlayerStart: pendingPlayTransition != nil
-                && !provider.capabilities.contains(.pushesPlayerState),
-            transportTransientErrorCount: transportTransientErrorCount,
-            hasLatestPlayerSnapshot: latestPlayerSnapshot != nil,
-            isPlaybackActiveForPolling: isPlaybackActiveForPolling,
-            connectionState: connectionState
-        ))
+        return TransportPollScheduling.pollDelay(
+            for: TransportPollScheduling.PollDelayInputs(
+                now: clock.now,
+                transportRateLimitedUntil: transportRateLimitedUntil,
+                localMutationSettleTicksRemaining: localMutationSettleTicksRemaining,
+                hasPendingVolumeMutation: pendingVolumeMutation != nil,
+                isAwaitingReadOnlyPlayerStart: pendingPlayTransition != nil
+                    && !provider.capabilities.contains(.pushesPlayerState),
+                transportTransientErrorCount: transportTransientErrorCount,
+                hasLatestPlayerSnapshot: latestPlayerSnapshot != nil,
+                isPlaybackActiveForPolling: isPlaybackActiveForPolling,
+                connectionState: connectionState
+            ))
     }
 }

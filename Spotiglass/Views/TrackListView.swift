@@ -96,7 +96,7 @@ struct TrackListView<Row: View>: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("TrackListView")
+            let _ = ViewBodyTally.record("TrackListView")
         #endif
         let generations = realizedRows.generations(tracks: tracks, selection: selection)
         ScrollViewReader { proxy in
@@ -163,8 +163,10 @@ struct TrackListView<Row: View>: View {
     }
 
     private func reportFirstVisibleTrack() {
-        guard let id = TrackListVisibility.firstVisibleTrackID(realized: realizedRows.trackIDs, positions: realizedRows.positionByTrackID),
-              id != realizedRows.lastReportedFirstVisibleTrackID
+        guard
+            let id = TrackListVisibility.firstVisibleTrackID(
+                realized: realizedRows.trackIDs, positions: realizedRows.positionByTrackID),
+            id != realizedRows.lastReportedFirstVisibleTrackID
         else { return }
         realizedRows.lastReportedFirstVisibleTrackID = id
         onFirstVisibleTrackChanged(id)
@@ -221,7 +223,7 @@ private struct TrackListRows<Row: View>: View, Equatable {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("TrackListRows")
+            let _ = ViewBodyTally.record("TrackListRows")
         #endif
         ForEach(tracks) { track in
             // One view per song, whatever the row builder returns: a builder's view
@@ -238,12 +240,14 @@ private struct TrackListRows<Row: View>: View, Equatable {
             .frame(height: TrackListRow.listRowHeight)
             // With the list's own inset the row's edge lands on the
             // page margin, under the header's artwork and titles.
-            .listRowInsets(EdgeInsets(
-                top: 0,
-                leading: SpotiglassDesign.Layout.insetListContentInset,
-                bottom: 0,
-                trailing: SpotiglassDesign.Layout.insetListContentInset
-            ))
+            .listRowInsets(
+                EdgeInsets(
+                    top: 0,
+                    leading: SpotiglassDesign.Layout.insetListContentInset,
+                    bottom: 0,
+                    trailing: SpotiglassDesign.Layout.insetListContentInset
+                )
+            )
             .tag(track.id)
             // Row lifecycle is what tells us where the list is. Deriving
             // it from the scroll offset instead reads the wrong row,
@@ -327,7 +331,6 @@ enum TrackListVisibility {
         realized.min { (positions[$0] ?? .max, $0) < (positions[$1] ?? .max, $1) }
     }
 }
-
 
 /// Shows `content` with a binding to the detail selection, and runs it again when the
 /// selection changes (#655). The binding is to the selection itself: one through the browser

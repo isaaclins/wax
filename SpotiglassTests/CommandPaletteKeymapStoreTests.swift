@@ -1,5 +1,6 @@
 import AppKit
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -9,7 +10,8 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         let settingsStore = SpotiglassSettingsStore(fileURL: url)
         let store = CommandPaletteKeymapStore(settingsStore: settingsStore)
         let newShortcut = try CommandShortcut(keystroke: "shift-cmd-9")
-        try store.setBinding(commandID: CommandPaletteCommandID.openSettings, shortcut: newShortcut, replaceConflicting: false)
+        try store.setBinding(
+            commandID: CommandPaletteCommandID.openSettings, shortcut: newShortcut, replaceConflicting: false)
         XCTAssertEqual(store.primaryShortcut(for: CommandPaletteCommandID.openSettings), newShortcut)
 
         let file = try JSONDecoder().decode(CommandPaletteKeymapFile.self, from: Data(store.editorText.utf8))
@@ -31,14 +33,16 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         let store = CommandPaletteKeymapStore(settingsStore: settingsStore)
         let stolen = try CommandShortcut(keystroke: "cmd-k")
         XCTAssertThrowsError(
-            try store.setBinding(commandID: CommandPaletteCommandID.openSettings, shortcut: stolen, replaceConflicting: false)
+            try store.setBinding(
+                commandID: CommandPaletteCommandID.openSettings, shortcut: stolen, replaceConflicting: false)
         ) { error in
             XCTAssertEqual(
                 error as? KeymapConflictError,
                 .conflict(existingCommandID: CommandPaletteCommandID.openPalette)
             )
         }
-        try store.setBinding(commandID: CommandPaletteCommandID.openSettings, shortcut: stolen, replaceConflicting: true)
+        try store.setBinding(
+            commandID: CommandPaletteCommandID.openSettings, shortcut: stolen, replaceConflicting: true)
         XCTAssertEqual(store.primaryShortcut(for: CommandPaletteCommandID.openSettings), stolen)
         XCTAssertNil(store.primaryShortcut(for: CommandPaletteCommandID.openPalette))
     }
@@ -69,7 +73,7 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
                 CommandPaletteShortcutUsage(
                     commandID: CommandPaletteCommandID.pinSelected,
                     context: .paletteOpen
-                ),
+                )
             ]
         )
     }
@@ -148,14 +152,14 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         let store = CommandPaletteKeymapStore(settingsStore: settingsStore)
 
         store.editorText = """
-        {
-          "bindings": [
-            { "keystrokes": ["cmd-k"], "command": "palette.open", "when": "always" },
-            { "keystrokes": ["ctrl-p"], "command": "palette.open", "when": "palette_open",
-              "args": { "mode": "commands" } }
-          ]
-        }
-        """
+            {
+              "bindings": [
+                { "keystrokes": ["cmd-k"], "command": "palette.open", "when": "always" },
+                { "keystrokes": ["ctrl-p"], "command": "palette.open", "when": "palette_open",
+                  "args": { "mode": "commands" } }
+              ]
+            }
+            """
         store.applyEditorText()
         XCTAssertNil(store.lastError?.message)
 
@@ -184,14 +188,14 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         let store = CommandPaletteKeymapStore(settingsStore: settingsStore)
 
         store.editorText = """
-        {
-          "bindings": [
-            { "keystrokes": ["cmd-,"], "command": "app.openSettings", "when": "always" },
-            { "keystrokes": ["ctrl-,"], "command": "app.openSettings", "when": "palette_open",
-              "args": { "tab": "keymap" } }
-          ]
-        }
-        """
+            {
+              "bindings": [
+                { "keystrokes": ["cmd-,"], "command": "app.openSettings", "when": "always" },
+                { "keystrokes": ["ctrl-,"], "command": "app.openSettings", "when": "palette_open",
+                  "args": { "tab": "keymap" } }
+              ]
+            }
+            """
         store.applyEditorText()
         XCTAssertNil(store.lastError?.message)
 
@@ -221,13 +225,13 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         let store = CommandPaletteKeymapStore(settingsStore: settingsStore)
 
         store.editorText = """
-        {
-          "bindings": [
-            { "keystrokes": ["cmd-,"], "command": "app.openSettings", "when": "always" },
-            { "keystrokes": ["ctrl-,"], "command": "app.openSettings", "when": "palette_open" }
-          ]
-        }
-        """
+            {
+              "bindings": [
+                { "keystrokes": ["cmd-,"], "command": "app.openSettings", "when": "always" },
+                { "keystrokes": ["ctrl-,"], "command": "app.openSettings", "when": "palette_open" }
+              ]
+            }
+            """
         store.applyEditorText()
         try store.clearBinding(commandID: CommandPaletteCommandID.openSettings)
 
@@ -247,13 +251,13 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         let before = try JSONDecoder().decode(SpotiglassSettingsFile.self, from: Data(contentsOf: url)).keybinds
 
         store.editorText = """
-        {
-          "bindings": [
-            { "keystrokes": ["cmd-k"], "command": "palette.open", "when": "always" },
-            { "keystrokes": ["cmd-notakey"], "command": "palette.open", "when": "palette_open" }
-          ]
-        }
-        """
+            {
+              "bindings": [
+                { "keystrokes": ["cmd-k"], "command": "palette.open", "when": "always" },
+                { "keystrokes": ["cmd-notakey"], "command": "palette.open", "when": "palette_open" }
+              ]
+            }
+            """
         store.applyEditorText()
 
         XCTAssertNotNil(store.lastError?.message, "an invalid keystroke must be reported")
@@ -347,7 +351,9 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         let settingsStore = SpotiglassSettingsStore(fileURL: url)
         let store = CommandPaletteKeymapStore(settingsStore: settingsStore)
 
-        XCTAssertEqual(store.primaryShortcut(for: CommandPaletteCommandID.toggleQueue), try CommandShortcut(keystroke: "shift-cmd-8"))
+        XCTAssertEqual(
+            store.primaryShortcut(for: CommandPaletteCommandID.toggleQueue),
+            try CommandShortcut(keystroke: "shift-cmd-8"))
         XCTAssertEqual(store.unusableRows, [fromNewerBuild])
         XCTAssertNotNil(store.unusableRowsNotice)
         // One row reads as one, not "1 saved shortcuts".
@@ -370,7 +376,8 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         let saved = try JSONDecoder().decode(SpotiglassSettingsFile.self, from: try Data(contentsOf: url)).keybinds
         XCTAssertTrue(saved.contains(custom), "the custom shortcut is gone")
         XCTAssertTrue(saved.contains(fromNewerBuild), "the newer build's row is gone")
-        XCTAssertTrue(saved.contains { $0.command == CommandPaletteCommandID.openSettings && $0.keystrokes == ["shift-cmd-9"] })
+        XCTAssertTrue(
+            saved.contains { $0.command == CommandPaletteCommandID.openSettings && $0.keystrokes == ["shift-cmd-9"] })
         XCTAssertNotNil(store.unusableRowsNotice, "the notice stays while the row does")
 
         try store.clearBinding(commandID: CommandPaletteCommandID.openSettings)

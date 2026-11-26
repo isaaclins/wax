@@ -32,13 +32,14 @@ enum SpotiglassDesign {
     /// colors by value, and a freshly built dynamic color would look like a change on every
     /// update. The provider still resolves the live accent per appearance, so light and dark
     /// each get their own grey.
-    static let inactiveAccent = Color(nsColor: NSColor(name: nil) { appearance in
-        var resolved = NSColor.controlAccentColor
-        appearance.performAsCurrentDrawingAppearance {
-            resolved = subduedForInactiveWindow(.controlAccentColor)
-        }
-        return resolved
-    })
+    static let inactiveAccent = Color(
+        nsColor: NSColor(name: nil) { appearance in
+            var resolved = NSColor.controlAccentColor
+            appearance.performAsCurrentDrawingAppearance {
+                resolved = subduedForInactiveWindow(.controlAccentColor)
+            }
+            return resolved
+        })
 
     /// Scales the saturation of `nsColor` while keeping its hue, brightness and alpha.
     /// Split out from `inactiveAccent` because the accent itself is a live system color,
@@ -352,7 +353,8 @@ enum SpotiglassDesign {
     /// would let a drag make the window narrow without crossing into it, and a narrower window
     /// then closed neither the sidebar nor the queue.
     static func playlistSidebarMaxWidth(browserWidth: CGFloat, isQueueVisible: Bool) -> CGFloat {
-        let others = detailColumnMinWidth + splitViewChromeWidth
+        let others =
+            detailColumnMinWidth + splitViewChromeWidth
             + (isQueueVisible ? queuePanelMinWidth + dualSidebarSlack : 0)
         return max(playlistSidebarMinWidth, browserWidth - others)
     }
@@ -519,8 +521,7 @@ struct ShellBackground: View {
 
     var body: some View {
         Color(nsColor: reduceTransparency ? .windowBackgroundColor : .underPageBackgroundColor)
-        .ignoresSafeArea()
-        .toolbar(removing: .title)
+            .ignoresSafeArea()
+            .toolbar(removing: .title)
     }
 }
-

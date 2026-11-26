@@ -79,7 +79,8 @@ struct TrackRowPlaybackSource {
 
     /// The marks of the rows of one list. Build it once per list and hand it to each of its rows.
     func marks(in rows: [TrackRowViewModel]) -> TrackListPlaybackMarks {
-        TrackListPlaybackMarks(rows: rows, connectionState: connectionState, connectionStateChanges: connectionStateChanges)
+        TrackListPlaybackMarks(
+            rows: rows, connectionState: connectionState, connectionStateChanges: connectionStateChanges)
     }
 }
 
@@ -135,7 +136,8 @@ final class TrackListPlaybackMarks {
     ) -> PlaybackValueReader<TrackRowPlaybackMark, Row> {
         PlaybackValueReader(
             value: { [self] in mark(of: track) },
-            changes: connectionStateChanges
+            changes:
+                connectionStateChanges
                 .map { [self] in mark(of: track, connectionState: $0) }
                 .eraseToAnyPublisher(),
             content: content
@@ -144,9 +146,9 @@ final class TrackListPlaybackMarks {
 
     private func mark(of track: TrackRowViewModel, connectionState: PlaybackConnectionState) -> TrackRowPlaybackMark {
         #if DEBUG
-        // Each row the list built listens to the player, so this runs once per such row and
-        // change: a test can tell whether a press reached every song or only those on screen (#662).
-        ViewBodyTally.record("TrackListPlaybackMarks.rowMark")
+            // Each row the list built listens to the player, so this runs once per such row and
+            // change: a test can tell whether a press reached every song or only those on screen (#662).
+            ViewBodyTally.record("TrackListPlaybackMarks.rowMark")
         #endif
         return TrackRowPlaybackMark.resolve(
             track: track,
@@ -160,7 +162,7 @@ final class TrackListPlaybackMarks {
         let state = connectionState.ignoringPosition
         if let resolved, resolved.state == state { return resolved.markedURI }
         #if DEBUG
-        ViewBodyTally.record("TrackListPlaybackMarks.markedURI")
+            ViewBodyTally.record("TrackListPlaybackMarks.markedURI")
         #endif
         // An Apple Music song started from another list carries that list's id (#396).
         let markedURI = PlaylistBrowserPlaybackHelpers.rowURI(

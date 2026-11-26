@@ -30,7 +30,7 @@ struct PlaylistBrowserSidebar: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("PlaylistBrowserSidebar")
+            let _ = ViewBodyTally.record("PlaylistBrowserSidebar")
         #endif
         ScrollViewReader { proxy in
             List(selection: $viewModel.sidebarSelection) {
@@ -101,10 +101,14 @@ struct PlaylistBrowserSidebar: View {
                 onLibraryAppear()
             }
             .overlay(alignment: .bottom) {
-                if case let .staleCache(_, error) = viewModel.playlistState {
-                    ErrorBanner(error: error, style: .floating, retry: error?.canRetry == false ? nil : {
-                        Task { await viewModel.refreshPlaylists(trigger: .userInitiated) }
-                    })
+                if case .staleCache(_, let error) = viewModel.playlistState {
+                    ErrorBanner(
+                        error: error, style: .floating,
+                        retry: error?.canRetry == false
+                            ? nil
+                            : {
+                                Task { await viewModel.refreshPlaylists(trigger: .userInitiated) }
+                            })
                 } else if case .refreshing = viewModel.playlistState {
                     ProgressView(SpotiglassL10n.string("browser.refreshingPlaylists"))
                         .controlSize(.small)
@@ -134,7 +138,7 @@ struct PlaylistBrowserSidebar: View {
         switch row {
         case .home:
             LibraryHomeSidebarRow()
-        case let .pinned(item):
+        case .pinned(let item):
             PinnedSidebarLibraryRow(item: item, isSelected: viewModel.sidebarSelection == .pinnedItem(item.id))
         }
     }

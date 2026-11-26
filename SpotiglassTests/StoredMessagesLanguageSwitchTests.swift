@@ -1,5 +1,6 @@
 import MusicKit
 import XCTest
+
 @testable import Spotiglass
 
 /// Since #548 a language switch keeps the window as it is, so a message already on screen has to
@@ -42,7 +43,9 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         func barLines() -> (title: String, subtitle: String)? {
             PlaybackControlsView.statusLines(for: playback.connectionState, playerPushesState: true, service: .spotify)
         }
-        XCTAssertEqual(barLines()?.subtitle, SpotiglassL10n.string("error.playback.deviceLost.message", locale: Locale(identifier: "en")))
+        XCTAssertEqual(
+            barLines()?.subtitle,
+            SpotiglassL10n.string("error.playback.deviceLost.message", locale: Locale(identifier: "en")))
 
         try switchToGerman()
 
@@ -77,15 +80,18 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
             try switchToGerman()
 
             XCTAssertEqual(auth.state.title, inGerman("app.connection.failed.title"))
-            XCTAssertEqual(auth.state.message, inGerman(key), "The sign-in error for \(error) stayed in the old language")
+            XCTAssertEqual(
+                auth.state.message, inGerman(key), "The sign-in error for \(error) stayed in the old language")
         }
     }
 
     /// Apple Music access that is off, or an Apple Music sign-in that lapsed, as the browser and
     /// the player bar say it.
     func testAppleMusicAccessErrorsFollowALanguageSwitch() throws {
-        let accessOff = try XCTUnwrap(ErrorMessage.appleMusic(for: MusicTokenRequestError.permissionDenied, service: .appleMusic))
-        let signedOut = try XCTUnwrap(ErrorMessage.appleMusic(for: MusicTokenRequestError.userNotSignedIn, service: .appleMusic))
+        let accessOff = try XCTUnwrap(
+            ErrorMessage.appleMusic(for: MusicTokenRequestError.permissionDenied, service: .appleMusic))
+        let signedOut = try XCTUnwrap(
+            ErrorMessage.appleMusic(for: MusicTokenRequestError.userNotSignedIn, service: .appleMusic))
         let playing = PlaybackSessionViewModel.displayError(
             for: MusicPlaybackError(service: .appleMusic, reason: .missingPermission, detail: "denied"),
             service: .appleMusic
@@ -95,10 +101,15 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         try switchToGerman()
 
         XCTAssertEqual(accessOff.title, inGerman("error.playback.appleMusic.permission.title"))
-        XCTAssertEqual(accessOff.message, inGerman("error.playback.appleMusic.permission.message"), "The access error stayed in the old language")
+        XCTAssertEqual(
+            accessOff.message, inGerman("error.playback.appleMusic.permission.message"),
+            "The access error stayed in the old language")
         XCTAssertEqual(signedOut.title, inGerman("appleMusic.error.signIn.title"))
-        XCTAssertEqual(signedOut.message, inGerman("appleMusic.error.signIn.message"), "The sign-in error stayed in the old language")
-        XCTAssertNotEqual(playing.message, englishPlaying, "The player's Apple Music access error stayed in the old language")
+        XCTAssertEqual(
+            signedOut.message, inGerman("appleMusic.error.signIn.message"),
+            "The sign-in error stayed in the old language")
+        XCTAssertNotEqual(
+            playing.message, englishPlaying, "The player's Apple Music access error stayed in the old language")
     }
 
     /// An error whose only fix was Reconnect, shown by a player that can't reconnect (Apple Music).
@@ -106,7 +117,7 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
     func testAReplacedPlaybackErrorFollowsALanguageSwitch() throws {
         let playback = PlaybackSessionViewModel(provider: ReadOnlyStatePlaybackProvider())
         playback.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackDeviceReconnectRequiredError())))
-        guard case let .error(shown) = playback.connectionState else { return XCTFail("Expected an error") }
+        guard case .error(let shown) = playback.connectionState else { return XCTFail("Expected an error") }
         XCTAssertNil(shown.action)
 
         try switchToGerman()
@@ -126,11 +137,15 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         palette.query = "abcd"
         palette.refresh()
         await palette.waitForSearchCompletion()
-        XCTAssertEqual(palette.error?.message, SpotiglassL10n.string("error.spotify.serverProblem", locale: Locale(identifier: "en")))
+        XCTAssertEqual(
+            palette.error?.message,
+            SpotiglassL10n.string("error.spotify.serverProblem", locale: Locale(identifier: "en")))
 
         try switchToGerman()
 
-        XCTAssertEqual(palette.error?.message, inGerman("error.spotify.serverProblem"), "The palette's error stayed in the old language")
+        XCTAssertEqual(
+            palette.error?.message, inGerman("error.spotify.serverProblem"),
+            "The palette's error stayed in the old language")
     }
 
     /// Settings › Keyboard: a keymap that didn't apply. A key that can't be recorded is covered by
@@ -140,13 +155,16 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         keymap.editorText = "{ not json"
         keymap.applyEditorText()
         let english = try XCTUnwrap(keymap.lastError?.message)
-        XCTAssertTrue(english.contains(SpotiglassL10n.string("palette.settings.advanced", locale: Locale(identifier: "en"))))
+        XCTAssertTrue(
+            english.contains(SpotiglassL10n.string("palette.settings.advanced", locale: Locale(identifier: "en"))))
 
         try switchToGerman()
 
         let shown = try XCTUnwrap(keymap.lastError?.message)
         XCTAssertNotEqual(shown, english, "The keymap error stayed in the old language")
-        XCTAssertTrue(shown.contains(inGerman("palette.settings.advanced")), "The keymap error named its source in the old language")
+        XCTAssertTrue(
+            shown.contains(inGerman("palette.settings.advanced")),
+            "The keymap error named its source in the old language")
     }
 
     /// The note at the bottom of a list after adding, moving or removing tracks.
@@ -157,7 +175,8 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
             id: "t", name: "Song", artists: ["A"], albumArtworkURL: nil, durationMilliseconds: 60_000,
             isExplicit: false, isPlayable: true, linkedFromID: nil, uri: "spotify:track:t"
         )
-        await browser.addRowsToPlaylist([TrackRowViewModel(topTrack: track, listPosition: 1)], playlistID: "p", playlistName: "Mix")
+        await browser.addRowsToPlaylist(
+            [TrackRowViewModel(topTrack: track, listPosition: 1)], playlistID: "p", playlistName: "Mix")
         let english = try XCTUnwrap(browser.trackMutationToast?.text)
 
         try switchToGerman()
@@ -190,14 +209,17 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
 
         XCTAssertEqual(
             browser.trackMutationToast?.text,
-            String(format: inGerman("playlist.mutation.addedToPlaylist"), Int64(1), UnnamedMusicItem.playlist.placeholder(locale: german)),
+            String(
+                format: inGerman("playlist.mutation.addedToPlaylist"), Int64(1),
+                UnnamedMusicItem.playlist.placeholder(locale: german)),
             "The playlist's stand-in in the note stayed in the old language"
         )
     }
 
     /// The window title names a playlist or artist whose name isn't known yet with a stand-in.
     func testATitleStandInFollowsALanguageSwitch() throws {
-        let browser = PlaylistBrowserViewModel(api: MockBrowsingAPI(playlistResults: [], trackResults: [:]), cache: MockBrowsingCache())
+        let browser = PlaylistBrowserViewModel(
+            api: MockBrowsingAPI(playlistResults: [], trackResults: [:]), cache: MockBrowsingCache())
         browser.applyBreadcrumbForSidebar(.playlist("unknown"), origin: .reset)
         let playlistCrumb = try XCTUnwrap(browser.breadcrumbPath.last)
         browser.applyBreadcrumbForArtist(id: "unknown", displayName: nil, origin: .reset)
@@ -230,7 +252,8 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
 
         XCTAssertEqual(
             browser.trackMutationToast?.text,
-            String(format: inGerman("playlist.mutation.addedAlbum"), UnnamedMusicItem.album.placeholder(locale: german)),
+            String(
+                format: inGerman("playlist.mutation.addedAlbum"), UnnamedMusicItem.album.placeholder(locale: german)),
             "The album's stand-in in the note stayed in the old language"
         )
     }
@@ -238,7 +261,8 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
     /// The window title for a playlist that has loaded without a name, and for an artist or album
     /// opened from a row that named it with the stand-in.
     func testANamelessItemsTitleFollowsALanguageSwitch() throws {
-        let browser = PlaylistBrowserViewModel(api: MockBrowsingAPI(playlistResults: [], trackResults: [:]), cache: MockBrowsingCache())
+        let browser = PlaylistBrowserViewModel(
+            api: MockBrowsingAPI(playlistResults: [], trackResults: [:]), cache: MockBrowsingCache())
         browser.playlistsByID["blank"] = MusicPlaylistSummary(
             id: "blank", name: " ", ownerID: "me", ownerName: "Me", imageURL: nil, trackCount: 0, snapshotID: "s"
         )
@@ -259,8 +283,12 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
             UnnamedMusicItem.playlist.placeholder(locale: german),
             "A nameless playlist's title stayed in the old language"
         )
-        XCTAssertEqual(BrowserToolbarPresentation.localizedLabel(for: artistCrumb), UnnamedMusicItem.artist.placeholder(locale: german))
-        XCTAssertEqual(BrowserToolbarPresentation.localizedLabel(for: albumCrumb), UnnamedMusicItem.album.placeholder(locale: german))
+        XCTAssertEqual(
+            BrowserToolbarPresentation.localizedLabel(for: artistCrumb),
+            UnnamedMusicItem.artist.placeholder(locale: german))
+        XCTAssertEqual(
+            BrowserToolbarPresentation.localizedLabel(for: albumCrumb),
+            UnnamedMusicItem.album.placeholder(locale: german))
     }
 
     /// The page a yearless album pin opens says "Album" under the title, and the back button names a
@@ -272,19 +300,25 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         )
         let api = MockBrowsingAPI(playlistResults: [], trackResults: [:], albumTracksHandler: { _, _, _ in [song] })
         let browser = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
-        let pin = PinnedItem.album(MusicArtistAlbum(
-            id: "al", name: " ", imageURL: nil, releaseYear: nil, totalTracks: 1, group: .album, uri: "spotify:album:al"
-        ))
-        guard case let .selectAlbum(id, title, subtitle, artworkURL)? = PlaylistBrowserPinnedItemActivation.route(
-            for: pin, previousSelection: nil
-        ) else { return XCTFail("The pin did not open an album") }
+        let pin = PinnedItem.album(
+            MusicArtistAlbum(
+                id: "al", name: " ", imageURL: nil, releaseYear: nil, totalTracks: 1, group: .album,
+                uri: "spotify:album:al"
+            ))
+        guard
+            case .selectAlbum(let id, let title, let subtitle, let artworkURL)? =
+                PlaylistBrowserPinnedItemActivation.route(
+                    for: pin, previousSelection: nil
+                )
+        else { return XCTFail("The pin did not open an album") }
         await browser.selectAlbum(id: id, displayTitle: title, displaySubtitle: subtitle, artworkURL: artworkURL)
-        guard case let .loaded(.playlist(detail)) = browser.detailState else {
+        guard case .loaded(.playlist(let detail)) = browser.detailState else {
             return XCTFail("The album page did not load: \(String(describing: browser.detailState))")
         }
         XCTAssertTrue(detail.playlist.ownerTracksLine(currentUserID: nil).hasPrefix("Album"))
         // A blank line (an album opened from a nameless artist's page) doesn't turn into "Album".
-        let blankLine = PlaylistRowViewModel(albumDisplayName: "Record", artistsDisplay: "", totalTrackCount: 1, artworkURL: nil, albumID: "al2")
+        let blankLine = PlaylistRowViewModel(
+            albumDisplayName: "Record", artistsDisplay: "", totalTrackCount: 1, artworkURL: nil, albumID: "al2")
         XCTAssertEqual(blankLine.localizedOwner(), "")
         let album = BrowserNavigationTarget.album(id: id, title: title, subtitle: subtitle, artworkURL: artworkURL)
         XCTAssertEqual(browser.displayName(for: album), "Unknown album")
@@ -295,7 +329,8 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         let spanish = Locale(identifier: AppLanguage.spanish.rawValue)
 
         XCTAssertTrue(
-            detail.playlist.ownerTracksLine(currentUserID: nil).hasPrefix(SpotiglassL10n.string("pin.album.default", locale: spanish)),
+            detail.playlist.ownerTracksLine(currentUserID: nil).hasPrefix(
+                SpotiglassL10n.string("pin.album.default", locale: spanish)),
             "The album page's line stayed in the old language"
         )
         XCTAssertEqual(browser.displayName(for: album), UnnamedMusicItem.album.placeholder(locale: spanish))
@@ -304,14 +339,17 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
 
     /// An album without a name on an artist page.
     func testANamelessAlbumOnAnArtistPageFollowsALanguageSwitch() throws {
-        let card = ArtistAlbumRowViewModel(MusicArtistAlbum(
-            id: "al", name: "", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:al"
-        ))
+        let card = ArtistAlbumRowViewModel(
+            MusicArtistAlbum(
+                id: "al", name: "", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album,
+                uri: "spotify:album:al"
+            ))
         XCTAssertEqual(card.title, UnnamedMusicItem.album.placeholder(locale: Locale(identifier: "en")))
 
         try switchToGerman()
 
-        XCTAssertEqual(card.title, UnnamedMusicItem.album.placeholder(locale: german), "The album card stayed in the old language")
+        XCTAssertEqual(
+            card.title, UnnamedMusicItem.album.placeholder(locale: german), "The album card stayed in the old language")
     }
 
     /// Settings › Keyboard: a chord a menu item owns names that menu item, in the language of the
@@ -321,7 +359,8 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         let chord = try CommandShortcut(keystroke: "cmd-left")
         var shown: DisplayError?
         XCTAssertThrowsError(
-            try keymap.setBinding(commandID: CommandPaletteCommandID.openSettings, shortcut: chord, replaceConflicting: false)
+            try keymap.setBinding(
+                commandID: CommandPaletteCommandID.openSettings, shortcut: chord, replaceConflicting: false)
         ) { error in
             shown = CommandPaletteKeymapErrorPresenter.report(for: error, source: "keymap", operation: "test")
         }
@@ -338,34 +377,44 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
 
     /// An album pinned from an artist page without a release year says "Album" under its name.
     func testAnAlbumPinWithoutAYearFollowsALanguageSwitch() throws {
-        let pin = PinnedItem.album(MusicArtistAlbum(
-            id: "al", name: "Record", imageURL: nil, releaseYear: nil, totalTracks: 1, group: .album, uri: "spotify:album:al"
-        ))
+        let pin = PinnedItem.album(
+            MusicArtistAlbum(
+                id: "al", name: "Record", imageURL: nil, releaseYear: nil, totalTracks: 1, group: .album,
+                uri: "spotify:album:al"
+            ))
         XCTAssertEqual(pin.localizedSubtitle(), "Album")
         // An album pinned without any artists isn't one without a year: it stays blank.
-        let noArtists = PinnedItem.album(MusicAlbum(id: "al2", name: "Record", artists: [], imageURL: nil, uri: "spotify:album:al2"))
+        let noArtists = PinnedItem.album(
+            MusicAlbum(id: "al2", name: "Record", artists: [], imageURL: nil, uri: "spotify:album:al2"))
         // "Album" is the same word in German, so this one switches to Spanish.
         try store.mutate { $0.appearance.language = .spanish }
 
-        XCTAssertEqual(pin.localizedSubtitle(), SpotiglassL10n.string("pin.album.default", locale: Locale(identifier: AppLanguage.spanish.rawValue)))
+        XCTAssertEqual(
+            pin.localizedSubtitle(),
+            SpotiglassL10n.string("pin.album.default", locale: Locale(identifier: AppLanguage.spanish.rawValue)))
         XCTAssertEqual(noArtists.localizedSubtitle(), "")
     }
 
     /// Stand-ins kept with a queued episode and a Home card.
     func testStoredStandInsFollowALanguageSwitch() throws {
-        let episode = QueueItem.from(episode: MusicEpisode(
-            id: "e", name: "Episode", showName: nil, artworkURL: nil,
-            durationMilliseconds: 60_000, isPlayable: true, uri: "spotify:episode:e"
-        ))
-        let card = try XCTUnwrap(HomeMediaCard(recentlyPlayed: MusicTrack(
-            id: "t", name: "Song", artists: ["A"], albumArtworkURL: nil, albumName: nil, albumID: "alb",
-            durationMilliseconds: 60_000, isExplicit: false, isPlayable: true, linkedFromID: nil, uri: "spotify:track:t"
-        )))
+        let episode = QueueItem.from(
+            episode: MusicEpisode(
+                id: "e", name: "Episode", showName: nil, artworkURL: nil,
+                durationMilliseconds: 60_000, isPlayable: true, uri: "spotify:episode:e"
+            ))
+        let card = try XCTUnwrap(
+            HomeMediaCard(
+                recentlyPlayed: MusicTrack(
+                    id: "t", name: "Song", artists: ["A"], albumArtworkURL: nil, albumName: nil, albumID: "alb",
+                    durationMilliseconds: 60_000, isExplicit: false, isPlayable: true, linkedFromID: nil,
+                    uri: "spotify:track:t"
+                )))
         // "Podcast" is the same word in German, so this one switches to Spanish.
         try store.mutate { $0.appearance.language = .spanish }
         let spanish = Locale(identifier: AppLanguage.spanish.rawValue)
 
-        XCTAssertEqual(episode.subtitleInAppLanguage, SpotiglassL10n.string("playback.queue.episodeFallback", locale: spanish))
+        XCTAssertEqual(
+            episode.subtitleInAppLanguage, SpotiglassL10n.string("playback.queue.episodeFallback", locale: spanish))
         XCTAssertEqual(card.title, UnnamedMusicItem.album.placeholder(locale: spanish))
     }
 }

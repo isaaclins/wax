@@ -10,7 +10,7 @@ enum KeymapValidationError: LocalizedError, Equatable {
         switch self {
         case .emptyKeystroke:
             SpotiglassL10n.string("keymap.error.emptyKeystroke")
-        case let .unsupportedToken(token):
+        case .unsupportedToken(let token):
             SpotiglassL10n.format("keymap.error.unsupportedToken", token)
         case .missingCommand:
             SpotiglassL10n.string("keymap.error.missingCommand")
@@ -46,15 +46,15 @@ enum JSONValue: Codable, Equatable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
-        case let .string(value):
+        case .string(let value):
             try container.encode(value)
-        case let .number(value):
+        case .number(let value):
             try container.encode(value)
-        case let .boolean(value):
+        case .boolean(let value):
             try container.encode(value)
-        case let .object(value):
+        case .object(let value):
             try container.encode(value)
-        case let .array(value):
+        case .array(let value):
             try container.encode(value)
         case .null:
             try container.encodeNil()
@@ -109,7 +109,8 @@ struct CommandShortcut: Hashable {
     }
 
     init(keystroke: String) throws {
-        let normalized = keystroke
+        let normalized =
+            keystroke
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         guard !normalized.isEmpty else {
@@ -219,7 +220,10 @@ struct CommandShortcut: Hashable {
     /// Maps macOS ANSI virtual key codes (same values as Carbon `kVK_ANSI_*`) to recording keys.
     private static func recordingKeyFromANSIKeyCode(_ keyCode: UInt16) -> String? {
         let letters = "abcdefghijklmnopqrstuvwxyz"
-        let letterCodes: [UInt16] = [0, 11, 8, 2, 14, 3, 5, 4, 34, 38, 40, 37, 46, 45, 31, 35, 12, 15, 1, 17, 32, 9, 13, 7, 16, 6, 18, 19, 20, 21, 23]
+        let letterCodes: [UInt16] = [
+            0, 11, 8, 2, 14, 3, 5, 4, 34, 38, 40, 37, 46, 45, 31, 35, 12, 15, 1, 17, 32, 9, 13, 7, 16, 6, 18, 19, 20,
+            21, 23,
+        ]
         if let index = letterCodes.firstIndex(of: keyCode), index < letters.count {
             let i = letters.index(letters.startIndex, offsetBy: index)
             return String(letters[i])
@@ -320,9 +324,9 @@ enum KeymapConflictError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case let .conflict(id):
+        case .conflict(let id):
             SpotiglassL10n.format("keymap.conflict.command", id)
-        case let .reservedByMenuItem(titleKey):
+        case .reservedByMenuItem(let titleKey):
             SpotiglassL10n.format("keymap.conflict.menuItem", SpotiglassL10n.string(titleKey))
         }
     }
@@ -333,7 +337,8 @@ enum KeymapConflictError: LocalizedError, Equatable {
 /// shown, so a message on screen follows a language switch (#571); the log entry is written once.
 enum CommandPaletteKeymapErrorPresenter {
     /// Logs a shortcut change that failed once and returns the line Settings shows (#608).
-    static func report(for error: Error, source: @autoclosure @escaping () -> String, operation: String) -> DisplayError {
+    static func report(for error: Error, source: @autoclosure @escaping () -> String, operation: String) -> DisplayError
+    {
         ErrorReporting.report(
             error,
             while: "changing shortcuts (\(operation))",
@@ -375,19 +380,19 @@ enum CommandPaletteKeymapErrorPresenter {
 
     private static func decodingMessage(_ error: DecodingError, source: String) -> String {
         switch error {
-        case let .dataCorrupted(context):
+        case .dataCorrupted(let context):
             let location = location(source: source, codingPath: context.codingPath)
             if context.codingPath.isEmpty {
                 return SpotiglassL10n.format("keymap.error.invalidJSON", location)
             }
             return SpotiglassL10n.format("keymap.error.invalidValue", location)
-        case let .keyNotFound(key, context):
+        case .keyNotFound(let key, let context):
             let location = location(source: source, codingPath: context.codingPath + [key])
             return SpotiglassL10n.format("keymap.error.missingValue", location)
-        case let .typeMismatch(_, context):
+        case .typeMismatch(_, let context):
             let location = location(source: source, codingPath: context.codingPath)
             return SpotiglassL10n.format("keymap.error.invalidValue", location)
-        case let .valueNotFound(_, context):
+        case .valueNotFound(_, let context):
             let location = location(source: source, codingPath: context.codingPath)
             return SpotiglassL10n.format("keymap.error.missingValue", location)
         @unknown default:

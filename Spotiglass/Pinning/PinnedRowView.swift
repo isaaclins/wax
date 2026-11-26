@@ -45,7 +45,8 @@ struct PinnedRowView: View {
                 }
                 .buttonStyle(.plain)
                 .help(SpotiglassL10n.string("tooltip.pin.unpin", locale: spotiglassLocale))
-                .accessibilityLabel(String(format: SpotiglassL10n.string("pin.unpin"), item.localizedTitle(locale: spotiglassLocale)))
+                .accessibilityLabel(
+                    String(format: SpotiglassL10n.string("pin.unpin"), item.localizedTitle(locale: spotiglassLocale)))
             }
         }
         // Staleness is carried by the badge and the demoted title. Fading the
@@ -83,9 +84,12 @@ struct PinnedRowView: View {
             }
             .frame(width: artworkSize, height: artworkSize)
             .clipShape(Circle())
-            .overlay { Circle().strokeBorder(SpotiglassDesign.artworkBorderColor(colorScheme: colorScheme), lineWidth: 1) }
+            .overlay {
+                Circle().strokeBorder(SpotiglassDesign.artworkBorderColor(colorScheme: colorScheme), lineWidth: 1)
+            }
         case .playlist, .album, .track:
-            ArtworkView(url: item.artworkURL, size: artworkSize, artworkKey: item.id, cornerRadius: SpotiglassDesign.cornerXS)
+            ArtworkView(
+                url: item.artworkURL, size: artworkSize, artworkKey: item.id, cornerRadius: SpotiglassDesign.cornerXS)
         }
     }
 }
@@ -116,8 +120,8 @@ private struct CachedCircularArtwork: View {
     }
 }
 
-private extension PinnedItemKind {
-    func accessibilityLabel(locale: Locale = SpotiglassL10n.locale) -> String {
+extension PinnedItemKind {
+    fileprivate func accessibilityLabel(locale: Locale = SpotiglassL10n.locale) -> String {
         switch self {
         case .playlist: SpotiglassL10n.string("pin.kind.playlist", locale: locale)
         case .artist: SpotiglassL10n.string("pin.kind.artist", locale: locale)
@@ -149,7 +153,9 @@ struct PinnedItemDragPill: View {
                     .font(.caption.weight(.semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
-                if !item.localizedSubtitle(locale: spotiglassLocale).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if !item.localizedSubtitle(locale: spotiglassLocale).trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty
+                {
                     Text(item.localizedSubtitle(locale: spotiglassLocale))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -200,7 +206,9 @@ struct PinnedItemDragPill: View {
             }
             .frame(width: artworkSize, height: artworkSize)
             .clipShape(Circle())
-            .overlay { Circle().strokeBorder(SpotiglassDesign.artworkBorderColor(colorScheme: colorScheme), lineWidth: 1) }
+            .overlay {
+                Circle().strokeBorder(SpotiglassDesign.artworkBorderColor(colorScheme: colorScheme), lineWidth: 1)
+            }
         case .playlist, .album, .track:
             DragPreviewArtwork(url: item.artworkURL, size: artworkSize, artworkKey: item.id)
         }

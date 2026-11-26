@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -6,10 +7,12 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
 
     func testConcurrentSelectArtistCoalescesSingleNetworkChain() async {
         let page1 = MusicArtistAlbum(
-            id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:alb-1"
+            id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album,
+            uri: "spotify:album:alb-1"
         )
         let page2 = MusicArtistAlbum(
-            id: "alb-2", name: "Second", imageURL: nil, releaseYear: "2023", totalTracks: 1, group: .album, uri: "spotify:album:alb-2"
+            id: "alb-2", name: "Second", imageURL: nil, releaseYear: "2023", totalTracks: 1, group: .album,
+            uri: "spotify:album:alb-2"
         )
         let firstPageStarted = AsyncSignal()
         let releaseFirstPage = AsyncSignal()
@@ -40,7 +43,8 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         releaseFirstPage.signal()
         _ = await (first, second)
 
-        XCTAssertEqual(api.artistAlbumsPageCallCount, 2, "Concurrent same-artist opens should share one in-flight artist load.")
+        XCTAssertEqual(
+            api.artistAlbumsPageCallCount, 2, "Concurrent same-artist opens should share one in-flight artist load.")
     }
 
     func testSelectArtistWithinTTLUsesCachedSnapshotWithoutRefetch() async {
@@ -51,14 +55,19 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
             artistAlbumsPageHandler: { _, _, _, offset, _ in
                 if offset == 0 {
                     return MusicArtistAlbumsPage(
-                        items: [MusicArtistAlbum(id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:alb-1")],
+                        items: [
+                            MusicArtistAlbum(
+                                id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1,
+                                group: .album, uri: "spotify:album:alb-1")
+                        ],
                         next: nil
                     )
                 }
                 return MusicArtistAlbumsPage(items: [], next: nil)
             }
         )
-        let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache(), now: { now }, artistDetailCacheTTL: 120)
+        let viewModel = PlaylistBrowserViewModel(
+            api: api, cache: MockBrowsingCache(), now: { now }, artistDetailCacheTTL: 120)
 
         await viewModel.load()
         await viewModel.selectArtist(id: "artist-xyz")
@@ -67,20 +76,24 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         await viewModel.selectArtist(id: "artist-xyz")
 
         XCTAssertEqual(firstCount, 1)
-        XCTAssertEqual(api.artistAlbumsPageCallCount, 1, "Reopening same artist within TTL should reuse cached snapshot.")
+        XCTAssertEqual(
+            api.artistAlbumsPageCallCount, 1, "Reopening same artist within TTL should reuse cached snapshot.")
     }
 
     func testLateArtistLoadMoreSuccessCannotReplaceNewerArtistDetail() async {
         let firstPageURL = URL(string: "https://api.spotify.com/v1/artists/artist-a/albums?offset=10&limit=10")!
         let aLoadMoreGate = TestDeferred<Void>()
         let pageA1 = MusicArtistAlbum(
-            id: "a-alb-1", name: "A First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:a-alb-1"
+            id: "a-alb-1", name: "A First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album,
+            uri: "spotify:album:a-alb-1"
         )
         let pageA2 = MusicArtistAlbum(
-            id: "a-alb-2", name: "A Second", imageURL: nil, releaseYear: "2023", totalTracks: 1, group: .album, uri: "spotify:album:a-alb-2"
+            id: "a-alb-2", name: "A Second", imageURL: nil, releaseYear: "2023", totalTracks: 1, group: .album,
+            uri: "spotify:album:a-alb-2"
         )
         let pageB1 = MusicArtistAlbum(
-            id: "b-alb-1", name: "B First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:b-alb-1"
+            id: "b-alb-1", name: "B First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album,
+            uri: "spotify:album:b-alb-1"
         )
         let api = MockBrowsingAPI(
             playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])],
@@ -119,8 +132,12 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         XCTAssertEqual(viewModel.detailState, bDetail)
         XCTAssertEqual(viewModel.currentArtistAlbumsPaging?.artistID, bPaging?.artistID)
         XCTAssertEqual(viewModel.currentArtistAlbumsPaging?.albums.map(\.id), bPaging?.albums.map(\.id))
-        XCTAssertEqual(viewModel.cachedArtistSnapshots["artist-b"]?.snapshot.albums.map(\.id), bSnapshot?.snapshot.albums.map(\.id))
-        XCTAssertEqual(viewModel.cachedArtistSnapshots["artist-a"]?.snapshot.albums.map(\.id), aSnapshot?.snapshot.albums.map(\.id))
+        XCTAssertEqual(
+            viewModel.cachedArtistSnapshots["artist-b"]?.snapshot.albums.map(\.id), bSnapshot?.snapshot.albums.map(\.id)
+        )
+        XCTAssertEqual(
+            viewModel.cachedArtistSnapshots["artist-a"]?.snapshot.albums.map(\.id), aSnapshot?.snapshot.albums.map(\.id)
+        )
     }
 
     func testLateArtistLoadMoreFailureCannotPublishStaleError() async {
@@ -128,10 +145,12 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         let firstPageURL = URL(string: "https://api.spotify.com/v1/artists/artist-a/albums?offset=10&limit=10")!
         let aLoadMoreGate = TestDeferred<Void>()
         let pageA1 = MusicArtistAlbum(
-            id: "a-alb-1", name: "A First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:a-alb-1"
+            id: "a-alb-1", name: "A First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album,
+            uri: "spotify:album:a-alb-1"
         )
         let pageB1 = MusicArtistAlbum(
-            id: "b-alb-1", name: "B First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:b-alb-1"
+            id: "b-alb-1", name: "B First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album,
+            uri: "spotify:album:b-alb-1"
         )
         let api = MockBrowsingAPI(
             playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])],
@@ -169,7 +188,9 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         XCTAssertEqual(viewModel.detailState, bDetail)
         XCTAssertEqual(viewModel.currentArtistAlbumsPaging?.artistID, bPaging?.artistID)
         XCTAssertEqual(viewModel.currentArtistAlbumsPaging?.albums.map(\.id), bPaging?.albums.map(\.id))
-        XCTAssertEqual(viewModel.cachedArtistSnapshots["artist-b"]?.snapshot.albums.map(\.id), bSnapshot?.snapshot.albums.map(\.id))
+        XCTAssertEqual(
+            viewModel.cachedArtistSnapshots["artist-b"]?.snapshot.albums.map(\.id), bSnapshot?.snapshot.albums.map(\.id)
+        )
         if case .staleCache = viewModel.detailState {
             XCTFail("A late artist failure must not publish a stale-cache banner for artist B")
         }
@@ -187,7 +208,11 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
             artistAlbumsPageHandler: { _, _, _, offset, _ in
                 if offset == 0 {
                     return MusicArtistAlbumsPage(
-                        items: [MusicArtistAlbum(id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:alb-1")],
+                        items: [
+                            MusicArtistAlbum(
+                                id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1,
+                                group: .album, uri: "spotify:album:alb-1")
+                        ],
                         next: nextURL
                     )
                 }
@@ -202,7 +227,7 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         let loadMoreTask = Task { await viewModel.loadMoreArtistAlbums() }
         await loadMoreGate.waitUntilBlocked()
 
-        guard case let .loaded(.artist(detail)) = viewModel.detailState else {
+        guard case .loaded(.artist(let detail)) = viewModel.detailState else {
             return XCTFail("Expected loaded artist detail before refreshing it")
         }
         viewModel.detailState = .refreshing(.artist(detail))
@@ -212,7 +237,8 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
 
         XCTAssertEqual(viewModel.currentArtistAlbumsPaging?.isLoading, false)
         guard case .refreshing(.artist) = viewModel.detailState else {
-            return XCTFail("Pagination completion must not replace a same-artist refreshing surface, got \(viewModel.detailState)")
+            return XCTFail(
+                "Pagination completion must not replace a same-artist refreshing surface, got \(viewModel.detailState)")
         }
     }
 
@@ -224,13 +250,21 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
             artistAlbumsPageHandler: { _, _, _, offset, providedNext in
                 if offset == 0 {
                     return MusicArtistAlbumsPage(
-                        items: [MusicArtistAlbum(id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:alb-1")],
+                        items: [
+                            MusicArtistAlbum(
+                                id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1,
+                                group: .album, uri: "spotify:album:alb-1")
+                        ],
                         next: nextURL
                     )
                 }
                 XCTAssertEqual(providedNext, nextURL)
                 return MusicArtistAlbumsPage(
-                    items: [MusicArtistAlbum(id: "alb-2", name: "Second", imageURL: nil, releaseYear: "2023", totalTracks: 1, group: .single, uri: "spotify:album:alb-2")],
+                    items: [
+                        MusicArtistAlbum(
+                            id: "alb-2", name: "Second", imageURL: nil, releaseYear: "2023", totalTracks: 1,
+                            group: .single, uri: "spotify:album:alb-2")
+                    ],
                     next: nil
                 )
             }
@@ -255,14 +289,22 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
             artistAlbumsPageHandler: { _, _, _, offset, _ in
                 if offset == 0 {
                     return MusicArtistAlbumsPage(
-                        items: [MusicArtistAlbum(id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "apple-music:album:alb-1")],
+                        items: [
+                            MusicArtistAlbum(
+                                id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1,
+                                group: .album, uri: "apple-music:album:alb-1")
+                        ],
                         next: nextURL
                     )
                 }
                 laterPageAttempts += 1
                 if laterPageAttempts == 1 { throw URLError(.timedOut) }
                 return MusicArtistAlbumsPage(
-                    items: [MusicArtistAlbum(id: "alb-2", name: "Second", imageURL: nil, releaseYear: "2023", totalTracks: 1, group: .album, uri: "apple-music:album:alb-2")],
+                    items: [
+                        MusicArtistAlbum(
+                            id: "alb-2", name: "Second", imageURL: nil, releaseYear: "2023", totalTracks: 1,
+                            group: .album, uri: "apple-music:album:alb-2")
+                    ],
                     next: nil
                 )
             }
@@ -272,7 +314,7 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         await viewModel.selectArtist(id: "artist-xyz")
 
         await viewModel.loadMoreArtistAlbums()
-        guard case let .staleCache(.artist(failed), error) = viewModel.detailState else {
+        guard case .staleCache(.artist(let failed), let error) = viewModel.detailState else {
             return XCTFail("A failed Load More must keep the artist page open, got \(viewModel.detailState)")
         }
         XCTAssertNotNil(error)
@@ -281,7 +323,7 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
 
         await viewModel.loadMoreArtistAlbums()
         XCTAssertEqual(laterPageAttempts, 2, "The failed page must be asked for again")
-        guard case let .loaded(.artist(recovered)) = viewModel.detailState else {
+        guard case .loaded(.artist(let recovered)) = viewModel.detailState else {
             return XCTFail("Expected the artist page after the retried page, got \(viewModel.detailState)")
         }
         XCTAssertEqual(recovered.albums.map(\.id), ["alb-1", "alb-2"])
@@ -299,7 +341,11 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
                 attempts += 1
                 if attempts == 1 { throw URLError(.networkConnectionLost) }
                 return MusicArtistAlbumsPage(
-                    items: [MusicArtistAlbum(id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "apple-music:album:alb-1")],
+                    items: [
+                        MusicArtistAlbum(
+                            id: "alb-1", name: "First", imageURL: nil, releaseYear: "2024", totalTracks: 1,
+                            group: .album, uri: "apple-music:album:alb-1")
+                    ],
                     next: nil
                 )
             }
@@ -314,7 +360,7 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         await viewModel.unifiedRefreshMainSurface()
 
         XCTAssertEqual(attempts, 2)
-        guard case let .loaded(.artist(detail)) = viewModel.detailState else {
+        guard case .loaded(.artist(let detail)) = viewModel.detailState else {
             return XCTFail("Retry must load the artist again, got \(viewModel.detailState)")
         }
         XCTAssertEqual(detail.albums.map(\.id), ["alb-1"])
@@ -361,7 +407,8 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await viewModel.load()
         XCTAssertEqual(viewModel.sidebarSelection, .home, file: file, line: line)
-        await viewModel.selectAlbum(id: "album-123", displayTitle: "Sweet Boy", displaySubtitle: "Malcolm Todd", artworkURL: nil)
+        await viewModel.selectAlbum(
+            id: "album-123", displayTitle: "Sweet Boy", displaySubtitle: "Malcolm Todd", artworkURL: nil)
         guard case .error = viewModel.detailState else {
             return XCTFail("Expected an error state, got \(viewModel.detailState)", file: file, line: line)
         }
@@ -369,7 +416,7 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         await reload(viewModel)
 
         XCTAssertEqual(attempts, 2, file: file, line: line)
-        guard case let .loaded(.playlist(detail)) = viewModel.detailState else {
+        guard case .loaded(.playlist(let detail)) = viewModel.detailState else {
             return XCTFail("The album must load again, got \(viewModel.detailState)", file: file, line: line)
         }
         XCTAssertEqual(detail.playlist.id, "album-123", file: file, line: line)
@@ -387,7 +434,7 @@ final class PlaylistBrowserConcurrencyTests: XCTestCase {
         viewModel.clearForSignOut()
 
         XCTAssertNil(viewModel.selectedPlaylistID)
-        guard case let .empty(playlistMessage) = viewModel.playlistState else {
+        guard case .empty(let playlistMessage) = viewModel.playlistState else {
             return XCTFail("Expected signed-out empty playlist state")
         }
         XCTAssertEqual(playlistMessage, "Connect Spotify to browse playlists.")

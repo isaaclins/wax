@@ -158,9 +158,9 @@ extension PlaybackSessionViewModel {
                 return
             }
             guard self.ownsPlaybackHostGeneration(generation),
-                  self.playbackHostConnectTimeoutSerial == serial,
-                  !Task.isCancelled,
-                  self.connectionState == .connecting
+                self.playbackHostConnectTimeoutSerial == serial,
+                !Task.isCancelled,
+                self.connectionState == .connecting
             else { return }
 
             self.playbackHostConnectTimeoutTask = nil
@@ -168,7 +168,8 @@ extension PlaybackSessionViewModel {
             self.playbackHostConnectTask = nil
             self.showPlaybackError(
                 nil,
-                while: "connecting the player (timed out after \(Self.durationSeconds(self.playbackHostConnectTimeout))s)",
+                while:
+                    "connecting the player (timed out after \(Self.durationSeconds(self.playbackHostConnectTimeout))s)",
                 context: [.public("generation", generation.rawValue)],
                 Self.playbackHostConnectionTimedOutError()
             )
@@ -283,7 +284,8 @@ extension PlaybackSessionViewModel {
                 return
             }
             playbackHostReloadAttemptCount += 1
-            bumpCounter(&playbackHostReloadAttemptsByCause, key: PlaybackHostRecoveryCause.missingDeviceRetryTransfer.rawValue)
+            bumpCounter(
+                &playbackHostReloadAttemptsByCause, key: PlaybackHostRecoveryCause.missingDeviceRetryTransfer.rawValue)
             hasTransferredPlaybackToCurrentDevice = false
             setTransportStateKnown(false)
             autoResumeOnNextReady = true
@@ -308,7 +310,9 @@ extension PlaybackSessionViewModel {
             noteLocalPlaybackMutation()
         } catch {
             guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
-            showPlaybackError(error, while: "retrying the move of playback to this Mac", Self.displayError(for: error, service: service))
+            showPlaybackError(
+                error, while: "retrying the move of playback to this Mac",
+                Self.displayError(for: error, service: service))
         }
     }
 
@@ -319,7 +323,8 @@ extension PlaybackSessionViewModel {
         let now = clock.now
         prunePlaybackHostHardReloadWindow(now: now)
         if let last = playbackHostHardReloadInstants.last,
-           now < last.advanced(by: playbackHostHardReloadCooldown) {
+            now < last.advanced(by: playbackHostHardReloadCooldown)
+        {
             playbackHostReloadSuppressedCooldownCount += 1
             bumpCounter(&playbackHostReloadSuppressedCooldownByCause, key: cause.rawValue)
             return false

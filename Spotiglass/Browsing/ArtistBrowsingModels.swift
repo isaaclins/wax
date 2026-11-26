@@ -62,9 +62,12 @@ struct ArtistDetailViewModel: Equatable {
         self.tracks = TrackRowViewModel.numberedTopTracks(tracks)
         let grouped = Dictionary(grouping: albums, by: \.group)
         let ordered: ([MusicArtistAlbum]) -> [ArtistAlbumRowViewModel] = { group in
-            let sorted = extras != nil ? group : group.sorted { lhs, rhs in
-                lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
-            }
+            let sorted =
+                extras != nil
+                ? group
+                : group.sorted { lhs, rhs in
+                    lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+                }
             return sorted.map(ArtistAlbumRowViewModel.init)
         }
         self.albums = ordered(grouped[.album] ?? [])

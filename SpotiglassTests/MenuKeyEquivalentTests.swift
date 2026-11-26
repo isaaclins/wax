@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -252,32 +253,34 @@ final class MenuKeyEquivalentTests: XCTestCase {
         let commands = makeCommands(manager: manager)
 
         XCTAssertFalse(commands.isLyricsToggleEnabled)
-        playback.setConnectionState(.playing(
-            PlaybackNowPlaying(
-                name: "Episode",
-                artists: ["Host"],
-                albumName: nil,
-                albumID: nil,
-                albumArtURL: nil,
-                durationMilliseconds: 100,
-                positionMilliseconds: 0,
-                uri: "spotify:episode:1"
-            )
-        ))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Episode",
+                    artists: ["Host"],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 100,
+                    positionMilliseconds: 0,
+                    uri: "spotify:episode:1"
+                )
+            ))
         XCTAssertFalse(commands.isLyricsToggleEnabled)
 
-        playback.setConnectionState(.playing(
-            PlaybackNowPlaying(
-                name: "Song",
-                artists: ["Artist"],
-                albumName: nil,
-                albumID: nil,
-                albumArtURL: nil,
-                durationMilliseconds: 100,
-                positionMilliseconds: 0,
-                uri: "spotify:track:1"
-            )
-        ))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Song",
+                    artists: ["Artist"],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 100,
+                    positionMilliseconds: 0,
+                    uri: "spotify:track:1"
+                )
+            ))
         XCTAssertTrue(commands.isLyricsToggleEnabled)
 
         playback.setConnectionState(.ready(deviceID: "device-1"))
@@ -409,7 +412,8 @@ final class MenuKeyEquivalentTests: XCTestCase {
             flag.isOn = visible
             let expected: Set<String> = [visible ? hide : show]
             let shown = await AppKitTestSupport.settle(until: { titles() == expected })
-            XCTAssertTrue(shown, "with the queue \(visible ? "open" : "closed") the View menu says \(titles().sorted())")
+            XCTAssertTrue(
+                shown, "with the queue \(visible ? "open" : "closed") the View menu says \(titles().sorted())")
         }
     }
 
@@ -448,7 +452,8 @@ final class MenuKeyEquivalentTests: XCTestCase {
             // still checked against the app's own shortcuts.
             if item.isHidden, let action = item.action, Self.systemEditActions.contains(action) { return [] }
             let path = parentPath.isEmpty ? item.title : "\(parentPath) > \(item.title)"
-            let current = item.keyEquivalent.isEmpty
+            let current =
+                item.keyEquivalent.isEmpty
                 ? []
                 : [
                     MenuKeyEquivalentItem(
@@ -457,9 +462,10 @@ final class MenuKeyEquivalentTests: XCTestCase {
                         modifiers: item.keyEquivalentModifierMask
                     )
                 ]
-            let children = item.submenu.map {
-                menuKeyEquivalentItems(in: $0, parentPath: path)
-            } ?? []
+            let children =
+                item.submenu.map {
+                    menuKeyEquivalentItems(in: $0, parentPath: path)
+                } ?? []
             return current + children
         }
     }

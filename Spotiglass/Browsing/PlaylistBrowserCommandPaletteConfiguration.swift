@@ -54,7 +54,8 @@ enum PlaylistBrowserCommandPaletteConfiguration {
         }
         // Only a player that is its own connection has one to connect: Apple Music plays on this
         // Mac, so Connect would only restart its session (#453), like Reconnect in the bar (#430).
-        manager.connectPlayback = dependencies.isPlaybackAvailable && dependencies.playbackViewModel.canReconnectPlayer
+        manager.connectPlayback =
+            dependencies.isPlaybackAvailable && dependencies.playbackViewModel.canReconnectPlayer
             ? { [weak playback = dependencies.playbackViewModel] in
                 playback?.start(recoveryCause: .manualReconnect)
             }
@@ -97,20 +98,22 @@ enum PlaylistBrowserCommandPaletteConfiguration {
         // The palette's enqueue and pin act on its own highlighted row. These act
         // on the track table's selection, so the same actions have a keyboard and
         // menu bar path without a right-click (#132).
-        manager.enqueueTrackSelection = { [
-            weak browser = dependencies.viewModel,
-            weak queue = dependencies.queueViewModel
-        ] in
+        manager.enqueueTrackSelection = {
+            [
+                weak browser = dependencies.viewModel,
+                weak queue = dependencies.queueViewModel
+            ] in
             guard let browser, let queue else { return }
             for row in browser.selectedTrackRows {
                 guard let uri = row.playableURI else { continue }
                 await queue.addToQueue(uri: uri)
             }
         }
-        manager.pinTrackSelection = { [
-            weak browser = dependencies.viewModel,
-            weak store = dependencies.pinnedStore
-        ] in
+        manager.pinTrackSelection = {
+            [
+                weak browser = dependencies.viewModel,
+                weak store = dependencies.pinnedStore
+            ] in
             guard let browser, let store else { return }
             let items = browser.selectedTrackRows.compactMap { $0.pinnedTrackItem() }
             guard !items.isEmpty else { return }

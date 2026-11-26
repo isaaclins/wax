@@ -1,5 +1,6 @@
 import WebKit
 import XCTest
+
 @testable import Spotiglass
 
 /// What the commander hands the hidden player page: which host page it loads, when, and which
@@ -15,7 +16,8 @@ final class WebPlaybackViewCommanderTests: XCTestCase {
         XCTAssertTrue(webView.loadedPages.isEmpty)
         commander.attach(webView: webView)
 
-        XCTAssertEqual(webView.loadedPages.count, 1, "the load asked before the web view existed must run once it is attached")
+        XCTAssertEqual(
+            webView.loadedPages.count, 1, "the load asked before the web view existed must run once it is attached")
         XCTAssertEqual(webView.loadedPages.first?.html, SpotifyPlaybackHost.html(forHostGeneration: generation))
         XCTAssertEqual(webView.loadedPages.first?.baseURL, URL(string: "https://spotiglass.local"))
 
@@ -55,10 +57,12 @@ final class WebPlaybackViewCommanderTests: XCTestCase {
         try await commander.send(.togglePlay, payload: ["id": NSNumber(value: 7)])
         try await commander.send(.seek, payload: ["milliseconds": 42_000])
 
-        XCTAssertEqual(webView.evaluatedScripts, [
-            "window.spotiglassPlayback && window.spotiglassPlayback.togglePlay(7);",
-            "window.spotiglassPlayback && window.spotiglassPlayback.seek(42000);"
-        ])
+        XCTAssertEqual(
+            webView.evaluatedScripts,
+            [
+                "window.spotiglassPlayback && window.spotiglassPlayback.togglePlay(7);",
+                "window.spotiglassPlayback && window.spotiglassPlayback.seek(42000);",
+            ])
     }
 
     /// A command meant for an older host page is dropped once a newer page was loaded.

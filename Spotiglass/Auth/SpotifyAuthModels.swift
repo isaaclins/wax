@@ -18,7 +18,7 @@ struct SpotifyAuthConfiguration: Equatable {
         "user-read-currently-playing",
         "user-top-read",
         "user-read-recently-played",
-        "streaming"
+        "streaming",
     ]
 
     /// Scopes needed to populate the signed-in playlist library. These are
@@ -27,7 +27,7 @@ struct SpotifyAuthConfiguration: Equatable {
     /// unavailable until the user reconnects.
     static let requiredPlaylistReadScopes = [
         "playlist-read-private",
-        "playlist-read-collaborative"
+        "playlist-read-collaborative",
     ]
     static let requiredBrowsingScopes = requiredPlaylistReadScopes
 
@@ -35,7 +35,7 @@ struct SpotifyAuthConfiguration: Equatable {
     static let requiredSavedTracksModifyScopes = ["user-library-modify"]
     static let requiredPlaylistModifyScopes = [
         "playlist-modify-private",
-        "playlist-modify-public"
+        "playlist-modify-public",
     ]
     static let requiredPlaybackReadScopes = ["user-read-playback-state"]
     static let requiredPlaybackModifyScopes = ["user-modify-playback-state"]
@@ -57,8 +57,9 @@ struct SpotifyAuthConfiguration: Equatable {
             throw SpotifyAuthConfigurationError.missingClientID
         }
         guard redirectURI.scheme == "http",
-              redirectURI.host == "127.0.0.1",
-              redirectURI.path == "/callback" else {
+            redirectURI.host == "127.0.0.1",
+            redirectURI.path == "/callback"
+        else {
             throw SpotifyAuthConfigurationError.invalidRedirectURI
         }
 
@@ -76,7 +77,7 @@ struct SpotifyAuthConfiguration: Equatable {
             URLQueryItem(name: "state", value: state),
             URLQueryItem(name: "scope", value: scopes.joined(separator: " ")),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
-            URLQueryItem(name: "code_challenge", value: codeChallenge)
+            URLQueryItem(name: "code_challenge", value: codeChallenge),
         ]
 
         guard let url = components?.url else {
@@ -201,7 +202,9 @@ struct AuthenticatedSession: Equatable {
         missingScopes(requiredScopes).isEmpty
     }
 
-    func includesRequiredBrowsingScopes(_ requiredScopes: [String] = SpotifyAuthConfiguration.requiredBrowsingScopes) -> Bool {
+    func includesRequiredBrowsingScopes(_ requiredScopes: [String] = SpotifyAuthConfiguration.requiredBrowsingScopes)
+        -> Bool
+    {
         includesScopes(requiredScopes)
     }
 
@@ -219,4 +222,3 @@ struct AuthenticatedSession: Equatable {
         )
     }
 }
-

@@ -43,9 +43,9 @@ struct LyricsPositionReader<Content: View>: View {
             return anchor.positionMilliseconds
         }
         switch connectionState {
-        case let .playing(nowPlaying):
+        case .playing(let nowPlaying):
             return nowPlaying.positionMilliseconds
-        case let .paused(nowPlaying):
+        case .paused(let nowPlaying):
             return nowPlaying?.positionMilliseconds ?? 0
         case .disconnected, .connecting, .ready, .transferring, .unavailable, .error:
             return 0
@@ -162,7 +162,9 @@ private struct LyricsPopOutPlayerView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(playbackViewModel: PlaybackSessionViewModel, lyricsModel: @autoclosure @escaping () -> ImmersiveLyricsViewModel) {
+    init(
+        playbackViewModel: PlaybackSessionViewModel, lyricsModel: @autoclosure @escaping () -> ImmersiveLyricsViewModel
+    ) {
         self.playbackViewModel = playbackViewModel
         // Made once for the life of this view, like any `@StateObject`.
         _lyricsModel = StateObject(wrappedValue: lyricsModel())
@@ -183,7 +185,7 @@ private struct LyricsPopOutPlayerView: View {
 
     /// What plays when it can have lyrics: a song, not a podcast episode or a local file.
     private var lyricTrack: PlaybackNowPlaying? {
-        if case let .lyrics(track) = content { track } else { nil }
+        if case .lyrics(let track) = content { track } else { nil }
     }
 
     var body: some View {
@@ -196,7 +198,7 @@ private struct LyricsPopOutPlayerView: View {
             switch content {
             case .nothingPlaying:
                 LyricsPopOutEmptyState()
-            case let .status(_, _, invitesPlay):
+            case .status(_, _, let invitesPlay):
                 // The header says what's going on, as the player bar does; the hint to play
                 // something only fits when nothing is loaded.
                 if invitesPlay {
@@ -234,7 +236,7 @@ private struct LyricsPopOutPlayerView: View {
     }
 
     private var loadedLyrics: FetchedLyrics? {
-        if case let .ready(lyrics) = lyricsModel.phase { lyrics } else { nil }
+        if case .ready(let lyrics) = lyricsModel.phase { lyrics } else { nil }
     }
 
     private var fullLyrics: some View {
@@ -432,8 +434,8 @@ private struct LyricsPopOutShowsSkipButtonsKey: EnvironmentKey {
     static let defaultValue = true
 }
 
-private extension EnvironmentValues {
-    var lyricsPopOutShowsSkipButtons: Bool {
+extension EnvironmentValues {
+    fileprivate var lyricsPopOutShowsSkipButtons: Bool {
         get { self[LyricsPopOutShowsSkipButtonsKey.self] }
         set { self[LyricsPopOutShowsSkipButtonsKey.self] = newValue }
     }
@@ -581,24 +583,25 @@ enum LyricsPopOutStripText {
         trackDurationMs: Int?,
         positionMs: Int
     ) -> String? {
-        guard case let .ready(lyrics) = phase else { return nil }
+        guard case .ready(let lyrics) = phase else { return nil }
         let line: String
         switch lyrics {
         case .instrumental:
             return SpotiglassL10n.string("lyrics.instrumental")
-        case let .synced(lines):
+        case .synced(let lines):
             // Before the first line is sung (an intro), the title shows, not a line still to come.
             guard let first = lines.first, positionMs >= first.startTimeMs else { return nil }
             line = lines[LrcLineParser.activeTimedLineIndex(positionMs: positionMs, lines: lines)].words
-        case let .unsyncedPlain(lines):
+        case .unsyncedPlain(let lines):
             guard !lines.isEmpty else { return nil }
-            line = lines[
-                LrcLineParser.activePlainLineIndex(
-                    positionMs: positionMs,
-                    durationMs: trackDurationMs ?? 1,
-                    lineCount: lines.count
-                )
-            ]
+            line =
+                lines[
+                    LrcLineParser.activePlainLineIndex(
+                        positionMs: positionMs,
+                        durationMs: trackDurationMs ?? 1,
+                        lineCount: lines.count
+                    )
+                ]
         }
         let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
@@ -636,25 +639,29 @@ enum LyricsPopOutContent: Equatable {
     ) -> Self {
         if let track = state.currentLyricTrack { return .lyrics(track) }
         if let track = state.currentTrack { return .noLyrics(track) }
-        guard let lines = PlaybackControlsView.statusLines(for: state, playerPushesState: playerPushesState, service: service) else {
+        guard
+            let lines = PlaybackControlsView.statusLines(
+                for: state, playerPushesState: playerPushesState, service: service)
+        else {
             return .nothingPlaying
         }
-        let invitesPlay: Bool = switch state {
-        case .ready, .paused: true
-        case .disconnected, .connecting, .transferring, .playing, .unavailable, .error: false
-        }
+        let invitesPlay: Bool =
+            switch state {
+            case .ready, .paused: true
+            case .disconnected, .connecting, .transferring, .playing, .unavailable, .error: false
+            }
         return .status(title: lines.title, subtitle: lines.subtitle, invitesPlay: invitesPlay)
     }
 
     var track: PlaybackNowPlaying? {
         switch self {
         case .nothingPlaying, .status: nil
-        case let .noLyrics(track), let .lyrics(track): track
+        case .noLyrics(let track), .lyrics(let track): track
         }
     }
 
     var status: (title: String, subtitle: String)? {
-        if case let .status(title, subtitle, _) = self { (title, subtitle) } else { nil }
+        if case .status(let title, let subtitle, _) = self { (title, subtitle) } else { nil }
     }
 }
 

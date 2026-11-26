@@ -8,14 +8,17 @@ extension PlaylistBrowserViewModel {
         let snapshotID = SpotiglassSidebarLibrary.likedSongsCacheSnapshotID
 
         if refreshCachedData,
-           let cachedTracks = try? cache.loadTracks(playlistID: virtualID, snapshotID: snapshotID, now: now(), maxAge: maxCacheAge) {
+            let cachedTracks = try? cache.loadTracks(
+                playlistID: virtualID, snapshotID: snapshotID, now: now(), maxAge: maxCacheAge)
+        {
             guard await setLikedSongsDetailState(from: cachedTracks, session: session) else { return }
             if shouldSkipAutomaticLikedSongsRevalidation() {
                 return
             }
             if let last = lastTracksRevalidationByID[virtualID],
-               last.snapshotID == snapshotID,
-               now().timeIntervalSince(last.at) < tracksRevalidateMinInterval {
+                last.snapshotID == snapshotID,
+                now().timeIntervalSince(last.at) < tracksRevalidateMinInterval
+            {
                 return
             }
             await revalidateLikedSongs(session: session)
@@ -23,7 +26,8 @@ extension PlaylistBrowserViewModel {
         }
 
         if refreshCachedData,
-           let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: virtualID, snapshotID: snapshotID) {
+            let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: virtualID, snapshotID: snapshotID)
+        {
             guard await setLikedSongsDetailState(from: staleTracks, session: session) else { return }
             if let existingDetail = detailState.currentValue {
                 detailState = .refreshing(existingDetail)
@@ -45,12 +49,14 @@ extension PlaylistBrowserViewModel {
     /// The full read replaces it; rows are only added below, so nothing moves.
     private func showLikedSongsFirstPage(_ first: MusicSavedTracksResult, session: Int, generation: Int) async {
         guard !first.tracks.isEmpty, session == detailSession,
-              generation == likedSongsMutationGeneration,
-              case .loading = detailState else { return }
+            generation == likedSongsMutationGeneration,
+            case .loading = detailState
+        else { return }
         // The same owner line as the full list, so the header doesn't change above the rows.
         let profile = try? await api.currentUserProfile()
         guard session == detailSession, generation == likedSongsMutationGeneration,
-              case .loading = detailState else { return }
+            case .loading = detailState
+        else { return }
         let row = PlaylistRowViewModel(
             likedSongsOwnerName: profile?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
             // Only a total the service reported; a partial read's own length isn't one.
@@ -84,21 +90,25 @@ extension PlaylistBrowserViewModel {
         let session = detailSession
         let commands = playbackCommands()
         if detail.playlist.id == SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
-           likedSongsFirstPageSession == session,
-           let read = likedSongsRevalidationTask {
+            likedSongsFirstPageSession == session,
+            let read = likedSongsRevalidationTask
+        {
             let full = try? await read.value
             guard session == detailSession,
-                  request == playbackRequestGeneration,
-                  playbackCommands() == commands else { return nil }
+                request == playbackRequestGeneration,
+                playbackCommands() == commands
+            else { return nil }
             if let full, !full.tracks.isEmpty {
-                return PlaylistDetailViewModel(playlist: detail.playlist, tracks: TrackRowViewModel.numberedPlaylistRows(full.tracks))
+                return PlaylistDetailViewModel(
+                    playlist: detail.playlist, tracks: TrackRowViewModel.numberedPlaylistRows(full.tracks))
             }
         }
         guard let complete = completeRowsOnScreen,
-              complete.session == session,
-              complete.playlistID == detail.playlist.id,
-              detail.tracks.count < complete.tracks.count,
-              complete.tracks.starts(with: detail.tracks) else { return detail }
+            complete.session == session,
+            complete.playlistID == detail.playlist.id,
+            detail.tracks.count < complete.tracks.count,
+            complete.tracks.starts(with: detail.tracks)
+        else { return detail }
         return PlaylistDetailViewModel(playlist: detail.playlist, tracks: complete.tracks)
     }
 
@@ -116,7 +126,9 @@ extension PlaylistBrowserViewModel {
             totalTrackCount: tracks.count,
             artworkURL: firstLikedSongsArtwork(from: tracks)
         )
-        await showPlaylistRows(PlaylistDetailViewModel(playlist: row, tracks: TrackRowViewModel.numberedPlaylistRows(tracks)), session: session)
+        await showPlaylistRows(
+            PlaylistDetailViewModel(playlist: row, tracks: TrackRowViewModel.numberedPlaylistRows(tracks)),
+            session: session)
         return session == detailSession
     }
 
@@ -135,8 +147,8 @@ extension PlaylistBrowserViewModel {
 
     private func firstLikedSongsArtwork(from tracks: [MusicPlaylistTrackItem]) -> URL? {
         for item in tracks.prefix(4) {
-            if case let .track(t) = item.content { return t.albumArtworkURL }
-            if case let .episode(e) = item.content { return e.artworkURL }
+            if case .track(let t) = item.content { return t.albumArtworkURL }
+            if case .episode(let e) = item.content { return e.artworkURL }
         }
         return nil
     }
@@ -146,17 +158,22 @@ extension PlaylistBrowserViewModel {
     func revalidateLikedSongs(session: Int, showsFirstPage: Bool = false) async {
         let mutationGeneration = likedSongsMutationGeneration
         do {
-            let firstPage: (@Sendable (MusicSavedTracksResult) async -> Void)? = showsFirstPage ? { [weak self] first in
-                // Not awaited: the read goes on while the rows draw.
-                Task { @MainActor in
-                    await self?.showLikedSongsFirstPage(first, session: session, generation: mutationGeneration)
-                }
-            } : nil
+            let firstPage: (@Sendable (MusicSavedTracksResult) async -> Void)? =
+                showsFirstPage
+                ? { [weak self] first in
+                    // Not awaited: the read goes on while the rows draw.
+                    Task { @MainActor in
+                        await self?.showLikedSongsFirstPage(first, session: session, generation: mutationGeneration)
+                    }
+                } : nil
             let result = try await likedSongsRevalidationResult(firstPage: firstPage)
             guard mutationGeneration == likedSongsMutationGeneration else { return }
             // Known now, though the rows go on screen only after the owner lookup below: playing
             // from the first page meanwhile gets every song.
-            completeRowsOnScreen = (session, SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID, TrackRowViewModel.numberedPlaylistRows(result.tracks))
+            completeRowsOnScreen = (
+                session, SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
+                TrackRowViewModel.numberedPlaylistRows(result.tracks)
+            )
             try? cache.saveTracks(
                 result.tracks,
                 playlistID: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
@@ -172,7 +189,8 @@ extension PlaylistBrowserViewModel {
             guard session == detailSession else { return }
             let profile = try? await api.currentUserProfile()
             guard session == detailSession,
-                  mutationGeneration == likedSongsMutationGeneration else { return }
+                mutationGeneration == likedSongsMutationGeneration
+            else { return }
             let ownerName = profile?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines)
             let row = PlaylistRowViewModel(
                 likedSongsOwnerName: ownerName,
@@ -183,7 +201,8 @@ extension PlaylistBrowserViewModel {
                 await showNoLikedSongs(session: session)
             } else {
                 await showPlaylistRows(
-                    PlaylistDetailViewModel(playlist: row, tracks: TrackRowViewModel.numberedPlaylistRows(result.tracks)),
+                    PlaylistDetailViewModel(
+                        playlist: row, tracks: TrackRowViewModel.numberedPlaylistRows(result.tracks)),
                     session: session
                 )
             }
@@ -193,7 +212,8 @@ extension PlaylistBrowserViewModel {
             return
         } catch {
             guard session == detailSession,
-                  mutationGeneration == likedSongsMutationGeneration else { return }
+                mutationGeneration == likedSongsMutationGeneration
+            else { return }
             let displayError = Self.reportedError(error, while: "loading Liked Songs")
             if let existingDetail = detailState.currentValue {
                 detailState = .staleCache(existingDetail, displayError)
@@ -205,7 +225,8 @@ extension PlaylistBrowserViewModel {
 
     private func shouldSkipAutomaticLikedSongsRevalidation() -> Bool {
         guard likedSongsRevalidationTask == nil,
-              let lastRevalidation = lastLikedSongsRevalidationAt else {
+            let lastRevalidation = lastLikedSongsRevalidationAt
+        else {
             return false
         }
         return now().timeIntervalSince(lastRevalidation) < likedSongsAutoRefreshMinInterval

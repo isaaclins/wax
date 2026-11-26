@@ -1,24 +1,28 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
 final class QueueViewModelCoreTests: XCTestCase {
     func testIsPlaybackPlayingReflectsSessionState() {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
         XCTAssertFalse(queue.isPlaybackPlaying)
 
-        playback.setConnectionState(.playing(PlaybackNowPlaying(
-            name: "T",
-            artists: [],
-            albumName: nil,
-            albumID: nil,
-            albumArtURL: nil,
-            durationMilliseconds: 1,
-            positionMilliseconds: 0,
-            uri: "spotify:track:1"
-        )))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "T",
+                    artists: [],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 1,
+                    positionMilliseconds: 0,
+                    uri: "spotify:track:1"
+                )))
         XCTAssertTrue(queue.isPlaybackPlaying)
     }
 
@@ -28,18 +32,23 @@ final class QueueViewModelCoreTests: XCTestCase {
         api.onFetchQueue = {
             fetchQueueStarted.signal()
         }
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
-        let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback, pollIntervalNanoseconds: 60_000_000_000)
-        playback.setConnectionState(.playing(PlaybackNowPlaying(
-            name: "T",
-            artists: [],
-            albumName: nil,
-            albumID: nil,
-            albumArtURL: nil,
-            durationMilliseconds: 1,
-            positionMilliseconds: 0,
-            uri: "spotify:track:1"
-        )))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let queue = QueueViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback,
+            pollIntervalNanoseconds: 60_000_000_000)
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "T",
+                    artists: [],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 1,
+                    positionMilliseconds: 0,
+                    uri: "spotify:track:1"
+                )))
         queue.setPanelVisible(true)
         queue.handleSdkQueueSnapshotChanged()
         // visible queue updates should fetch the REST queue
@@ -49,7 +58,8 @@ final class QueueViewModelCoreTests: XCTestCase {
 
     func testHandleSdkQueueSnapshotChangeNoOpsWhenPanelHidden() {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
         queue.setPanelVisible(false)
         let fetchCountBefore = api.actions.filter { $0 == "fetchQueue" }.count
@@ -60,7 +70,8 @@ final class QueueViewModelCoreTests: XCTestCase {
 
     func testSetAppActiveNoOpsWhenUnchanged() async {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
         queue.isAppActive = true
         queue.setAppActive(true)

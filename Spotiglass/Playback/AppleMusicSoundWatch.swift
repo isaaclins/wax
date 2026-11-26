@@ -120,8 +120,10 @@ final class AppleMusicSoundWatch {
                 // A skip that starts the same song over (previous on the queue's first song) is a
                 // new start too: its position went back, by more than a correction of the
                 // player's own clock could.
-                guard wait == .moves || reading.entryID != before.entryID
-                    || reading.positionSeconds + Self.restartJump < before.positionSeconds else { break }
+                guard
+                    wait == .moves || reading.entryID != before.entryID
+                        || reading.positionSeconds + Self.restartJump < before.positionSeconds
+                else { break }
                 guard let first = firstOnSong else {
                     firstOnSong = reading.positionSeconds
                     break
@@ -140,7 +142,9 @@ final class AppleMusicSoundWatch {
                 }
             }
             if now >= deadline {
-                report("\(command): not \(wait == .holdsStill ? "stopped" : "playing") \(PlaybackTrace.seconds(sentAt.duration(to: now))) after the command")
+                report(
+                    "\(command): not \(wait == .holdsStill ? "stopped" : "playing") \(PlaybackTrace.seconds(sentAt.duration(to: now))) after the command"
+                )
                 return
             }
         }

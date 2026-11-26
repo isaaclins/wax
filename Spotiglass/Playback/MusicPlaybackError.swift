@@ -61,13 +61,14 @@ extension SpotifyAPIError {
             return MusicPlaybackError(service: .spotify, reason: .signInExpired, detail: detail)
         case .insufficientScope:
             return MusicPlaybackError(service: .spotify, reason: .missingPermission, detail: detail)
-        case let .forbidden(message, _):
-            return MusicPlaybackError(service: .spotify, reason: .subscriptionRequired(message: message), detail: detail)
-        case let .rateLimited(retryAfter):
+        case .forbidden(let message, _):
+            return MusicPlaybackError(
+                service: .spotify, reason: .subscriptionRequired(message: message), detail: detail)
+        case .rateLimited(let retryAfter):
             return MusicPlaybackError(service: .spotify, reason: .rateLimited(retryAfter: retryAfter), detail: detail)
-        case let .network(message):
+        case .network(let message):
             return MusicPlaybackError(service: .spotify, reason: .network(message), detail: detail)
-        case let .server(statusCode, _, _) where statusCode >= 500:
+        case .server(let statusCode, _, _) where statusCode >= 500:
             return MusicPlaybackError(service: .spotify, reason: .server, detail: detail)
         case .notFound:
             return MusicPlaybackError(service: .spotify, reason: .notFound, detail: detail)

@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -133,20 +134,22 @@ final class AsyncSignal: @unchecked Sendable {
 
     func wait() async {
         let waiterID = UUID()
-        await withTaskCancellationHandler(operation: {
-            await withCheckedContinuation { continuation in
-                lock.lock()
-                if signaled || Task.isCancelled {
-                    lock.unlock()
-                    continuation.resume()
-                } else {
-                    waiters[waiterID] = continuation
-                    lock.unlock()
+        await withTaskCancellationHandler(
+            operation: {
+                await withCheckedContinuation { continuation in
+                    lock.lock()
+                    if signaled || Task.isCancelled {
+                        lock.unlock()
+                        continuation.resume()
+                    } else {
+                        waiters[waiterID] = continuation
+                        lock.unlock()
+                    }
                 }
-            }
-        }, onCancel: {
-            cancelWaiter(waiterID)
-        })
+            },
+            onCancel: {
+                cancelWaiter(waiterID)
+            })
     }
 
     /// Only for checking that something does NOT happen. To wait for something that
@@ -687,7 +690,8 @@ final class MockPlaybackAPI: SpotifyPlaybackControlling {
             return snapshot
         case .transport(let transport):
             guard let transport else { return nil }
-            return MusicPlaybackSnapshot(transport: transport, activeDevice: activeConnectDevice, isPlaying: reportedIsPlaying)
+            return MusicPlaybackSnapshot(
+                transport: transport, activeDevice: activeConnectDevice, isPlaying: reportedIsPlaying)
         }
     }
 
@@ -695,7 +699,9 @@ final class MockPlaybackAPI: SpotifyPlaybackControlling {
         actionRecorder.append("fetchAvailableDevices")
         await onFetchAvailableDevices?()
         await fetchAvailableDevicesHold?.pass()
-        if let error = locked({ $0.fetchAvailableDevicesErrors.isEmpty ? nil : $0.fetchAvailableDevicesErrors.removeFirst() }) {
+        if let error = locked({
+            $0.fetchAvailableDevicesErrors.isEmpty ? nil : $0.fetchAvailableDevicesErrors.removeFirst()
+        }) {
             throw error
         }
         return availableDevices
@@ -706,7 +712,9 @@ final class MockPlaybackAPI: SpotifyPlaybackControlling {
         if let setShuffleError { throw setShuffleError }
         await setShuffleHold?.pass()
         actionRecorder.append("setShuffle:\(deviceID):\(enabled)")
-        locked { $0.reportedTransport = MusicPlaybackTransport(shuffle: enabled, repeatMode: $0.reportedTransport.repeatMode) }
+        locked {
+            $0.reportedTransport = MusicPlaybackTransport(shuffle: enabled, repeatMode: $0.reportedTransport.repeatMode)
+        }
     }
 
     func setRepeat(mode: MusicRepeatMode, deviceID: String) async throws {
@@ -714,7 +722,9 @@ final class MockPlaybackAPI: SpotifyPlaybackControlling {
         await setRepeatHold?.pass()
         if let setRepeatError { throw setRepeatError }
         actionRecorder.append("setRepeat:\(deviceID):\(mode.rawValue)")
-        locked { $0.reportedTransport = MusicPlaybackTransport(shuffle: $0.reportedTransport.shuffle, repeatMode: mode) }
+        locked {
+            $0.reportedTransport = MusicPlaybackTransport(shuffle: $0.reportedTransport.shuffle, repeatMode: mode)
+        }
     }
 }
 

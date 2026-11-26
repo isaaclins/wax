@@ -37,7 +37,7 @@ struct ImmersiveLyricsView: View {
     }
 
     private var loadedLyrics: FetchedLyrics? {
-        if case let .ready(lyrics) = lyricsModel.phase { lyrics } else { nil }
+        if case .ready(let lyrics) = lyricsModel.phase { lyrics } else { nil }
     }
 
     var body: some View {
@@ -135,7 +135,7 @@ struct ImmersiveLyricsView: View {
     }
 
     static func showsLyricsList(_ phase: ImmersiveLyricsViewModel.Phase) -> Bool {
-        guard case let .ready(lyrics) = phase else { return false }
+        guard case .ready(let lyrics) = phase else { return false }
         if case .instrumental = lyrics { return false }
         return true
     }

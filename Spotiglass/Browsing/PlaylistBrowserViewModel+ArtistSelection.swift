@@ -19,8 +19,9 @@ extension PlaylistBrowserViewModel {
         detailLoadTask?.cancel()
 
         if !forceRefresh,
-           let cached = cachedArtistSnapshots[id],
-           nowDate.timeIntervalSince(cached.fetchedAt) < artistDetailCacheTTL {
+            let cached = cachedArtistSnapshots[id],
+            nowDate.timeIntervalSince(cached.fetchedAt) < artistDetailCacheTTL
+        {
             detailSession += 1
             currentArtistAlbumsPaging = cached.snapshot.paging
             let cachedVM = ArtistDetailViewModel(
@@ -38,8 +39,9 @@ extension PlaylistBrowserViewModel {
             return
         }
         if let lastSelection = lastArtistSelectionAt[id],
-           nowDate.timeIntervalSince(lastSelection) < artistSelectionDebounceWindow,
-           artistDetailLoadTasks[id] != nil {
+            nowDate.timeIntervalSince(lastSelection) < artistSelectionDebounceWindow,
+            artistDetailLoadTasks[id] != nil
+        {
             artistFetchMetrics.coalescedRequests += 1
             return
         }
@@ -94,7 +96,8 @@ extension PlaylistBrowserViewModel {
             return
         } catch {
             guard session == detailSession else { return }
-            detailState = .error(Self.reportedError(error, while: "loading the artist page", context: [.private("artist", id)]))
+            detailState = .error(
+                Self.reportedError(error, while: "loading the artist page", context: [.private("artist", id)]))
         }
     }
 
@@ -106,7 +109,9 @@ extension PlaylistBrowserViewModel {
             let isEmpty = snapshot.tracks.isEmpty && snapshot.albums.isEmpty
             let shown = Self.reportedError(
                 failure,
-                while: isEmpty ? "loading the artist page's songs (nothing else to show)" : "loading part of the artist page (shown without it)",
+                while: isEmpty
+                    ? "loading the artist page's songs (nothing else to show)"
+                    : "loading part of the artist page (shown without it)",
                 context: [.private("artist", artistID)]
             )
             detailState = isEmpty ? .error(shown) : .staleCache(.artist(page), shown)

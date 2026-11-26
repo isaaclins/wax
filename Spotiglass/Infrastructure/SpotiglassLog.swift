@@ -44,9 +44,10 @@ enum SpotiglassLog {
     private static let subsystem = AppMetadata.bundleIdentifier
 
     private static let osLoggers: [Category: Logger] = {
-        Dictionary(uniqueKeysWithValues: Category.allCases.map { category in
-            (category, Logger(subsystem: subsystem, category: category.rawValue))
-        })
+        Dictionary(
+            uniqueKeysWithValues: Category.allCases.map { category in
+                (category, Logger(subsystem: subsystem, category: category.rawValue))
+            })
     }()
 
     /// File path of the current session's log; `nil` before `boot()` runs or if the file
@@ -75,7 +76,7 @@ enum SpotiglassLog {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: parent.path) else { return }
         for name in names where name.hasPrefix(testLogFolderPrefix) {
             guard let pid = pid_t(name.dropFirst(testLogFolderPrefix.count)), !isRunning(pid) else { continue }
-            try? FileManager.default.removeItem(at: parent.appendingPathComponent(name)) // Test leftovers only.
+            try? FileManager.default.removeItem(at: parent.appendingPathComponent(name))  // Test leftovers only.
         }
     }
 
@@ -98,7 +99,8 @@ enum SpotiglassLog {
         // at once anyway. A handler installed earlier still runs after this one.
         previousExceptionHandler = NSGetUncaughtExceptionHandler()
         NSSetUncaughtExceptionHandler { exception in
-            SpotiglassLog.error(.persistence, "Uncaught exception \(exception.name.rawValue): \(exception.reason ?? "no reason")")
+            SpotiglassLog.error(
+                .persistence, "Uncaught exception \(exception.name.rawValue): \(exception.reason ?? "no reason")")
             SpotiglassLog.flush()
             SpotiglassLog.previousExceptionHandler?(exception)
         }
@@ -162,7 +164,9 @@ enum SpotiglassLog {
         } else if let url = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL {
             text += " url=\(url.absoluteString)"
         }
-        for key in [NSLocalizedFailureReasonErrorKey, NSDebugDescriptionErrorKey, NSLocalizedRecoverySuggestionErrorKey] {
+        for key in [
+            NSLocalizedFailureReasonErrorKey, NSDebugDescriptionErrorKey, NSLocalizedRecoverySuggestionErrorKey,
+        ] {
             if let extra = nsError.userInfo[key] as? String, !text.contains(extra) {
                 text += " \(key == NSDebugDescriptionErrorKey ? "debug" : "reason")=\(extra)"
             }
@@ -175,10 +179,11 @@ enum SpotiglassLog {
 
     private static func describe(_ decodingError: DecodingError) -> String {
         switch decodingError {
-        case let .typeMismatch(_, context), let .valueNotFound(_, context),
-             let .keyNotFound(_, context), let .dataCorrupted(context):
+        case .typeMismatch(_, let context), .valueNotFound(_, let context),
+            .keyNotFound(_, let context), .dataCorrupted(let context):
             let path = context.codingPath.map(\.stringValue).joined(separator: ".")
-            return "could not decode the response at \(path.isEmpty ? "the top level" : path): \(context.debugDescription)"
+            return
+                "could not decode the response at \(path.isEmpty ? "the top level" : path): \(context.debugDescription)"
         @unknown default:
             return "could not decode the response: \(decodingError)"
         }
@@ -187,12 +192,20 @@ enum SpotiglassLog {
     /// Query items and headers that carry a secret. Their values never reach the log.
     private static let secretPatterns: [(NSRegularExpression?, String)] = [
         // A URL's query: `?code=...&state=...`, `access_token=...`.
-        (pattern(#"(?i)\b(access_token|refresh_token|id_token|client_secret|code_verifier|token|password)=[^&\s"',;)]+"#), "$1=<hidden>"),
+        (
+            pattern(
+                #"(?i)\b(access_token|refresh_token|id_token|client_secret|code_verifier|token|password)=[^&\s"',;)]+"#),
+            "$1=<hidden>"
+        ),
         // An OAuth `code=`, but not a bare number: `Code=-1001` in an error's own text is no secret.
         (pattern(#"(?i)\b(code)=(?!-?\d+(?:[&\s"',;)]|$))[^&\s"',;)]+"#), "$1=<hidden>"),
         // A header written out, `Authorization: Bearer ...`, `Cookie: ...`, or as a printed
         // dictionary, `"Music-User-Token": "..."` (MusicKit's request errors print their headers).
-        (pattern(#"(?i)\b(proxy-authorization|authorization|set-cookie|cookie|password|music-user-token|media-user-token|x-apple-[a-z-]*token)("?\s*[:=]\s*"?)[^\n,;"]+"#), "$1$2<hidden>"),
+        (
+            pattern(
+                #"(?i)\b(proxy-authorization|authorization|set-cookie|cookie|password|music-user-token|media-user-token|x-apple-[a-z-]*token)("?\s*[:=]\s*"?)[^\n,;"]+"#
+            ), "$1$2<hidden>"
+        ),
         (pattern(#"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+"#), "Bearer <hidden>"),
     ]
 
@@ -236,7 +249,8 @@ enum SpotiglassLog {
     ) throws -> URL {
         if isRunningUnitTests {
             return FileManager.default.temporaryDirectory
-                .appendingPathComponent("\(testLogFolderPrefix)\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
+                .appendingPathComponent(
+                    "\(testLogFolderPrefix)\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
         }
         return try applicationSupport()
             .appendingPathComponent("\(AppMetadata.storageDirectoryName)/Logs", isDirectory: true)
@@ -294,7 +308,9 @@ final class FileLogSink {
                 dir = try directory()
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             } catch {
-                diagnostics.error("Log folder unavailable, the log file stays off this session: \(String(describing: error), privacy: .public)")
+                diagnostics.error(
+                    "Log folder unavailable, the log file stays off this session: \(String(describing: error), privacy: .public)"
+                )
                 return
             }
             let url = dir.appendingPathComponent(Self.currentFileName)
@@ -306,14 +322,16 @@ final class FileLogSink {
                 let earlierURL = dir.appendingPathComponent(Self.earlierFileName)
                 let previousEarlierURL = dir.appendingPathComponent(Self.previousEarlierFileName)
                 do {
-                    for old in [previousURL, previousEarlierURL] where FileManager.default.fileExists(atPath: old.path) {
+                    for old in [previousURL, previousEarlierURL] where FileManager.default.fileExists(atPath: old.path)
+                    {
                         try FileManager.default.removeItem(at: old)
                     }
                     try moveItem(url, previousURL)
                 } catch {
                     // Appending keeps the previous session's lines; the size cap below still holds.
                     holdsPreviousSession = true
-                    rotationNote = "Could not move the previous session's log aside (\(SpotiglassLog.describe(error))); appending to it instead"
+                    rotationNote =
+                        "Could not move the previous session's log aside (\(SpotiglassLog.describe(error))); appending to it instead"
                     diagnostics.error("\(rotationNote ?? "", privacy: .public)")
                 }
                 // The first part of a long session that just ended stays with it.
@@ -321,7 +339,9 @@ final class FileLogSink {
                     do {
                         try moveItem(earlierURL, previousEarlierURL)
                     } catch {
-                        diagnostics.error("Could not keep the previous session's earlier log (\(String(describing: error), privacy: .public)); this session's overflow replaces it")
+                        diagnostics.error(
+                            "Could not keep the previous session's earlier log (\(String(describing: error), privacy: .public)); this session's overflow replaces it"
+                        )
                     }
                 }
             }
@@ -343,7 +363,7 @@ final class FileLogSink {
 
     func flush() {
         queue.sync {
-            try? handle?.synchronize() // Lines are already in the kernel; this only adds fsync.
+            try? handle?.synchronize()  // Lines are already in the kernel; this only adds fsync.
         }
     }
 
@@ -357,7 +377,7 @@ final class FileLogSink {
     /// turn text around are escaped too: some viewers show them as a new line or reversed text.
     private static func needsEscape(_ scalar: Unicode.Scalar) -> Bool {
         switch scalar.value {
-        case 0x2028, 0x2029, 0x200E, 0x200F, 0x202A ... 0x202E, 0x2066 ... 0x2069: true
+        case 0x2028, 0x2029, 0x200E, 0x200F, 0x202A...0x202E, 0x2066...0x2069: true
         default: scalar.properties.generalCategory == .control
         }
     }
@@ -396,7 +416,9 @@ final class FileLogSink {
             self.handle = handle
             _fileURL = url
         } catch {
-            diagnostics.error("Could not open the log file at \(url.path, privacy: .public): \(String(describing: error), privacy: .public)")
+            diagnostics.error(
+                "Could not open the log file at \(url.path, privacy: .public): \(String(describing: error), privacy: .public)"
+            )
             return false
         }
         append(header)
@@ -423,7 +445,7 @@ final class FileLogSink {
     private func rotateWithinSession() {
         guard let url = _fileURL else { return }
         let earlierURL = url.deletingLastPathComponent().appendingPathComponent(Self.earlierFileName)
-        try? handle?.close() // The file is moved next; a failed close only leaks a descriptor.
+        try? handle?.close()  // The file is moved next; a failed close only leaks a descriptor.
         handle = nil
         let stamp = Self.formatter.string(from: Date())
         let header: String
@@ -437,19 +459,26 @@ final class FileLogSink {
             if holdsPreviousSession {
                 // Starting over would empty the previous session's lines, which a report needs
                 // most; the file stops here and Console keeps the rest of this session.
-                diagnostics.error("Could not move the full log aside (\(String(describing: error), privacy: .public)); the file stops, Console keeps logging")
+                diagnostics.error(
+                    "Could not move the full log aside (\(String(describing: error), privacy: .public)); the file stops, Console keeps logging"
+                )
                 if let stopped = try? FileHandle(forWritingTo: url) {
                     _ = try? stopped.seekToEnd()
-                    try? stopped.write(contentsOf: Data("=== Log file full at \(stamp) and could not be moved aside; the rest of this session is in Console only ===\n".utf8))
-                    try? stopped.close() // Best effort: the line only explains the end of the file.
+                    try? stopped.write(
+                        contentsOf: Data(
+                            "=== Log file full at \(stamp) and could not be moved aside; the rest of this session is in Console only ===\n"
+                                .utf8))
+                    try? stopped.close()  // Best effort: the line only explains the end of the file.
                 }
                 return
             }
             // Without the move the only way to stay under the cap is to start this session's
             // file over; it holds this session's lines only.
-            diagnostics.error("Could not move the full log aside (\(String(describing: error), privacy: .public)); starting it over")
+            diagnostics.error(
+                "Could not move the full log aside (\(String(describing: error), privacy: .public)); starting it over")
             FileManager.default.createFile(atPath: url.path, contents: nil)
-            header = "=== Log started over \(stamp): the full log could not be moved aside (\(SpotiglassLog.describe(error))) ===\n"
+            header =
+                "=== Log started over \(stamp): the full log could not be moved aside (\(SpotiglassLog.describe(error))) ===\n"
         }
         holdsPreviousSession = false
         _ = open(url, header: header)
@@ -467,17 +496,22 @@ final class FileLogSink {
 enum BugReportLogCopy {
     /// The log files in the order they were written: the previous session, then this one.
     static func sourceFiles(in folder: URL) -> [URL] {
-        [FileLogSink.previousEarlierFileName, FileLogSink.previousFileName, FileLogSink.earlierFileName, FileLogSink.currentFileName]
-            .map { folder.appendingPathComponent($0) }
-            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        [
+            FileLogSink.previousEarlierFileName, FileLogSink.previousFileName, FileLogSink.earlierFileName,
+            FileLogSink.currentFileName,
+        ]
+        .map { folder.appendingPathComponent($0) }
+        .filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     /// Writes the cleaned copy of every log file in `folder` to `destination`. The four files
     /// can hold 128 MB, so each is cleaned in pieces on all cores; a stand-in depends only on
     /// the value and this copy's salt, so the pieces agree on it.
     static func write(from folder: URL, to destination: URL, keeping ownWords: Set<String> = appWords()) throws {
-        let salt = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) })
-        var output = Data("=== Wax log for a bug report, saved \(ISO8601DateFormatter().string(from: Date())). Searches, names, IDs and addresses are replaced by stand-ins like #3f2a9c1d. ===\n".utf8)
+        let salt = Data((0..<16).map { _ in UInt8.random(in: 0...255) })
+        var output = Data(
+            "=== Wax log for a bug report, saved \(ISO8601DateFormatter().string(from: Date())). Searches, names, IDs and addresses are replaced by stand-ins like #3f2a9c1d. ===\n"
+                .utf8)
         for file in sourceFiles(in: folder) {
             let text = try String(contentsOf: file, encoding: .utf8)
             output.append(Data("=== \(file.lastPathComponent) ===\n".utf8))
@@ -505,7 +539,7 @@ enum BugReportLogCopy {
             if end < text.endIndex {
                 end = text[end...].firstIndex(of: "\n").map { text.index(after: $0) } ?? text.endIndex
             }
-            pieces.append(text[start ..< end])
+            pieces.append(text[start..<end])
             start = end
         }
         return pieces
@@ -517,8 +551,11 @@ enum BugReportLogCopy {
         var words: Set<String> = [AppMetadata.displayName, "\(AppMetadata.displayName) Settings", "Settings"]
         for localization in bundle.localizations {
             for table in ["Localizable", "InfoPlist"] {
-                guard let url = bundle.url(forResource: table, withExtension: "strings", subdirectory: nil, localization: localization),
-                      let strings = NSDictionary(contentsOf: url) as? [String: String] else { continue }
+                guard
+                    let url = bundle.url(
+                        forResource: table, withExtension: "strings", subdirectory: nil, localization: localization),
+                    let strings = NSDictionary(contentsOf: url) as? [String: String]
+                else { continue }
                 words.formUnion(strings.values)
             }
         }
@@ -558,7 +595,9 @@ enum BugReportLogCopy {
             // A cover's address names the album it belongs to; the stand-in still ties the
             // lines of one cover together.
             result = replace(Self.coverAddress, in: result) { cleaner, match in
-                guard let slash = match.range(of: "/", range: match.index(match.startIndex, offsetBy: 8) ..< match.endIndex) else { return match }
+                guard
+                    let slash = match.range(of: "/", range: match.index(match.startIndex, offsetBy: 8)..<match.endIndex)
+                else { return match }
                 return "\(match[..<slash.lowerBound])/\(cleaner.standIn(String(match[slash.upperBound...])))"
             }
             result = replace(Self.serviceURI, in: result) { cleaner, match in
@@ -573,7 +612,9 @@ enum BugReportLogCopy {
                 let key = match[..<equals]
                 let value = String(match[match.index(after: equals)...])
                 // A service URI already carries its stand-in (`applemusic:song:#3f2a9c1d`) and keeps its kind.
-                if ["<nil>", "nil", "none", "?"].contains(value) || cleaner.isStandIn(value) || value.contains(":#") { return match }
+                if ["<nil>", "nil", "none", "?"].contains(value) || cleaner.isStandIn(value) || value.contains(":#") {
+                    return match
+                }
                 return "\(key)=\(cleaner.standIn(value))"
             }
             // `catalog artist 909253 top songs`: older catalog IDs are shorter than the shapes below.
@@ -609,9 +650,10 @@ enum BugReportLogCopy {
             guard let pattern else { return text }
             let result = NSMutableString(string: text)
             for match in pattern.matches(in: text, range: NSRange(location: 0, length: result.length)).reversed() {
-                for group in (1 ..< match.numberOfRanges).reversed() where match.range(at: group).location != NSNotFound {
+                for group in (1..<match.numberOfRanges).reversed() where match.range(at: group).location != NSNotFound {
                     let range = match.range(at: group)
-                    let inner = result.substring(with: range).replacingOccurrences(of: "“", with: "\"").replacingOccurrences(of: "”", with: "\"")
+                    let inner = result.substring(with: range).replacingOccurrences(of: "“", with: "\"")
+                        .replacingOccurrences(of: "”", with: "\"")
                     result.replaceCharacters(in: range, with: "“\(inner)”")
                 }
             }
@@ -660,13 +702,15 @@ enum BugReportLogCopy {
         /// A query: `?q=night&type=track` after an address or path.
         private static let query = pattern(#"[^\s]?\?[A-Za-z_][\w.\[\]-]*=[^\s"'”)]*"#)
         /// Cover art on Apple's and Spotify's image servers.
-        private static let coverAddress = pattern(#"https?://[^/\s]*(?:mzstatic\.com|scdn\.co|spotifycdn\.com)/[^\s"'”)]+"#)
+        private static let coverAddress = pattern(
+            #"https?://[^/\s]*(?:mzstatic\.com|scdn\.co|spotifycdn\.com)/[^\s"'”)]+"#)
         /// `spotify:track:6rqhFgbbKwnb9MLmUQDhG6`, `applemusic:song:4651336237147474264`.
         private static let serviceURI = pattern(#"\b(?:spotify|applemusic):[a-z]+:[^\s,;)'"\]]+"#)
         /// `/v1/users/<name>/playlists`: a Spotify user ID is often the person's name.
         private static let spotifyUser = pattern(#"/users/[^/\s?"'”)]+"#)
         /// `deviceID=…`, `playlistID=…`, `clickedURI=…`, `uid=…`: every value of a key that names an identifier.
-        private static let identifierValue = pattern(#"\b(?:\w*(?:ID|Id|URI|Uri|UID|Uid)|id|uri|uid|\w+_id)=[^\s,;)\]"'”]+"#)
+        private static let identifierValue = pattern(
+            #"\b(?:\w*(?:ID|Id|URI|Uri|UID|Uid)|id|uri|uid|\w+_id)=[^\s,;)\]"'”]+"#)
         /// A short catalog ID after the kind it names, as MusicKit call names write it.
         private static let namedCatalogID = pattern(#"\b(?:album|song|artist|playlist) \d{5,8}\b"#)
         private static let identifierShapes: [NSRegularExpression?] = [
@@ -685,6 +729,8 @@ enum BugReportLogCopy {
         ]
         /// `key A`, `key ⇧A` or `key SS` in an interaction line: what was typed into a field.
         /// Shortcuts and named keys (`shortcut ⌘F`, `key Return`, `key ↓`) stay.
-        private static let typedKey = pattern(#"(?<!key )\bkey ⇧?+(?!(?:Return|Tab|Space|Delete|Escape|[←→↓↑]|key \d+|in a password field)(?=[\s;]|$))[^\s;]+(?=[\s;]|$)"#)
+        private static let typedKey = pattern(
+            #"(?<!key )\bkey ⇧?+(?!(?:Return|Tab|Space|Delete|Escape|[←→↓↑]|key \d+|in a password field)(?=[\s;]|$))[^\s;]+(?=[\s;]|$)"#
+        )
     }
 }

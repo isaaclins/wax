@@ -1,7 +1,7 @@
 import Foundation
 
 #if DEBUG
-import SwiftUI
+    import SwiftUI
 #endif
 
 /// Preview-only browsing API used by ``PlaylistBrowserView`` canvas; exercised in unit tests for coverage.
@@ -14,7 +14,9 @@ struct PreviewBrowsingAPI: MusicBrowsingProvider {
         throw MusicBrowsingError(unsupportedOperation: "Preview artist")
     }
 
-    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail> {
+    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<
+        MusicArtistDetail
+    > {
         let value = try await artist(id: id, cacheMode: cacheMode)
         return MusicCachedResponse(value: value, isStale: false)
     }
@@ -27,7 +29,9 @@ struct PreviewBrowsingAPI: MusicBrowsingProvider {
         []
     }
 
-    func artistAlbums(id _: String, includeGroups _: [MusicArtistAlbumGroup], limit _: Int, cacheMode _: MusicRequestCacheMode) async throws -> [MusicArtistAlbum] {
+    func artistAlbums(
+        id _: String, includeGroups _: [MusicArtistAlbumGroup], limit _: Int, cacheMode _: MusicRequestCacheMode
+    ) async throws -> [MusicArtistAlbum] {
         []
     }
 
@@ -64,7 +68,7 @@ struct PreviewBrowsingAPI: MusicBrowsingProvider {
                 imageURL: nil,
                 trackCount: 2,
                 snapshotID: "snapshot"
-            ),
+            )
         ]
     }
 
@@ -85,7 +89,7 @@ struct PreviewBrowsingAPI: MusicBrowsingProvider {
                         uri: "spotify:track:track"
                     )
                 )
-            ),
+            )
         ]
     }
 
@@ -97,9 +101,12 @@ struct PreviewBrowsingAPI: MusicBrowsingProvider {
 struct PreviewBrowsingCache: MusicBrowsingCache {
     func loadPlaylistsBundle(now: Date) throws -> (playlists: [MusicPlaylistSummary], age: TimeInterval)? { nil }
     func savePlaylists(_ playlists: [MusicPlaylistSummary], cachedAt: Date) throws {}
-    func loadTracks(playlistID: String, snapshotID: String, now: Date, maxAge: TimeInterval) throws -> [MusicPlaylistTrackItem]? { nil }
+    func loadTracks(playlistID: String, snapshotID: String, now: Date, maxAge: TimeInterval) throws
+        -> [MusicPlaylistTrackItem]?
+    { nil }
     func loadTracksIgnoringAge(playlistID: String, snapshotID: String) throws -> [MusicPlaylistTrackItem]? { nil }
-    func saveTracks(_ tracks: [MusicPlaylistTrackItem], playlistID: String, snapshotID: String, cachedAt: Date) throws {}
+    func saveTracks(_ tracks: [MusicPlaylistTrackItem], playlistID: String, snapshotID: String, cachedAt: Date) throws {
+    }
     func invalidateTracks(playlistID: String) throws {}
 }
 
@@ -112,20 +119,20 @@ final class PreviewPlaybackTokenProvider: PlaybackAccessTokenProviding, SpotifyA
 }
 
 #if DEBUG
-#Preview {
-    let tokens = PreviewPlaybackTokenProvider()
-    let playbackHost = SpotiglassPlaybackHost(tokenProvider: tokens)
-    return PlaylistBrowserView(
-        viewModel: PlaylistBrowserViewModel(
-            api: PreviewBrowsingAPI(),
-            cache: PreviewBrowsingCache()
-        ),
-        playbackHost: playbackHost,
-        catalogProvider: PreviewBrowsingAPI(),
-        commandPaletteManager: CommandPaletteManager(),
-        signOut: {}
-    )
-    .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
-    .environmentObject(LyricsOverlayController())
-}
+    #Preview {
+        let tokens = PreviewPlaybackTokenProvider()
+        let playbackHost = SpotiglassPlaybackHost(tokenProvider: tokens)
+        return PlaylistBrowserView(
+            viewModel: PlaylistBrowserViewModel(
+                api: PreviewBrowsingAPI(),
+                cache: PreviewBrowsingCache()
+            ),
+            playbackHost: playbackHost,
+            catalogProvider: PreviewBrowsingAPI(),
+            commandPaletteManager: CommandPaletteManager(),
+            signOut: {}
+        )
+        .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
+        .environmentObject(LyricsOverlayController())
+    }
 #endif

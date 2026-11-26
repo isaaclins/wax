@@ -1,4 +1,5 @@
 import Foundation
+
 @testable import Spotiglass
 
 /// A ``PlaybackClock`` that only moves when the test moves it. A timer on it fires when the test
@@ -10,7 +11,8 @@ final class ManualPlaybackClock: PlaybackClock, @unchecked Sendable {
     private let lock = NSLock()
     private var current = ContinuousClock().now
     private var sleepers: [UUID: Sleeper] = [:]
-    private var sleepersWaiters: [UUID: (isMet: ([ContinuousClock.Instant]) -> Bool, continuation: CheckedContinuation<Bool, Never>)] = [:]
+    private var sleepersWaiters:
+        [UUID: (isMet: ([ContinuousClock.Instant]) -> Bool, continuation: CheckedContinuation<Bool, Never>)] = [:]
 
     var now: ContinuousClock.Instant {
         lock.lock()
@@ -27,27 +29,29 @@ final class ManualPlaybackClock: PlaybackClock, @unchecked Sendable {
 
     func sleep(until deadline: ContinuousClock.Instant, tolerance: Duration?) async throws {
         let id = UUID()
-        try await withTaskCancellationHandler(operation: {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                lock.lock()
-                if Task.isCancelled {
+        try await withTaskCancellationHandler(
+            operation: {
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    lock.lock()
+                    if Task.isCancelled {
+                        lock.unlock()
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
+                    if current >= deadline {
+                        lock.unlock()
+                        continuation.resume()
+                        return
+                    }
+                    sleepers[id] = (deadline, continuation)
+                    let ready = takeReadySleepersWaiters()
                     lock.unlock()
-                    continuation.resume(throwing: CancellationError())
-                    return
+                    ready.forEach { $0.resume(returning: true) }
                 }
-                if current >= deadline {
-                    lock.unlock()
-                    continuation.resume()
-                    return
-                }
-                sleepers[id] = (deadline, continuation)
-                let ready = takeReadySleepersWaiters()
-                lock.unlock()
-                ready.forEach { $0.resume(returning: true) }
-            }
-        }, onCancel: {
-            self.cancel(id)
-        })
+            },
+            onCancel: {
+                self.cancel(id)
+            })
     }
 
     /// Moves the clock on and fires every timer that is due by then.

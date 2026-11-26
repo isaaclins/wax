@@ -2,6 +2,7 @@ import AppKit
 import CoreGraphics
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Shift + mouse wheel on a horizontal shelf (#475).
@@ -29,9 +30,10 @@ final class ShelfScrollBehaviorTests: XCTestCase {
     // MARK: - Which device scrolled
 
     func testShiftMouseWheelNotchIsAWheel() throws {
-        let cgEvent = try XCTUnwrap(CGEvent(
-            scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: -1, wheel2: 0, wheel3: 0
-        ))
+        let cgEvent = try XCTUnwrap(
+            CGEvent(
+                scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: -1, wheel2: 0, wheel3: 0
+            ))
         cgEvent.flags = .maskShift
         let event = try XCTUnwrap(NSEvent(cgEvent: cgEvent))
         XCTAssertEqual(ShelfScrollInput(event: event), .wheel)
@@ -39,9 +41,10 @@ final class ShelfScrollBehaviorTests: XCTestCase {
 
     func testTrackpadSwipeAndItsMomentumAreAGesture() throws {
         for (phase, momentum) in [(1, 0), (2, 0), (4, 0), (0, 1), (0, 2), (0, 3)] as [(Int64, Int64)] {
-            let cgEvent = try XCTUnwrap(CGEvent(
-                scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0, wheel2: -30, wheel3: 0
-            ))
+            let cgEvent = try XCTUnwrap(
+                CGEvent(
+                    scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0, wheel2: -30, wheel3: 0
+                ))
             cgEvent.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
             cgEvent.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
             cgEvent.setIntegerValueField(.scrollWheelEventMomentumPhase, value: momentum)
@@ -54,15 +57,17 @@ final class ShelfScrollBehaviorTests: XCTestCase {
         let monitor = ShelfScrollInputMonitor()
         XCTAssertNil(monitor.lastInput)
 
-        let wheel = try XCTUnwrap(CGEvent(
-            scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: -1, wheel2: 0, wheel3: 0
-        ))
+        let wheel = try XCTUnwrap(
+            CGEvent(
+                scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: -1, wheel2: 0, wheel3: 0
+            ))
         monitor.record(try XCTUnwrap(NSEvent(cgEvent: wheel)))
         XCTAssertEqual(monitor.lastInput, .wheel)
 
-        let swipe = try XCTUnwrap(CGEvent(
-            scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0, wheel2: -30, wheel3: 0
-        ))
+        let swipe = try XCTUnwrap(
+            CGEvent(
+                scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0, wheel2: -30, wheel3: 0
+            ))
         swipe.setIntegerValueField(.scrollWheelEventScrollPhase, value: 4)
         monitor.record(try XCTUnwrap(NSEvent(cgEvent: swipe)))
         XCTAssertEqual(monitor.lastInput, .gesture)

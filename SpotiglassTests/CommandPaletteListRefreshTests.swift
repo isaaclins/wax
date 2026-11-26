@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// #499: when the palette's list changed in place (All → Tracks, Artists → Tracks, a search
@@ -56,7 +57,7 @@ final class CommandPaletteListRefreshTests: XCTestCase {
             (.tracks, [song, song, other, song]),
             (.thisPlaylist, [song]),
         ])
-        XCTAssertEqual(rows.map(\.flatIndex), Array(0 ..< 5))
+        XCTAssertEqual(rows.map(\.flatIndex), Array(0..<5))
         XCTAssertEqual(rows.map(\.item.id), ["t-bad-habit", "t-bad-habit", "t-dark-red", "t-bad-habit", "t-bad-habit"])
         XCTAssertEqual(Set(rows.map(\.id)).count, rows.count, "two rows share a name")
         XCTAssertEqual(rows.map(\.startsSection), [true, false, false, false, true])
@@ -155,11 +156,13 @@ final class CommandPaletteListRefreshTests: XCTestCase {
 
     private func tallied() -> [String] {
         let prefix = "CommandPaletteResultRow:"
-        return (ViewBodyTally.onScreen ?? [:]).keys.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) }
+        return (ViewBodyTally.onScreen ?? [:]).keys.filter { $0.hasPrefix(prefix) }.map {
+            String($0.dropFirst(prefix.count))
+        }
     }
 
     private func settle(_ controller: NSHostingController<AnyView>) {
-        for _ in 0 ..< 4 {
+        for _ in 0..<4 {
             controller.view.layoutSubtreeIfNeeded()
             AppKitTestSupport.settle(passes: 1)
         }
@@ -170,15 +173,21 @@ final class CommandPaletteListRefreshTests: XCTestCase {
     private var allResults: Sections {
         [
             (.artists, [item("artist-steve-lacy", "Steve Lacy", .artists)]),
-            (.playlists, [
-                item("pl-essentials-1", "Steve Lacy Essentials", .playlists),
-                item("pl-essentials-2", "Steve Lacy Essentials", .playlists),
-            ]),
-            (.tracks, [
-                item("t-bad-habit", "Bad Habit", .tracks),
-                item("t-dark-red", "Dark Red", .tracks),
-                item("t-static", "Static", .tracks),
-            ]),
+            (
+                .playlists,
+                [
+                    item("pl-essentials-1", "Steve Lacy Essentials", .playlists),
+                    item("pl-essentials-2", "Steve Lacy Essentials", .playlists),
+                ]
+            ),
+            (
+                .tracks,
+                [
+                    item("t-bad-habit", "Bad Habit", .tracks),
+                    item("t-dark-red", "Dark Red", .tracks),
+                    item("t-static", "Static", .tracks),
+                ]
+            ),
             showAll,
         ]
     }
@@ -191,14 +200,17 @@ final class CommandPaletteListRefreshTests: XCTestCase {
     /// ⇥ to Tracks: one section of songs, longer than the list shows at once.
     private var tracksResults: Sections {
         [
-            (.tracks, [
-                item("t-bad-habit", "Bad Habit", .tracks),
-                item("t-dark-red", "Dark Red", .tracks),
-                item("t-static", "Static", .tracks),
-                item("t-helmet", "Helmet", .tracks),
-                item("t-infrunami", "Infrunami", .tracks),
-                item("t-ryd", "Ryd", .tracks),
-            ] + (1 ... 14).map { item("t-more-\($0)", "Song \($0)", .tracks) }),
+            (
+                .tracks,
+                [
+                    item("t-bad-habit", "Bad Habit", .tracks),
+                    item("t-dark-red", "Dark Red", .tracks),
+                    item("t-static", "Static", .tracks),
+                    item("t-helmet", "Helmet", .tracks),
+                    item("t-infrunami", "Infrunami", .tracks),
+                    item("t-ryd", "Ryd", .tracks),
+                ] + (1...14).map { item("t-more-\($0)", "Song \($0)", .tracks) }
+            ),
             showAll,
         ]
     }
@@ -211,11 +223,14 @@ final class CommandPaletteListRefreshTests: XCTestCase {
     private var idleList: Sections {
         [
             (.recentSearches, [item("recent-steve-lacy", "steve lacy", .recentSearches)]),
-            (.quickActions, [
-                item("qa-liked", "Open Liked Songs", .commands),
-                item("qa-queue", "Show Queue", .commands),
-                item("qa-settings", "Open Settings", .commands),
-            ]),
+            (
+                .quickActions,
+                [
+                    item("qa-liked", "Open Liked Songs", .commands),
+                    item("qa-queue", "Show Queue", .commands),
+                    item("qa-settings", "Open Settings", .commands),
+                ]
+            ),
         ]
     }
 

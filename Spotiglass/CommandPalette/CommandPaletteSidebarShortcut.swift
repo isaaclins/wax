@@ -13,8 +13,8 @@ enum CommandPaletteSidebarShortcut {
     /// True for a ⌃⌘S key press.
     static func isSystemChord(_ event: NSEvent) -> Bool {
         guard event.type == .keyDown,
-              let pressed = CommandShortcut(event: event),
-              let shortcut = try? CommandShortcut(keystroke: systemKeystroke)
+            let pressed = CommandShortcut(event: event),
+            let shortcut = try? CommandShortcut(keystroke: systemKeystroke)
         else { return false }
         return pressed == shortcut
     }
@@ -81,9 +81,9 @@ struct SidebarSystemChordMonitor: NSViewRepresentable {
         /// True when the key press was ⌃⌘S in this view's window and it toggled the sidebar.
         func handle(_ event: NSEvent) -> Bool {
             guard !isRecordingHotkey, !event.isARepeat,
-                  let window = view?.window, event.window === window,
-                  CommandPaletteSidebarShortcut.isSystemChord(event),
-                  !CommandPaletteSidebarShortcut.isTypingKeyPress(event)
+                let window = view?.window, event.window === window,
+                CommandPaletteSidebarShortcut.isSystemChord(event),
+                !CommandPaletteSidebarShortcut.isTypingKeyPress(event)
             else { return false }
             sendSystemSidebarToggle()
             return true

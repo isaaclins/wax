@@ -1,5 +1,6 @@
 import Combine
 import XCTest
+
 @testable import Spotiglass
 
 /// The playback provider seam: the Spotify provider sends exactly the Web API and
@@ -26,7 +27,8 @@ final class MusicPlaybackProviderTests: XCTestCase {
 
         try await provider.play(.item(uri: "spotify:track:1"), deviceID: "device")
         try await provider.play(.context(uri: "spotify:playlist:p"), deviceID: "device")
-        try await provider.play(.items(uris: ["spotify:track:1", "spotify:track:2"], startURI: "spotify:track:2"), deviceID: "device")
+        try await provider.play(
+            .items(uris: ["spotify:track:1", "spotify:track:2"], startURI: "spotify:track:2"), deviceID: "device")
         XCTAssertEqual(api.lastPlayedURIQueue, ["spotify:track:1", "spotify:track:2"])
         XCTAssertEqual(api.lastPlayedOffsetURI, "spotify:track:2")
         try await provider.play(.items(uris: ["spotify:track:3"], startURI: nil), deviceID: "device")
@@ -79,7 +81,8 @@ final class MusicPlaybackProviderTests: XCTestCase {
             commander.commands.map(\.command),
             [.connect, .togglePlay, .pause, .resume, .setVolume, .playURI, .disconnect]
         )
-        XCTAssertEqual((commander.commands[2].payload["id"] as? NSNumber)?.uint64Value, 7, "the press's id goes to the page")
+        XCTAssertEqual(
+            (commander.commands[2].payload["id"] as? NSNumber)?.uint64Value, 7, "the press's id goes to the page")
         XCTAssertEqual(commander.commands[4].payload["volume"] as? Double, 0.25)
         XCTAssertEqual(commander.commands[5].payload["uri"] as? String, "spotify:track:1")
         XCTAssertTrue(api.actions.isEmpty, "in-app player commands must not reach the Web API")
@@ -90,10 +93,11 @@ final class MusicPlaybackProviderTests: XCTestCase {
         let session = PlaybackSessionViewModel(provider: provider)
         session.setConnectionState(.connecting)
 
-        provider.deliver(MusicPlaybackEventEnvelope(
-            event: .ready(deviceID: "sdk-device"),
-            hostGeneration: session.playbackHostGeneration
-        ))
+        provider.deliver(
+            MusicPlaybackEventEnvelope(
+                event: .ready(deviceID: "sdk-device"),
+                hostGeneration: session.playbackHostGeneration
+            ))
 
         XCTAssertEqual(session.deviceID, "sdk-device")
         XCTAssertEqual(session.connectionState, .ready(deviceID: "sdk-device"))
@@ -177,19 +181,21 @@ final class MusicPlaybackProviderTests: XCTestCase {
         let provider = ReadOnlyStatePlaybackProvider()
         let session = PlaybackSessionViewModel(provider: provider)
         session.setConnectionState(.connecting)
-        provider.eventHandler?(MusicPlaybackEventEnvelope(
-            event: .ready(deviceID: "local"),
-            hostGeneration: session.playbackHostGeneration
-        ))
+        provider.eventHandler?(
+            MusicPlaybackEventEnvelope(
+                event: .ready(deviceID: "local"),
+                hostGeneration: session.playbackHostGeneration
+            ))
         XCTAssertEqual(session.connectionState, .ready(deviceID: "local"))
 
         session.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackDeviceNotReadyError())))
         session.start()
         XCTAssertEqual(session.connectionState, .connecting)
-        provider.eventHandler?(MusicPlaybackEventEnvelope(
-            event: .ready(deviceID: "local"),
-            hostGeneration: session.playbackHostGeneration
-        ))
+        provider.eventHandler?(
+            MusicPlaybackEventEnvelope(
+                event: .ready(deviceID: "local"),
+                hostGeneration: session.playbackHostGeneration
+            ))
 
         XCTAssertEqual(session.deviceID, "local")
         XCTAssertEqual(session.connectionState, .ready(deviceID: "local"))
@@ -201,15 +207,19 @@ final class MusicPlaybackProviderTests: XCTestCase {
         let provider = ReadOnlyStatePlaybackProvider()
         let session = PlaybackSessionViewModel(provider: provider)
         session.setConnectionState(.connecting)
-        let ready = { provider.eventHandler?(MusicPlaybackEventEnvelope(
-            event: .ready(deviceID: "local"),
-            hostGeneration: session.playbackHostGeneration
-        )) }
+        let ready = {
+            provider.eventHandler?(
+                MusicPlaybackEventEnvelope(
+                    event: .ready(deviceID: "local"),
+                    hostGeneration: session.playbackHostGeneration
+                ))
+        }
         ready()
-        provider.eventHandler?(MusicPlaybackEventEnvelope(
-            event: .notReady(deviceID: "local"),
-            hostGeneration: session.playbackHostGeneration
-        ))
+        provider.eventHandler?(
+            MusicPlaybackEventEnvelope(
+                event: .notReady(deviceID: "local"),
+                hostGeneration: session.playbackHostGeneration
+            ))
         session.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackDeviceNotReadyError())))
 
         session.start()
@@ -225,17 +235,19 @@ final class MusicPlaybackProviderTests: XCTestCase {
         let provider = SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI())
         let session = PlaybackSessionViewModel(provider: provider)
         session.setConnectionState(.connecting)
-        provider.deliver(MusicPlaybackEventEnvelope(
-            event: .ready(deviceID: "old-sdk"),
-            hostGeneration: session.playbackHostGeneration
-        ))
+        provider.deliver(
+            MusicPlaybackEventEnvelope(
+                event: .ready(deviceID: "old-sdk"),
+                hostGeneration: session.playbackHostGeneration
+            ))
         session.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackDeviceNotReadyError())))
         session.start()
 
-        provider.deliver(MusicPlaybackEventEnvelope(
-            event: .ready(deviceID: "old-sdk"),
-            hostGeneration: session.playbackHostGeneration
-        ))
+        provider.deliver(
+            MusicPlaybackEventEnvelope(
+                event: .ready(deviceID: "old-sdk"),
+                hostGeneration: session.playbackHostGeneration
+            ))
 
         XCTAssertNil(session.deviceID)
         XCTAssertEqual(session.connectionState, .connecting)
@@ -316,7 +328,7 @@ final class MusicPlaybackProviderTests: XCTestCase {
 
         provider.state = Self.snapshot(uri: "music:song:2", isPlaying: false, progress: 400)
         await session.syncTransportFromSpotify()
-        guard case let .paused(nowPlaying) = session.connectionState else {
+        guard case .paused(let nowPlaying) = session.connectionState else {
             return XCTFail("Expected paused, got \(session.connectionState)")
         }
         XCTAssertEqual(nowPlaying?.uri, "music:song:2")
@@ -339,7 +351,7 @@ final class MusicPlaybackProviderTests: XCTestCase {
         await session.syncTransportFromSpotify()
 
         XCTAssertGreaterThan(session.localMutationSettleTicksRemaining, 0, "applied inside the settle window")
-        guard case let .paused(nowPlaying) = session.connectionState else {
+        guard case .paused(let nowPlaying) = session.connectionState else {
             return XCTFail("Expected paused, got \(session.connectionState)")
         }
         XCTAssertEqual(nowPlaying?.uri, "music:song:2")
@@ -371,7 +383,7 @@ final class MusicPlaybackProviderTests: XCTestCase {
 
         provider.state = Self.snapshot(uri: "music:song:2", isPlaying: false, progress: 0)
         await session.syncTransportFromSpotify()
-        guard case let .paused(nowPlaying) = session.connectionState else {
+        guard case .paused(let nowPlaying) = session.connectionState else {
             return XCTFail("Expected paused, got \(session.connectionState)")
         }
         XCTAssertEqual(nowPlaying?.uri, "music:song:2")
@@ -685,9 +697,10 @@ final class ReadOnlyStatePlaybackProvider: MusicPlaybackProvider {
 
     func play(_ request: MusicPlaybackRequest, deviceID: String) async throws {
         switch request {
-        case let .item(uri): commands.append("play item \(uri) on \(deviceID)")
-        case let .context(uri): commands.append("play context \(uri) on \(deviceID)")
-        case let .items(uris, startURI): commands.append("play \(uris.count) items from \(startURI ?? "start") on \(deviceID)")
+        case .item(let uri): commands.append("play item \(uri) on \(deviceID)")
+        case .context(let uri): commands.append("play context \(uri) on \(deviceID)")
+        case .items(let uris, let startURI):
+            commands.append("play \(uris.count) items from \(startURI ?? "start") on \(deviceID)")
         }
     }
 
@@ -721,15 +734,25 @@ final class ReadOnlyStatePlaybackProvider: MusicPlaybackProvider {
         commands.append("resume \(deviceID)")
         try await answer()
     }
-    func seek(to milliseconds: Int, deviceID: String) async throws { commands.append("seek \(milliseconds) on \(deviceID)") }
+    func seek(to milliseconds: Int, deviceID: String) async throws {
+        commands.append("seek \(milliseconds) on \(deviceID)")
+    }
     func skipToNext(deviceID: String) async throws { commands.append("next \(deviceID)") }
     func skipToPrevious(deviceID: String) async throws { commands.append("previous \(deviceID)") }
-    func setShuffle(enabled: Bool, deviceID: String) async throws { commands.append("shuffle \(enabled) on \(deviceID)") }
-    func setRepeat(mode: MusicRepeatMode, deviceID: String) async throws { commands.append("repeat \(mode) on \(deviceID)") }
+    func setShuffle(enabled: Bool, deviceID: String) async throws {
+        commands.append("shuffle \(enabled) on \(deviceID)")
+    }
+    func setRepeat(mode: MusicRepeatMode, deviceID: String) async throws {
+        commands.append("repeat \(mode) on \(deviceID)")
+    }
     func enqueue(uri: String, deviceID: String) async throws { commands.append("enqueue \(uri) on \(deviceID)") }
     func togglePlayPause(commandID: UInt64?) async throws { commands.append("togglePlayPause") }
-    func setInAppPlayerPlaying(_ playing: Bool, commandID: UInt64?) async throws { commands.append(playing ? "inAppPlay" : "inAppPause") }
-    func setVolume(_ volume: Double, generation: PlaybackHostGeneration) async throws { commands.append("volume \(volume)") }
+    func setInAppPlayerPlaying(_ playing: Bool, commandID: UInt64?) async throws {
+        commands.append(playing ? "inAppPlay" : "inAppPause")
+    }
+    func setVolume(_ volume: Double, generation: PlaybackHostGeneration) async throws {
+        commands.append("volume \(volume)")
+    }
 
     func fetchPlaybackState() async throws -> MusicPlaybackSnapshot? {
         stateReadCount += 1
@@ -819,7 +842,9 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         provider.holdsCommands = true
 
         let press = Task { await session.togglePlayPause() }
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         XCTAssertEqual(provider.commands, ["pause local"])
         XCTAssertTrue(Self.isPaused(session), "the controls waited for the player to answer the pause")
 
@@ -843,7 +868,9 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         XCTAssertTrue(Self.isPaused(session))
         XCTAssertTrue(provider.commands.isEmpty, "the command follows the screen, not the other way round")
 
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         provider.releaseCommands()
         await send?.value
         XCTAssertEqual(provider.commands, ["pause local"])
@@ -859,13 +886,17 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         defer { watch.cancel() }
 
         let pause = Task { await session.togglePlayPause() }
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         let play = Task { await session.togglePlayPause() }
         await waitUntil("the second press shown", changes: session.objectWillChange) { Self.isPlaying(session) }
 
         provider.releaseCommands()
         await pause.value
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         provider.releaseCommands()
         await play.value
         XCTAssertEqual(provider.commands, ["pause local", "resume local"], "in the order pressed")
@@ -891,12 +922,15 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         provider.refusal = MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "refused")
 
         let press = Task { await session.togglePlayPause() }
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         XCTAssertTrue(Self.isPaused(session))
         provider.releaseCommands()
         await press.value
 
-        XCTAssertEqual(session.connectionState, .playing(Self.song), "the controls kept showing a pause that didn't happen")
+        XCTAssertEqual(
+            session.connectionState, .playing(Self.song), "the controls kept showing a pause that didn't happen")
         XCTAssertEqual(session.refusedPlayPause?.title, SpotiglassL10n.string("playback.refused.pause"))
         XCTAssertEqual(session.refusedPlayPause?.message, SpotiglassL10n.string("error.playback.appleMusic.failed"))
         XCTAssertNil(session.localCommandExpectsPlaying, "the next read must be believed again")
@@ -914,7 +948,7 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
 
         await session.togglePlayPause()
 
-        guard case let .error(error) = session.connectionState else {
+        guard case .error(let error) = session.connectionState else {
             return XCTFail("Expected the permission error, got \(session.connectionState)")
         }
         XCTAssertEqual(error.title, SpotiglassL10n.string("error.playback.appleMusic.permission.title"))
@@ -999,7 +1033,9 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
 
         api.snapshotResponses = [Self.snapshot(isPlaying: true, device: phone)]
         await session.togglePlayPause()
-        await waitUntil("the pause sent to the phone", changes: api.changes) { api.actions.contains("pause:phone-device") }
+        await waitUntil("the pause sent to the phone", changes: api.changes) {
+            api.actions.contains("pause:phone-device")
+        }
         await session.syncTransportFromSpotify()
         XCTAssertTrue(Self.isPaused(session), "a read from before the pause flipped it back")
 
@@ -1011,7 +1047,8 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
     /// Spotify refusing a pause (HTTP 503): the bar says so in a sentence, not with the raw
     /// error Spotify's display error keeps for diagnostics.
     func testASpotifyRefusalSaysWhyInASentence() async {
-        let phone = MusicPlaybackDevice(deviceID: "phone-device", isActive: true, isRestricted: false, name: "Phone", type: "smartphone")
+        let phone = MusicPlaybackDevice(
+            deviceID: "phone-device", isActive: true, isRestricted: false, name: "Phone", type: "smartphone")
         let api = MockPlaybackAPI()
         let session = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander())
@@ -1034,7 +1071,8 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
     /// "playing". That agrees with the play only by luck, so the reads that follow (the Web API
     /// catching up with the pause) still mustn't flip the controls to paused.
     func testSpotifyOnAnotherDeviceAReadSentBeforeThePressesDoesntEndTheWait() async {
-        let phone = MusicPlaybackDevice(deviceID: "phone-device", isActive: true, isRestricted: false, name: "Phone", type: "smartphone")
+        let phone = MusicPlaybackDevice(
+            deviceID: "phone-device", isActive: true, isRestricted: false, name: "Phone", type: "smartphone")
         let api = MockPlaybackAPI()
         let session = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander())
@@ -1054,10 +1092,13 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
 
         await session.requestTogglePlayPause()?.value
         await session.requestTogglePlayPause()?.value
-        XCTAssertEqual(api.actions.filter { $0.hasPrefix("pause:") || $0.hasPrefix("resume:") }, ["pause:phone-device", "resume:phone-device"])
+        XCTAssertEqual(
+            api.actions.filter { $0.hasPrefix("pause:") || $0.hasPrefix("resume:") },
+            ["pause:phone-device", "resume:phone-device"])
         // The early read comes back saying "playing"; every read after it shows the Web API
         // catching up with the pause.
-        api.snapshotResponses = [Self.snapshot(isPlaying: true, device: phone)]
+        api.snapshotResponses =
+            [Self.snapshot(isPlaying: true, device: phone)]
             + Array(repeating: Self.snapshot(isPlaying: false, device: phone), count: 8)
         gate.release()
         await earlyRead.value
@@ -1082,18 +1123,23 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         provider.refusal = MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "offline")
 
         let pause = session.requestTogglePlayPause()
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         let play = session.requestTogglePlayPause()
         XCTAssertTrue(Self.isPlaying(session))
 
         provider.releaseCommands()
         await pause?.value
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         provider.releaseCommands()
         await play?.value
 
         XCTAssertEqual(provider.commands, ["pause local", "resume local"])
-        XCTAssertEqual(session.connectionState, .playing(Self.song), "the controls ended on a pause that never happened")
+        XCTAssertEqual(
+            session.connectionState, .playing(Self.song), "the controls ended on a pause that never happened")
         XCTAssertEqual(session.refusedPlayPause?.title, SpotiglassL10n.string("playback.refused.play"))
     }
 
@@ -1103,11 +1149,15 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         provider.holdsCommands = true
 
         let pause = session.requestTogglePlayPause()
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         let play = session.requestTogglePlayPause()
         provider.releaseCommands()
         await pause?.value
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         provider.refusal = MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "busy")
         provider.releaseCommands()
         await play?.value
@@ -1225,7 +1275,9 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         let pause = session.requestTogglePlayPause()
         XCTAssertTrue(Self.isPaused(session))
         session.handle(.playerCommandFailed(command: "pause", message: "Spotify pause failed: offline"))
-        await waitUntil("two commands on the page", changes: commander.changes) { Self.playPauseCommands(commander).count >= 2 }
+        await waitUntil("two commands on the page", changes: commander.changes) {
+            Self.playPauseCommands(commander).count >= 2
+        }
         session.handle(.playerCommandFinished(command: "resume"))
         await play?.value
         await pause?.value
@@ -1243,7 +1295,8 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         await session.requestTogglePlayPause()?.value
         let play = session.requestTogglePlayPause()
         await Self.settle()
-        XCTAssertEqual(Self.playPauseCommands(commander), [.pause], "the play went out while the page still ran the pause")
+        XCTAssertEqual(
+            Self.playPauseCommands(commander), [.pause], "the play went out while the page still ran the pause")
 
         session.handle(.playerCommandFinished(command: "pause"))
         await play?.value
@@ -1338,7 +1391,8 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         session.handle(.playerCommandFailed(command: "pause", message: "Spotify pause failed: offline", id: firstPause))
         XCTAssertTrue(Self.isPaused(session), "the first pause's refusal undid the last pause")
         XCTAssertNil(session.refusedPlayPause)
-        XCTAssertEqual(session.inAppCommandInFlight?.serial, lastPause, "the first pause's answer let the next press go early")
+        XCTAssertEqual(
+            session.inAppCommandInFlight?.serial, lastPause, "the first pause's answer let the next press go early")
     }
 
     /// Play, pause while the page still runs the play, then another song: the pause waiting its
@@ -1362,7 +1416,9 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         provider.holdsCommands = true
 
         let stuck = session.requestTogglePlayPause()
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         _ = session.beginPlaybackHostLifecycle()
         session.setConnectionState(.paused(Self.song))
         provider.holdsCommands = false
@@ -1387,7 +1443,9 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         provider.holdsCommands = true
 
         let play = session.requestTogglePlayPause()
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         provider.holdsCommands = false
         let armed = clock.sleeperCount
         let pause = session.requestTogglePlayPause()
@@ -1401,7 +1459,8 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
 
         provider.releaseCommands()
         await play?.value
-        XCTAssertEqual(provider.commands, ["resume local", "pause local", "pause local"], "the late play won over the last press")
+        XCTAssertEqual(
+            provider.commands, ["resume local", "pause local", "pause local"], "the late play won over the last press")
         XCTAssertTrue(Self.isPaused(session))
     }
 
@@ -1412,7 +1471,9 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         provider.holdsCommands = true
 
         let pause = session.requestTogglePlayPause()
-        await waitUntil("a command waiting for the player", changes: provider.changes) { provider.waitingCommandCount >= 1 }
+        await waitUntil("a command waiting for the player", changes: provider.changes) {
+            provider.waitingCommandCount >= 1
+        }
         await session.play(uri: "music:song:2")
         let shown = session.connectionState
         provider.refusal = MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "offline")
@@ -1454,9 +1515,12 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         let play = session.playPauseRequestSerial
         session.handle(.playerCommandFinished(command: "resume", id: play))
         session.handle(.playerCommandFinished(command: "pause", id: pause))
-        await waitUntil("three commands on the page", changes: commander.changes) { Self.playPauseCommands(commander).count >= 3 }
+        await waitUntil("three commands on the page", changes: commander.changes) {
+            Self.playPauseCommands(commander).count >= 3
+        }
 
-        XCTAssertEqual(Self.playPauseCommands(commander), [.pause, .resume, .resume], "the late pause had the last word")
+        XCTAssertEqual(
+            Self.playPauseCommands(commander), [.pause, .resume, .resume], "the late pause had the last word")
         XCTAssertTrue(Self.isPlaying(session))
     }
 
@@ -1468,7 +1532,9 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         await session.requestTogglePlayPause()?.value
         session.handle(.playerCommandFinished(command: "pause", id: session.playPauseRequestSerial))
         await session.requestTogglePlayPause()?.value
-        session.handle(.playerCommandFailed(command: "resume", message: "Spotify resume failed: offline", id: session.playPauseRequestSerial))
+        session.handle(
+            .playerCommandFailed(
+                command: "resume", message: "Spotify resume failed: offline", id: session.playPauseRequestSerial))
 
         XCTAssertTrue(Self.isPaused(session), "the controls went back to before the accepted pause")
         XCTAssertEqual(session.refusedPlayPause?.title, SpotiglassL10n.string("playback.refused.play"))
@@ -1481,7 +1547,9 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
 
         await session.requestTogglePlayPause()?.value
         session.handle(.authenticationError("token expired"))
-        session.handle(.playerCommandFailed(command: "pause", message: "Spotify pause failed: 401", id: session.playPauseRequestSerial))
+        session.handle(
+            .playerCommandFailed(
+                command: "pause", message: "Spotify pause failed: 401", id: session.playPauseRequestSerial))
 
         guard case .error = session.connectionState else {
             return XCTFail("the refusal replaced the sign-in error: \(session.connectionState)")
@@ -1567,9 +1635,12 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
         await session.requestTogglePlayPause()?.value
         session.handle(.playerCommandFinished(command: "resume", id: session.playPauseRequestSerial))
         session.handle(.playerCommandFinished(command: "pause", id: rolledBack))
-        await waitUntil("four commands on the page", changes: commander.changes) { Self.playPauseCommands(commander).count >= 4 }
+        await waitUntil("four commands on the page", changes: commander.changes) {
+            Self.playPauseCommands(commander).count >= 4
+        }
 
-        XCTAssertEqual(Self.playPauseCommands(commander), [.pause, .pause, .resume, .resume], "the late pause had the last word")
+        XCTAssertEqual(
+            Self.playPauseCommands(commander), [.pause, .pause, .resume, .resume], "the late pause had the last word")
         XCTAssertTrue(Self.isPlaying(session))
     }
 
@@ -1592,14 +1663,13 @@ final class PlayPauseFollowsThePressTests: XCTestCase {
     func testSpotifyPageFailingAnotherCommandShowsTheError() {
         let (_, session) = playingSpotify()
         session.handle(.playerCommandFailed(command: "seek", message: "Spotify seek failed: offline"))
-        guard case let .error(error) = session.connectionState else {
+        guard case .error(let error) = session.connectionState else {
             return XCTFail("Expected the playback error, got \(session.connectionState)")
         }
         // The page's text is a debug line in English; the bar says it in the app's language (#470).
         XCTAssertEqual(error.message, SpotiglassL10n.string("error.playback.spotify.failed"))
     }
 }
-
 
 /// Holds a read until the test lets it go.
 @MainActor

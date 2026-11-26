@@ -2,6 +2,7 @@ import AppKit
 import MusicKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// After a live language switch the sidebar slid up under the window's close, minimise and zoom
@@ -31,9 +32,10 @@ final class MainWindowLiveSettingsTests: XCTestCase {
             $0.appearance.colorScheme = .dark
         }
         let rendered = RenderedSettings()
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(
-            services: [.appleMusic, .spotify], active: .appleMusic
-        ))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(
+                services: [.appleMusic, .spotify], active: .appleMusic
+            ))
         let window = try await hostMainWindow(settings: settings, services: services, rendered: rendered)
         let before = try assertLiveSwitchesKeepTheTitleBar(of: window, settings: settings, rendered: rendered)
 
@@ -50,7 +52,8 @@ final class MainWindowLiveSettingsTests: XCTestCase {
         XCTAssertTrue(services.activate(.appleMusic), "couldn't switch back to Apple Music")
         let back = AppKitTestSupport.pumpRunLoop(until: {
             guard let layout = TitleBarLayout(window) else { return false }
-            return layout.splitView !== appleMusicLayout.splitView && layout.sidebarSeparator?.splitView === layout.splitView
+            return layout.splitView !== appleMusicLayout.splitView
+                && layout.sidebarSeparator?.splitView === layout.splitView
         })
         window.contentView?.layoutSubtreeIfNeeded()
         let afterSwitch = try XCTUnwrap(TitleBarLayout(window), "no split view after switching back to Apple Music")
@@ -84,7 +87,8 @@ final class MainWindowLiveSettingsTests: XCTestCase {
                 return layout.splitView !== shown.splitView && layout.sidebarSeparator?.splitView === layout.splitView
             })
             window.contentView?.layoutSubtreeIfNeeded()
-            XCTAssertTrue(switched, "after switching to \(service) the toolbar's sidebar divider doesn't follow its library")
+            XCTAssertTrue(
+                switched, "after switching to \(service) the toolbar's sidebar divider doesn't follow its library")
             let after = try XCTUnwrap(TitleBarLayout(window), "no library after switching to \(service)")
             XCTAssertEqual(
                 after.sidebarTopInset, start.sidebarTopInset, accuracy: 0.5,
@@ -102,9 +106,10 @@ final class MainWindowLiveSettingsTests: XCTestCase {
             $0.appearance.language = .english
             $0.appearance.colorScheme = .system
         }
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(
-            services: [.appleMusic], active: .appleMusic
-        ))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(
+                services: [.appleMusic], active: .appleMusic
+            ))
         let rendered = RenderedSettings()
         let window = try await hostMainWindow(settings: settings, services: services, rendered: rendered)
         let started = try XCTUnwrap(rendered.colorScheme)
@@ -153,7 +158,8 @@ final class MainWindowLiveSettingsTests: XCTestCase {
         let after = try XCTUnwrap(TitleBarLayout(window), "no split view after switching to \(name)")
         XCTAssertTrue(after.splitView === before.splitView, "switching to \(name) replaced the window's split view")
         for (index, item) in after.items.enumerated() where !before.items.contains(where: { $0 === item }) {
-            XCTFail("switching to \(name) replaced toolbar item \(index) (\(item.itemIdentifier.rawValue), \(item.label))")
+            XCTFail(
+                "switching to \(name) replaced toolbar item \(index) (\(item.itemIdentifier.rawValue), \(item.label))")
         }
         XCTAssertTrue(
             after.sidebarSeparator?.splitView === after.splitView,
@@ -208,31 +214,34 @@ final class MainWindowLiveSettingsTests: XCTestCase {
         settings: SpotiglassSettingsStore,
         rendered: RenderedSettings
     ) async throws -> (NSWindow, MusicServiceStore) {
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(
-            services: [.spotify, .appleMusic], active: .spotify
-        ))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(
+                services: [.spotify, .appleMusic], active: .spotify
+            ))
         let palette = CommandPaletteManager()
         var libraries: [MusicService: AnyView] = [:]
         for service in [MusicService.spotify, .appleMusic] {
             let api = Self.standInLibrary()
             let browser = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
             await browser.load()
-            libraries[service] = AnyView(PlaylistBrowserView(
-                viewModel: browser,
-                playbackHost: Self.standInPlayer(),
-                catalogProvider: api,
-                commandPaletteManager: palette,
-                signOut: {},
-                // Apple Music's library is set up as AppleMusicBrowserRoot sets it up.
-                playbackMode: service == .appleMusic
-                    ? .unavailable(SpotiglassL10n.string("error.playback.appleMusic.subscription.message"))
-                    : .live,
-                canDisconnect: service != .appleMusic,
-                sidebarHeader: AnyView(MusicServiceSwitcher(
-                    store: services, keymapStore: palette.keymapStore,
-                    switchTo: { services.activate($0) }, add: { _ in }
+            libraries[service] = AnyView(
+                PlaylistBrowserView(
+                    viewModel: browser,
+                    playbackHost: Self.standInPlayer(),
+                    catalogProvider: api,
+                    commandPaletteManager: palette,
+                    signOut: {},
+                    // Apple Music's library is set up as AppleMusicBrowserRoot sets it up.
+                    playbackMode: service == .appleMusic
+                        ? .unavailable(SpotiglassL10n.string("error.playback.appleMusic.subscription.message"))
+                        : .live,
+                    canDisconnect: service != .appleMusic,
+                    sidebarHeader: AnyView(
+                        MusicServiceSwitcher(
+                            store: services, keymapStore: palette.keymapStore,
+                            switchTo: { services.activate($0) }, add: { _ in }
+                        ))
                 ))
-            ))
         }
         let pins = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         // The stand-in API's account.
@@ -250,18 +259,21 @@ final class MainWindowLiveSettingsTests: XCTestCase {
 
     /// A player on stand-ins: no Web Playback SDK page, no MusicKit player, no requests.
     private static func standInPlayer() -> SpotiglassPlaybackHost {
-        SpotiglassPlaybackHost(provider: SpotifyPlaybackProvider(
-            playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()
-        ))
+        SpotiglassPlaybackHost(
+            provider: SpotifyPlaybackProvider(
+                playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()
+            ))
     }
 
     /// Two playlists and the account's profile, read from memory.
     private static func standInLibrary() -> MockBrowsingAPI {
         MockBrowsingAPI(
-            playlistResults: [.success([
-                PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Night Drive"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Deep Focus"),
-            ])],
+            playlistResults: [
+                .success([
+                    PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Night Drive"),
+                    PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Deep Focus"),
+                ])
+            ],
             trackResults: [:]
         )
     }
@@ -304,7 +316,10 @@ final class MainWindowLiveSettingsTests: XCTestCase {
                 && window.toolbar?.items.contains(where: { $0.label == queueLabel }) == true
         })
         let labels = window.toolbar?.items.map(\.label) ?? []
-        XCTAssertTrue(taken, "the window never took \(name): toolbar labels \(labels), drawn with \(rendered.summary), window appearance \(String(describing: window.appearance?.name)), effective \(window.effectiveAppearance.name.rawValue), app \(NSApp.effectiveAppearance.name.rawValue) / \(String(describing: NSApp.appearance?.name))")
+        XCTAssertTrue(
+            taken,
+            "the window never took \(name): toolbar labels \(labels), drawn with \(rendered.summary), window appearance \(String(describing: window.appearance?.name)), effective \(window.effectiveAppearance.name.rawValue), app \(NSApp.effectiveAppearance.name.rawValue) / \(String(describing: NSApp.appearance?.name))"
+        )
         window.contentView?.layoutSubtreeIfNeeded()
     }
 
