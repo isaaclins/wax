@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.92] - 2026-11-26
+
+### Fixed
+
+- Menu bar shortcuts ⌥⌘S, ⌥⌘R, ⌘→ and ⌘[ now show up reliably, and the menu bar refreshes after a window closes.
+
 ## [0.8.91] - 2026-11-26
 
 ### Fixed
