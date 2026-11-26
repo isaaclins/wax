@@ -920,7 +920,7 @@ private extension ListDetailViewsTests {
         TrackListView(
             tracks: tracks,
             selection: selection,
-            rowBuilder: TrackListTestRows.row(for:)
+            rowBuilder: { track, _ in TrackListTestRows.row(for: track) }
         )
     }
 

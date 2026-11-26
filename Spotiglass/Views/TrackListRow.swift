@@ -126,6 +126,11 @@ struct TrackListRow: View {
     /// surface that stacks rows in a plain stack (search results) keeps it on, or
     /// those rows cannot be reached without a mouse (#121).
     var isKeyboardFocusable: Bool = true
+    /// Whether the row handles its own double-click and right-click menu. A ``TrackListView``
+    /// handles both for all of its rows (``TrackListRowActions``), so its rows pass `false`: a
+    /// row's own menu was built on each mouse-down, and its double-click gesture took the click
+    /// from the table (#689). Rows in a plain stack (search results) keep both.
+    var handlesClicks: Bool = true
     /// Spotify-side track-ops menu items appended after the existing menu.
     /// Built lazily so closures don't fire until the menu opens.
     var trackOpsMenuItems: (() -> AnyView)? = nil
@@ -154,6 +159,26 @@ struct TrackListRow: View {
                 return .unavailable
             }
             return .play(uri: playableURI)
+        }
+    }
+
+    /// What double-clicking `track` with `mark` does, and the first item of its menu.
+    static func playbackInvocation(of track: TrackRowViewModel, mark: TrackRowPlaybackMark) -> TrackRowPlaybackInvocation {
+        playbackInvocation(isCurrent: mark.isCurrent, isPlaying: mark.isPlaying, playableURI: track.playableURI)
+    }
+
+    static func perform(
+        _ invocation: TrackRowPlaybackInvocation,
+        playURI: (String) -> Void,
+        togglePlayPause: () -> Void
+    ) {
+        switch invocation {
+        case .toggle:
+            togglePlayPause()
+        case let .play(uri):
+            playURI(uri)
+        case .unavailable:
+            break
         }
     }
 
@@ -270,15 +295,12 @@ struct TrackListRow: View {
             track: track,
             tracksSurfaceID: tracksSurfaceID
         ))
-        // Double-click activates, which is what a Mac table does: a single
-        // click belongs to the enclosing `List` so it can select. Attached
-        // simultaneously so the tap recognizer cannot swallow that click.
-        .simultaneousGesture(
-            TapGesture(count: 2).onEnded {
-                guard rowPlaybackInvocation.isAvailable else { return }
-                activate()
-            }
-        )
+        .modifier(TrackListRowClickHandling(
+            isOn: handlesClicks,
+            invocation: rowPlaybackInvocation,
+            activate: activate,
+            menuItems: trackOpsMenuItems
+        ))
         .focusable(isKeyboardFocusable)
         // Return activates the focused row. Space is deliberately left alone: it
         // is the global play/pause binding, and swallowing it here would change
@@ -287,15 +309,6 @@ struct TrackListRow: View {
             guard rowPlaybackInvocation.isAvailable else { return .ignored }
             activate()
             return .handled
-        }
-        .contextMenu {
-            if rowPlaybackInvocation.isAvailable {
-                Button(rowPlaybackInvocation.label, action: activate)
-                Divider()
-            }
-            if let trackOpsMenuItems {
-                trackOpsMenuItems()
-            }
         }
         .accessibilityElement(children: .combine)
         // The only activation used to be a raw double-tap gesture, which SwiftUI
@@ -349,14 +362,7 @@ struct TrackListRow: View {
 
     /// Routes the same named action used by the context menu and hover control.
     private func activate() {
-        switch rowPlaybackInvocation {
-        case .toggle:
-            togglePlayPause()
-        case let .play(uri):
-            playURI(uri)
-        case .unavailable:
-            break
-        }
+        Self.perform(rowPlaybackInvocation, playURI: playURI, togglePlayPause: togglePlayPause)
     }
 
     @ViewBuilder
@@ -439,5 +445,51 @@ private struct TrackListPinningModifier: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// The double-click and right-click menu of a row that handles its own clicks
+/// (``TrackListRow/handlesClicks``).
+private struct TrackListRowClickHandling: ViewModifier {
+    let isOn: Bool
+    let invocation: TrackRowPlaybackInvocation
+    let activate: () -> Void
+    let menuItems: (() -> AnyView)?
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content
+                // Double-click activates, which is what a Mac table does: a single
+                // click belongs to the enclosing view so it can select. Attached
+                // simultaneously so the tap recognizer cannot swallow that click.
+                .simultaneousGesture(
+                    TapGesture(count: 2).onEnded {
+                        guard invocation.isAvailable else { return }
+                        activate()
+                    }
+                )
+                .contextMenu {
+                    TrackRowMenuContent(invocation: invocation, activate: activate) {
+                        if let menuItems { menuItems() }
+                    }
+                }
+        } else {
+            content
+        }
+    }
+}
+
+/// A song's right-click menu: play or pause first, then the rest.
+struct TrackRowMenuContent<Items: View>: View {
+    let invocation: TrackRowPlaybackInvocation
+    let activate: () -> Void
+    @ViewBuilder let items: () -> Items
+
+    var body: some View {
+        if invocation.isAvailable {
+            Button(invocation.label, action: activate)
+            Divider()
+        }
+        items()
     }
 }

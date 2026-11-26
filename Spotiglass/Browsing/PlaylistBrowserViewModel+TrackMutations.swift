@@ -35,12 +35,10 @@ extension PlaylistBrowserViewModel {
     /// Rows the menu actions should apply to: the active table selection, or just the row the
     /// menu was opened on when no selection includes it.
     ///
-    /// Every row builds its menu each time the row is drawn, not only when the menu opens, so
-    /// this runs for each row that scrolls into view, and for every selected row when the
-    /// selection changes. Looking the row up in the whole list made that a pass over all of a
-    /// 2,000-song playlist per row: a flick stuttered, and ⌘A took seconds (#655). So the row the
-    /// menu is for is used as it is, and a selection of several is `selectedRows`, which the list
-    /// works out once per change of the selection (``selectedTrackRows``) and hands every row.
+    /// For the rows that carry their own menu: an artist page's "In your library" songs, which
+    /// sit under the track table rather than in it (#658). The table's own rows get theirs from
+    /// the table (#689). The row the menu is for is used as it is, and a selection of several is
+    /// `selectedRows`, worked out once per change of the selection and handed every row (#655).
     func effectiveTrackTargets(for row: TrackRowViewModel, selectedRows: [TrackRowViewModel]) -> [TrackRowViewModel] {
         let selection = selectedDetailTrackIDs
         if selection.count > 1, selection.contains(row.id), !selectedRows.isEmpty {
@@ -61,8 +59,8 @@ extension PlaylistBrowserViewModel {
 
     /// Rows for the current table selection, in list order.
     ///
-    /// The context menu uses ``effectiveTrackTargets(for:selectedRows:)`` because it has
-    /// a row to fall back on. A menu bar item has no row, only the selection, so
+    /// The right-click menu gets its rows from the table, which falls back on the row it was
+    /// opened on (#689). A menu bar item has no row, only the selection, so
     /// an empty selection means there is nothing to act on (#132).
     var selectedTrackRows: [TrackRowViewModel] {
         let selection = selectedDetailTrackIDs
@@ -122,8 +120,30 @@ extension PlaylistBrowserViewModel {
         }
     }
 
+    static let menuPreparationSettle: Duration = .milliseconds(250)
+
+    /// Looks up whether `rows`, the rows on screen now, are in Liked Songs, for their menus to
+    /// show (#689). Only once the rows on screen stop changing for a moment: a scroll of any
+    /// kind (trackpad, mouse wheel, arrow keys) brings new rows nearly every frame, and asking
+    /// each time would be a request per frame.
+    func prepareTrackMenus(for rows: [TrackRowViewModel]) {
+        menuPreparationTask?.cancel()
+        let rows = likedSongsMutationRows(for: rows)
+        guard !rows.isEmpty else { return }
+        let clock = menuPreparationClock
+        let deadline = clock.now.advanced(by: Self.menuPreparationSettle)
+        menuPreparationTask = Task { [weak self] in
+            // try?: the wait only fails when it's cancelled, because newer rows came on screen and wait instead.
+            try? await clock.sleep(until: deadline, tolerance: nil)
+            guard let self, !Task.isCancelled else { return }
+            // Its own task: rows that come on screen later don't cancel a lookup on its way.
+            Task { await self.loadSavedTrackStates(for: rows) }
+        }
+    }
+
     /// Resolves the missing saved states for a menu's catalog rows. The Liked
     /// Songs surface skips this entirely because membership is known locally.
+    /// IDs a lookup is already on its way for aren't asked for again.
     func loadSavedTrackStates(for rows: [TrackRowViewModel]) async {
         let ids = catalogTrackIDs(for: rows)
         // A cached answer the provider now answers differently is out of date (an album saved
@@ -133,8 +153,10 @@ extension PlaylistBrowserViewModel {
                 savedTrackStates[id] = nil
             }
         }
-        let missing = ids.filter { savedTrackStates[$0] == nil }
+        let missing = ids.filter { savedTrackStates[$0] == nil && !savedTrackLookupsInFlight.contains($0) }
         guard !missing.isEmpty else { return }
+        savedTrackLookupsInFlight.formUnion(missing)
+        defer { savedTrackLookupsInFlight.subtract(missing) }
         do {
             let statuses = try await api.savedTrackStatuses(ids: missing)
             guard !Task.isCancelled, statuses.count == missing.count else { return }

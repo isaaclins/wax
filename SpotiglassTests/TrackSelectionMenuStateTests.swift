@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import Spotiglass
 
@@ -130,6 +131,22 @@ final class TrackSelectionMenuStateTests: XCTestCase {
 
         XCTAssertEqual(viewModel.savedTrackStates, ["saved": true, "new": false])
         XCTAssertEqual(api.savedTrackStatusesCalls, [["saved", "new"]])
+    }
+
+    /// The answers come in on their own time, for the rows on screen, at moments like a
+    /// play/pause. Only a song menu reads them, when it opens, so they don't draw the browser
+    /// again: published, each one drew the sidebar and the detail column (#689).
+    func testALikedSongsAnswerDoesNotDrawTheBrowserAgain() async {
+        let api = MockBrowsingAPI(playlistResults: [], trackResults: [:], savedTrackStatusesHandler: { ids in ids.map { _ in true } })
+        let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        var browserChanges = 0
+        let browser = viewModel.objectWillChange.sink { browserChanges += 1 }
+        defer { browser.cancel() }
+
+        await viewModel.loadSavedTrackStates(for: [makeRow(id: "saved", playable: true)])
+
+        XCTAssertEqual(viewModel.savedTrackStates, ["saved": true])
+        XCTAssertEqual(browserChanges, 0, "a Liked Songs answer drew the browser again")
     }
 
     // MARK: - Add to Queue availability

@@ -124,7 +124,8 @@ final class TrackListPlaybackMarks {
         self.connectionStateChanges = connectionStateChanges
     }
 
-    private func mark(of track: TrackRowViewModel) -> TrackRowPlaybackMark {
+    /// Whether `track` is the one playing now.
+    func mark(of track: TrackRowViewModel) -> TrackRowPlaybackMark {
         mark(of: track, connectionState: connectionState())
     }
 

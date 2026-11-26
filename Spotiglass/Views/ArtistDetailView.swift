@@ -120,17 +120,23 @@ struct ArtistDetailContent: View {
     var body: some View {
         let marks = playback.marks(in: detail.tracks)
         DetailTrackSelectionReader(selection: browserViewModel.detailTrackSelection) { selection in
-            let selectedRows = browserViewModel.selectedRowsForMenus
             TrackListView(
                 tracks: detail.tracks,
                 selection: selection,
-                rowBuilder: { track in trackRow(for: track, marks: marks, selectedRows: selectedRows) },
+                rowBuilder: { track, isSelected in trackRow(for: track, marks: marks, isSelected: isSelected) },
                 playSelection: { selectedIDs in
                     guard let track = detail.tracks.first(where: { selectedIDs.contains($0.id) }),
                           let uri = track.playableURI
                     else { return }
                     playTrack(uri)
                 },
+                rowActions: TrackListRowActions(
+                    invocation: { TrackListRow.playbackInvocation(of: $0, mark: marks.mark(of: $0)) },
+                    playURI: playTrack,
+                    togglePlayPause: togglePlayPause,
+                    menuItems: trackMenu,
+                    prepareMenus: { browserViewModel.prepareTrackMenus(for: $0) }
+                ),
                 headerContent: AnyView(listHeader),
                 footerContent: AnyView(listFooter)
             )
@@ -188,7 +194,7 @@ struct ArtistDetailContent: View {
                 let selectedRows = browserViewModel.selectedRowsForMenus
                 VStack(spacing: 0) {
                     ForEach(detail.libraryTracks) { track in
-                        trackRow(for: track, marks: marks, selectedRows: selectedRows)
+                        marks.row(for: track) { mark in libraryTrackRow(for: track, mark: mark, selectedRows: selectedRows) }
                     }
                 }
                 .padding(.horizontal, SpotiglassDesign.Layout.insetListContentInset)
@@ -253,14 +259,37 @@ struct ArtistDetailContent: View {
     private func trackRow(
         for track: TrackRowViewModel,
         marks: TrackListPlaybackMarks,
-        selectedRows: [TrackRowViewModel]
+        isSelected: Bool
     ) -> PlaybackValueReader<TrackRowPlaybackMark, TrackListRow> {
         marks.row(for: track) { mark in
-            trackRow(for: track, mark: mark, selectedRows: selectedRows)
+            trackRow(for: track, mark: mark, isSelected: isSelected)
         }
     }
 
     private func trackRow(
+        for track: TrackRowViewModel,
+        mark: TrackRowPlaybackMark,
+        isSelected: Bool
+    ) -> TrackListRow {
+        TrackListRow(
+            trackNumber: track.listPosition,
+            track: track,
+            playURI: playTrack,
+            togglePlayPause: togglePlayPause,
+            isCurrent: mark.isCurrent,
+            isPlaying: mark.isPlaying,
+            openArtist: openArtist,
+            tracksSurfaceID: tracksSurfaceID,
+            isSelected: isSelected,
+            drawsRowHighlights: false,
+            isKeyboardFocusable: false,
+            handlesClicks: false
+        )
+    }
+
+    /// A song of the "In your library" section. It sits under the track table, not in it, so it
+    /// keeps its own double-click and menu (#658, #689).
+    private func libraryTrackRow(
         for track: TrackRowViewModel,
         mark: TrackRowPlaybackMark,
         selectedRows: [TrackRowViewModel]
@@ -277,22 +306,25 @@ struct ArtistDetailContent: View {
             isSelected: browserViewModel.selectedDetailTrackIDs.contains(track.id),
             drawsRowHighlights: false,
             isKeyboardFocusable: false,
-            trackOpsMenuItems: {
-                AnyView(TrackOpsMenuItems(
-                    targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
-                    browserViewModel: browserViewModel,
-                    sourcePlaylistID: nil,
-                    onRequestCreatePlaylist: onRequestCreatePlaylist,
-                    onRequestLibraryContinuation: onRequestLibraryContinuation,
-                    openArtist: { target in
-                        if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
-                    },
-                    addToQueue: addToQueue,
-                    hasPlaybackDevice: hasPlaybackDevice,
-                    copyableURI: track.playableURI
-                ))
-            }
+            trackOpsMenuItems: { trackMenu(for: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows)) }
         )
+    }
+
+    /// The song menu for `targets`, after its Play item: the table's rows and the library's.
+    private func trackMenu(for targets: [TrackRowViewModel]) -> AnyView {
+        AnyView(TrackOpsMenuItems(
+            targets: targets,
+            browserViewModel: browserViewModel,
+            sourcePlaylistID: nil,
+            onRequestCreatePlaylist: onRequestCreatePlaylist,
+            onRequestLibraryContinuation: onRequestLibraryContinuation,
+            openArtist: { target in
+                if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
+            },
+            addToQueue: addToQueue,
+            hasPlaybackDevice: hasPlaybackDevice,
+            copyableURI: targets.count == 1 ? targets.first?.playableURI : nil
+        ))
     }
 
     @ViewBuilder

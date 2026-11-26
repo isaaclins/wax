@@ -53,12 +53,27 @@ final class LongListScrollCostTests: XCTestCase {
         let rowsBuiltByFirstFrame = rowBodies()
         XCTAssertLessThan(rowsBuiltByFirstFrame, 50, "the first frame of a scroll built \(rowsBuiltByFirstFrame) rows")
 
+        // The rows on screen have their menus prepared (whether a song is liked) once they stop
+        // changing for a moment (#689). The answer for the rows shown so far comes in first.
+        await prepareMenusOfTheRowsOnScreen(host)
+        let lookupsBefore = host.api.savedTrackStatusesCalls.count
         ViewBodyTally.counts = [:]
         // Flicks through the first 1,000 songs: the whole list in a Debug build on CI comes close
         // to the two minutes a test may take there.
         let flick = scrollToBottom(host, flick: true, stoppingAt: rowHeight * 1_000)
         XCTAssertNil(ViewBodyTally.counts?["TrackListRows"], "scrolling walked all the rows again")
         XCTAssertNil(ViewBodyTally.counts?["PlaylistDetailContent"], "scrolling ran the playlist page again")
+        // A scroll with the mouse wheel or the arrow keys: new rows come on screen in turn after turn
+        // of the run loop. None of them sends a lookup while the rows keep changing; once they stop,
+        // one lookup asks for the rows on screen.
+        for _ in 0..<30 {
+            _ = scrollFrame(host, by: 40)
+            await AppKitTestSupport.settle(passes: 1)
+        }
+        XCTAssertEqual(host.api.savedTrackStatusesCalls.count, lookupsBefore, "a scroll looked up liked songs while it scrolled")
+        await prepareMenusOfTheRowsOnScreen(host)
+        XCTAssertEqual(host.api.savedTrackStatusesCalls.count, lookupsBefore + 1, "the end of the scroll didn't look up the rows on screen once")
+        XCTAssertLessThan(host.api.savedTrackStatusesCalls.last?.count ?? 0, 50, "the lookup asked for rows that are off screen")
         XCTAssertEqual(table.rect(ofRow: Self.trackCount - 1).maxY, rowHeight * CGFloat(Self.trackCount), accuracy: rowHeight,
                        "the table's height changed while it scrolled")
 
@@ -136,16 +151,26 @@ final class LongListScrollCostTests: XCTestCase {
             if !buildsEveryRow {
                 XCTAssertLessThan(rowBodies(), 50, "\(name) built \(rowBodies()) rows", file: file, line: line)
             }
+            // The rows follow the selection by themselves. Building the list of rows again made the
+            // table go through all 2,000 of them, the most of a first click's 55 ms (#689).
+            XCTAssertNil(counts["TrackListRows"], "\(name) built the list of rows again", file: file, line: line)
         }
 
         // Clicks go through the app's event queue the way the mouse's do. In the app the table
-        // doesn't have the keyboard before the first click (the sidebar does), so neither does it
-        // here, and the first click includes the table taking the keyboard (#689). Whether it does
-        // isn't checked: taking the keyboard away from outside SwiftUI leaves its focus state
-        // behind, and the click then sometimes doesn't hand the keyboard back (#748).
+        // doesn't have the keyboard before the first click (the sidebar does), so neither does
+        // it here; that click selects the row and gives the table the keyboard (#628). It is the
+        // one that was slow: about 55 ms against 20 for every later click (#689). The table takes
+        // the keyboard from AppKit now: SwiftUI's own focus state stayed behind when the keyboard
+        // left outside SwiftUI, and then a click sometimes didn't hand it back (#748).
         host.window.makeFirstResponder(nil)
         measure("click") { click(host, row: middle) }
         XCTAssertEqual(browser.selectedDetailTrackIDs, ["t\(middle)"], "the click didn't select its row")
+        XCTAssertNotNil(ViewBodyTally.counts?["TrackListRow:t\(middle)"], "the clicked row didn't show it is selected")
+        // The keyboard comes with the click itself, so only a machine that hands the window its
+        // clicks can tell.
+        if clicksReachTheWindow {
+            XCTAssertTrue(host.window.firstResponder === table, "the click left the table without the keyboard")
+        }
         measure("click another") { click(host, row: middle + 1) }
         XCTAssertEqual(browser.selectedDetailTrackIDs, ["t\(middle + 1)"])
         // A shift-click, as the table makes it: SwiftUI reads the shift key from the keyboard
@@ -208,6 +233,21 @@ final class LongListScrollCostTests: XCTestCase {
         let table: NSTableView
         let browser: PlaylistBrowserViewModel
         let playback: PlaybackSessionViewModel
+        let api: MockBrowsingAPI
+        /// The clock menu preparation waits on for the rows on screen to settle.
+        let menuClock: ManualPlaybackClock
+    }
+
+    /// Lets the rows on screen settle on the menu clock and waits for their lookup.
+    private func prepareMenusOfTheRowsOnScreen(_ host: Host) async {
+        await AppKitTestSupport.settle()
+        let armed = await host.menuClock.waitForSleepers(1)
+        XCTAssertTrue(armed, "the rows on screen never waited to have their menus prepared")
+        let before = host.api.savedTrackStatusesCalls.count
+        host.menuClock.advance(by: PlaylistBrowserViewModel.menuPreparationSettle)
+        let lookedUp = await AppKitTestSupport.settle(until: { host.api.savedTrackStatusesCalls.count > before })
+        XCTAssertTrue(lookedUp, "the rows on screen weren't looked up")
+        await AppKitTestSupport.settle()
     }
 
     /// Covers the size Spotify sends (640 px), each its own picture so none decodes for free.
@@ -278,7 +318,8 @@ final class LongListScrollCostTests: XCTestCase {
             ])],
             trackResults: ["p1": [.success(tracks)]]
         )
-        let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        let menuClock = ManualPlaybackClock()
+        let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache(), menuPreparationClock: menuClock)
         await browserVM.loadIfNeeded()
         await browserVM.selectPlaylist(id: "p1")
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(browserVM.detailState).count, Self.trackCount)
@@ -319,7 +360,7 @@ final class LongListScrollCostTests: XCTestCase {
         let found = try XCTUnwrap(table)
         let scrollView = try XCTUnwrap(found.enclosingScrollView)
         await AppKitTestSupport.settle()
-        return Host(window: window, scrollView: scrollView, table: found, browser: browserVM, playback: playbackHost.playbackViewModel)
+        return Host(window: window, scrollView: scrollView, table: found, browser: browserVM, playback: playbackHost.playbackViewModel, api: api, menuClock: menuClock)
     }
 
     /// A click on `row`, posted to the app's event queue and handed out from it as the app's own

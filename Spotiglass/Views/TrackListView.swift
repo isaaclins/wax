@@ -1,3 +1,5 @@
+import AppKit
+import Combine
 import SwiftUI
 
 /// Native track collection used by playlist-like detail surfaces.
@@ -27,7 +29,9 @@ struct TrackListView<Row: View>: View {
     /// so a click the table makes is read back before the page has built this view again. It is
     /// kept inside a closure on purpose: kept as a `Binding` it would bring #751 back.
     private let liveSelection: () -> Binding<Set<String>>
-    let rowBuilder: (TrackRowViewModel) -> Row
+    /// Builds a row from its track and whether it is selected. A click changes the second only for
+    /// the rows it selects or leaves, and only those are built again (#689).
+    let rowBuilder: (TrackRowViewModel, Bool) -> Row
     /// Optional content rendered above the track rows in the native list.
     let headerContent: AnyView?
     /// Optional content rendered below the track rows in the native list.
@@ -40,6 +44,8 @@ struct TrackListView<Row: View>: View {
     /// rows moving together. `nil` offers no reordering at all (Liked Songs, albums, other
     /// people's playlists). Rows stay draggable to the sidebar either way.
     var moveRows: ((IndexSet, Int) -> Void)? = nil
+    /// Double-click and the right-click menu of the rows (#689). `nil` offers neither.
+    var rowActions: TrackListRowActions? = nil
     /// Everything the rows are built from besides their own track and selection: the list they
     /// belong to and what the row builder's closures read. While it stays the same, a row whose
     /// track and selection didn't change keeps the row it has instead of being built again.
@@ -54,9 +60,10 @@ struct TrackListView<Row: View>: View {
     init(
         tracks: [TrackRowViewModel],
         selection: Binding<Set<String>>,
-        rowBuilder: @escaping (TrackRowViewModel) -> Row,
+        rowBuilder: @escaping (TrackRowViewModel, Bool) -> Row,
         playSelection: ((Set<String>) -> Void)? = nil,
         moveRows: ((IndexSet, Int) -> Void)? = nil,
+        rowActions: TrackListRowActions? = nil,
         rowContentKey: AnyHashable? = nil,
         headerContent: AnyView? = nil,
         footerContent: AnyView? = nil
@@ -69,18 +76,37 @@ struct TrackListView<Row: View>: View {
         self.footerContent = footerContent
         self.playSelection = playSelection
         self.moveRows = moveRows
+        self.rowActions = rowActions
         self.rowContentKey = rowContentKey
     }
 
-    /// A reference type rather than state: the counters move on as the body runs, and keeping
-    /// them in view state would run the body again for it. Nobody observes them.
-    @State private var generationCounter = TrackListGenerations()
+    /// A reference type rather than state: the counter moves on as the body runs, and the rows
+    /// report as they come on screen and leave; keeping either in view state would run the body
+    /// again for it. Nobody observes them.
+    @State private var realizedRows = TrackListRealizedRows()
+    /// The selection as the rows read it. A row follows it by itself, so a click builds again
+    /// only the rows it selects or leaves, not the list of all of them (#689).
+    @State private var selectionFeed = TrackListSelectionFeed()
+    /// A click selects a row but left the table without keyboard focus, so the selection stayed
+    /// grey (the inactive look) and the arrow keys, Delete and ⌘A never reached the table (#628).
+    /// The list selects through its own click recognizer, which doesn't focus the table, even
+    /// with no gesture on the rows. A new selection focuses it, from AppKit: SwiftUI's focus state
+    /// still said "focused" after the keyboard had gone elsewhere through AppKit, and then the
+    /// table never got it back (#689). Holding no SwiftUI focus state also keeps the keyboard's
+    /// moves in the window (the lyrics taking it and giving it back) from running this view (#674).
+    @State private var tableFocus = TrackListTableFocus()
 
     var body: some View {
         #if DEBUG
         let _ = ViewBodyTally.record("TrackListView")
         #endif
-        let generations = generationCounter.generations(tracks: tracks, selection: selection)
+        let tracksGeneration = realizedRows.generation(of: tracks)
+        let _ = selectionFeed.store(selection)
+        // The table's double-click, from AppKit. SwiftUI's own (the primary action of
+        // `contextMenu(forSelectionType:)`) held every mouse-down back until the mouse-up and then
+        // handed the table both at once: the table waited for a mouse-up that had already come,
+        // and the next click only ended that wait instead of selecting its row (#689).
+        let _ = tableFocus.onDoubleClick = doubleClickAction
         List(selection: liveSelection()) {
             if let headerContent {
                 headerContent
@@ -92,11 +118,12 @@ struct TrackListView<Row: View>: View {
             // table runs it on about every frame of a scroll) doesn't walk all of them.
             TrackListRows(
                 tracks: tracks,
-                selection: selection,
-                generations: generations,
+                tracksGeneration: tracksGeneration,
+                selectionFeed: selectionFeed,
                 rowContentKey: rowContentKey,
                 rowBuilder: rowBuilder,
-                moveRows: moveRows
+                moveRows: moveRows,
+                setRowRealized: { setRowRealized($0, track: $1) }
             )
 
             if let footerContent {
@@ -107,52 +134,273 @@ struct TrackListView<Row: View>: View {
         }
         .listStyle(.inset)
         .environment(\.defaultMinListRowHeight, TrackListRow.listRowHeight)
-        .modifier(FocusedOnSelection(selection: selection))
+        .background(TrackListTableFocus.Probe(focus: tableFocus))
+        .onChange(of: selection) {
+            if !selection.isEmpty { tableFocus.focusTable() }
+            selectionFeed.announce()
+        }
+        // The table's own menu, not each row's: a row's menu was built on every mouse-down to
+        // find out whether the row wanted the click (#689).
+        .modifier(TrackListRowActionsModifier(tracks: tracks, actions: rowActions))
         .onKeyPress(.return) {
             guard let playSelection, !selection.isEmpty else { return .ignored }
             playSelection(selection)
             return .handled
         }
     }
-}
 
-@MainActor
-final class TrackListGenerations {
-    /// Counters that move on when the list's rows or its selection change, so a row can tell
-    /// either changed without comparing all of it.
-    struct Generations: Equatable {
-        var tracks = 0
-        var selection = 0
+    /// What a double-click on a selected row does: plays (or pauses) the first selected song.
+    private var doubleClickAction: (() -> Void)? {
+        guard let rowActions else { return nil }
+        let tracks = tracks
+        let selectionFeed = selectionFeed
+        return {
+            guard let first = tracks.first(where: { selectionFeed.isSelected($0.id) }) else { return }
+            rowActions.activate(first)
+        }
     }
 
-    private var generations = Generations()
-    private var lastTracks: [TrackRowViewModel] = []
-    private var lastSelection: Set<String> = []
+    private func setRowRealized(_ isRealized: Bool, track: TrackRowViewModel) {
+        if isRealized {
+            realizedRows.rowsOnScreen[track.id] = track
+            prepareMenus()
+        } else {
+            realizedRows.rowsOnScreen[track.id] = nil
+        }
+    }
 
-    /// The counters for `tracks` and `selection`, moved on for whichever is new.
-    func generations(tracks: [TrackRowViewModel], selection: Set<String>) -> Generations {
+    /// Hands the rows on screen to ``TrackListRowActions/prepareMenus`` when new ones came, once
+    /// per turn of the run loop.
+    private func prepareMenus() {
+        guard let prepare = rowActions?.prepareMenus else { return }
+        let realizedRows = realizedRows
+        guard !realizedRows.isPreparingMenus else { return }
+        realizedRows.isPreparingMenus = true
+        DispatchQueue.main.async {
+            realizedRows.isPreparingMenus = false
+            prepare(Array(realizedRows.rowsOnScreen.values))
+        }
+    }
+}
+
+/// Gives the table of a ``TrackListView`` the keyboard (#628, #689), and its double-click.
+@MainActor
+final class TrackListTableFocus {
+    private weak var probe: NSView?
+    private weak var table: NSTableView?
+    /// Runs on a double-click on a selected row.
+    var onDoubleClick: (() -> Void)?
+    private var monitor: Any?
+    /// The mouse-down last taken for a double-click. AppKit can hand a held-back mouse-down to
+    /// the monitor a second time, and a second run would pause what the first one played.
+    private var lastDoubleClick: TimeInterval?
+
+    /// Makes the list's table the first responder unless it already is.
+    func focusTable() {
+        guard let window = probe?.window else { return }
+        if let table, table.window === window {
+            if window.firstResponder !== table { window.makeFirstResponder(table) }
+            return
+        }
+        guard let found = findTable() else { return }
+        table = found
+        if window.firstResponder !== found { window.makeFirstResponder(found) }
+    }
+
+    /// Watches the window's mouse-downs for a double-click on the table, and leaves each one to
+    /// the table as it is.
+    func watchDoubleClicks() {
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            self?.handleMouseDown(event)
+            return event
+        }
+    }
+
+    func stopWatching() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+    }
+
+    /// The list's table in the probe's window, looked up again when the list moved.
+    private func currentTable() -> NSTableView? {
+        guard let window = probe?.window else { return nil }
+        if table?.window !== window { table = findTable() }
+        return table
+    }
+
+    private func handleMouseDown(_ event: NSEvent) {
+        guard event.clickCount == 2,
+              event.modifierFlags.isDisjoint(with: [.command, .shift]),
+              let onDoubleClick,
+              let window = probe?.window, event.window === window,
+              event.timestamp != lastDoubleClick,
+              let table = currentTable()
+        else { return }
+        // On the table itself, not on something over it (a banner, a toast) that covers a row.
+        guard let hit = window.contentView?.hitTest(event.locationInWindow), hit.isDescendant(of: table) else { return }
+        let point = table.convert(event.locationInWindow, from: nil)
+        let row = table.row(at: point)
+        // The first click of the two selected the row; the list's header and footer can't be.
+        guard row >= 0, table.visibleRect.contains(point), table.selectedRowIndexes.contains(row) else { return }
+        lastDoubleClick = event.timestamp
+        onDoubleClick()
+    }
+
+    /// The list's table: the nearest one around the probe (the list's background) whose scroll
+    /// view covers the probe's middle. The sidebar's list is a table too, further away.
+    private func findTable() -> NSTableView? {
+        guard let probe else { return nil }
+        let frame = probe.convert(probe.bounds, to: nil)
+        let middle = NSPoint(x: frame.midX, y: frame.midY)
+        var ancestor = probe.superview
+        while let current = ancestor {
+            var stack: [NSView] = [current]
+            while let view = stack.popLast() {
+                if let table = view as? NSTableView, let scroll = table.enclosingScrollView,
+                   scroll.convert(scroll.bounds, to: nil).contains(middle) {
+                    return table
+                }
+                stack.append(contentsOf: view.subviews)
+            }
+            ancestor = current.superview
+        }
+        return nil
+    }
+
+    /// An empty view behind the list, so the list's table can be found from it.
+    struct Probe: NSViewRepresentable {
+        let focus: TrackListTableFocus
+
+        func makeNSView(context: Context) -> NSView {
+            let view = NSView()
+            focus.probe = view
+            focus.watchDoubleClicks()
+            return view
+        }
+
+        func updateNSView(_ nsView: NSView, context: Context) {
+            focus.probe = nsView
+        }
+
+        func makeCoordinator() -> TrackListTableFocus {
+            focus
+        }
+
+        static func dismantleNSView(_ nsView: NSView, coordinator: TrackListTableFocus) {
+            coordinator.stopWatching()
+        }
+    }
+}
+
+/// The rows the table currently has realized, for their menus (#689). A table only realizes
+/// what it draws, so this stays about a viewport deep however long the playlist is.
+@MainActor
+final class TrackListRealizedRows {
+    var rowsOnScreen: [String: TrackRowViewModel] = [:]
+    /// Whether the rows on screen are about to be handed to the menu preparation.
+    var isPreparingMenus = false
+
+    /// A counter that moves on when the list's rows change, so a row can tell they did without
+    /// comparing all of them.
+    private var tracksGeneration = 0
+    private var lastTracks: [TrackRowViewModel] = []
+
+    /// The counter for `tracks`, moved on if they are new.
+    func generation(of tracks: [TrackRowViewModel]) -> Int {
         if tracks != lastTracks {
             lastTracks = tracks
-            generations.tracks &+= 1
+            tracksGeneration &+= 1
         }
-        if selection != lastSelection {
-            lastSelection = selection
-            generations.selection &+= 1
-        }
-        return generations
+        return tracksGeneration
     }
 }
 
-/// The track rows of ``TrackListView``. Built again only when the rows, the selection or the
-/// list's ``TrackListView/rowContentKey`` changed, and then each row only when its own
-/// ``TrackListRowKey`` did (#655).
+/// The selection of a ``TrackListView`` as its rows read it (#689). Each row listens for its own
+/// part, so a click builds again the row it selects and the one it leaves. Handed to the rows
+/// through the list's own view, every click built the list of all rows again, and the table then
+/// went through all 2,000 of them.
+@MainActor
+final class TrackListSelectionFeed {
+    private(set) var ids: Set<String> = []
+    private let changes = PassthroughSubject<Set<String>, Never>()
+
+    /// Keeps the selection the list was built with, so a row built now reads it.
+    func store(_ selection: Set<String>) {
+        ids = selection
+    }
+
+    /// Tells the rows built earlier that the selection changed.
+    func announce() {
+        changes.send(ids)
+    }
+
+    func isSelected(_ id: String) -> Bool {
+        ids.contains(id)
+    }
+
+    func selectedChanges(of id: String) -> AnyPublisher<Bool, Never> {
+        changes.map { $0.contains(id) }.eraseToAnyPublisher()
+    }
+}
+
+/// What double-clicking a row of a ``TrackListView`` and its right-click menu do (#689). The table
+/// handles both for all of its rows.
+struct TrackListRowActions {
+    /// Whether the row plays, pauses or can't play: the menu's first item and the double-click.
+    let invocation: (TrackRowViewModel) -> TrackRowPlaybackInvocation
+    let playURI: (String) -> Void
+    let togglePlayPause: () -> Void
+    /// The rest of the menu, for the rows it acts on in list order: the selection when the
+    /// right-click was on a selected row, else that row.
+    let menuItems: ([TrackRowViewModel]) -> AnyView
+    /// Fetches what the menus of these rows, the ones on screen, show from the network, such as
+    /// whether a song is in Liked Songs. Called as new rows come on screen: a menu is built when
+    /// it opens, and an answer that arrives after that doesn't reach the open menu (#689).
+    var prepareMenus: (@MainActor ([TrackRowViewModel]) -> Void)? = nil
+
+    func activate(_ track: TrackRowViewModel) {
+        TrackListRow.perform(invocation(track), playURI: playURI, togglePlayPause: togglePlayPause)
+    }
+}
+
+/// Puts ``TrackListRowActions`` on the table.
+private struct TrackListRowActionsModifier: ViewModifier {
+    let tracks: [TrackRowViewModel]
+    let actions: TrackListRowActions?
+
+    func body(content: Content) -> some View {
+        if let actions {
+            content.contextMenu(forSelectionType: String.self) { ids in
+                menu(for: ids, actions: actions)
+            }
+        } else {
+            content
+        }
+    }
+
+    @ViewBuilder
+    private func menu(for ids: Set<String>, actions: TrackListRowActions) -> some View {
+        let targets = tracks.filter { ids.contains($0.id) }
+        if let first = targets.first {
+            TrackRowMenuContent(invocation: actions.invocation(first), activate: { actions.activate(first) }) {
+                actions.menuItems(targets)
+            }
+        }
+    }
+}
+
+/// The track rows of ``TrackListView``. Built again only when the rows or the list's
+/// ``TrackListView/rowContentKey`` changed, and then each row only when its own
+/// ``TrackListRowKey`` did (#655). A change of the selection doesn't build them again (#689).
 private struct TrackListRows<Row: View>: View, Equatable {
     let tracks: [TrackRowViewModel]
-    let selection: Set<String>
-    let generations: TrackListGenerations.Generations
+    let tracksGeneration: Int
+    let selectionFeed: TrackListSelectionFeed
     let rowContentKey: AnyHashable?
-    let rowBuilder: (TrackRowViewModel) -> Row
+    let rowBuilder: (TrackRowViewModel, Bool) -> Row
     let moveRows: ((IndexSet, Int) -> Void)?
+    let setRowRealized: (Bool, TrackRowViewModel) -> Void
 
     var body: some View {
         #if DEBUG
@@ -163,12 +411,17 @@ private struct TrackListRows<Row: View>: View, Equatable {
             // isn't known to be one view, so on every play / pause the table walked
             // every song of the list to collect the rows' ids, 20 ms with 2,543 songs (#645).
             HStack(spacing: 0) {
-                TrackListRowSlot(
-                    key: rowKey(for: track),
-                    track: track,
-                    content: rowBuilder
-                )
-                .equatable()
+                PlaybackValueReader(
+                    value: { selectionFeed.isSelected(track.id) },
+                    changes: selectionFeed.selectedChanges(of: track.id)
+                ) { isSelected in
+                    TrackListRowSlot(
+                        key: TrackListRowKey(trackID: track.id, isSelected: isSelected, tracks: tracksGeneration, list: rowContentKey),
+                        track: track,
+                        content: rowBuilder
+                    )
+                    .equatable()
+                }
             }
             .frame(height: TrackListRow.listRowHeight)
             // With the list's own inset the row's edge lands on the
@@ -180,26 +433,20 @@ private struct TrackListRows<Row: View>: View, Equatable {
                 trailing: SpotiglassDesign.Layout.insetListContentInset
             ))
             .tag(track.id)
+            // The table's realized rows, which run one row wide of the visible ones: their menus
+            // get what they show from the network before one opens (#689).
+            // onScrollVisibilityChange would be the precise answer but it never fires inside a
+            // macOS List.
+            .onAppear { setRowRealized(true, track) }
+            .onDisappear { setRowRealized(false, track) }
         }
         .onMove(perform: moveRows)
-    }
-
-    private func rowKey(for track: TrackRowViewModel) -> TrackListRowKey {
-        let isSelected = selection.contains(track.id)
-        return TrackListRowKey(
-            trackID: track.id,
-            isSelected: isSelected,
-            // A row in a selection of several acts on all of it, so it follows the selection.
-            selection: isSelected && selection.count > 1 ? generations.selection : 0,
-            tracks: generations.tracks,
-            list: rowContentKey
-        )
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.rowContentKey != nil
             && lhs.rowContentKey == rhs.rowContentKey
-            && lhs.generations == rhs.generations
+            && lhs.tracksGeneration == rhs.tracksGeneration
             && (lhs.moveRows == nil) == (rhs.moveRows == nil)
     }
 }
@@ -210,14 +457,12 @@ private struct TrackListRows<Row: View>: View, Equatable {
 struct TrackListRowKey: Equatable {
     var trackID: String
     var isSelected: Bool
-    var selection: Int
     var tracks: Int
     var list: AnyHashable?
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.trackID == rhs.trackID
             && lhs.isSelected == rhs.isSelected
-            && lhs.selection == rhs.selection
             && lhs.tracks == rhs.tracks
             && lhs.list == rhs.list
     }
@@ -228,10 +473,10 @@ struct TrackListRowKey: Equatable {
 private struct TrackListRowSlot<Row: View>: View, Equatable {
     let key: TrackListRowKey
     let track: TrackRowViewModel
-    let content: (TrackRowViewModel) -> Row
+    let content: (TrackRowViewModel, Bool) -> Row
 
     var body: some View {
-        content(track)
+        content(track, key.isSelected)
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -249,26 +494,5 @@ struct DetailTrackSelectionReader<Content: View>: View {
 
     var body: some View {
         content($selection.ids)
-    }
-}
-
-/// A click selects a row but left the table without keyboard focus: the row's own tap gestures
-/// take the mouse-down, so the selection stayed grey (the inactive look) and the arrow keys,
-/// Delete and ⌘A never reached the table (#628). A new selection focuses it.
-///
-/// The focus state lives here, not in ``TrackListView``: every move of the keyboard in the window
-/// (the lyrics taking it when they open, giving it back when they close) updates it, and in the
-/// list that ran the list's body again (#674).
-private struct FocusedOnSelection: ViewModifier {
-    let selection: Set<String>
-    @FocusState private var isListFocused: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .focused($isListFocused)
-            .onChange(of: selection) {
-                // A click already gave the table focus; asking again runs this view again.
-                if !selection.isEmpty, !isListFocused { isListFocused = true }
-            }
     }
 }
