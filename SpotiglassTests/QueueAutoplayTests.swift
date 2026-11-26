@@ -315,6 +315,71 @@ final class QueueAutoplayTests: XCTestCase {
         XCTAssertEqual(h.autoplay.status, .on)
     }
 
+    /// #626: the best suggestion fails to add with a plain failure every time. The first failure
+    /// stops the round like any hiccup; the second rules it out for the session and the next
+    /// suggestions fill the queue right away, so it no longer blocks Autoplay.
+    func testASongThatFailsTheSameWayTwiceIsSkippedForTheSession() async throws {
+        let h = makeHarness()
+        let failing = "applemusic:song:new-1"
+        h.player.failingURIs = [failing]
+        try await h.provider.play(.items(uris: seeds, startURI: nil), deviceID: deviceID)
+        try await notePlaying(h)
+        h.autoplay.setEnabled(true)
+        await h.autoplay.settle()
+        XCTAssertEqual(h.player.appendAttempts, 1)
+        XCTAssertEqual(h.autoplay.status, .failed)
+        let before = try await upcoming(h)
+        XCTAssertEqual(before, Array(seeds.dropFirst()), "nothing went in yet")
+
+        try await next(h)
+        let queue = try await upcoming(h)
+        XCTAssertEqual(queue.count, 8)
+        XCTAssertFalse(queue.contains(failing))
+        XCTAssertEqual(h.autoplay.status, .on)
+        let attempts = h.player.appendAttempts
+
+        // Later songs don't try it again.
+        try await next(h)
+        XCTAssertEqual(h.player.appendAttempts, attempts + 1)
+        let later = try await upcoming(h)
+        XCTAssertFalse(later.contains(failing))
+    }
+
+    /// A network outage over several songs still rules nothing out (#626): every round stops on
+    /// the best suggestion, and once the network is back that song goes in.
+    func testANetworkOutageOverSeveralSongsRulesNothingOut() async throws {
+        let h = makeHarness()
+        try await h.provider.play(.items(uris: seeds, startURI: nil), deviceID: deviceID)
+        try await notePlaying(h)
+        h.player.appendError = MusicPlaybackError(service: .appleMusic, reason: .network("offline"), detail: "offline")
+        h.autoplay.setEnabled(true)
+        await h.autoplay.settle()
+        try await next(h)
+        try await next(h)
+        XCTAssertEqual(h.player.appendAttempts, 3, "one try per song, the same song each time")
+        XCTAssertEqual(h.autoplay.status, .failed)
+
+        h.player.appendError = nil
+        try await next(h)
+        let queue = try await upcoming(h)
+        XCTAssertEqual(queue.count, 8)
+        XCTAssertTrue(queue.contains("applemusic:song:new-1"), "the song that failed offline is still a candidate")
+        XCTAssertEqual(h.autoplay.status, .on)
+    }
+
+    /// Only a failure without a cause counts against a song.
+    func testOnlyAPlainFailureCountsAgainstASong() {
+        let plain = MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "")
+        XCTAssertTrue(QueueAutoplay.isPlainFailure(plain))
+        for reason: MusicPlaybackError.Reason in [
+            .network("offline"), .server, .rateLimited(retryAfter: nil), .signInExpired, .missingPermission,
+        ] {
+            XCTAssertFalse(QueueAutoplay.isPlainFailure(MusicPlaybackError(service: .appleMusic, reason: reason)), "\(reason)")
+        }
+        XCTAssertFalse(QueueAutoplay.isPlainFailure(QueueAutoplayNoPlayer()))
+        XCTAssertFalse(QueueAutoplay.isPlainFailure(URLError(.notConnectedToInternet)))
+    }
+
     /// When the player refuses a song, the next one is chosen against the artist that really
     /// went in last, so the same artist doesn't play twice in a row while another is left.
     func testARefusedSongDoesntPutTheSameArtistTwiceInARow() async throws {

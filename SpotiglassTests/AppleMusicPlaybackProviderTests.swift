@@ -2173,6 +2173,8 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
     var failure: Error?
     /// Songs the player refuses to add (not in the storefront).
     var refusedURIs: Set<String> = []
+    /// Songs whose add fails with a plain failure every time, no reason given (#626).
+    var failingURIs: Set<String> = []
     /// Thrown by every add at the end while set, like a network outage.
     var appendError: Error?
     private(set) var appendAttempts = 0
@@ -2352,6 +2354,7 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         // Not in the storefront: the live player's lookup finds no item.
         if refusedURIs.contains(uri) { throw MusicPlaybackError(service: .appleMusic, reason: .notFound, detail: "not available") }
         if let appendError { throw appendError }
+        if failingURIs.contains(uri) { throw MusicPlaybackError(service: .appleMusic, reason: .failed, detail: "add failed") }
         commands.append("append \(uri)")
         let current = queue.indices.contains(index) ? index : nil
         let plan = book.planAppend(AppleMusicQueueBook.Row(uri: uri, title: uri), currentIndex: current, entryCount: queue.count)

@@ -227,6 +227,12 @@ final class QueueAutoplay: ObservableObject {
     private var addedKeys: Set<String> = []
     /// Songs that could not be added (not in the storefront, blocked as explicit).
     private var failedKeys: Set<String> = []
+    /// How often each song failed to add with a plain failure, by identity key (#626). Such a
+    /// failure may be the song or a passing hiccup, so the song is ruled out only once it fails
+    /// like that ``plainFailureLimit`` times; otherwise it would rank first and stop every round.
+    private var plainFailures: [String: Int] = [:]
+    /// Plain failures of one song after which Autoplay skips it for the session (#626).
+    static let plainFailureLimit = 2
     /// Songs the listener took out of the queue this session (#628): Autoplay doesn't bring
     /// them back.
     private var removedKeys: Set<String> = []
@@ -413,6 +419,7 @@ final class QueueAutoplay: ObservableObject {
         heardKeys = []
         addedKeys = []
         failedKeys = []
+        plainFailures = [:]
         removedKeys = []
         currentKeys = []
         currentSeed = nil
@@ -522,10 +529,11 @@ final class QueueAutoplay: ObservableObject {
                     added += 1
                 } catch {
                     guard !Task.isCancelled, !(error is CancellationError) else { return }
-                    // Only a refusal of this song rules it out. Anything else (no network, a
-                    // server error) stops here and the next song tries again, the same songs
-                    // included, instead of running through every suggestion.
-                    guard Self.refusesSong(error) else {
+                    // A refusal of this song rules it out, and so does the same plain failure
+                    // again (#626). Anything else (no network, a server error) stops here and
+                    // the next song tries again, the same songs included, instead of running
+                    // through every suggestion.
+                    guard Self.refusesSong(error) || (Self.isPlainFailure(error) && ruledOutAfterPlainFailure(track, error)) else {
                         stalled = true
                         break
                     }
@@ -555,6 +563,27 @@ final class QueueAutoplay: ObservableObject {
         case .notFound, .explicitContentRestricted: return true
         default: return false
         }
+    }
+
+    /// A failure that names no cause (#626): it may be this song, so it counts against it. No
+    /// network, a server error, rate limits, sign-in and permissions are about the connection or
+    /// the account, never the song, so they rule nothing out.
+    static func isPlainFailure(_ error: Error) -> Bool {
+        (error as? MusicPlaybackError)?.reason == .failed
+    }
+
+    /// Counts a plain failure against `track`. Whether that was its ``plainFailureLimit``th: it
+    /// is then skipped for the session and the next suggestion takes its place right away.
+    private func ruledOutAfterPlainFailure(_ track: MusicTrack, _ error: Error) -> Bool {
+        let keys = QueueAutoplayIdentity.keys(track)
+        let count = (keys.compactMap { plainFailures[$0] }.max() ?? 0) + 1
+        for key in keys { plainFailures[key] = count }
+        guard count >= Self.plainFailureLimit else { return false }
+        SpotiglassLog.error(
+            .playback,
+            "Autoplay skips \(track.uri) for this session: adding it failed \(count) times (\(String(describing: error)))"
+        )
+        return true
     }
 
     /// The last ``windowSize`` songs of played, playing and queued, in order. A song the
@@ -597,12 +626,14 @@ final class ProviderQueueAutoplayPlayer: QueueAutoplayPlayer {
     }
 
     func autoplayAppend(_ track: MusicTrack, isWanted: @escaping @MainActor () -> Bool) async throws {
-        guard let deviceID = deviceID() else {
-            throw MusicPlaybackError(service: provider.service, reason: .failed, detail: "No player to add to")
-        }
+        // No player is no fault of the song, so it doesn't count against it (#626).
+        guard let deviceID = deviceID() else { throw QueueAutoplayNoPlayer() }
         try await provider.appendToQueueEnd(track, deviceID: deviceID, isWanted: isWanted)
     }
 }
+
+/// Autoplay had no player to add to; tries again on the next song like no network.
+struct QueueAutoplayNoPlayer: Error {}
 
 extension StoredFlag {
     /// Whether Autoplay is on. Off until the listener turns it on.
