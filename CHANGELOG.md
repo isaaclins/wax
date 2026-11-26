@@ -2,6 +2,14 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.82] - 2026-11-26
+
+### Fixed
+
+- Saved songs now show their proper album cover instead of the library artwork.
+- Covers no longer show as a black and white diagonal tile.
+- Covers load faster.
+
 ## [0.8.81] - 2026-11-25
 
 ### Fixed
