@@ -32,7 +32,8 @@ Fixes #
 
 ## Security
 
-<!-- Tick what applies or write n/a. CONTRIBUTING.md#security explains each one.
+<!-- Keep this section in every PR: tick what applies and write n/a after the
+rest. CONTRIBUTING.md#security explains each one.
 The repository's own checks (secret scanning, push protection, Dependabot,
 pinned actions) are in #385. -->
 

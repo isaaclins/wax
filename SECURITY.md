@@ -19,7 +19,7 @@ Please include:
 - Whether it touches the equalizer helper or driver, the sign-in, the updater or
   the log
 
-We aim to acknowledge reports within a reasonable time and will work with you on
+I aim to acknowledge reports within a reasonable time and will work with you on
 a fix and coordinated disclosure when appropriate.
 
 ## What not to include in reports or public issues
