@@ -100,8 +100,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
                 viewModel: browserVM,
                 playbackViewModel: playbackVM,
                 queueViewModel: queueVM,
-                pendingPlaylistListScrollRestoreID: .constant(nil),
-                detailLastVisibleTrackID: .constant(nil),
                 hasPlaybackDevice: false
             )
         } queueColumn: {
@@ -137,8 +135,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
             viewModel: browserVM,
             playbackViewModel: playbackVM,
             queueViewModel: queueVM,
-            pendingPlaylistListScrollRestoreID: .constant(nil),
-            detailLastVisibleTrackID: .constant(nil),
             hasPlaybackDevice: false
         )
         .environmentObject(LyricsOverlayController())
@@ -168,6 +164,7 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         )
         .environmentObject(store)
         .environmentObject(LyricsOverlayController())
+        .environmentObject(try ViewTestHost.makeSettingsStore())
         let controller = ViewTestHost.host(view, size: CGSize(width: 960, height: 640))
         ViewTestHost.assertFindText("Focus", in: view)
         XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { palette.isSignedIn }), "the palette never learned it's signed in")
@@ -295,8 +292,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
             viewModel: browserVM,
             playbackViewModel: playbackVM,
             queueViewModel: queueVM,
-            pendingPlaylistListScrollRestoreID: .constant(nil),
-            detailLastVisibleTrackID: .constant(nil),
             hasPlaybackDevice: true
         )
         .environmentObject(LyricsOverlayController())

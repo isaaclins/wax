@@ -96,9 +96,7 @@ final class DetailSurfaceRegressionTests: XCTestCase {
                     drawsRowHighlights: false,
                     isKeyboardFocusable: false
                 )
-            },
-            pendingScrollRestoreTrackID: .constant(nil),
-            onFirstVisibleTrackChanged: { _ in }
+            }
         )
         .environmentObject(pinnedStore())
         let controller = ViewTestHost.host(view, size: CGSize(width: 700, height: 300))
@@ -355,8 +353,6 @@ final class DetailSurfaceRegressionTests: XCTestCase {
     private func playlistView(detail: PlaylistDetailViewModel) -> PlaylistDetailContent {
         PlaylistDetailContent(
             detail: detail,
-            pendingScrollRestoreTrackID: .constant(nil),
-            onTrackEnteredViewportApproximation: { _ in },
             playURI: { _ in },
             playback: .nothingPlaying,
             togglePlayPause: {},

@@ -37,10 +37,8 @@ extension PlaylistBrowserView {
         }
     }
 
+    /// Refresh is only in the toolbar while the lyrics are closed (#438), so they don't count here.
     var isUnifiedRefreshBusy: Bool {
-        if lyricsOverlay.isPresented {
-            return isPlaylistOrDetailRefreshing
-        }
         if isQueueVisible, unifiedRefreshFocus == .queuePanel {
             return viewModel.isUnifiedQueueRefreshActive
         }
@@ -53,8 +51,9 @@ extension PlaylistBrowserView {
         return false
     }
 
-    func syncUnifiedRefreshRoutingToViewModel() {
-        viewModel.refreshRoutingLyricsPresented = lyricsOverlay.isPresented
+    /// `lyricsPresented`: the lyrics' new state while it is being changed, before it is stored.
+    func syncUnifiedRefreshRoutingToViewModel(lyricsPresented: Bool? = nil) {
+        viewModel.refreshRoutingLyricsPresented = lyricsPresented ?? lyricsOverlay.isPresented
         viewModel.refreshRoutingQueuePanelVisible = isQueueVisible
         viewModel.refreshRoutingQueuePanelFocused = unifiedRefreshFocus == .queuePanel
     }
@@ -111,5 +110,116 @@ struct PlaylistBrowserPrefetchProgressToolbarItem: View {
         case .cancelled:
             "xmark.circle"
         }
+    }
+}
+
+/// The browser's toolbar items. They observe the lyrics' state themselves, so opening or closing
+/// the lyrics swaps them without running the browser's body (#674).
+struct BrowserToolbarItems<RefreshButton: View>: ToolbarContent {
+    @ObservedObject var presentation: LyricsPresentationState
+    @ObservedObject var viewModel: PlaylistBrowserViewModel
+    /// Only its button observes it, so opening the queue doesn't run the toolbar again (#673).
+    let queuePanel: StoredFlag
+    /// Whether the page shows its title in the bar (not on Home, #495); the lyrics always do.
+    let pageShowsTitle: Bool
+    let canDisconnect: Bool
+    let disconnectHint: String
+    let confirmDisconnect: () -> Void
+    let popOutLyrics: () -> Void
+    let closeLyrics: () -> Void
+    let refreshButton: RefreshButton
+
+    var body: some ToolbarContent {
+        // The title is what pushed the items to the bar's trailing edge; without it on Home they
+        // slid over next to the sidebar button. A flexible space takes its place (#495).
+        if !(presentation.isPresented || pageShowsTitle) {
+            ToolbarSpacer(.flexible)
+        }
+        if let progress = viewModel.prefetchAllPlaylistsProgress {
+            ToolbarItem(placement: .automatic) {
+                PlaylistBrowserPrefetchProgressToolbarItem(progress: progress) {
+                    Task { await viewModel.toggleBulkPlaylistTrackPrefetch() }
+                }
+                .hiddenFromAccessibilityBehindPalette()
+            }
+        }
+        // Only once there is somewhere to go back to, like Music: at the
+        // root a dimmed chevron would sit beside the title doing nothing.
+        // Back belongs to the page under the lyrics, so it leaves with that page (#438).
+        if !presentation.isPresented, viewModel.canNavigateBack {
+            ToolbarItem(placement: .navigation) {
+                NavigationToolbarChrome(viewModel: viewModel)
+                    .hiddenFromAccessibilityBehindPalette()
+            }
+        }
+        // With the lyrics open the bar keeps what still applies (the queue panel stays next
+        // to them) and trades Refresh and Disconnect for closing the lyrics: Refresh would
+        // reload a page that isn't showing (#438).
+        ToolbarItemGroup(placement: .automatic) {
+            QueuePanelToolbarButton(queuePanel: queuePanel)
+                .hiddenFromAccessibilityBehindPalette()
+
+            if presentation.isPresented {
+                // Moves the lyrics into the small window that can stay above other apps (#439).
+                Button(action: popOutLyrics) {
+                    Label(SpotiglassL10n.string("lyrics.popOut.button"), systemImage: "pip.enter")
+                }
+                .help(SpotiglassL10n.string("lyrics.popOut.button.help"))
+                .hiddenFromAccessibilityBehindPalette()
+
+                Button(action: closeLyrics) {
+                    Label(SpotiglassL10n.string("browser.closeLyrics"), systemImage: "xmark")
+                }
+                .help(SpotiglassL10n.string("browser.closeLyrics"))
+                .accessibilityHint(SpotiglassL10n.string("browser.closeLyrics.hint"))
+                .hiddenFromAccessibilityBehindPalette()
+            } else if canDisconnect {
+                Button(action: confirmDisconnect) {
+                    Label(SpotiglassL10n.string("browser.disconnect"), systemImage: "rectangle.portrait.and.arrow.right")
+                }
+                .help(SpotiglassL10n.string("browser.disconnect"))
+                .accessibilityHint(disconnectHint)
+                .hiddenFromAccessibilityBehindPalette()
+            }
+        }
+        if !presentation.isPresented {
+            ToolbarItem(placement: .primaryAction) {
+                refreshButton
+                    .hiddenFromAccessibilityBehindPalette()
+            }
+        }
+    }
+}
+
+/// The window's name: where you are, or the lyrics while they are open (#438). Observes the
+/// lyrics' state itself, so the browser's body doesn't run when they open or close (#674).
+struct LyricsAwareWindowTitle: ViewModifier {
+    @ObservedObject var presentation: LyricsPresentationState
+    let pageTitle: String
+    let pageShowsTitle: Bool
+
+    func body(content: Content) -> some View {
+        let lyrics = presentation.isPresented
+        content
+            .navigationTitle(lyrics ? SpotiglassL10n.string("playback.controls.lyrics") : pageTitle)
+            .toolbar(removing: lyrics || pageShowsTitle ? nil : .title)
+    }
+}
+
+/// The page under the open lyrics: still built, so closing the lyrics shows it again at once,
+/// where it was, instead of building it and every row on screen again (#674); hidden, and out of
+/// reach of VoiceOver, Tab and the page's own shortcuts, since you can't see its rows (#438).
+/// It fades with the lyrics; switching it off for the keyboard and VoiceOver reaches every view
+/// of the page, so that follows a frame later with the toolbar (the lyrics cover it meanwhile).
+struct HiddenUnderLyrics: ViewModifier {
+    @ObservedObject var presentation: LyricsPresentationState
+    @ObservedObject var chromePresentation: LyricsPresentationState
+
+    func body(content: Content) -> some View {
+        let covered = chromePresentation.isPresented
+        content
+            .disabled(covered)
+            .accessibilityHidden(covered)
+            .opacity(presentation.isPresented ? 0 : 1)
     }
 }

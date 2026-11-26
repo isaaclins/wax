@@ -3,42 +3,6 @@ import XCTest
 
 @MainActor
 final class PlaylistBrowserPlaybackHelpersTests: XCTestCase {
-    func testAnchorTrackIDForPlaylistListScrollRestore() {
-        let items = [PlaylistBrowsingTestFixtures.track(id: "t1")]
-        let rows = TrackRowViewModel.numberedPlaylistRows(items)
-        guard let row = rows.first else {
-            return XCTFail("expected a track row")
-        }
-        let playlist = PlaylistRowViewModel(PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "P"))
-        let detail = PlaylistDetailViewModel(playlist: playlist, tracks: rows)
-        let content: BrowsingDetailContent = .playlist(detail)
-
-        XCTAssertEqual(
-            PlaylistBrowserPlaybackHelpers.anchorTrackIDForPlaylistListScrollRestore(
-                detailContent: content,
-                currentPlaybackURI: row.playableURI,
-                detailLastVisibleTrackID: "fallback"
-            ),
-            row.id
-        )
-        XCTAssertEqual(
-            PlaylistBrowserPlaybackHelpers.anchorTrackIDForPlaylistListScrollRestore(
-                detailContent: content,
-                currentPlaybackURI: "spotify:track:other",
-                detailLastVisibleTrackID: "fallback"
-            ),
-            "fallback"
-        )
-        XCTAssertEqual(
-            PlaylistBrowserPlaybackHelpers.anchorTrackIDForPlaylistListScrollRestore(
-                detailContent: nil,
-                currentPlaybackURI: nil,
-                detailLastVisibleTrackID: "fallback"
-            ),
-            "fallback"
-        )
-    }
-
     func testLyricsPrefetchTrackOnlyWhenPlaying() {
         let np = PlaybackNowPlaying(
             name: "N", artists: ["A"], albumName: nil, albumID: nil, albumArtURL: nil,

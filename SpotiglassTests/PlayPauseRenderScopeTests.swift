@@ -89,6 +89,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         )
         .environmentObject(store)
         .environmentObject(LyricsOverlayController())
+        .environmentObject(try ViewTestHost.makeSettingsStore())
         let controller = ViewTestHost.host(view, size: CGSize(width: 1_600, height: 1_400))
         hostedWindow = controller.view.window
         await AppKitTestSupport.settle()

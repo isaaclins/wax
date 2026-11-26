@@ -36,13 +36,15 @@ private struct LyricsTimingHoldModifier: ViewModifier {
 
     @State private var hold = LyricsTimingHold()
     @State private var input: LyricsTimingHoldInput?
+    /// Closed lyrics stay built under the page (#674): a right click there belongs to the page.
+    @Environment(\.lyricsAreShowing) private var isShowing
 
     func body(content: Content) -> some View {
         content
             .environment(\.lyricsTimingHold, hold)
             .background {
                 if let input {
-                    LyricsTimingHoldSurface(input: input)
+                    LyricsTimingHoldSurface(input: input, startsHolds: isShowing)
                 }
             }
             .onAppear {
@@ -59,6 +61,10 @@ private struct LyricsTimingHoldModifier: ViewModifier {
                 updateContext()
             }
             .onChange(of: textSize) { _, _ in updateContext() }
+            .onChange(of: isShowing) { _, showing in
+                // Closing the lyrics ends a hold, as when closing took them out of the window.
+                if !showing { input?.cancel(buttonStillDown: true) }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
                 input?.cancel(buttonStillDown: false)
             }
@@ -121,12 +127,16 @@ final class LyricsTimingResetTarget: NSObject {
 /// itself: everything else in the lyrics keeps working as before.
 struct LyricsTimingHoldSurface: NSViewRepresentable {
     let input: LyricsTimingHoldInput
+    var startsHolds = true
 
     func makeNSView(context: Context) -> LyricsTimingHoldView {
-        LyricsTimingHoldView(input: input)
+        let view = LyricsTimingHoldView(input: input)
+        view.startsHolds = startsHolds
+        return view
     }
 
     func updateNSView(_ view: LyricsTimingHoldView, context: Context) {
+        view.startsHolds = startsHolds
         guard view.input !== input else { return }
         view.input = input
         view.connectResetMenu()
@@ -140,6 +150,9 @@ struct LyricsTimingHoldSurface: NSViewRepresentable {
 final class LyricsTimingHoldView: NSView {
     var input: LyricsTimingHoldInput
     private var monitor: Any?
+    /// Off from the moment the lyrics start to close: while they fade out, the page under them
+    /// is back, and a right click on a song there opens its menu (#674).
+    var startsHolds = true
 
     static let escapeKeyCode: UInt16 = 53
     static let monitoredEvents: NSEvent.EventTypeMask = [
@@ -206,7 +219,7 @@ final class LyricsTimingHoldView: NSView {
     func holdEvent(for event: NSEvent) -> LyricsTimingHoldInput.Event? {
         switch event.type {
         case .rightMouseDown:
-            guard event.window === window, !isHiddenOrHasHiddenAncestor else { return nil }
+            guard event.window === window, startsHolds, !isHiddenOrHasHiddenAncestor else { return nil }
             let inside = bounds.contains(convert(event.locationInWindow, from: nil))
             return .rightDown(event.locationInWindow, inside: inside)
         case .rightMouseDragged:
@@ -216,11 +229,12 @@ final class LyricsTimingHoldView: NSView {
             guard event.window === window else { return nil }
             return .rightUp(event.locationInWindow)
         case .scrollWheel:
-            // Scrolling in another window stays that window's.
-            guard event.window === window else { return nil }
+            // Scrolling in another window stays that window's, and with the lyrics closed (they
+            // stay built, #674) scrolling belongs to the page: closing them ended any hold.
+            guard event.window === window, startsHolds else { return nil }
             return .scroll(deltaY: event.scrollingDeltaY, precise: event.hasPreciseScrollingDeltas)
         case .keyDown where event.keyCode == Self.escapeKeyCode:
-            return .escape
+            return startsHolds ? .escape : nil
         default:
             return nil
         }

@@ -187,6 +187,113 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
         XCTAssertFalse(dismissed, "a playing track must keep the lyrics open")
     }
 
+    /// #674: the main window keeps its lyrics built while they are closed, so ⌥⌘L only shows them.
+    /// Closed, a new song fetches no lyrics; opened again, they load the song that plays now, as
+    /// when every open built them anew.
+    func testClosedLyricsLoadNothingAndOpeningAgainLoadsTheSongNow() async throws {
+        let settings = try ViewTestHost.makeSettingsStore()
+        let api = MockPlaybackAPI()
+        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let queue = QueueViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api),
+            playbackSession: playback,
+            pollIntervalNanoseconds: 60_000_000_000
+        )
+        // Ids no other test uses: fetched lyrics are cached for the whole run.
+        let first = sampleTrack(spotifyID: "closed-first-\(UUID().uuidString)")
+        let second = sampleTrack(spotifyID: "closed-second-\(UUID().uuidString)")
+        playback.handle(.ready(deviceID: "device-1"))
+        playback.handle(.stateChanged(first, isPaused: false, nextTracks: []))
+        let fetched = FetchedSongs()
+        let lyrics = ImmersiveLyricsViewModel { track in
+            await fetched.note(track.uri)
+            return .unsyncedPlain(["One", "Two", "Three"])
+        }
+        let showing = LyricsShowingFlag()
+        var dismissed = false
+        ViewTestHost.host(
+            ClosableLyrics(showing: showing) {
+                ImmersiveLyricsView(
+                    playbackViewModel: playback,
+                    queueViewModel: queue,
+                    lyricsModel: lyrics,
+                    navigateToArtist: { _ in },
+                    navigateToAlbum: { _, _, _ in },
+                    onDismiss: { dismissed = true }
+                )
+            }
+            .environmentObject(settings)
+            .frame(width: 800, height: 600),
+            size: CGSize(width: 800, height: 600)
+        )
+
+        await AppKitTestSupport.settle(passes: 5)
+        playback.handle(.stateChanged(second, isPaused: false, nextTracks: []))
+        await AppKitTestSupport.settle(passes: 5)
+        XCTAssertEqual(fetched.uris, [], "closed lyrics fetched lyrics")
+
+        showing.isShowing = true
+        let loadedTheSongNow = await AppKitTestSupport.settle(until: { fetched.uris == [second.uri] }, timeout: 10)
+        XCTAssertTrue(loadedTheSongNow, "opening fetched \(fetched.uris), not the song that plays now")
+        XCTAssertFalse(dismissed, "a playing song must keep the lyrics open")
+    }
+
+    /// #674 with #599: closing the lyrics no longer takes them out of the window, so it must end a
+    /// wait for the connection itself. Otherwise a song that failed offline loads behind the
+    /// closed lyrics when the network comes back.
+    func testClosingLyricsStopsTheirWaitForTheConnection() async throws {
+        let settings = try ViewTestHost.makeSettingsStore()
+        let api = MockPlaybackAPI()
+        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let queue = QueueViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api),
+            playbackSession: playback,
+            pollIntervalNanoseconds: 60_000_000_000
+        )
+        let track = sampleTrack(spotifyID: "offline-\(UUID().uuidString)")
+        playback.handle(.ready(deviceID: "device-1"))
+        playback.handle(.stateChanged(track, isPaused: false, nextTracks: []))
+        let fetched = FetchedSongs()
+        let waitStarted = expectation(description: "the lyrics wait for the connection")
+        let waitEnded = expectation(description: "closing the lyrics ended the wait")
+        let lyrics = ImmersiveLyricsViewModel(
+            fetchLyrics: { track in
+                await fetched.note(track.uri)
+                throw URLError(.notConnectedToInternet)
+            },
+            connectionWait: { _ in
+                waitStarted.fulfill()
+                // Waits until cancelled: only closing the lyrics ends it here.
+                do { try await Task.sleep(nanoseconds: UInt64.max / 2) } catch { waitEnded.fulfill() }
+            }
+        )
+        let showing = LyricsShowingFlag()
+        showing.isShowing = true
+        ViewTestHost.host(
+            ClosableLyrics(showing: showing) {
+                ImmersiveLyricsView(
+                    playbackViewModel: playback,
+                    queueViewModel: queue,
+                    lyricsModel: lyrics,
+                    navigateToArtist: { _ in },
+                    navigateToAlbum: { _, _, _ in },
+                    onDismiss: {}
+                )
+            }
+            .environmentObject(settings)
+            .frame(width: 800, height: 600),
+            size: CGSize(width: 800, height: 600)
+        )
+        await fulfillment(of: [waitStarted], timeout: 10)
+        XCTAssertEqual(fetched.uris, [track.uri])
+
+        showing.isShowing = false
+        await fulfillment(of: [waitEnded], timeout: 10)
+        await lyrics.networkCameBack()
+        await AppKitTestSupport.settle(passes: 3)
+        XCTAssertEqual(fetched.uris, [track.uri], "the closed lyrics loaded their song again when the network came back")
+    }
+
     /// #438: a small repeat button sat next to the song title in the lyrics, a second copy of
     /// the player bar's. The bar stays visible under the lyrics now, so repeat lives only there.
     /// Checked for every repeat mode, since each one drew its own icon.
@@ -835,4 +942,26 @@ private struct StandInCover: View {
 
 private extension NSColor {
     var redOverBlack: CGFloat { redComponent * alphaComponent }
+}
+
+/// The songs a test's lyrics were fetched for.
+@MainActor
+private final class FetchedSongs {
+    private(set) var uris: [String?] = []
+    func note(_ uri: String?) { uris.append(uri) }
+}
+
+/// Opens and closes the lyrics in a test the way the main window does (#674).
+@MainActor
+private final class LyricsShowingFlag: ObservableObject {
+    @Published var isShowing = false
+}
+
+private struct ClosableLyrics<Content: View>: View {
+    @ObservedObject var showing: LyricsShowingFlag
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content().environment(\.lyricsAreShowing, showing.isShowing)
+    }
 }
