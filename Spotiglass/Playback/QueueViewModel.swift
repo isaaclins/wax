@@ -11,7 +11,13 @@ final class QueueViewModel: ObservableObject {
     @Published var nowPlayingItem: QueueItem?
     @Published var upcomingItems: [QueueItem] = []
     @Published var isLoading = false
-    @Published var lastError: DisplayError?
+    @Published var lastError: DisplayError? {
+        didSet { lastErrorCameFromRefresh = false }
+    }
+    /// Whether ``lastError`` is a queue read that failed. Only then does the banner's Retry,
+    /// which reads the queue again, repeat what failed; a failed add or removal is done again
+    /// from its song (#608).
+    private(set) var lastErrorCameFromRefresh = false
     /// The latest removal from the queue, while its Undo is offered (#628).
     @Published var lastRemoval: QueueRemovalReceipt?
 
@@ -229,5 +235,13 @@ final class QueueViewModel: ObservableObject {
 extension QueueItem {
     var durationLabel: String {
         PlaybackNowPlaying.durationText(milliseconds: durationMilliseconds)
+    }
+}
+
+extension QueueViewModel {
+    /// Shows a failed queue read, which the banner's Retry can repeat.
+    func showRefreshFailure(_ error: DisplayError) {
+        lastError = error
+        lastErrorCameFromRefresh = true
     }
 }

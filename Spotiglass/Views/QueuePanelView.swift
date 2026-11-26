@@ -151,7 +151,10 @@ struct QueuePanelView: View {
         ErrorBanner(
             error: error,
             showsTitle: true,
-            retry: error.canRetry ? { Task { await queueViewModel.refreshQueue() } } : nil,
+            // Retry reads the queue again, so it is offered only when reading it failed.
+            retry: error.canRetry && queueViewModel.lastErrorCameFromRefresh
+                ? { Task { await queueViewModel.refreshQueue() } }
+                : nil,
             dismiss: { queueViewModel.clearError() }
         )
         .padding(.horizontal, SpotiglassDesign.Layout.panelMargin)

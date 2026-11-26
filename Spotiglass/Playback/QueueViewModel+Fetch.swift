@@ -34,8 +34,8 @@ extension QueueViewModel {
             if let cooldownUntil = queueCooldownUntil, cooldownUntil > clock.now {
                 let cooldown = Self.rateLimitDisplayError(retryAfter: clock.now.duration(to: cooldownUntil).timeInterval)
                 // Logged when the cooldown starts; each poll after that only updates the wait.
-                lastError = lastError.map { shown in shown.with { $0 = cooldown } }
-                    ?? report(nil, while: "refreshing the queue during a rate-limit cooldown", level: .info, showing: cooldown)
+                showRefreshFailure(lastError.map { shown in shown.with { $0 = cooldown } }
+                    ?? report(nil, while: "refreshing the queue during a rate-limit cooldown", level: .info, showing: cooldown))
                 pendingRefreshRequested = false
                 pendingRefreshAllowsHiddenPanel = false
                 pendingRefreshTrigger = .poll
@@ -75,7 +75,7 @@ extension QueueViewModel {
                     // surface them as a "Queue update failed" banner.
                     // The banner reads in the app's language; the cause goes to the log (#470).
                     if let mapped = Self.displayError(for: error, service: provider.service) {
-                        lastError = report(error, while: "refreshing the queue", showing: mapped)
+                        showRefreshFailure(report(error, while: "refreshing the queue", showing: mapped))
                     }
                     responseApplied = true
                 }
