@@ -31,6 +31,47 @@ so the next enable is silent; a later repair or upgrade only invokes the
 already-approved helper when the bundled version changes or CoreAudio needs a
 reload.
 
+Quitting Wax with the equalizer on also puts the sound back on the device it
+was on. The switch stays on, so the next launch routes through the EQ again.
+
+## Removing the driver
+
+**Settings → Equalizer → Remove Equalizer Driver…** switches the equalizer off,
+moves the Mac's sound back to the device it played on before (or, failing that,
+to another output that plays), then has the helper delete
+`/Library/Audio/Plug-Ins/HAL/SpotiglassEQDriver.driver` and restart
+`coreaudiod`. "Wax EQ" (shown as "Spotiglass EQ" by older releases) disappears
+from **System Settings → Sound → Output**. Turning the equalizer on again
+installs it again. If the sound can't be moved off the EQ device, the driver is
+left in place and the pane says so, because deleting it then would leave the
+Mac with a default output that no longer exists.
+
+If Wax is already gone, remove it by hand in Terminal:
+
+1. In **System Settings → Sound → Output**, pick your speakers or headphones
+   instead of "Wax EQ".
+2. Delete the driver and reload Core Audio:
+
+   ```sh
+   sudo rm -rf /Library/Audio/Plug-Ins/HAL/SpotiglassEQDriver.driver
+   sudo killall coreaudiod
+   ```
+
+3. Optional: delete Wax's leftovers in `/tmp` (they also go away on restart):
+
+   ```sh
+   rm -f /tmp/com.isaaclins.spotiglass.eq.*
+   ```
+
+The helper that installs the driver is part of the app bundle and goes away
+with it; **System Settings → General → Login Items & Extensions** may list it
+until then.
+
+Even with Wax deleted and the driver still installed, the Mac doesn't go
+silent: when the driver has no forwarding target (after a restart the target
+file in `/tmp` is gone) or can't open it, it forwards to the built-in output,
+or to the first other output it can play to.
+
 ## Architecture
 
 ```

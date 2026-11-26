@@ -418,6 +418,8 @@ ULONG Release(void* /*self*/) { return 1; }
 // watcher's cadence, so a target picked later or a rate changed in Audio MIDI
 // Setup is followed too.
 void RequestSampleRate(UInt32 rate);
+bool ReadForwardingTarget(char* out, size_t out_size);
+void OpenRouterOrFallback(const char* requested_uid);
 
 void FollowTargetSampleRate() {
     AudioObjectID target = kAudioObjectUnknown;
@@ -452,16 +454,11 @@ void* TargetWatcherMain(void* /*unused*/) {
 
         FollowTargetSampleRate();
 
-        FILE* f = fopen("/tmp/com.isaaclins.spotiglass.eq.target", "r");
-        if (!f) continue;
+        // No target file: the app switched the EQ off (it moves the output
+        // away first) or the Mac restarted. A playing device already has its
+        // router from StartIO, so there is nothing to change here.
         char new_uid[256] = {0};
-        if (!fgets(new_uid, sizeof(new_uid), f)) { fclose(f); continue; }
-        fclose(f);
-        size_t len = strlen(new_uid);
-        while (len > 0 && (new_uid[len - 1] == '\n' || new_uid[len - 1] == '\r')) {
-            new_uid[--len] = '\0';
-        }
-        if (len == 0) continue;
+        if (!ReadForwardingTarget(new_uid, sizeof(new_uid))) continue;
 
         char current_uid[256] = {0};
         {
@@ -483,6 +480,10 @@ void* TargetWatcherMain(void* /*unused*/) {
         EQRouter* opened = EQRouter_OpenWithError(new_uid, &open_error);
         if (!opened) {
             EQRouter_PublishFailureStatus(new_uid, static_cast<int>(open_error));
+            // The target went away (unplugged headphones) while something is
+            // playing to the EQ device: play on the fallback until it is back,
+            // so the Mac is never silent while Wax isn't there to move the output.
+            if (gPlugin.ioAccepting.load(std::memory_order_seq_cst)) OpenRouterOrFallback("");
             continue;
         }
         PublishRouter(opened);
@@ -686,25 +687,11 @@ OSStatus StartIO(AudioServerPlugInDriverRef /*self*/,
                                // coreaudiod scheduler. 20ms is plenty.
                                struct timespec ts = {0, 20 * 1000 * 1000}; // 20ms
                                nanosleep(&ts, nullptr);
-                               const char* target_path = "/tmp/com.isaaclins.spotiglass.eq.target";
-                               FILE* f = fopen(target_path, "r");
-                               if (!f) return nullptr;
+                               // No target file after a restart (it lives in
+                               // /tmp) still opens a router: the fallback (#606).
                                char uid[256] = {0};
-                               if (!fgets(uid, sizeof(uid), f)) { fclose(f); return nullptr; }
-                               fclose(f);
-                               size_t len = strlen(uid);
-                               while (len > 0 && (uid[len - 1] == '\n' || uid[len - 1] == '\r')) {
-                                   uid[--len] = '\0';
-                               }
-                               if (len == 0) return nullptr;
-                               EQRouterOpenError open_error = EQRouterOpenErrorNone;
-                               EQRouter* opened = EQRouter_OpenWithError(uid, &open_error);
-                               if (!opened) {
-                                   EQRouter_PublishFailureStatus(uid, static_cast<int>(open_error));
-                                   return nullptr;
-                               }
-                               PublishRouter(opened);
-                               EQRouter_PublishReadyStatus(uid);
+                               ReadForwardingTarget(uid, sizeof(uid));
+                               OpenRouterOrFallback(uid);
                                return nullptr;
                            },
                            nullptr) == 0) {
@@ -758,6 +745,55 @@ constexpr const char* kPluginManufacturerUTF8 = "Isaac Lins";
 constexpr const char* kDeviceNameUTF8 = "Wax EQ";
 constexpr const char* kDeviceUIDUTF8 = "com.isaaclins.spotiglass.eqdevice";
 constexpr const char* kModelUIDUTF8 = "com.isaaclins.spotiglass.eqmodel";
+
+/// The UID the app last wrote for the router to forward to, without its line
+/// ending. False when there is none: no file or an empty one.
+bool ReadForwardingTarget(char* out, size_t out_size) {
+    if (!out || out_size == 0) return false;
+    out[0] = '\0';
+    FILE* f = fopen("/tmp/com.isaaclins.spotiglass.eq.target", "r");
+    if (!f) return false;
+    const bool read = fgets(out, static_cast<int>(out_size), f) != nullptr;
+    fclose(f);
+    if (!read) {
+        out[0] = '\0';
+        return false;
+    }
+    size_t len = strlen(out);
+    while (len > 0 && (out[len - 1] == '\n' || out[len - 1] == '\r')) {
+        out[--len] = '\0';
+    }
+    return len > 0;
+}
+
+/// Opens a router to the requested target, or, when there is none or it
+/// can't be opened, to the fallback output (EQRouter_PickFallback), so the
+/// EQ device never plays into nothing while it is the default output (#606).
+/// Only the requested target reports ready: the app waits for that one, and
+/// a failure for it still reaches the app so it can move the output itself.
+void OpenRouterOrFallback(const char* requested_uid) {
+    const bool has_request = requested_uid && requested_uid[0] != '\0';
+    if (has_request) {
+        EQRouterOpenError open_error = EQRouterOpenErrorNone;
+        EQRouter* opened = EQRouter_OpenWithError(requested_uid, &open_error);
+        if (opened) {
+            PublishRouter(opened);
+            EQRouter_PublishReadyStatus(requested_uid);
+            return;
+        }
+        EQRouter_PublishFailureStatus(requested_uid, static_cast<int>(open_error));
+    }
+    char fallback_uid[256] = {0};
+    if (!EQRouter_FallbackTargetUID(kDeviceUIDUTF8, fallback_uid, sizeof(fallback_uid))) return;
+    if (has_request && strcmp(fallback_uid, requested_uid) == 0) return;
+    {
+        RouterLease current;
+        if (current && strcmp(EQRouter_TargetUID(current.get()), fallback_uid) == 0) return;
+    }
+    EQRouterOpenError open_error = EQRouterOpenErrorNone;
+    EQRouter* opened = EQRouter_OpenWithError(fallback_uid, &open_error);
+    if (opened) PublishRouter(opened);
+}
 
 static AudioStreamBasicDescription MakeStreamFormat(Float64 sampleRate) {
     AudioStreamBasicDescription asbd{};

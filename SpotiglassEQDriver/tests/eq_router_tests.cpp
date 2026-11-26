@@ -4,7 +4,8 @@
 //
 // The driver is built by build-driver.sh rather than Xcode, so it has no test
 // target. run-driver-tests.sh compiles this against EQRouter.cpp and runs it.
-// EQRouter_OpenWithError is never called, so nothing here touches CoreAudio devices.
+// EQRouter_OpenWithError and EQRouter_FallbackTargetUID are never called, so nothing here
+// touches CoreAudio devices.
 
 #include "../EQClock.h"
 #include "../EQDeviceState.h"
@@ -558,6 +559,46 @@ void testTheEQDeviceFollowsEveryCommonOutputRate() {
 
 }  // namespace
 
+// MARK: - Fallback target (#606)
+
+// After a restart the target file in /tmp is gone while "Wax EQ" is still the
+// default output. With no target the router used to stay closed and the Mac
+// played nothing; it now picks an output that plays.
+void testWithNoTargetTheBuiltInOutputIsChosen() {
+    const char* own = "com.isaaclins.spotiglass.eqdevice";
+    const EQRouterFallbackCandidate devices[] = {
+        {own, 0, 1},                          // the EQ device itself
+        {"AirPodsUID", 0, 1},                 // Bluetooth, listed first
+        {"BuiltInSpeakerDevice", 1, 1},
+    };
+    expect(EQRouter_PickFallback(devices, 3, own) == 2,
+           "the built-in output wins over other devices");
+}
+
+void testWithoutABuiltInOutputAnotherPlayableOneIsChosen() {
+    const char* own = "com.isaaclins.spotiglass.eqdevice";
+    const EQRouterFallbackCandidate devices[] = {
+        {own, 1, 1},
+        {"HDMIUID", 0, 0},                    // can't take Float32 stereo
+        {"USBInterfaceUID", 0, 1},
+    };
+    expect(EQRouter_PickFallback(devices, 3, own) == 2,
+           "a Mac without speakers plays on the next output the router can drive");
+}
+
+void testTheEQDeviceIsNeverItsOwnFallback() {
+    const char* own = "com.isaaclins.spotiglass.eqdevice";
+    const EQRouterFallbackCandidate devices[] = {
+        {own, 1, 1},
+        {"HDMIUID", 1, 0},
+        {"", 1, 1},
+        {nullptr, 1, 1},
+    };
+    expect(EQRouter_PickFallback(devices, 4, own) == 4,
+           "no playable output other than the EQ device means no fallback");
+    expect(EQRouter_PickFallback(nullptr, 0, own) == 0, "an empty list has no fallback");
+}
+
 int main() {
     testClassifyInterleavedStereo();
     testClassifyNonInterleavedStereo();
@@ -585,6 +626,10 @@ int main() {
     testAClientRateAppliesWhenTheTargetsRateCantBeFollowed();
     testIOStartsWithTheFirstClientAndStopsWithTheLast();
     testTheEQDeviceFollowsEveryCommonOutputRate();
+
+    testWithNoTargetTheBuiltInOutputIsChosen();
+    testWithoutABuiltInOutputAnotherPlayableOneIsChosen();
+    testTheEQDeviceIsNeverItsOwnFallback();
 
     if (gFailures == 0) {
         std::printf("driver router tests: all checks passed\n");

@@ -478,14 +478,53 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    /// Removes the bundled `.driver` from `/Library/Audio/Plug-Ins/HAL/`.
-    /// This maintenance hook is separate from enable, which uses the helper
-    /// because the system directory is root-owned.
+    /// Settings › Equalizer › "Remove equalizer driver" (#606). First takes the
+    /// Mac's output off the EQ device (back to the device it was on, else one
+    /// that plays), then has the helper delete the `.driver` from the
+    /// root-owned HAL folder and restart `coreaudiod`. If the output can't be
+    /// moved nothing is deleted: removing the device under a default output
+    /// that has nowhere to go is what leaves a Mac silent.
     func uninstall() throws {
-        let url = installedDriverURL
-        if fileManager.fileExists(atPath: url.path) {
-            try fileManager.removeItem(at: url)
+        try releaseOutputForRemoval()
+        try removeInstalledDriver()
+    }
+
+    /// The fast half of ``uninstall()``, on the main thread: the output change.
+    func releaseOutputForRemoval() throws {
+        if outputIsOnEqualizerDevice {
+            releaseOutputFromEqualizerDevice(fallbackUID: currentForwardingTargetUID())
+            guard !outputIsOnEqualizerDevice else {
+                throw EqualizerHALPluginError.outputStuckOnEqualizerDevice
+            }
+        } else {
+            removeActiveSampleRateObservation()
         }
+        Self.clearForwardingTarget()
+        clearRouterStatus()
+        previousDefaultOutputID = nil
+        previousDefaultOutputUID = nil
+        // try?: the output has already moved; a stale backup is replaced by the next enable().
+        try? Self.clearDefaultOutputBackup(at: outputBackupURL, fileManager: fileManager)
+    }
+
+    /// The slow half of ``uninstall()``: the helper round trip and the
+    /// `coreaudiod` restart, which can take seconds, so callers run it off the
+    /// main thread.
+    func removeInstalledDriver() throws {
+        guard isDriverPresent else { return }
+        do {
+            try driverInstaller.removeDriver(destinationURL: installedDriverURL)
+        } catch let error as EqualizerDriverInstallError {
+            throw EqualizerDriverInstallErrorMapper.mapRemoval(error)
+        } catch {
+            throw EqualizerHALPluginError.driverRemovalFailed(diagnostic: String(describing: error))
+        }
+    }
+
+    /// On disk, or still listed by Core Audio (a driver deleted by hand stays
+    /// loaded until `coreaudiod` restarts).
+    var isDriverPresent: Bool {
+        isInstalled || lookupSpotiglassEQDeviceID() != nil
     }
 
     var isInstalled: Bool {
@@ -859,6 +898,8 @@ enum EqualizerHALPluginError: LocalizedError {
     case embeddedDriverMetadataMissing
     case driverInstallationFailed(diagnostic: String)
     case driverInstallApprovalRequired
+    case driverRemovalFailed(diagnostic: String)
+    case outputStuckOnEqualizerDevice
     case driverNotLoadedYet(installedPath: String)
     case coreAudioStatus(OSStatus)
     case outputDeviceUIDUnavailable
@@ -883,6 +924,10 @@ enum EqualizerHALPluginError: LocalizedError {
             SpotiglassL10n.string("eq.error.driverNotLoadedYet")
         case .driverInstallApprovalRequired:
             SpotiglassL10n.string("eq.error.driverInstallApprovalRequired")
+        case .driverRemovalFailed:
+            SpotiglassL10n.string("eq.error.driverRemovalFailed")
+        case .outputStuckOnEqualizerDevice:
+            SpotiglassL10n.string("eq.error.outputStuckOnEqualizerDevice")
         case .coreAudioStatus:
             SpotiglassL10n.string("eq.error.coreAudioStatus")
         case .outputDeviceUIDUnavailable:
@@ -910,6 +955,10 @@ enum EqualizerHALPluginError: LocalizedError {
             return "bundled driver metadata is missing or invalid"
         case let .driverInstallationFailed(diagnostic):
             return diagnostic
+        case let .driverRemovalFailed(diagnostic):
+            return diagnostic
+        case .outputStuckOnEqualizerDevice:
+            return "No other output device took the default output, so the driver was left installed"
         case .driverInstallApprovalRequired:
             return "Wax is not allowed to run in the background, so launchd refused to register the equalizer helper"
         case let .driverNotLoadedYet(installedPath):

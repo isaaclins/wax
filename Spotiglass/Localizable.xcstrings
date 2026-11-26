@@ -18434,6 +18434,213 @@
           }
         }
       }
+    },
+    "eq.error.driverRemovalFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax couldn’t remove the equalizer driver. Try again in a moment."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax no ha podido eliminar el controlador del ecualizador. Vuelve a intentarlo en un momento."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax konnte den Equalizer-Treiber nicht entfernen. Versuch es gleich noch einmal."
+          }
+        }
+      }
+    },
+    "eq.error.outputStuckOnEqualizerDevice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax couldn’t move your sound off Wax EQ, so the driver is still installed. Pick another output in Sound settings, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax no ha podido sacar el sonido de Wax EQ, así que el controlador sigue instalado. Elige otra salida en los ajustes de Sonido y vuelve a intentarlo."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax konnte den Ton nicht von Wax EQ wegschalten, deshalb ist der Treiber noch installiert. Wähle in den Ton-Einstellungen einen anderen Ausgang und versuch es dann noch einmal."
+          }
+        }
+      }
+    },
+    "settings.eq.removeDriver": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Equalizer Driver…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar el controlador del ecualizador…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Equalizer-Treiber entfernen …"
+          }
+        }
+      }
+    },
+    "settings.eq.removeDriver.confirm.message": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sound on your Mac stops for a moment while macOS reloads its audio devices."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El sonido de tu Mac se detiene un momento mientras macOS vuelve a cargar sus dispositivos de audio."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Ton auf deinem Mac setzt kurz aus, während macOS seine Audiogeräte neu lädt."
+          }
+        }
+      }
+    },
+    "settings.eq.removeDriver.confirm.remove": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entfernen"
+          }
+        }
+      }
+    },
+    "settings.eq.removeDriver.confirm.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove the equalizer driver?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar el controlador del ecualizador?"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Equalizer-Treiber entfernen?"
+          }
+        }
+      }
+    },
+    "settings.eq.removeDriver.done": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Equalizer driver removed"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controlador del ecualizador eliminado"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Equalizer-Treiber entfernt"
+          }
+        }
+      }
+    },
+    "settings.eq.removeDriver.footer": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takes “Wax EQ” off your Mac’s sound outputs and puts the sound back on your speakers or headphones. Turning the equalizer on installs it again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quita «Wax EQ» de las salidas de sonido de tu Mac y devuelve el sonido a tus altavoces o auriculares. Al activar el ecualizador se vuelve a instalar."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entfernt „Wax EQ“ aus den Tonausgängen deines Mac und schickt den Ton zurück an deine Lautsprecher oder Kopfhörer. Wenn du den Equalizer wieder einschaltest, wird er neu installiert."
+          }
+        }
+      }
+    },
+    "settings.eq.removeDriver.removing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removing…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminando…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird entfernt …"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

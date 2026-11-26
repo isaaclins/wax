@@ -102,6 +102,12 @@ final class AudioEqualizerEngine: ObservableObject {
     /// ``routeState`` instead of being inferred from its message.
     @Published private(set) var requiresBackgroundApproval: Bool = false
 
+    /// "Remove equalizer driver" is running: the helper deletes the driver and
+    /// restarts Core Audio, which takes a few seconds (#606).
+    @Published private(set) var isRemovingDriver = false
+    /// The last removal finished; cleared when the equalizer starts again.
+    @Published private(set) var driverWasRemoved = false
+
     /// Compatibility projections used by existing settings/playback surfaces.
     /// They intentionally derive from ``routeState`` rather than storing a
     /// second interpretation of whether the route is active.
@@ -238,6 +244,8 @@ final class AudioEqualizerEngine: ObservableObject {
     /// the built-in speaker.
     func start(forwardingTargetUID: String? = nil) throws {
         guard !routeState.isLive else { return }
+        guard !isRemovingDriver else { return }
+        driverWasRemoved = false
         routeState = .starting(targetUID: nil)
         do {
             let targetUID = try pluginController.enable(preferredForwardingUID: forwardingTargetUID)
@@ -290,6 +298,80 @@ final class AudioEqualizerEngine: ObservableObject {
             }
             throw error
         }
+    }
+
+    // MARK: - Driver removal and quitting (#606)
+
+    /// Whether there is a driver to remove: on disk or still loaded.
+    var isDriverPresent: Bool { pluginController.isDriverPresent }
+
+    /// Settings › Equalizer › "Remove equalizer driver". Switches the
+    /// equalizer off, puts the Mac's output back on a device that plays, then
+    /// has the helper delete the driver and restart Core Audio. The button
+    /// shows progress at once; the helper round trip runs off the main thread.
+    func removeDriver(settingsStore: SpotiglassSettingsStore?) {
+        // Screenshot mode shows the pane on a sample setup; it never touches the real driver.
+        guard !isRemovingDriver, !ScreenshotMode.isActive else { return }
+        isRemovingDriver = true
+        driverWasRemoved = false
+        if let settingsStore, settingsStore.settings.equalizer.enabled {
+            // The store's observer stops the route as part of this change.
+            do {
+                try settingsStore.mutate { $0.equalizer.enabled = false }
+            } catch {
+                SpotiglassLog.error(.settings, "Could not save the EQ switch as off before removing the driver: \(error.localizedDescription)")
+            }
+        }
+        do {
+            if routeState.isEngaged { try stop() }
+            try pluginController.releaseOutputForRemoval()
+        } catch {
+            SpotiglassLog.error(.playback, "Equalizer driver left installed: the output could not leave the EQ device")
+            finishDriverRemoval(with: error)
+            return
+        }
+        let controller = pluginController
+        Task.detached(priority: .userInitiated) {
+            let result = Result { try controller.removeInstalledDriver() }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                if case let .failure(error) = result {
+                    self.finishDriverRemoval(with: error)
+                } else {
+                    self.finishDriverRemoval(with: nil)
+                }
+            }
+        }
+    }
+
+    private func finishDriverRemoval(with error: Error?) {
+        isRemovingDriver = false
+        guard let error else {
+            driverWasRemoved = true
+            requiresBackgroundApproval = false
+            routeState = .disabled
+            SpotiglassLog.info(.playback, "Equalizer driver removed")
+            return
+        }
+        recordFailure(error)
+        requiresBackgroundApproval = Self.isBackgroundApprovalFailure(error)
+        routeState = .failed(
+            message: userFacingErrorText(for: error),
+            isEngaged: pluginController.outputIsOnEqualizerDevice
+        )
+    }
+
+    /// Quitting with the equalizer on: the EQ device only filters while Wax is
+    /// open to drive it, and a Mac whose default output is the EQ device after
+    /// Wax is deleted or the Mac restarts can end up silent. The output goes
+    /// back to the real device; the switch stays on, so the next launch puts
+    /// the equalizer back.
+    func releaseOutputForQuit() {
+        guard routeState.isEngaged || pluginController.outputIsOnEqualizerDevice else { return }
+        let released = pluginController.releaseOutputFromEqualizerDevice(
+            fallbackUID: routeState.targetUID ?? pluginController.currentForwardingTargetUID()
+        )
+        SpotiglassLog.info(.playback, "Quitting with the equalizer on; output restored: \(released)")
     }
 
     // MARK: - Coefficient updates

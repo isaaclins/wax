@@ -46,6 +46,27 @@ int EQRouter_WriteFrames(const float* frames,
 // reports a machine-readable reason for the host's readiness status file.
 EQRouter* EQRouter_OpenWithError(const char* target_uid, EQRouterOpenError* out_error);
 
+// One output device as the fallback choice sees it (#606).
+typedef struct EQRouterFallbackCandidate {
+    const char* uid;
+    int is_built_in;          // kAudioDeviceTransportTypeBuiltIn
+    int plays_float32_stereo; // a format the router can forward to
+} EQRouterFallbackCandidate;
+
+// Where sound goes when the driver has no usable forwarding target: after a
+// restart (the target file in /tmp is gone) or when the target can't be
+// opened, while the EQ device may still be the Mac's default output and Wax
+// isn't running to move it. The first built-in output the router can play
+// to, else the first other one; never the EQ device itself (own_uid).
+// Returns `count` when nothing fits.
+size_t EQRouter_PickFallback(const EQRouterFallbackCandidate* candidates,
+                             size_t count,
+                             const char* own_uid);
+
+// EQRouter_PickFallback over the output devices Core Audio lists right now.
+// Writes the UID into `out` and returns 1, or returns 0 when there is none.
+int EQRouter_FallbackTargetUID(const char* own_uid, char* out, size_t out_size);
+
 // Publish the result of the asynchronous open worker for the Swift host. The
 // status file is atomically replaced and is keyed by target UID, so stale
 // results for an older target cannot be mistaken for readiness of a new one.

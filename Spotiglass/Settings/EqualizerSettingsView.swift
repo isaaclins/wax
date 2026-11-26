@@ -11,6 +11,7 @@ struct EqualizerSettingsView: View {
     @State private var pendingSavePresetName: String = ""
     @State private var isPresentingSaveSheet: Bool = false
     @State private var saveSheetError: String?
+    @State private var isConfirmingDriverRemoval = false
 
     var body: some View {
         let equalizer = settingsStore.settings.equalizer
@@ -52,13 +53,25 @@ struct EqualizerSettingsView: View {
 
             Section {
                 footerActions
-                // A spacer inside the Form's document (rather than a frame on
-                // the pane) makes the trailing row part of the scrollable range.
-                Color.clear
-                    .frame(height: SpotiglassDesign.spacingL)
-                    .accessibilityHidden(true)
             }
             .disabled(isEditorDisabled)
+
+            // Available with the equalizer on or off: removing switches it off first.
+            Section {
+                driverRemovalRow
+            } footer: {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(SpotiglassL10n.string("settings.eq.removeDriver.footer"))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    // A spacer inside the Form's document (rather than a frame on
+                    // the pane) makes the trailing rows part of the scrollable range.
+                    // In the footer it adds no empty row to the group box.
+                    Color.clear
+                        .frame(height: SpotiglassDesign.spacingL)
+                        .accessibilityHidden(true)
+                }
+            }
         }
         .formStyle(.grouped)
         .sheet(isPresented: $isPresentingSaveSheet) {
@@ -93,6 +106,7 @@ struct EqualizerSettingsView: View {
         return VStack(alignment: .leading, spacing: SpotiglassDesign.spacingXS) {
             Toggle(SpotiglassL10n.string("settings.eq.enableToggle"), isOn: equalizerEnabledBinding)
                 .toggleStyle(.switch)
+                .disabled(engine.isRemovingDriver)
 
             if let lastError = engine.lastError, !lastError.isEmpty {
                 Label(lastError, systemImage: "exclamationmark.triangle.fill")
@@ -327,6 +341,41 @@ struct EqualizerSettingsView: View {
             }
 
             Spacer()
+        }
+    }
+
+    /// "Remove Equalizer Driver…" (#606). Asks once, because Core Audio's
+    /// restart pauses every app's sound for a moment.
+    private var driverRemovalRow: some View {
+        HStack(spacing: SpotiglassDesign.spacingS) {
+            Button(SpotiglassL10n.string("settings.eq.removeDriver")) {
+                isConfirmingDriverRemoval = true
+            }
+            .disabled(engine.isRemovingDriver || !engine.isDriverPresent)
+
+            if engine.isRemovingDriver {
+                ProgressView()
+                    .controlSize(.small)
+                Text(SpotiglassL10n.string("settings.eq.removeDriver.removing"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if engine.driverWasRemoved {
+                Label(SpotiglassL10n.string("settings.eq.removeDriver.done"), systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .confirmationDialog(
+            SpotiglassL10n.string("settings.eq.removeDriver.confirm.title"),
+            isPresented: $isConfirmingDriverRemoval
+        ) {
+            Button(SpotiglassL10n.string("settings.eq.removeDriver.confirm.remove"), role: .destructive) {
+                engine.removeDriver(settingsStore: settingsStore)
+            }
+        } message: {
+            Text(SpotiglassL10n.string("settings.eq.removeDriver.confirm.message"))
         }
     }
 

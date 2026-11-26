@@ -165,11 +165,12 @@ final class SettingsShellViewsTests: XCTestCase {
             engine: AudioEqualizerEngine()
         )
         let form = try view.inspect().find(ViewType.Form.self)
-        let footerSection = try form.section(4)
-        let trailingSpacer = try footerSection.find(ViewType.Color.self)
+        // The last section's footer, under "Remove Equalizer Driver…", carries the trailing inset.
+        let trailingSection = try form.section(5)
+        let trailingSpacer = try trailingSection.footer().find(ViewType.Color.self)
         let trailingInset = try trailingSpacer.fixedHeight()
 
-        // Model the worst case: the Reset to Flat row ends exactly at the pane's
+        // Model the worst case: the last row ends exactly at the pane's
         // 641-point viewport edge before the trailing inset is added. The Form
         // document must then grow by the inset, making that row clearable at its
         // maximum scroll position.
