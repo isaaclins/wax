@@ -64,7 +64,7 @@ enum PlaylistBrowserCommandPaletteConfiguration {
             guard let playback else { return false }
             return playback.audiblePlayer.isPlaybackToggleReady
         }
-        manager.canMutatePlaybackTransport = dependencies.playbackViewModel.isTransportMutationReady
+        manager.setPlaybackTransportMutability(dependencies.playbackViewModel.isTransportMutationReady)
         manager.playbackTransportMutationPrerequisite = { [weak playback = dependencies.playbackViewModel] in
             playback?.isTransportMutationReady ?? false
         }

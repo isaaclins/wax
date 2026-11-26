@@ -190,6 +190,21 @@ final class CommandPaletteManager: ObservableObject {
         canMutatePlaybackTransport = ready
     }
 
+    private func setRepeatMutability(_ ready: Bool) {
+        guard canMutateRepeat != ready else { return }
+        canMutateRepeat = ready
+    }
+
+    private func setShuffleEnabled(_ enabled: Bool) {
+        guard shuffleEnabled != enabled else { return }
+        shuffleEnabled = enabled
+    }
+
+    private func setRepeatMode(_ mode: MusicRepeatMode) {
+        guard repeatMode != mode else { return }
+        repeatMode = mode
+    }
+
     /// Publishes only real changes: each one rebuilds the menus (#409).
     func setSidebarVisible(_ visible: Bool) {
         guard isSidebarVisible != visible else { return }
@@ -243,15 +258,12 @@ final class CommandPaletteManager: ObservableObject {
 
     func bindPlaybackReadiness(to playback: PlaybackSessionViewModel) {
         playbackReadinessCancellables.removeAll()
-        setPlaybackToggleAvailability(playback.isPlaybackToggleReady)
-        setLyricsToggleAvailability(playback.audiblePlayer.currentLyricTrack != nil)
-        setSkipAvailability(
-            playback.isOtherServiceHeard || playback.connectionState.hasTrackToSkipFrom
-        )
-        shuffleEnabled = playback.shuffleEnabled
-        repeatMode = playback.repeatMode
-        canMutatePlaybackTransport = playback.isTransportMutationReady
-        canMutateRepeat = playback.audiblePlayer.isTransportMutationReady
+        // The browser binds again on every page change, so every published value is set only
+        // when it changes: each set re-renders the window and rebuilds the menus, and a page
+        // change set some twenty of them to what they already were (#675). The subscriptions
+        // below set every value right away, from the music you hear. There is no first guess
+        // from this service's player before them: while the other service is heard it was
+        // wrong, and the page change then announced the repeat twice.
 
         let playerPushesState = playback.playerPushesState
         Publishers.CombineLatest4(
@@ -291,15 +303,14 @@ final class CommandPaletteManager: ObservableObject {
                 commandDeviceID: activePlaybackDeviceID ?? deviceID
             )
             self?.setPlaybackTransportMutability(isTransportMutationReady)
-            let canMutateRepeat = followsOtherService ? isOtherServiceTransportMutationReady : isTransportMutationReady
-            if self?.canMutateRepeat != canMutateRepeat { self?.canMutateRepeat = canMutateRepeat }
+            self?.setRepeatMutability(followsOtherService ? isOtherServiceTransportMutationReady : isTransportMutationReady)
         }
         .store(in: &playbackReadinessCancellables)
 
         playback.$shuffleEnabled
             .removeDuplicates()
             .sink { [weak self] enabled in
-                self?.shuffleEnabled = enabled
+                self?.setShuffleEnabled(enabled)
             }
             .store(in: &playbackReadinessCancellables)
         // The menu's repeat checkmark is the repeat of the music you hear (#396), like the bar.
@@ -316,7 +327,7 @@ final class CommandPaletteManager: ObservableObject {
         }
         .removeDuplicates()
         .sink { [weak self] mode in
-            self?.repeatMode = mode
+            self?.setRepeatMode(mode)
         }
         .store(in: &playbackReadinessCancellables)
     }

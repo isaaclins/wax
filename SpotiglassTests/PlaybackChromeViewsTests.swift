@@ -157,6 +157,43 @@ final class PlaybackChromeViewsTests: XCTestCase {
         XCTAssertFalse(isPresented, "the cover button doesn't close open lyrics")
     }
 
+    /// #675: the bar keeps the lyrics state it was built with for how it looks, and the browser
+    /// builds it again when the lyrics open or close. A click still acts on the lyrics as they
+    /// are at that moment: lyrics opened from the View menu, before the bar was built again,
+    /// close with the bar's button instead of being "opened" again.
+    func testLyricsButtonsActOnTheLyricsAsTheyAreAtTheClick() throws {
+        let playback = makePlayingPlayback()
+        var isPresented = false
+        let view = PlaybackControlsView(
+            viewModel: playback,
+            isLyricsPresented: Binding(
+                get: { isPresented },
+                set: { isPresented = $0 }
+            ),
+            openArtist: { _ in }
+        )
+        let controller = ViewTestHost.host(view, size: CGSize(width: 900, height: 120))
+        let buttons = allNSButtons(in: controller.view)
+        let lyricsButton = try XCTUnwrap(
+            buttons.first { $0.accessibilityLabel() == SpotiglassL10n.string("playback.controls.lyrics") }
+        )
+        let artworkButton = try XCTUnwrap(
+            buttons.first { $0.accessibilityLabel() == SpotiglassL10n.string("playback.controls.openLyrics") }
+        )
+
+        isPresented = true // View › Show Lyrics, the bar not built again yet
+        lyricsButton.performClick(nil)
+        XCTAssertFalse(isPresented, "the bar's Lyrics button didn't close lyrics opened elsewhere")
+
+        isPresented = true
+        artworkButton.performClick(nil)
+        XCTAssertFalse(isPresented, "the cover button didn't close lyrics opened elsewhere")
+
+        lyricsButton.performClick(nil)
+        lyricsButton.performClick(nil)
+        XCTAssertFalse(isPresented, "two clicks before the bar was built again didn't open and close")
+    }
+
     /// Asserts no ancestor of the button is faded out. `hitTest` cannot answer
     /// this: `NSHostingView` reports itself for every point and never a nested
     /// bridged control. Alpha is the mechanism that broke #355, and a view with

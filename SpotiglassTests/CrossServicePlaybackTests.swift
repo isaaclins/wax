@@ -683,6 +683,33 @@ final class CrossServicePlaybackTests: XCTestCase {
         XCTAssertEqual(manager.repeatMode, .track, "the menu's checkmark is the repeat you hear")
     }
 
+    /// Each page change binds the palette again (#675). While Apple Music plays on Spotify's
+    /// screen with its own repeat, binding again set the menu's repeat to Spotify's and then back
+    /// to Apple Music's: two re-renders of the window and two menu rebuilds for a page change,
+    /// and a moment with the wrong checkmark. Binding again now announces nothing.
+    func testBindingAgainWhileTheOtherServiceIsHeardAnnouncesNothing() async throws {
+        let (spotify, _) = pausedSpotify()
+        let player = ScriptedAppleMusicPlayer()
+        let hosts = hosts(spotify: spotify, player: player)
+        let appleMusic = try await playingAppleMusic(in: hosts, player: player)
+        appleMusic.setTransportStateKnown(true)
+        let playback = spotify.playbackViewModel
+        let manager = wirePalette(to: playback)
+        manager.bindPlaybackReadiness(to: playback)
+        manager.requestRepeatMode(.track)
+        await waitUntil("Apple Music's repeat set", changes: player.changes) { player.readState().repeatMode == .track }
+        XCTAssertEqual(manager.repeatMode, .track)
+        XCTAssertNotEqual(playback.repeatMode, manager.repeatMode, "the case needs the two repeats to differ")
+
+        var announcements = 0
+        let subscription = manager.objectWillChange.sink { announcements += 1 }
+        manager.bindPlaybackReadiness(to: playback)
+        subscription.cancel()
+
+        XCTAssertEqual(announcements, 0, "binding again announced a change")
+        XCTAssertEqual(manager.repeatMode, .track, "the menu's checkmark is still the repeat you hear")
+    }
+
     /// Apple Music on screen with nothing loaded while Spotify plays: the bar controls
     /// Spotify, so the menu's Repeat is enabled by Spotify's player. Shuffle, which goes
     /// through the on-screen queue, stays off.

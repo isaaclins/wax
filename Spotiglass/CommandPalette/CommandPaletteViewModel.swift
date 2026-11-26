@@ -122,7 +122,8 @@ final class CommandPaletteViewModel: ObservableObject {
 
     /// Call from the host when the browser opens/closes a playlist detail so the footer and active filter stay valid.
     func setAvailableSearchCategories(_ categories: [CommandPaletteSearchCategory], refreshIfFilterInvalidated: Bool = true) {
-        availableSearchCategories = categories
+        // Set on every page change (#675): an unchanged list must not re-render the window.
+        if availableSearchCategories != categories { availableSearchCategories = categories }
         if !categories.contains(searchCategoryFilter) {
             searchCategoryFilter = categories.first ?? .all
             if refreshIfFilterInvalidated, isPresented {
