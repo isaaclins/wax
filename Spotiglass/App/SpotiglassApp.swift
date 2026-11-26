@@ -117,8 +117,11 @@ struct SpotiglassApp: App {
 
     /// Re-engage the EQ only when the persisted master switch was on. The
     /// settings toggle is the source of truth across launches: an off value
-    /// leaves the engine stopped, while an unavailable driver is logged and the
-    /// persisted switch is reset instead of claiming the EQ is active.
+    /// leaves the engine stopped. An on value is picked up by the engine's
+    /// settings observer, which starts the route off the main actor once the
+    /// app is running, so the window comes up first (#604); an unavailable
+    /// driver is logged and the persisted switch is reset instead of claiming
+    /// the EQ is active.
     private static func restoreEqualizerIfEnabled(
         settingsStore: SpotiglassSettingsStore,
         engine: AudioEqualizerEngine
@@ -130,24 +133,7 @@ struct SpotiglassApp: App {
             if !AppMetadata.isRunningUnitTests { engine.releaseStrandedOutput() }
             return
         }
-
         engine.apply(settings: equalizerSettings)
-        do {
-            try engine.start(forwardingTargetUID: equalizerSettings.forwardingTargetUID)
-        } catch {
-            do {
-                try settingsStore.mutate { $0.equalizer.enabled = false }
-            } catch {
-                SpotiglassLog.error(
-                    .settings,
-                    "Could not persist the disabled EQ state after startup restore failed: \(error.localizedDescription)"
-                )
-            }
-            SpotiglassLog.error(
-                .settings,
-                "Equalizer startup restore failed: \(error.localizedDescription)"
-            )
-        }
     }
 
     /// Mirrors the sign-in mapping ``RootView`` uses to gate the palette, so menu
