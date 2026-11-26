@@ -1270,6 +1270,36 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertFalse(settingsStore.settings.equalizer.enabled)
     }
 
+    /// Quitting is possible while the equalizer starts. The quit put the output back next to the
+    /// running start, which then moved it onto the EQ device again, where it stayed after Wax quit.
+    @MainActor
+    func testQuittingWhileTheEqualizerIsStartingPutsTheSoundBackAfterTheStart() async throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let installer = HeldDriverInstaller()
+        let engine = AudioEqualizerEngine(pluginController: makeController(for: output, driverInstaller: installer))
+        let starting = Task { try? await engine.start() }
+        await waitForRoute(of: engine) { $0 == .starting(targetUID: nil) }
+
+        // Wax quits as soon as this runs: nothing the start does afterwards gets undone.
+        let quitCanGoOn = expectation(description: "the quit went on")
+        var routeWhenQuitting: EqualizerRouteState?
+        var outputWhenQuitting: AudioObjectID?
+        XCTAssertTrue(engine.releaseOutputForQuitAfterRouteChange {
+            routeWhenQuitting = engine.routeState
+            outputWhenQuitting = output.current
+            quitCanGoOn.fulfill()
+        }, "the quit didn't wait for the running start")
+        installer.letItFinish()
+        await fulfillment(of: [quitCanGoOn], timeout: 5)
+        await starting.value
+
+        XCTAssertNotEqual(routeWhenQuitting, .starting(targetUID: nil), "the quit went on while the start could still move the sound")
+        XCTAssertEqual(outputWhenQuitting, output.originalID, "the sound was on the EQ device when Wax quit")
+        engine.releaseOutputForQuit()
+        XCTAssertEqual(output.current, output.originalID)
+    }
+
     /// The player's output menu stays usable while the equalizer starts. A device picked there
     /// meanwhile was dropped, and the sound went to the old device once the equalizer was up.
     @MainActor
