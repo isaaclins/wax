@@ -1392,11 +1392,6 @@
   {
     "file": "SpotiglassEQDriver/SpotiglassEQPlugin.cpp",
     "rule": "ignored-status",
-    "code": "(void)AudioObjectSetPropertyData("
-  },
-  {
-    "file": "SpotiglassEQDriver/SpotiglassEQPlugin.cpp",
-    "rule": "ignored-status",
     "code": "gPlugin.host->PropertiesChanged(",
     "count": 2
   }
