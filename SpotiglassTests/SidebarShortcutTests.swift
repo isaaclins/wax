@@ -249,6 +249,7 @@ final class SidebarShortcutTests: XCTestCase {
         registry.activate(scene)
         let commands = SpotiglassMenuCommands(
             sceneRegistry: registry,
+            mainWindowFront: registry.mainWindowFront,
             keymapStore: keymap,
             settingsStore: SpotiglassSettingsStore(fileURL: makeCommandPaletteTestsTempSettingsURL()),
             serviceStore: MusicServiceStore(
@@ -344,6 +345,7 @@ extension SidebarShortcutTests {
         registry.activate(scene)
         let commands = SpotiglassMenuCommands(
             sceneRegistry: registry,
+            mainWindowFront: registry.mainWindowFront,
             keymapStore: manager.keymapStore,
             settingsStore: SpotiglassSettingsStore(fileURL: makeCommandPaletteTestsTempSettingsURL()),
             serviceStore: MusicServiceStore(

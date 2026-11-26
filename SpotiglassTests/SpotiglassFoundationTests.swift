@@ -30,8 +30,10 @@ final class SpotiglassFoundationTests: XCTestCase {
             .appendingPathComponent("Spotiglass/App/SpotiglassApp.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
         let standardMenuRange = try XCTUnwrap(source.range(of: "CommandGroup(after: .appInfo) {"))
-        let settingsRange = try XCTUnwrap(source.range(of: "Settings {"))
-        let standardMenuSource = source[standardMenuRange.lowerBound..<settingsRange.lowerBound]
+        let menuCommandsRange = try XCTUnwrap(source.range(of: "SpotiglassMenuCommands("))
+        let standardMenuSource = source[standardMenuRange.lowerBound..<menuCommandsRange.lowerBound]
+        // Settings is the app's own window (#676), so the app menu's Settings… item is too.
+        XCTAssertTrue(source.contains("CommandGroup(replacing: .appSettings)"))
 
         XCTAssertTrue(standardMenuSource.contains("app.menu.openPalette"))
         // The item derives its key equivalent from the keymap, so a rebind moves

@@ -89,15 +89,25 @@ final class SpotiglassSceneHost: ObservableObject {
     }
 }
 
+/// Whether a main window is the key window: false while another window (Settings) is key, when
+/// the View menu's Show/Hide Sidebar acts on that window and can't name the browser's sidebar
+/// state (#436). Only the View menu reads it, so only the menu
+/// observes it: as part of ``SpotiglassSceneRegistry`` every flip re-ran the whole app's scene
+/// and menu tree, about 20 ms of each ⌘, (#676).
+@MainActor
+final class MainWindowFront: ObservableObject {
+    @Published fileprivate(set) var isInFront = true
+}
+
 /// Tracks the current main-window scene for app-level menu commands. The menu
 /// and both transient controllers use this same active-scene policy; the
 /// registry never detaches an inactive scene while another scene is alive.
 @MainActor
 final class SpotiglassSceneRegistry: ObservableObject {
     @Published private(set) var activeScene: SpotiglassSceneHost? = nil
-    /// False while another window (Settings) is key. The View menu's Show/Hide Sidebar then
-    /// acts on that window, so it can't show the browser's sidebar state (#436).
-    @Published private(set) var isMainWindowInFront = true
+    /// Whether a main window is in front, kept apart from this registry so a flip doesn't re-run
+    /// everything that observes the registry (#676).
+    let mainWindowFront = MainWindowFront()
 
     private var scenes: [SpotiglassSceneHost] = []
     private var activeSceneCancellable: AnyCancellable?
@@ -120,13 +130,13 @@ final class SpotiglassSceneRegistry: ObservableObject {
     func activate(_ scene: SpotiglassSceneHost) {
         register(scene)
         setActiveScene(scene)
-        if !isMainWindowInFront { isMainWindowInFront = true }
+        if !mainWindowFront.isInFront { mainWindowFront.isInFront = true }
     }
 
     /// A main window stopped being key. Another main window becoming key calls `activate`
     /// right after, so this stays false only while some other window is in front.
     func mainWindowResignedKey() {
-        if isMainWindowInFront { isMainWindowInFront = false }
+        if mainWindowFront.isInFront { mainWindowFront.isInFront = false }
     }
 
     /// Removes a scene from the live registry. Only the current host is
@@ -321,7 +331,7 @@ struct RootView: View {
     @ObservedObject private var appleMusicSession: AppleMusicSession
     /// Where Apple Music's library and catalog are read from: MusicKit, or a stand-in in tests.
     private let appleMusicCatalog: () -> any MusicBrowsingProvider
-    @Environment(\.openSettings) private var openSettingsAction
+    @Environment(\.openWaxSettings) private var openSettingsAction
     @Environment(\.openWindow) private var openWindowAction
 
     private var commandPaletteManager: CommandPaletteManager {

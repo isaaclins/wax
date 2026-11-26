@@ -84,7 +84,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `page.sidebarClick` | Click a playlist in the sidebar | 60 | 66 | #675 |
 | `playback.toggle.longList` | Space with the 1000-song playlist open | 36 | 37 | |
 | `list.scroll` | Scrolling a 1000-song playlist | 30 | 37 | |
-| `settings.open` | ⌘, opens Settings | 99 | 113 | #676 |
+| `settings.open` | ⌘, opens Settings (Settings on screen) | 99 → 43-53 | 113 → 46-61 | #676 |
 
 † After #673's first part (median 52, checked 61 on a busy Mac): closing takes 36-47 ms, opening
 50-61 ms. Opening still builds the queue's list in its first frame; the rest of the window no
@@ -98,6 +98,10 @@ its start. Since #687 the bar shows that at once, from the songs Spotify's page 
 current one, and settles on what Spotify reports. Screenshot
 mode's player never moves for a skip, so it lists more songs around the current one than Spotify's
 two, and a run of skips keeps finding the next one.
+Settings after #676: the window is built once after launch and kept, so ⌘, only shows it, and
+it takes key a turn of the run loop after it is on screen. The first ⌘, after launch went from
+about 250 ms to 42.
+Its checked time is 46-61 ms on a busy Mac, not yet under 40 in every run, so it stays listed.
 Play/pause was measured again with the probe's fixes (the clock starts at the first input, and a
 try's timer no longer ends a later try): every press showed, and one try in 8 reached 43-52 ms.
 Seek, shuffle, repeat and ⌘[ are from 2026-11-25 with #677, on a Mac mini under load 5. Before it

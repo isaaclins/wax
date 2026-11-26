@@ -813,6 +813,30 @@
         }
       }
     },
+    "app.menu.settings": {
+      "comment": "App menu item that opens the Settings window (⌘,).",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes…"
+          }
+        }
+      }
+    },
     "artwork.state.failed": {
       "extractionState": "manual",
       "localizations": {
@@ -14926,6 +14950,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Teclado"
+          }
+        }
+      }
+    },
+    "settings.window.title": {
+      "comment": "Title of the Settings window.",
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax-Einstellungen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax Settings"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes de Wax"
           }
         }
       }

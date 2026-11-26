@@ -39,7 +39,7 @@
     },
     "settings.open": {
       "issue": 676,
-      "measuredMs": 113
+      "measuredMs": 61
     }
   },
   "ci": {
@@ -60,7 +60,7 @@
     "page.back": 79,
     "page.sidebarClick": null,
     "list.scroll": 37,
-    "settings.open": 303,
+    "settings.open": 47,
     "playback.toggle.longList": 60
   }
 }

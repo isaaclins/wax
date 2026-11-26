@@ -285,10 +285,14 @@ final class InteractionLatencyProbe {
                 title: "⌘, opens Settings",
                 start: { probe in
                     probe.press(.comma, [.command])
-                    return { Self.isSettingsWindow(NSApp.keyWindow) }
+                    // Settings is on screen. It takes key a turn of the run loop later (#676).
+                    return { NSApp.windows.contains { Self.isSettingsWindow($0) && $0.isVisible } }
                 },
                 finish: { probe in
-                    NSApp.keyWindow.map { if Self.isSettingsWindow($0) { $0.close() } }
+                    if let settings = NSApp.windows.first(where: { Self.isSettingsWindow($0) && $0.isVisible }) {
+                        _ = await probe.waitUntil { _ in NSApp.keyWindow === settings }
+                        settings.close()
+                    }
                     probe.window?.makeKeyAndOrderFront(nil)
                     _ = await probe.waitUntil { NSApp.keyWindow === $0.window }
                 }
@@ -308,9 +312,7 @@ final class InteractionLatencyProbe {
     private static let longPlaylist = "Long Mix"
 
     private static func isSettingsWindow(_ window: NSWindow?) -> Bool {
-        // SwiftUI names it com_apple_SwiftUI_Settings_window. (The main window's identifier spells
-        // out its view types, SpotiglassSettingsStore among them, so a bare "Settings" won't do.)
-        window?.identifier?.rawValue.contains("Settings_window") == true
+        SettingsWindowController.isSettingsWindow(window)
     }
 
     // MARK: - Running

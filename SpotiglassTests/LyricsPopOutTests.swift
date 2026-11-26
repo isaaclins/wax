@@ -242,6 +242,7 @@ final class LyricsPopOutTests: XCTestCase {
         let registry = SpotiglassSceneRegistry()
         let commands = SpotiglassMenuCommands(
             sceneRegistry: registry,
+            mainWindowFront: registry.mainWindowFront,
             keymapStore: keymap,
             settingsStore: SpotiglassSettingsStore(fileURL: makeCommandPaletteTestsTempSettingsURL()),
             serviceStore: MusicServiceStore(
@@ -273,6 +274,7 @@ final class LyricsPopOutTests: XCTestCase {
         let registry = SpotiglassSceneRegistry()
         let commands = SpotiglassMenuCommands(
             sceneRegistry: registry,
+            mainWindowFront: registry.mainWindowFront,
             keymapStore: keymap,
             settingsStore: SpotiglassSettingsStore(fileURL: makeCommandPaletteTestsTempSettingsURL()),
             serviceStore: MusicServiceStore(

@@ -230,6 +230,7 @@
 		J90000000000000000000002 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = J90000000000000000000012 /* AppIcon.icon */; };
 		J90000000000000000000101 /* SpotiglassSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = J90000000000000000000151 /* SpotiglassSettingsView.swift */; };
 		SRC0000000000000000000018 /* SettingsWindowChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080018 /* SettingsWindowChrome.swift */; };
+		F676000000000000000000A1 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F676000000000000000000A2 /* SettingsWindowController.swift */; };
 		J90000000000000000000103 /* AccountSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = J90000000000000000000153 /* AccountSettingsView.swift */; };
 		J90000000000000000000104 /* SpotifyClientIDAndActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = J90000000000000000000154 /* SpotifyClientIDAndActionsView.swift */; };
 		J90000000000000000000105 /* AppearanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = J90000000000000000000155 /* AppearanceSettingsView.swift */; };
@@ -472,6 +473,7 @@
 		TST0000000000000000000124 /* MenuKeyEquivalentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST0000000000000000010124 /* MenuKeyEquivalentTests.swift */; };
 		TST0000000000000000000123 /* RealUserDefaultsIsolationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST0000000000000000010123 /* RealUserDefaultsIsolationTests.swift */; };
 		TST000000000000000000010D /* SettingsWindowChromeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000000000000000001010D /* SettingsWindowChromeTests.swift */; };
+		F676000000000000000000B1 /* SettingsWindowControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F676000000000000000000B2 /* SettingsWindowControllerTests.swift */; };
 		1E8F1A21216125058FEFB9CC /* ShelfScrollBehavior.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB8AE1396271802A8575D50 /* ShelfScrollBehavior.swift */; };
 		293E0B8E4EDD4E4E87C7C61F /* ShelfScrollBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F07B276904C45D5C8DAD1670 /* ShelfScrollBehaviorTests.swift */; };
 /* End PBXBuildFile section */
@@ -746,6 +748,7 @@
 		J90000000000000000000012 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		J90000000000000000000151 /* SpotiglassSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotiglassSettingsView.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080018 /* SettingsWindowChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowChrome.swift; sourceTree = "<group>"; };
+		F676000000000000000000A2 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		J90000000000000000000153 /* AccountSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSettingsView.swift; sourceTree = "<group>"; };
 		J90000000000000000000154 /* SpotifyClientIDAndActionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyClientIDAndActionsView.swift; sourceTree = "<group>"; };
 		J90000000000000000000155 /* AppearanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsView.swift; sourceTree = "<group>"; };
@@ -875,6 +878,7 @@
 		TST0000000000000000010124 /* MenuKeyEquivalentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuKeyEquivalentTests.swift; sourceTree = "<group>"; };
 		TST0000000000000000010123 /* RealUserDefaultsIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealUserDefaultsIsolationTests.swift; sourceTree = "<group>"; };
 		TST000000000000000001010D /* SettingsWindowChromeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowChromeTests.swift; sourceTree = "<group>"; };
+		F676000000000000000000B2 /* SettingsWindowControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowControllerTests.swift; sourceTree = "<group>"; };
 		8FB8AE1396271802A8575D50 /* ShelfScrollBehavior.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfScrollBehavior.swift; sourceTree = "<group>"; };
 		F07B276904C45D5C8DAD1670 /* ShelfScrollBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfScrollBehaviorTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000100D0 /* SpotifyPlaybackAPITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyPlaybackAPITests.swift; sourceTree = "<group>"; };
@@ -1268,6 +1272,7 @@
 				EFFA54FFF1BA220BFE5CE964 /* SkipPreviewTests.swift */,
 				TST0000000000000000010123 /* RealUserDefaultsIsolationTests.swift */,
 				TST000000000000000001010D /* SettingsWindowChromeTests.swift */,
+				F676000000000000000000B2 /* SettingsWindowControllerTests.swift */,
 				F07B276904C45D5C8DAD1670 /* ShelfScrollBehaviorTests.swift */,
 				TST0000000000000000010122 /* EqualizerABRMSTests.swift */,
 				TSTEQDRIVERC0000000000F1 /* SpotiglassEQDSP.c */,
@@ -1622,6 +1627,7 @@
 			children = (
 				J90000000000000000000151 /* SpotiglassSettingsView.swift */,
 				SRC0000000000000000080018 /* SettingsWindowChrome.swift */,
+				F676000000000000000000A2 /* SettingsWindowController.swift */,
 				J90000000000000000000155 /* AppearanceSettingsView.swift */,
 				SRC0000000000000000080011 /* EqualizerSettingsView.swift */,
 				SRC0000000000000000080010 /* EqualizerPresets.swift */,
@@ -2087,6 +2093,7 @@
 				F59000000000000000000001 /* PlaybackTrace.swift in Sources */,
 				J90000000000000000000101 /* SpotiglassSettingsView.swift in Sources */,
 				SRC0000000000000000000018 /* SettingsWindowChrome.swift in Sources */,
+				F676000000000000000000A1 /* SettingsWindowController.swift in Sources */,
 				1E8F1A21216125058FEFB9CC /* ShelfScrollBehavior.swift in Sources */,
 				J90000000000000000000105 /* AppearanceSettingsView.swift in Sources */,
 				SRC0000000000000000000011 /* EqualizerSettingsView.swift in Sources */,
@@ -2163,6 +2170,7 @@
 				D015195B091D21F55E44EA36 /* SkipPreviewTests.swift in Sources */,
 				TST0000000000000000000123 /* RealUserDefaultsIsolationTests.swift in Sources */,
 				TST000000000000000000010D /* SettingsWindowChromeTests.swift in Sources */,
+				F676000000000000000000B1 /* SettingsWindowControllerTests.swift in Sources */,
 				293E0B8E4EDD4E4E87C7C61F /* ShelfScrollBehaviorTests.swift in Sources */,
 				TST0000000000000000000122 /* EqualizerABRMSTests.swift in Sources */,
 				TSTEQDRIVERC0000000000B1 /* SpotiglassEQDSP.c in Sources */,
