@@ -195,7 +195,7 @@ final class SpotiglassLogTests: XCTestCase {
             ("INFO", "api", "palette search \(SpotiglassLog.personal("tame impala let it happen")) provider 412ms"),
             ("INFO", "playback", "playFromPlaylist entry clickedURI=applemusic:song:4651336237147474264 playlistID=-1718416633700638354 playableCount=440 currentURI=<nil> hasTransferred=false"),
             ("INFO", "playback", "send setQueue entries=440 startingAt=entry 69022FF1-C55C-4807-9D44-AB5C2C770DCD"),
-            ("INFO", "playback", "player current entry -> b7aXaLAhy::5GlvfRUeI (position 9 of 440): after play (0.28 s after the last command)"),
+            ("INFO", "playback", "player current entry -> b7aXaLAhy::5GlvfRUeI \(AppleMusicPlayerStateObserver.songName(title: "Eventually", artist: "Tame Impala")) (position 9 of 440): after play (0.28 s after the last command)"),
             ("INFO", "playback", "performTransfer deviceID=\(deviceID) play=true origin=palette"),
             ("INFO", "playback", "play(uri:) entry uri=spotify:track:6rqhFgbbKwnb9MLmUQDhG6 deviceID=\(deviceID)"),
             ("ERROR", "api", "Spotify API failure: GET https://api.spotify.com/v1/search?q=tame%20impala&type=track HTTP 401, headers and body: \(SpotiglassLog.personal("Response body:\n{\"error\":{\"status\":401,\"message\":\"The access token expired\"}}"))"),
@@ -230,7 +230,7 @@ final class SpotiglassLogTests: XCTestCase {
             "tame impala", "tame%20impala", "Let It Happen", "isaac.lins", "/Users/isaac/",
             "4651336237147474264", "1718416633700638354", "69022FF1-C55C-4807-9D44-AB5C2C770DCD",
             "b7aXaLAhy::5GlvfRUeI", deviceID, "6rqhFgbbKwnb9MLmUQDhG6", "The access token expired", "key T",
-            "20UMGIM03371", "Currents", "Tame Impala", "Pond", "909253",
+            "20UMGIM03371", "Currents", "Tame Impala", "Pond", "909253", "Eventually",
         ] {
             XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
         }
@@ -239,7 +239,7 @@ final class SpotiglassLogTests: XCTestCase {
             "position 9 of 440", "first frame after 6.1 ms", "row 3 of 40", "button “Next”", "window “Wax”",
             "shortcut ⌘K", "/v1/search?<query>", "applemusic:song:#", "spotify:track:#", "currentURI=<nil>",
             "/Users/<user>/Library/Caches", "access_denied", "https://is1-ssl.mzstatic.com/#", "status 200, 114795 bytes",
-            "album search for a pin (“#", "catalog artist #", "top songs done after 120.4 ms",
+            "album search for a pin (“#", "catalog artist #", "top songs done after 120.4 ms", "” by “#",
         ] {
             XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
         }
@@ -254,6 +254,29 @@ final class SpotiglassLogTests: XCTestCase {
         }
         XCTAssertEqual(covers.count, 2)
         XCTAssertEqual(Set(covers).count, 1)
+    }
+
+    /// The first copy after an update holds the previous session, written by a build that put
+    /// these names in the log without its quotes.
+    func testTheCopyReplacesNamesThatOlderBuildsWroteWithoutQuotes() throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let older = [
+            "2026-11-25T15:17:01.000Z [INFO] [api] palette search 'bad bunny' provider 412ms",
+            "2026-11-25T15:17:02.000Z [DEBUG] [api] palette search 'bad bunny' answered in part",
+            "2026-11-25T15:17:03.000Z [INFO] [playback] player current entry -> b7aXaLAhy::5GlvfRUeI \"Let It Happen\" by Tame Impala (position 9 of 440): after play",
+            "2026-11-25T15:17:04.000Z [INFO] [calls] → #7 MusicKit album search for a pin (Currents / Tame Impala) (after interaction #3 click on button “Pin”)",
+            "2026-11-25T15:17:05.000Z [INFO] [calls] ← #8 MusicKit autoplay artist search (Pond) done after 120.4 ms",
+        ]
+        try Data((older.joined(separator: "\n") + "\n").utf8).write(to: directory.appendingPathComponent(FileLogSink.previousFileName))
+        let destination = directory.appendingPathComponent("report.txt")
+        try BugReportLogCopy.write(from: directory, to: destination, keeping: ["Pin"])
+        let copy = try String(contentsOf: destination, encoding: .utf8)
+        for personal in ["bad bunny", "Let It Happen", "Tame Impala", "Currents", "Pond"] {
+            XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
+        }
+        for kept in ["provider 412ms", "answered in part", "(position 9 of 440): after play", "button “Pin”", "done after 120.4 ms"] {
+            XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
+        }
     }
 
     func testTheCopyTakesThePreviousSessionFirst() throws {

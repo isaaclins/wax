@@ -1478,6 +1478,11 @@ enum AppleMusicSongChange {
 /// read the player every 2 to 20 seconds, so a pause from the keyboard showed "playing" until then.
 @MainActor
 final class AppleMusicPlayerStateObserver {
+    /// “Song” by “Artist” for the log: in its quotes, so the bug-report copy replaces both (#603).
+    nonisolated static func songName(title: String, artist: String?) -> String {
+        SpotiglassLog.personal(title) + (artist.map { " by \(SpotiglassLog.personal($0))" } ?? "")
+    }
+
     private let player: ApplicationMusicPlayer
     private var subscriptions: [AnyCancellable] = []
     private var lastStatus: String?
@@ -1556,7 +1561,7 @@ final class AppleMusicPlayerStateObserver {
                 command: PlaybackTrace.shared.songCommand(within: AppleMusicSongChange.commandWindow)
             )
             // The song by name, so the log says which song came on (#734).
-            let title = current.map { "\"\($0.title)\"" + ($0.subtitle.map { " by \($0)" } ?? "") } ?? "nothing"
+            let title = current.map { Self.songName(title: $0.title, artist: $0.subtitle) } ?? "nothing"
             PlaybackTrace.shared.playerReported(
                 "current entry -> \(entryID ?? "none") \(title) (position \(index.map { "\($0 + 1)" } ?? "-") of \(entries.count))"
                     + (why.map { ": \($0)" } ?? "")

@@ -530,6 +530,11 @@ enum BugReportLogCopy {
 
         mutating func clean(_ text: String) -> String {
             var result = text
+            // The previous session's file may come from a build before #603, which wrote these
+            // names without the log's quotes. Put them in quotes, so the rule below replaces them.
+            for pattern in Self.unquotedNames {
+                result = quoteGroups(pattern, in: result)
+            }
             // Quotes first: what's inside them is replaced as a whole, before the shape rules
             // below could take pieces of it.
             result = replace(Self.quoted, in: result) { cleaner, match in
@@ -591,6 +596,20 @@ enum BugReportLogCopy {
             value.count == 7 && value.first == "#"
         }
 
+        /// Every captured group of `pattern` in `text`, put in the log's quotes.
+        private func quoteGroups(_ pattern: NSRegularExpression?, in text: String) -> String {
+            guard let pattern else { return text }
+            let result = NSMutableString(string: text)
+            for match in pattern.matches(in: text, range: NSRange(location: 0, length: result.length)).reversed() {
+                for group in (1 ..< match.numberOfRanges).reversed() where match.range(at: group).location != NSNotFound {
+                    let range = match.range(at: group)
+                    let inner = result.substring(with: range).replacingOccurrences(of: "“", with: "\"").replacingOccurrences(of: "”", with: "\"")
+                    result.replaceCharacters(in: range, with: "“\(inner)”")
+                }
+            }
+            return result as String
+        }
+
         private mutating func replace(
             _ pattern: NSRegularExpression?,
             in text: String,
@@ -616,6 +635,14 @@ enum BugReportLogCopy {
             try? NSRegularExpression(pattern: text)
         }
 
+        /// Names that builds before #603 wrote without quotes: a palette search, the song that
+        /// came on in Apple Music, the album search behind a pin and Autoplay's artist search.
+        private static let unquotedNames: [NSRegularExpression?] = [
+            pattern(#"palette search '(.*?)'(?= provider| answered|$)"#),
+            pattern(#"current entry -> \S+ "(.*?)"(?: by (.*?))? (?=\(position )"#),
+            pattern(#"album search for a pin \((?!“)(.*) / (.*?)\)(?= done| failed| \(after|$)"#),
+            pattern(#"autoplay artist search \((?!“)(.*?)\)(?= done| failed| \(after|$)"#),
+        ]
         /// “…”: ``SpotiglassLog/personal(_:)``, control and window names in interaction lines.
         private static let quoted = pattern(#"“[^“”\n]*”"#)
         private static let homeFolder = pattern(#"/Users/[^/\s"'”]+"#)
