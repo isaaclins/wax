@@ -291,7 +291,6 @@ struct PlaylistBrowserView: View {
                         playbackViewModel: playbackViewModel,
                         lyricsPresentation: lyricsOverlay.chromePresentation,
                         isLyricsPresented: isLyricsPresentedBinding,
-                        isLyricsShown: lyricsOverlay.isPresented,
                         openArtist: { target in
                             openArtistFromTapTarget(target)
                         }
@@ -632,13 +631,13 @@ private struct BrowserTransportBar: View, Equatable {
     /// The Lyrics buttons show whether they are open and follow that themselves (#674).
     let lyricsPresentation: LyricsPresentationState
     let isLyricsPresented: Binding<Bool>
-    /// What `isLyricsPresented` reads now: the bar's lyrics button shows it.
-    let isLyricsShown: Bool
     let openArtist: (ArtistTapTarget) -> Void
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         MainActor.assumeIsolated {
-            lhs.playbackViewModel === rhs.playbackViewModel && lhs.isLyricsShown == rhs.isLyricsShown
+            // Not whether the lyrics show: the bar's Lyrics buttons follow that through
+            // `lyricsPresentation`, and the browser no longer runs when they open (#674).
+            lhs.playbackViewModel === rhs.playbackViewModel
         }
     }
 
