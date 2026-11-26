@@ -242,6 +242,56 @@ func finishes(
 /// description instead of a bare timeout (#503).
 let mustHappenTimeout: TimeInterval = 100
 
+/// What ``finishWithin(_:_:_:)`` throws when the bound passes: names what never finished.
+/// LocalizedError so XCTest's "caught error" line shows the sentence.
+struct BoundExceeded: LocalizedError, CustomStringConvertible {
+    let what: String
+    let seconds: TimeInterval
+    var description: String { "\(what) did not finish within \(seconds) s" }
+    var errorDescription: String? { description }
+}
+
+/// Runs `operation` and throws ``BoundExceeded`` naming `what` once `seconds` pass, even when the
+/// operation is stuck in a call that ignores cancellation, such as a blocking socket read. A task
+/// group would wait for that stuck child before throwing, so this races two unstructured tasks.
+/// For exchanges that take milliseconds (a loopback round trip), where a bound far below the
+/// per-test limit cannot be reached by a busy machine and a hang should fail fast (#771).
+func finishWithin<T: Sendable>(
+    _ seconds: TimeInterval,
+    _ what: String,
+    _ operation: @escaping @Sendable () async throws -> T
+) async throws -> T {
+    let once = ResumeOnce<T>()
+    return try await withCheckedThrowingContinuation { continuation in
+        once.set(continuation)
+        let work = Task {
+            do { once.resume(with: .success(try await operation())) } catch { once.resume(with: .failure(error)) }
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(seconds))
+            once.resume(with: .failure(BoundExceeded(what: what, seconds: seconds)))
+            work.cancel()
+        }
+    }
+}
+
+private final class ResumeOnce<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<T, Error>?
+
+    func set(_ continuation: CheckedContinuation<T, Error>) {
+        lock.withLock { self.continuation = continuation }
+    }
+
+    func resume(with result: Result<T, Error>) {
+        let pending = lock.withLock { () -> CheckedContinuation<T, Error>? in
+            defer { continuation = nil }
+            return continuation
+        }
+        pending?.resume(with: result)
+    }
+}
+
 /// What a fake (or a model) sends whenever something a test may wait for changes: a command
 /// it records, a lookup that starts waiting, a call. Safe to send from any thread.
 typealias TestChanges = PassthroughSubject<Void, Never>

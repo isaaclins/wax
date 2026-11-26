@@ -98,8 +98,14 @@ final class ActiveLoopbackOAuthListener {
     private let socketDescriptor: Int32
     private let expectedState: String
     private let timeout: TimeInterval
+    /// How long one accepted connection may stay silent before it is dropped. A browser sends
+    /// its request together with the connection, so this only ever ends a connection that
+    /// would never send one.
+    private let clientIdleTimeout: TimeInterval
     private let responseCopy: LoopbackOAuthResponseCopy
     private var didClose = false
+    private var didTimeOut = false
+    private var activeClient: Int32 = -1
     private let closeLock = NSLock()
 
     init(
@@ -107,8 +113,10 @@ final class ActiveLoopbackOAuthListener {
         port: UInt16,
         expectedState: String,
         timeout: TimeInterval,
+        clientIdleTimeout: TimeInterval,
         responseCopy: LoopbackOAuthResponseCopy
     ) {
+        self.clientIdleTimeout = clientIdleTimeout
         self.socketDescriptor = socketDescriptor
         self.redirectURI = SpotifyAuthConfiguration.loopbackRedirectURI(port: port)
         self.expectedState = expectedState
@@ -127,7 +135,7 @@ final class ActiveLoopbackOAuthListener {
             }
             group.addTask {
                 try await Task.sleep(nanoseconds: UInt64(self.timeout * 1_000_000_000))
-                self.close()
+                self.close(timedOut: true)
                 throw LoopbackOAuthCallbackError.timedOut
             }
 
@@ -143,43 +151,95 @@ final class ActiveLoopbackOAuthListener {
     private func acceptSingleCallback() async throws -> OAuthCallback {
         let responseCopy = self.responseCopy
         return try await Task.detached(priority: .userInitiated) {
-            var address = sockaddr()
-            var length = socklen_t(MemoryLayout<sockaddr>.size)
-            let client = Darwin.accept(self.socketDescriptor, &address, &length)
-            guard client >= 0 else {
-                throw LoopbackOAuthCallbackError.invalidRequest
-            }
-            defer { Darwin.close(client) }
+            while true {
+                var address = sockaddr()
+                var length = socklen_t(MemoryLayout<sockaddr>.size)
+                let client = Darwin.accept(self.socketDescriptor, &address, &length)
+                guard client >= 0 else {
+                    throw self.endedError
+                }
+                guard self.track(client: client) else {
+                    // close() ran while accept() returned: the listener is done.
+                    Darwin.close(client)
+                    throw self.endedError
+                }
+                defer { self.finish(client: client) }
+                Self.boundReads(on: client, idleTimeout: self.clientIdleTimeout)
 
-            var buffer = [UInt8](repeating: 0, count: 4096)
-            let bufferCount = buffer.count
-            let count = buffer.withUnsafeMutableBytes { pointer in
-                Darwin.read(client, pointer.baseAddress, bufferCount)
-            }
-            guard count > 0,
-                  let request = String(bytes: buffer.prefix(count), encoding: .utf8),
-                  let requestLine = request.components(separatedBy: "\r\n").first else {
-                self.writeResponse(to: client, status: "400 Bad Request", body: responseCopy.invalidRequest)
-                throw LoopbackOAuthCallbackError.invalidRequest
-            }
+                var buffer = [UInt8](repeating: 0, count: 4096)
+                let bufferCount = buffer.count
+                let count = buffer.withUnsafeMutableBytes { pointer in
+                    Darwin.read(client, pointer.baseAddress, bufferCount)
+                }
+                guard count > 0 else {
+                    // A connection that sends nothing (a browser's speculative connection, or a
+                    // client that gave up) must not hold the listener: drop it and take the next.
+                    // close() also lands here, and the next accept() then fails (#771).
+                    continue
+                }
+                guard let request = String(bytes: buffer.prefix(count), encoding: .utf8),
+                      let requestLine = request.components(separatedBy: "\r\n").first else {
+                    self.writeResponse(to: client, status: "400 Bad Request", body: responseCopy.invalidRequest)
+                    throw LoopbackOAuthCallbackError.invalidRequest
+                }
 
-            let parts = requestLine.split(separator: " ")
-            guard parts.count >= 2,
-                  parts[0] == "GET",
-                  let callbackURL = URL(string: "http://127.0.0.1\(parts[1])") else {
-                self.writeResponse(to: client, status: "400 Bad Request", body: responseCopy.invalidRequest)
-                throw LoopbackOAuthCallbackError.invalidRequest
-            }
+                let parts = requestLine.split(separator: " ")
+                guard parts.count >= 2,
+                      parts[0] == "GET",
+                      let callbackURL = URL(string: "http://127.0.0.1\(parts[1])") else {
+                    self.writeResponse(to: client, status: "400 Bad Request", body: responseCopy.invalidRequest)
+                    throw LoopbackOAuthCallbackError.invalidRequest
+                }
 
-            do {
-                let callback = try LoopbackOAuthCallbackValidator.validate(url: callbackURL, expectedState: self.expectedState)
-                self.writeResponse(to: client, status: "200 OK", body: responseCopy.success)
-                return callback
-            } catch {
-                self.writeResponse(to: client, status: "400 Bad Request", body: responseCopy.failure)
-                throw error
+                do {
+                    let callback = try LoopbackOAuthCallbackValidator.validate(url: callbackURL, expectedState: self.expectedState)
+                    self.writeResponse(to: client, status: "200 OK", body: responseCopy.success)
+                    return callback
+                } catch {
+                    self.writeResponse(to: client, status: "400 Bad Request", body: responseCopy.failure)
+                    throw error
+                }
             }
         }.value
+    }
+
+    private static func boundReads(on client: Int32, idleTimeout: TimeInterval) {
+        let wholeSeconds = idleTimeout.rounded(.down)
+        var limit = timeval(
+            tv_sec: Int(wholeSeconds),
+            tv_usec: Int32((idleTimeout - wholeSeconds) * 1_000_000)
+        )
+        let size = socklen_t(MemoryLayout<timeval>.size)
+        _ = setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &limit, size)
+        _ = setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &limit, size)
+    }
+
+    /// Why the listening socket stopped. The timeout closes it, which also wakes accept(), and
+    /// either child can reach the task group first: both must then say the wait timed out, or
+    /// sign-in reports a timeout as an invalid request depending on scheduling (#771).
+    private var endedError: LoopbackOAuthCallbackError {
+        closeLock.lock()
+        defer { closeLock.unlock() }
+        return didTimeOut ? .timedOut : .invalidRequest
+    }
+
+    /// Remembers the accepted connection so close() can end a read that is in flight.
+    /// Returns false when the listener is already closed.
+    private func track(client: Int32) -> Bool {
+        closeLock.lock()
+        defer { closeLock.unlock() }
+        guard !didClose else { return false }
+        activeClient = client
+        return true
+    }
+
+    /// Closes the accepted connection under the lock, so close() never shuts down a
+    /// descriptor number the system has already handed to someone else.
+    private func finish(client: Int32) {
+        closeLock.lock()
+        defer { closeLock.unlock() }
+        if activeClient == client { activeClient = -1 }
+        Darwin.close(client)
     }
 
     private func writeResponse(to client: Int32, status: String, body: String) {
@@ -197,11 +257,21 @@ final class ActiveLoopbackOAuthListener {
     }
 
     func close() {
+        close(timedOut: false)
+    }
+
+    private func close(timedOut: Bool) {
         closeLock.lock()
         defer { closeLock.unlock() }
 
         guard !didClose else { return }
         didClose = true
+        didTimeOut = timedOut
+        // Ends a read on an accepted connection too, so the listener's timeout bounds the
+        // whole exchange and not only the wait for a connection (#771).
+        if activeClient >= 0 {
+            Darwin.shutdown(activeClient, SHUT_RDWR)
+        }
         Darwin.shutdown(socketDescriptor, SHUT_RDWR)
         Darwin.close(socketDescriptor)
     }
@@ -212,6 +282,7 @@ struct LoopbackOAuthListenerFactory {
         expectedState: String,
         timeout: TimeInterval = 120,
         port: UInt16 = SpotifyAuthConfiguration.defaultLoopbackPort,
+        clientIdleTimeout: TimeInterval = 5,
         responseCopy: LoopbackOAuthResponseCopy
     ) throws -> ActiveLoopbackOAuthListener {
         let descriptor = Darwin.socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)
@@ -243,7 +314,8 @@ struct LoopbackOAuthListenerFactory {
             throw LoopbackOAuthCallbackError.socketSetupFailed("bind")
         }
 
-        guard Darwin.listen(descriptor, 1) == 0 else {
+        // Room for the real callback behind a connection that never sends anything (#771).
+        guard Darwin.listen(descriptor, 4) == 0 else {
             Darwin.close(descriptor)
             throw LoopbackOAuthCallbackError.socketSetupFailed("listen")
         }
@@ -265,6 +337,7 @@ struct LoopbackOAuthListenerFactory {
             port: UInt16(bigEndian: boundAddress.sin_port),
             expectedState: expectedState,
             timeout: timeout,
+            clientIdleTimeout: clientIdleTimeout,
             responseCopy: responseCopy
         )
     }
