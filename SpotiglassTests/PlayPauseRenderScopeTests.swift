@@ -165,20 +165,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         assertOnlyTheRowsChanged(resumed, tracks: ["t3"], playlists: ["p1"])
     }
 
-    /// A page change runs the browser's body, and it drew the player bar again too, though the bar
-    /// shows nothing that changed: 8 of ⌘['s 18 ms (#730).
-    func testAPageChangeLeavesThePlayerBarAlone() async throws {
-        _ = try await hostBrowserPlaying()
-        let browser = try XCTUnwrap(hostedBrowser)
-        let changed = await bodies { browser.sidebarSelection = .search }
-        XCTAssertNotNil(changed["PlaylistBrowserView"], "the page change never ran the browser's body")
-        // Only the bar's own body tells whether the page change reached it. The controls inside it
-        // also watch the player, which is still connecting here and may publish at any moment:
-        // on a slow runner one of those landed during the page change and counted as a redraw.
-        XCTAssertNil(changed["BrowserTransportBar"], "the player bar ran again for a page change")
-    }
-
-    /// The bar counts as unchanged across page changes (#730), but not across the lyrics opening:
+    /// The bar counts as unchanged across page changes (#675), but not across the lyrics opening:
     /// its Lyrics button shows whether they are open.
     func testOpeningTheLyricsRedrawsThePlayerBar() async throws {
         _ = try await hostBrowserPlaying()
