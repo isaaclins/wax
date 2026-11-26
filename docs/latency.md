@@ -72,7 +72,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `palette.open` | ⌘K opens the command palette | 79 → 26 | 88 → 36 | #671 |
 | `palette.type` | Typing a letter in the palette | 71* → 41 | never → 44 | #671 |
 | `palette.close` | Esc closes the palette | 72 → 37 | 78 → 46 | #671 |
-| `sidebar.toggle` | ⌘S hides or shows the sidebar | 81 | 83 | #672 |
+| `sidebar.toggle` | ⌘S hides or shows the sidebar | 81 → 43 | 83 → 43 | #672 |
 | `queue.toggle` | ⌥⌘Q opens or closes the queue | 72 | 77 | #673 |
 | `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 114 | 123 | #674 |
 | `page.search` | ⌘F opens Search | 86 | 89 | #675 |

@@ -242,6 +242,7 @@
 		LOCL0000000000000000000001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = PRO00000000000000000000F3 /* Localizable.xcstrings */; };
 		IPLS0000000000000000000001 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = IPLS0000000000000000000002 /* InfoPlist.xcstrings */; };
 		3C8FB9A16734304505295852 /* InteractionLatency.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0DC19D08E0446E8ED279AC /* InteractionLatency.swift */; };
+		F67200000000000000000005 /* MainRunLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67200000000000000000006 /* MainRunLoop.swift */; };
 		170EAEA6A59893CF20D49755 /* InteractionLatencyProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D5DC31600625733701EF3E6 /* InteractionLatencyProbe.swift */; };
 		64D76A75763C3C8C216D8865 /* InteractionLatencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E433EF452CC97A5003D17AF3 /* InteractionLatencyTests.swift */; };
 		P10000000000000000000002 /* PinnedItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = P10000000000000000000012 /* PinnedItem.swift */; };
@@ -447,6 +448,7 @@
 		SRC0000000000000000080B00 /* PlaybackPositionUpdateScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080B01 /* PlaybackPositionUpdateScopeTests.swift */; };
 		F67100000000000000000001 /* CommandPaletteRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67100000000000000000002 /* CommandPaletteRenderScopeTests.swift */; };
 		F42200000000000000000003 /* PlayPauseRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F42200000000000000000004 /* PlayPauseRenderScopeTests.swift */; };
+		F67200000000000000000001 /* SidebarToggleRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67200000000000000000002 /* SidebarToggleRenderScopeTests.swift */; };
 		TST00000000000000000800D0 /* ScrubberViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000800D1 /* ScrubberViewTests.swift */; };
 		TST00000000000000000800C0 /* MusicServiceStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000800C1 /* MusicServiceStoreTests.swift */; };
 		TST00000000000000000001B1 /* PlaylistBrowserLibraryEditsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000101B1 /* PlaylistBrowserLibraryEditsTests.swift */; };
@@ -771,6 +773,7 @@
 		PRO00000000000000000000F3 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		IPLS0000000000000000000002 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		5C0DC19D08E0446E8ED279AC /* InteractionLatency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionLatency.swift; sourceTree = "<group>"; };
+		F67200000000000000000006 /* MainRunLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainRunLoop.swift; sourceTree = "<group>"; };
 		1D5DC31600625733701EF3E6 /* InteractionLatencyProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionLatencyProbe.swift; sourceTree = "<group>"; };
 		E433EF452CC97A5003D17AF3 /* InteractionLatencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractionLatencyTests.swift; sourceTree = "<group>"; };
 		PRO00000000000000000000F4 /* SpotifyDTOs+UserPlaylist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpotifyDTOs+UserPlaylist.swift"; sourceTree = "<group>"; };
@@ -847,6 +850,7 @@
 		SRC0000000000000000080B01 /* PlaybackPositionUpdateScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPositionUpdateScopeTests.swift; sourceTree = "<group>"; };
 		F67100000000000000000002 /* CommandPaletteRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteRenderScopeTests.swift; sourceTree = "<group>"; };
 		F42200000000000000000004 /* PlayPauseRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayPauseRenderScopeTests.swift; sourceTree = "<group>"; };
+		F67200000000000000000002 /* SidebarToggleRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarToggleRenderScopeTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000800D1 /* ScrubberViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrubberViewTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000800C1 /* MusicServiceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicServiceStoreTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000101B1 /* PlaylistBrowserLibraryEditsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistBrowserLibraryEditsTests.swift; sourceTree = "<group>"; };
@@ -1230,6 +1234,7 @@
 				SRC0000000000000000080B01 /* PlaybackPositionUpdateScopeTests.swift */,
 				F67100000000000000000002 /* CommandPaletteRenderScopeTests.swift */,
 				F42200000000000000000004 /* PlayPauseRenderScopeTests.swift */,
+				F67200000000000000000002 /* SidebarToggleRenderScopeTests.swift */,
 				TST00000000000000000800D1 /* ScrubberViewTests.swift */,
 				86D387C17B543FD31C6C6E27 /* ServiceNeutralBrowsingTests.swift */,
 				D614C9B833214402B058244D /* SettingsLanguageSwitchTests.swift */,
@@ -1637,6 +1642,7 @@
 			children = (
 				A7E49E8058C2543F152AB95A /* AppBundleMigration.swift */,
 				5C0DC19D08E0446E8ED279AC /* InteractionLatency.swift */,
+				F67200000000000000000006 /* MainRunLoop.swift */,
 				1D5DC31600625733701EF3E6 /* InteractionLatencyProbe.swift */,
 				582000000000000000000003 /* LegacyLoginItems.h */,
 				582000000000000000000002 /* LegacyLoginItems.m */,
@@ -1992,6 +1998,7 @@
 				E5000000000000000000000E /* ImmersiveLyricsView.swift in Sources */,
 				E5000000000000000000000F /* ImmersiveLyricsViewModel.swift in Sources */,
 				3C8FB9A16734304505295852 /* InteractionLatency.swift in Sources */,
+				F67200000000000000000005 /* MainRunLoop.swift in Sources */,
 				170EAEA6A59893CF20D49755 /* InteractionLatencyProbe.swift in Sources */,
 				E50000000000000000000020 /* LyricsOverlayController.swift in Sources */,
 				D40000000000000000000004 /* QueuePanelView.swift in Sources */,
@@ -2119,6 +2126,7 @@
 				SRC0000000000000000080B00 /* PlaybackPositionUpdateScopeTests.swift in Sources */,
 				F67100000000000000000001 /* CommandPaletteRenderScopeTests.swift in Sources */,
 				F42200000000000000000003 /* PlayPauseRenderScopeTests.swift in Sources */,
+				F67200000000000000000001 /* SidebarToggleRenderScopeTests.swift in Sources */,
 				TST00000000000000000800D0 /* ScrubberViewTests.swift in Sources */,
 				86370D0FBE489A0D0A054DD9 /* ServiceNeutralBrowsingTests.swift in Sources */,
 				515545A0C26A278485622323 /* SettingsLanguageSwitchTests.swift in Sources */,

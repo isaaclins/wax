@@ -38,7 +38,16 @@ final class PlaylistBrowserViewModel: ObservableObject {
     @Published var playlistNameEditRequestID: String?
     /// Whether the sidebar column shows (the window keeps it in step). A rename the sidebar row
     /// takes waits for it: a row editing inside a hidden sidebar loses its field (#478).
-    @Published var isSidebarShown = true
+    /// Not `@Published`: nearly every view of the browser observes this model, so each ⌘S
+    /// re-rendered the sidebar, the page and every visible row a second time before the
+    /// sidebar moved (#672). Only a rename waiting for the sidebar's row needs to hear it.
+    var isSidebarShown = true {
+        willSet {
+            if newValue != isSidebarShown, pendingSidebarPlaylistNameEditID != nil {
+                objectWillChange.send()
+            }
+        }
+    }
     /// The playlist whose "Delete Playlist" confirmation is showing.
     @Published var playlistPendingDeletion: MusicPlaylistSummary?
     /// The playlist whose new order is being saved (#543). No playlist takes another drop until
