@@ -453,6 +453,7 @@
 		TST00000000000000000800C0 /* MusicServiceStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000800C1 /* MusicServiceStoreTests.swift */; };
 		TST00000000000000000001B1 /* PlaylistBrowserLibraryEditsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000101B1 /* PlaylistBrowserLibraryEditsTests.swift */; };
 		F54300000000000000000003 /* PlaylistTrackReorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54300000000000000000004 /* PlaylistTrackReorderTests.swift */; };
+		F59600000000000000000001 /* PartialLibraryEditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59600000000000000000002 /* PartialLibraryEditTests.swift */; };
 		TST00000000000000000001B0 /* AppleMusicLibraryEditorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000101B0 /* AppleMusicLibraryEditorTests.swift */; };
 		TST00000000000000000000A0 /* AppleMusicPlaybackProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000100A0 /* AppleMusicPlaybackProviderTests.swift */; };
 		TST000000000000000000012E /* MusicPlaybackProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000000000000000001012E /* MusicPlaybackProviderTests.swift */; };
@@ -855,6 +856,7 @@
 		TST00000000000000000800C1 /* MusicServiceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicServiceStoreTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000101B1 /* PlaylistBrowserLibraryEditsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistBrowserLibraryEditsTests.swift; sourceTree = "<group>"; };
 		F54300000000000000000004 /* PlaylistTrackReorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistTrackReorderTests.swift; sourceTree = "<group>"; };
+		F59600000000000000000002 /* PartialLibraryEditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartialLibraryEditTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000101B0 /* AppleMusicLibraryEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicLibraryEditorTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000100A0 /* AppleMusicPlaybackProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicPlaybackProviderTests.swift; sourceTree = "<group>"; };
 		TST000000000000000001012E /* MusicPlaybackProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlaybackProviderTests.swift; sourceTree = "<group>"; };
@@ -1241,6 +1243,7 @@
 				TST00000000000000000800C1 /* MusicServiceStoreTests.swift */,
 				TST00000000000000000101B1 /* PlaylistBrowserLibraryEditsTests.swift */,
 				F54300000000000000000004 /* PlaylistTrackReorderTests.swift */,
+				F59600000000000000000002 /* PartialLibraryEditTests.swift */,
 				TST00000000000000000101B0 /* AppleMusicLibraryEditorTests.swift */,
 				TST00000000000000000100A0 /* AppleMusicPlaybackProviderTests.swift */,
 				7B6D7F36DF025AC0CC91A15A /* AppleMusicSoundWatchTests.swift */,
@@ -2133,6 +2136,7 @@
 				TST00000000000000000800C0 /* MusicServiceStoreTests.swift in Sources */,
 				TST00000000000000000001B1 /* PlaylistBrowserLibraryEditsTests.swift in Sources */,
 				F54300000000000000000003 /* PlaylistTrackReorderTests.swift in Sources */,
+				F59600000000000000000001 /* PartialLibraryEditTests.swift in Sources */,
 				TST00000000000000000001B0 /* AppleMusicLibraryEditorTests.swift in Sources */,
 				TST00000000000000000000A0 /* AppleMusicPlaybackProviderTests.swift in Sources */,
 				84FB6A3AEA6BF0FCAB460B6E /* AppleMusicSoundWatchTests.swift in Sources */,

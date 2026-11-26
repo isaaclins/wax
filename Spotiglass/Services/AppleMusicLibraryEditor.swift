@@ -227,7 +227,9 @@ struct AppleMusicLibraryEditor: Sendable {
 
     /// Liked Songs in Apple Music mode are the songs in the library, so a like saves the song to
     /// the library and loves it, the way the Music app's Favorite does.
-    func saveSongs(ids: [String]) async throws {
+    /// `shownTracks`: the rows the songs were listed as, keyed by their IDs. One stands in for its
+    /// song in Liked Songs when the song's catalog details can't be read (#596).
+    func saveSongs(ids: [String], shownTracks: [MusicTrack] = []) async throws {
         // A song removed moments ago can still read as in the library on this Mac; it needs the
         // save as much as one that never was.
         let needsSave: (AppleMusicSongReference) -> Bool = { reference in
@@ -245,11 +247,24 @@ struct AppleMusicLibraryEditor: Sendable {
         if !catalogIDs.isEmpty {
             let requestedAt = Date()
             try await cloud.addToLibrary(songCatalogIDs: catalogIDs, albumCatalogIDs: [])
-            let tracks = (try? await lookup.catalogTracks(ids: catalogIDs)) ?? []
+            // The save went through; a failed lookup of the songs' details must not leave their
+            // rows out of Liked Songs, so the row the song was listed as stands in (#596).
+            let tracks: [MusicTrack]
+            do {
+                tracks = try await lookup.catalogTracks(ids: catalogIDs)
+            } catch {
+                SpotiglassLog.error(
+                    .browsing,
+                    "Saved \(catalogIDs.count) songs but their catalog lookup failed; showing the rows as listed — \(error.localizedDescription)"
+                )
+                tracks = []
+            }
             let tracksByID = Dictionary(tracks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             for reference in toAdd {
                 pending.recordSavedSong(
-                    reference.catalogID.flatMap { tracksByID[$0] },
+                    reference.catalogID.flatMap { tracksByID[$0] }
+                        ?? reference.shownTrack
+                        ?? shownTracks.first { $0.id == reference.itemID },
                     reference: reference,
                     requestedAt: requestedAt
                 )

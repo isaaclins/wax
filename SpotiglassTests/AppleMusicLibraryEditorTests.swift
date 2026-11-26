@@ -1143,8 +1143,12 @@ final class MockLibraryLookup: AppleMusicLibraryLookup, @unchecked Sendable {
         }
     }
 
+    /// Thrown by the catalog read while set.
+    var catalogTracksError: Error?
+
     func catalogTracks(ids: [String]) async throws -> [MusicTrack] {
-        ids.compactMap { catalogTracksByID[$0] }
+        if let catalogTracksError { throw catalogTracksError }
+        return ids.compactMap { catalogTracksByID[$0] }
     }
 
     var catalogAlbumTracksByID: [String: [MusicTrack]] = [:]
@@ -1429,7 +1433,13 @@ final class EditTestContentSource: AppleMusicContentSource, @unchecked Sendable 
     var tracksByPlaylistID: [String: [Track]] = [:]
     var playlists: [Playlist] = []
 
-    func libraryPlaylists(limit: Int, offset: Int) async throws -> [Playlist] { offset == 0 ? playlists : [] }
+    /// Thrown by the playlists read while set.
+    var playlistsError: Error?
+
+    func libraryPlaylists(limit: Int, offset: Int) async throws -> [Playlist] {
+        if let playlistsError { throw playlistsError }
+        return offset == 0 ? playlists : []
+    }
     /// Holds the batch read, with `onLibraryTracks` run once it started.
     var libraryTracksGate: LibraryEditsGate?
     var onLibraryTracks: (@Sendable () -> Void)?

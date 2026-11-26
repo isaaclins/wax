@@ -12,7 +12,8 @@ extension SpotifyAPIClient {
     func saveTracks(ids: [String]) async throws {
         let unique = uniqueOrderedIDs(ids)
         guard !unique.isEmpty else { return }
-        for chunk in unique.chunked(into: Self.savedTracksMutationBatchSize) {
+        let batches = unique.chunked(into: Self.savedTracksMutationBatchSize)
+        try await MusicLibraryPartialEditError.sendingBatches(batches, step: "save to Liked Songs") { chunk in
             try await sendVoidWrite(
                 method: "PUT",
                 path: "/v1/me/tracks",
@@ -26,7 +27,8 @@ extension SpotifyAPIClient {
     func removeSavedTracks(ids: [String]) async throws {
         let unique = uniqueOrderedIDs(ids)
         guard !unique.isEmpty else { return }
-        for chunk in unique.chunked(into: Self.savedTracksMutationBatchSize) {
+        let batches = unique.chunked(into: Self.savedTracksMutationBatchSize)
+        try await MusicLibraryPartialEditError.sendingBatches(batches, step: "remove from Liked Songs") { chunk in
             try await sendVoidWrite(
                 method: "DELETE",
                 path: "/v1/me/tracks",
@@ -58,7 +60,8 @@ extension SpotifyAPIClient {
     func addTracksToPlaylist(playlistID: String, uris: [String]) async throws {
         let ordered = orderedURIs(uris)
         guard !ordered.isEmpty, !playlistID.isEmpty else { return }
-        for chunk in ordered.chunked(into: Self.playlistTracksMutationBatchSize) {
+        let batches = ordered.chunked(into: Self.playlistTracksMutationBatchSize)
+        try await MusicLibraryPartialEditError.sendingBatches(batches, step: "add to playlist") { chunk in
             let body: [String: Any] = ["uris": chunk]
             try await sendVoidWrite(
                 method: "POST",
@@ -80,7 +83,12 @@ extension SpotifyAPIClient {
         let removals = normalisedTrackRemovals(items)
         guard !removals.isEmpty, !playlistID.isEmpty else { return }
         var currentSnapshotID = snapshotID
-        for chunk in removals.chunkedByPositionCount(maximum: Self.playlistTracksMutationBatchSize) {
+        let batches = removals.chunkedByPositionCount(maximum: Self.playlistTracksMutationBatchSize)
+        try await MusicLibraryPartialEditError.sendingBatches(
+            batches,
+            step: "remove from playlist",
+            count: { $0.reduce(0) { $0 + $1.positions.count } }
+        ) { chunk in
             var body: [String: Any] = [
                 "items": chunk.map { [
                     "uri": $0.uri,

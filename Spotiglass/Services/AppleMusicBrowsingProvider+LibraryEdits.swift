@@ -13,6 +13,10 @@ extension AppleMusicBrowsingProvider {
         try await editor.saveSongs(ids: ids)
     }
 
+    func saveTracks(ids: [String], shown: [MusicTrack]) async throws {
+        try await editor.saveSongs(ids: ids, shownTracks: shown)
+    }
+
     func removeSavedTracks(ids: [String]) async throws {
         try await editor.removeSongs(ids: ids)
         // Music takes the songs out of every playlist they were in, and which ones that are is
@@ -47,14 +51,32 @@ extension AppleMusicBrowsingProvider {
     func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws -> MusicPlaylistSummary {
         let songIDs = trackURIs.compactMap(AppleMusicItemMapping.songID(fromURI:))
         guard songIDs.count == trackURIs.count else { throw AppleMusicLibraryEditError.notEditable }
-        // Playlists that already have this name don't count as the library showing the new one.
-        let existing = (try? await libraryPlaylists(limit: 100)) ?? []
         return try await editor.createPlaylist(
             name: name,
             ownerName: SpotiglassL10n.string("appleMusic.library.owner"),
             songIDs: songIDs,
-            existingIDsWithSameName: Set(existing.filter { AppleMusicLibraryEditor.isSamePlaylistName($0.nameAsSent, name) }.map(\.id))
+            existingIDsWithSameName: try await playlistIDs(named: name)
         )
+    }
+
+    /// Playlists that already have this name, which don't count as the library showing a new
+    /// one. A failed read is never taken as "none" (an old namesake would then end the new
+    /// playlist's row, #596): the last read's are used, and with none nothing is created.
+    private func playlistIDs(named name: String) async throws -> Set<String> {
+        do {
+            let existing = try await libraryPlaylists(limit: 100)
+            return Set(existing.filter { AppleMusicLibraryEditor.isSamePlaylistName($0.nameAsSent, name) }.map(\.id))
+        } catch {
+            guard let listed = editor.pending.lastListedPlaylistIDs(named: name) else {
+                SpotiglassLog.error(.browsing, "New playlist not created: the library's playlists could not be read — \(error.localizedDescription)")
+                throw error
+            }
+            SpotiglassLog.error(
+                .browsing,
+                "Library playlists read failed before a create; using the last read's \(listed.count) with that name — \(error.localizedDescription)"
+            )
+            return listed
+        }
     }
 
     func knownSavedTrackStatus(id: String) -> Bool? {

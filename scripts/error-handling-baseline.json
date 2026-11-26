@@ -971,11 +971,6 @@
   {
     "file": "Spotiglass/Services/AppleMusicBrowsingProvider+LibraryEdits.swift",
     "rule": "try-reason",
-    "code": "let existing = (try? await libraryPlaylists(limit: 100)) ?? []"
-  },
-  {
-    "file": "Spotiglass/Services/AppleMusicBrowsingProvider+LibraryEdits.swift",
-    "rule": "try-reason",
     "code": "let shown = (try? await playlistTracks(playlistID: playlistID, limit: 100, maxPages: 100)) ?? []",
     "count": 2
   },
@@ -1063,11 +1058,6 @@
     "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",
     "rule": "try-reason",
     "code": "for track in ((try? await lookup.catalogAlbumTracks(albumIDs: catalogIDs)) ?? []).reversed() {"
-  },
-  {
-    "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",
-    "rule": "try-reason",
-    "code": "let tracks = (try? await lookup.catalogTracks(ids: catalogIDs)) ?? []"
   },
   {
     "file": "Spotiglass/Services/AppleMusicLibraryEditor.swift",

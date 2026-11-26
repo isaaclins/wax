@@ -180,3 +180,50 @@ extension BrowsingDisplayError {
         )
     }
 }
+
+/// An edit sent as several requests that stopped part way: `completed` of `total` items went
+/// through before `step` failed with `underlying`. The items that went through stay changed,
+/// so the browser reloads what they changed instead of showing the edit as not made (#596).
+struct MusicLibraryPartialEditError: Error {
+    /// What the failed request was doing, for the log ("add to playlist").
+    let step: String
+    let completed: Int
+    let total: Int
+    let underlying: Error
+
+    /// Runs `send` for each batch in order and logs a partial stop with how far the edit got. A
+    /// failure after a batch went through throws this error; one before any did throws the
+    /// request's own error, since nothing changed.
+    static func sendingBatches<Item>(
+        _ batches: [[Item]],
+        step: String,
+        count: ([Item]) -> Int = { $0.count },
+        _ send: ([Item]) async throws -> Void
+    ) async throws {
+        let total = batches.reduce(0) { $0 + count($1) }
+        var completed = 0
+        for batch in batches {
+            do {
+                try await send(batch)
+            } catch {
+                // A failure before any batch went through is an ordinary failed request.
+                guard completed > 0 else { throw error }
+                SpotiglassLog.error(
+                    .api,
+                    "Library edit stopped at \(step): \(completed) of \(total) items done — \(error.localizedDescription)"
+                )
+                throw MusicLibraryPartialEditError(step: step, completed: completed, total: total, underlying: error)
+            }
+            completed += count(batch)
+        }
+    }
+}
+
+/// A new playlist that was created, but whose songs could not all be added: the playlist exists
+/// and has `added` of `total` songs, so it shows in the sidebar like any created one (#596).
+struct MusicPlaylistCreatedWithMissingTracksError: Error {
+    let playlist: MusicPlaylistSummary
+    let added: Int
+    let total: Int
+    let underlying: Error
+}

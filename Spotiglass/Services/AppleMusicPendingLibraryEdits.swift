@@ -269,6 +269,9 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
     private var savedAlbums: [String: Date] = [:]
     private var removedAlbums: [String: Date] = [:]
     private var createdPlaylists: [(summary: MusicPlaylistSummary, existingIDsWithSameName: Set<String>, at: Date)] = []
+    /// The playlists (ID and name as sent) the last library read listed, for a create whose own
+    /// read fails: those are the playlists it knows were there (#596).
+    private var lastListedPlaylists: [(id: String, name: String)]?
     private var renamedPlaylists: [String: (name: String, at: Date)] = [:]
     private var deletedPlaylists: [String: Date] = [:]
     /// Cloud library IDs (`p.…`) learned for library playlists, by the playlist's MusicKit ID.
@@ -612,6 +615,15 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
         }
     }
 
+    /// The playlists named `name` the last library read listed; `nil` before any read.
+    func lastListedPlaylistIDs(named name: String) -> Set<String>? {
+        locked {
+            lastListedPlaylists.map { listed in
+                Set(listed.filter { AppleMusicLibraryEditor.isSamePlaylistName($0.name, name) }.map(\.id))
+            }
+        }
+    }
+
     func createdPlaylist(id: String) -> MusicPlaylistSummary? {
         locked {
             expire()
@@ -646,6 +658,7 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
         locked {
             expire()
             let shownIDs = Set(playlists.map(\.id))
+            lastListedPlaylists = playlists.map { ($0.id, $0.nameAsSent) }
             deletedPlaylists = deletedPlaylists.filter { shownIDs.contains($0.key) }
             // Names as sent, not the stand-in two different names may both show (#547).
             createdPlaylists.removeAll { created in

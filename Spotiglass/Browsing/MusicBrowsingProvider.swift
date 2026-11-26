@@ -160,6 +160,9 @@ protocol MusicBrowsingProvider {
     /// that can do both in one step overrides it, so a failed add leaves no empty playlist.
     func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws -> MusicPlaylistSummary
     func saveTracks(ids: [String]) async throws
+    /// `shown`: the rows the songs were listed as. A provider whose library shows a save only
+    /// later lists these meanwhile, when it can't read the songs' own details (#596).
+    func saveTracks(ids: [String], shown: [MusicTrack]) async throws
     func removeSavedTracks(ids: [String]) async throws
     func savedTrackStatuses(ids: [String]) async throws -> [Bool]
     /// Whether a track is saved, when the provider knows it without a request (an Apple Music
@@ -227,13 +230,27 @@ extension MusicBrowsingProvider {
     func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws -> MusicPlaylistSummary {
         let created = try await createPlaylist(userID: userID, name: name, isPublic: isPublic)
         if !trackURIs.isEmpty {
-            try await addTracksToPlaylist(playlistID: created.id, uris: trackURIs)
+            do {
+                try await addTracksToPlaylist(playlistID: created.id, uris: trackURIs)
+            } catch {
+                // The playlist exists now; it is passed on so the browser shows it (#596).
+                let partial = error as? MusicLibraryPartialEditError
+                throw MusicPlaylistCreatedWithMissingTracksError(
+                    playlist: created,
+                    added: partial?.completed ?? 0,
+                    total: partial?.total ?? trackURIs.count,
+                    underlying: partial?.underlying ?? error
+                )
+            }
         }
         return created
     }
     func knownSavedTrackStatus(id: String) -> Bool? { nil }
     func saveTracks(ids: [String]) async throws {
         throw MusicBrowsingError(unsupportedOperation: "Library save")
+    }
+    func saveTracks(ids: [String], shown: [MusicTrack]) async throws {
+        try await saveTracks(ids: ids)
     }
     func removeSavedTracks(ids: [String]) async throws {
         throw MusicBrowsingError(unsupportedOperation: "Library unsave")

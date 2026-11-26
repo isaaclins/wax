@@ -104,6 +104,21 @@ extension PlaylistBrowserViewModel {
                 Int64(count),
                 name.string
             ))
+        } catch let partial as MusicLibraryPartialEditError {
+            // The songs that went stay gone; the playlist shows what it has now (#596).
+            logPartialEdit(partial, playlistID: playlistID)
+            invalidateTracksCache(playlistID: playlistID)
+            selectedDetailTrackIDs = []
+            adjustSidebarTrackCountAfterEdit(playlistID: playlistID, by: -partial.completed)
+            await refreshCurrentPlaylistMutationDetail(for: [playlistID])
+            let name = shownPlaylistName(playlistID: playlistID, given: playlistName)
+            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
+                "playlist.mutation.partialRemoveFromPlaylist",
+                Int64(partial.completed),
+                Int64(partial.total),
+                name.string,
+                Self.describeFailure(partial.underlying, operation: .removeFromPlaylist)
+            ))
         } catch {
             trackMutationToastText = Self.failureText(error, operation: .removeFromPlaylist)
         }
