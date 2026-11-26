@@ -489,32 +489,31 @@ final class WindowResizeCostTests: XCTestCase {
         let others = counts.filter { !$0.key.contains(":") }.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)x" }
         let window = NSApp.windows.first { $0.contentView?.frame.width ?? 0 > 1_000 }
         let context = "drew: \(others); window \(window.map { "\($0.frame.size)" } ?? "none"), screen \(NSScreen.main.map { "\($0.frame.size)" } ?? "none"), app active \(NSApp.isActive)"
-        // On GitHub's macOS 26 runner the player controls still draw with the presses while
-        // nothing above them does (#751); there only what #673 stopped is checked.
-        let controlsStayStill: Bool
-        if #available(macOS 27, *) { controlsStayStill = true } else { controlsStayStill = false }
         for container in [
             "PlaylistBrowserView",
             "BrowserTransportBar",
+            "PlaybackControlsView",
             "PlaylistBrowserSidebar",
             "PlaylistsSidebarSectionContent",
             "PlaylistBrowserMainDetailColumn",
-        ] + (controlsStayStill ? ["PlaybackControlsView"] : []) + extraViews {
+            "TrackListView",
+        ] + extraViews {
             XCTAssertNil(
                 counts[container],
                 "\(container) re-rendered \(counts[container] ?? 0) times when the queue opened and closed three times (\(context))",
                 file: file, line: line
             )
         }
-        // The sidebar's rows never leave the window, so none may draw. The page's rows aren't
-        // counted: the list runs every row's body whenever anything inside it updates, so their
-        // count follows whatever else the list shows (on a busy Mac every row drew once or twice
-        // on its own, nothing above them). The page and its column above them are checked, and
-        // before #673 those drew with every press.
-        let rows = counts.keys.filter { $0.hasPrefix("PlaylistListRow:") }
+        // No row may draw: the page's rows stay where they are, only narrower, and the sidebar's
+        // never leave the window. On macOS 26 every song row the list held drew with each press,
+        // the player controls too, because SwiftUI looked at the list and the controls and the
+        // bindings they kept said they had changed (#751).
+        let rows = counts.keys.filter { name in
+            ["TrackListRow:", "PlaylistListRow:"].contains(where: name.hasPrefix)
+        }
         XCTAssertTrue(
             rows.isEmpty,
-            "sidebar rows re-rendered as the queue opened and closed: \(rows.sorted().prefix(5).map { "\($0) \(counts[$0] ?? 0)x" })",
+            "rows re-rendered as the queue opened and closed: \(rows.sorted().prefix(5).map { "\($0) \(counts[$0] ?? 0)x" }) (\(context))",
             file: file, line: line
         )
     }

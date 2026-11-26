@@ -16,17 +16,26 @@ import SwiftUI
 /// selectable table inside another scroll view.
 struct TrackListView<Row: View>: View {
     let tracks: [TrackRowViewModel]
-    /// Bound straight through to the browser view model's selection set, which
-    /// stays the source of truth every context menu action reads.
-    @Binding var selection: Set<String>
+    /// The browser view model's selection set as the page handed it in, which stays the source
+    /// of truth every context menu action reads, and how to change it. Neither this nor
+    /// `pendingScrollRestoreTrackID` is kept as a `Binding`: a binding into a view model tells
+    /// SwiftUI it changed every time SwiftUI looks, and on macOS 26 opening or closing the queue
+    /// makes SwiftUI look at this view, so the list ran every row it holds with each press
+    /// though nothing in them changed (#751). The page builds this view again when either changes.
+    private let selection: Set<String>
+    /// The page's selection binding, handed to the list in the body: it reads the selection live,
+    /// so a click the table makes is read back before the page has built this view again. It is
+    /// kept inside a closure on purpose: kept as a `Binding` it would bring #751 back.
+    private let liveSelection: () -> Binding<Set<String>>
     let rowBuilder: (TrackRowViewModel) -> Row
     /// Optional content rendered above the track rows in the native list.
     let headerContent: AnyView?
     /// Optional content rendered below the track rows in the native list.
     let footerContent: AnyView?
     /// Set externally (e.g. when lyrics dismiss) to a track id; the list scrolls
-    /// that row to the middle of the viewport, then clears the binding.
-    @Binding var pendingScrollRestoreTrackID: String?
+    /// that row to the middle of the viewport, then clears it.
+    private let pendingScrollRestoreTrackID: String?
+    private let clearPendingScrollRestore: () -> Void
     /// Fires with the id of the topmost visible row whenever it changes; powers
     /// the "remember last visible track" behavior used for scroll restore.
     let onFirstVisibleTrackChanged: (String) -> Void
@@ -62,11 +71,13 @@ struct TrackListView<Row: View>: View {
         footerContent: AnyView? = nil
     ) {
         self.tracks = tracks
-        _selection = selection
+        self.selection = selection.wrappedValue
+        liveSelection = { selection }
         self.rowBuilder = rowBuilder
         self.headerContent = headerContent
         self.footerContent = footerContent
-        _pendingScrollRestoreTrackID = pendingScrollRestoreTrackID
+        self.pendingScrollRestoreTrackID = pendingScrollRestoreTrackID.wrappedValue
+        clearPendingScrollRestore = { pendingScrollRestoreTrackID.wrappedValue = nil }
         self.onFirstVisibleTrackChanged = onFirstVisibleTrackChanged
         self.playSelection = playSelection
         self.moveRows = moveRows
@@ -84,9 +95,12 @@ struct TrackListView<Row: View>: View {
     @FocusState private var isListFocused: Bool
 
     var body: some View {
+        #if DEBUG
+        let _ = ViewBodyTally.record("TrackListView")
+        #endif
         let generations = realizedRows.generations(tracks: tracks, selection: selection)
         ScrollViewReader { proxy in
-            List(selection: $selection) {
+            List(selection: liveSelection()) {
                 if let headerContent {
                     headerContent
                         .listRowInsets(EdgeInsets())
@@ -134,7 +148,7 @@ struct TrackListView<Row: View>: View {
                 if tracks.contains(where: { $0.id == id }) {
                     proxy.scrollTo(id, anchor: .center)
                 }
-                pendingScrollRestoreTrackID = nil
+                clearPendingScrollRestore()
             }
         }
     }
