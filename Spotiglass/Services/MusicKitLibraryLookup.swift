@@ -35,12 +35,15 @@ struct AppleMusicSongIdentity: Equatable {
         let playParams = attributes?["playParams"] as? [String: Any]
         let identifiers = (object["meta"] as? [String: Any])?["musicKit_identifierSet"] as? [String: Any]
         let id = object["id"] as? String
-        let catalog = Self.string(playParams?["catalogId"])
+        let catalog =
+            Self.string(playParams?["catalogId"])
             ?? Self.string((identifiers?["catalogID"] as? [String: Any])?["value"])
-        let cloud = Self.string(playParams?["musicKit_libraryID"])
+        let cloud =
+            Self.string(playParams?["musicKit_libraryID"])
             ?? Self.string(identifiers?["libraryID"])
             ?? (id?.hasPrefix("i.") == true ? id : nil)
-        let persistent = Self.string(playParams?["musicKit_persistentID"])
+        let persistent =
+            Self.string(playParams?["musicKit_persistentID"])
             ?? Self.string((identifiers?["deviceLocalID"] as? [String: Any])?["value"])
         self.init(catalogID: catalog, cloudLibraryID: cloud, musicKitPersistentID: persistent)
     }
@@ -79,12 +82,14 @@ final class AppleMusicSongReferenceRegistry: @unchecked Sendable {
     }
 
     private let lock = NSLock()
-    private var references = LRUDictionary<String, AppleMusicSongReference>(capacity: AppleMusicSongReferenceRegistry.maxEntries)
+    private var references = LRUDictionary<String, AppleMusicSongReference>(
+        capacity: AppleMusicSongReferenceRegistry.maxEntries)
     /// Each song's other IDs, worked out once: encoding a song to read them takes about a
     /// quarter of a millisecond, a fifth of a second for an 800-song playlist that was paid again
     /// on every open (#442). Keyed by item ID and whether the song is in the library, as adding
     /// it gives it a cloud library ID.
-    private var identities = LRUDictionary<String, AppleMusicSongIdentity>(capacity: AppleMusicSongReferenceRegistry.maxIdentities)
+    private var identities = LRUDictionary<String, AppleMusicSongIdentity>(
+        capacity: AppleMusicSongReferenceRegistry.maxIdentities)
     static let maxIdentities = 20_000
 
     func remember(_ reference: AppleMusicSongReference) {
@@ -110,7 +115,7 @@ final class AppleMusicSongReferenceRegistry: @unchecked Sendable {
     /// playlist without being in the library, and the Music app then finds it only there.
     func remember(_ tracks: [Track], playlistID: String? = nil) {
         let playlistPersistentID = playlistID.flatMap(AppleMusicLibraryEditor.musicAppPersistentID(fromMusicKitID:))
-        for case let .song(song) in tracks where MusicKitLibraryLookup.isPersistentID(song.id.rawValue) {
+        for case .song(let song) in tracks where MusicKitLibraryLookup.isPersistentID(song.id.rawValue) {
             let isInLibrary = addedDate(song) != nil
             var reference = MusicKitLibraryLookup.reference(
                 song,
@@ -126,7 +131,7 @@ final class AppleMusicSongReferenceRegistry: @unchecked Sendable {
     /// Works out the other IDs of the songs a library playlist lists under a persistent ID ahead
     /// of time, so opening the playlist later doesn't have to (#442).
     func prepareIdentities(of tracks: [Track]) {
-        for case let .song(song) in tracks where MusicKitLibraryLookup.isPersistentID(song.id.rawValue) {
+        for case .song(let song) in tracks where MusicKitLibraryLookup.isPersistentID(song.id.rawValue) {
             _ = identity(of: song, isInLibrary: addedDate(song) != nil)
         }
     }
@@ -168,7 +173,8 @@ struct MusicKitLibraryLookup: AppleMusicLibraryLookup {
         }
         let identified = librarySongs.map { ($0, AppleMusicSongIdentity(encoding: $0)) }
         return ids.map { id in
-            guard let (song, identity) = identified.first(where: { $0.0.id.rawValue == id || $0.1.catalogID == id }) else {
+            guard let (song, identity) = identified.first(where: { $0.0.id.rawValue == id || $0.1.catalogID == id })
+            else {
                 if let known = registry.reference(for: id) { return known }
                 if Self.isPersistentID(id) {
                     // A playlist row: the song is in the library, under this persistent ID.
@@ -178,14 +184,16 @@ struct MusicKitLibraryLookup: AppleMusicLibraryLookup {
                         isInLibrary: true
                     )
                 }
-                return AppleMusicSongReference(itemID: id, catalogID: Self.isCatalogID(id) ? id : nil, isInLibrary: false)
+                return AppleMusicSongReference(
+                    itemID: id, catalogID: Self.isCatalogID(id) ? id : nil, isInLibrary: false)
             }
             return Self.reference(song, identity: identity, itemID: id)
         }
     }
 
     func catalogTracks(ids: [String]) async throws -> [MusicTrack] {
-        try await MusicKitContentSource.logged("library editor catalog songs read (\(ids.count) songs)") { () async throws in
+        try await MusicKitContentSource.logged("library editor catalog songs read (\(ids.count) songs)") {
+            () async throws in
             try await unloggedCatalogTracks(ids: ids)
         }
     }
@@ -203,7 +211,8 @@ struct MusicKitLibraryLookup: AppleMusicLibraryLookup {
     }
 
     func catalogAlbumTracks(albumIDs: [String]) async throws -> [MusicTrack] {
-        try await MusicKitContentSource.logged("library editor catalog album tracks read (\(albumIDs.count) albums)") { () async throws in
+        try await MusicKitContentSource.logged("library editor catalog album tracks read (\(albumIDs.count) albums)") {
+            () async throws in
             try await unloggedCatalogAlbumTracks(albumIDs: albumIDs)
         }
     }
@@ -229,7 +238,8 @@ struct MusicKitLibraryLookup: AppleMusicLibraryLookup {
     }
 
     func albums(ids: [String]) async throws -> [AppleMusicAlbumReference] {
-        try await MusicKitContentSource.logged("library editor albums lookup (\(ids.count) albums)") { () async throws in
+        try await MusicKitContentSource.logged("library editor albums lookup (\(ids.count) albums)") {
+            () async throws in
             try await unloggedAlbums(ids: ids)
         }
     }
@@ -240,30 +250,34 @@ struct MusicKitLibraryLookup: AppleMusicLibraryLookup {
             var request = MusicLibraryRequest<Album>()
             request.filter(matching: \.id, equalTo: MusicItemID(id))
             guard let album = try await request.response().items.first else {
-                references.append(AppleMusicAlbumReference(
-                    itemID: id,
-                    catalogID: Self.isCatalogID(id) ? id : nil,
-                    isInLibrary: false,
-                    librarySongs: []
-                ))
+                references.append(
+                    AppleMusicAlbumReference(
+                        itemID: id,
+                        catalogID: Self.isCatalogID(id) ? id : nil,
+                        isInLibrary: false,
+                        librarySongs: []
+                    ))
                 continue
             }
             let detailed = try await album.with([.tracks])
             var songs: [AppleMusicSongReference] = []
             var batch = detailed.tracks
             while let tracks = batch {
-                for case let .song(song) in tracks {
-                    songs.append(Self.reference(song, identity: AppleMusicSongIdentity(encoding: song), itemID: song.id.rawValue))
+                for case .song(let song) in tracks {
+                    songs.append(
+                        Self.reference(song, identity: AppleMusicSongIdentity(encoding: song), itemID: song.id.rawValue)
+                    )
                 }
                 batch = tracks.hasNextBatch ? try await tracks.nextBatch() : nil
             }
             let albumIdentity = AppleMusicSongIdentity(encoding: album)
-            references.append(AppleMusicAlbumReference(
-                itemID: id,
-                catalogID: albumIdentity.catalogID ?? (Self.isCatalogID(id) ? id : nil),
-                isInLibrary: true,
-                librarySongs: songs
-            ))
+            references.append(
+                AppleMusicAlbumReference(
+                    itemID: id,
+                    catalogID: albumIdentity.catalogID ?? (Self.isCatalogID(id) ? id : nil),
+                    isInLibrary: true,
+                    librarySongs: songs
+                ))
         }
         return references
     }
@@ -308,8 +322,11 @@ struct MusicKitLibraryLookup: AppleMusicLibraryLookup {
         }
     }
 
-    private func unloggedLibraryIdentity(of reference: AppleMusicSongReference) async throws -> AppleMusicSongIdentity? {
-        guard let title = reference.title, !title.isEmpty, let persistentID = reference.musicKitPersistentID else { return nil }
+    private func unloggedLibraryIdentity(of reference: AppleMusicSongReference) async throws -> AppleMusicSongIdentity?
+    {
+        guard let title = reference.title, !title.isEmpty, let persistentID = reference.musicKitPersistentID else {
+            return nil
+        }
         var request = MusicLibraryRequest<Song>()
         request.filter(matching: \.title, equalTo: title)
         return try await request.response().items
@@ -348,6 +365,6 @@ struct MusicKitLibraryLookup: AppleMusicLibraryLookup {
     }
 }
 
-private extension Character {
-    var isASCIIDigit: Bool { isASCII && isNumber }
+extension Character {
+    fileprivate var isASCIIDigit: Bool { isASCII && isNumber }
 }

@@ -139,7 +139,10 @@ final class PinnedItemsStore: ObservableObject {
         let location = file?.path ?? "the pins file"
         do {
             guard let copy = try cache?.preservePinnedItemsFile(userID: userID) else {
-                SpotiglassLog.error(SpotiglassLog.pinning, "Pins in \(SpotiglassLog.personal(location)) could not be fully read. \(SpotiglassLog.personal(problems.joined(separator: "; ")))")
+                SpotiglassLog.error(
+                    SpotiglassLog.pinning,
+                    "Pins in \(SpotiglassLog.personal(location)) could not be fully read. \(SpotiglassLog.personal(problems.joined(separator: "; ")))"
+                )
                 return
             }
             let name = copy.lastPathComponent
@@ -147,7 +150,10 @@ final class PinnedItemsStore: ObservableObject {
                 nil,
                 while: "reading the pins file (kept a copy, saving over the original)",
                 in: .pinning,
-                context: [.private("file", location), .private("problems", problems.joined(separator: "; ")), .private("copy", copy.path)],
+                context: [
+                    .private("file", location), .private("problems", problems.joined(separator: "; ")),
+                    .private("copy", copy.path),
+                ],
                 showing: ErrorMessage(message: SpotiglassL10n.format("browser.pinned.copyKept", name))
             )
             keptCopyNotice = fileNotice
@@ -176,7 +182,8 @@ final class PinnedItemsStore: ObservableObject {
     @discardableResult
     func pin(_ item: PinnedItem, at index: Int? = nil) -> Bool {
         var normalizedItem = item.migratedLegacyTrackPin()
-        let known = normalizedItem.identityIDs.union(aliases?.knownAliases(ofPinID: normalizedItem.id, checkingAlbum: false) ?? [])
+        let known = normalizedItem.identityIDs.union(
+            aliases?.knownAliases(ofPinID: normalizedItem.id, checkingAlbum: false) ?? [])
         guard !known.contains(where: isPinned(id:)) else { return false }
         let others = known.subtracting([normalizedItem.id])
         if !others.isEmpty { normalizedItem.aliasIDs = others.sorted() }
@@ -198,7 +205,9 @@ final class PinnedItemsStore: ObservableObject {
     func unpin(id: String) {
         let queryKeys = identityKeys(ofQuery: id)
         let kind = PinnedItem.kind(ofPinID: id)
-        let matches: (PinnedItem) -> Bool = { $0.answers(to: id) || ($0.kind == kind && self.isSameItem($0, queryKeys)) }
+        let matches: (PinnedItem) -> Bool = {
+            $0.answers(to: id) || ($0.kind == kind && self.isSameItem($0, queryKeys))
+        }
         guard items.contains(where: matches) else { return }
         items.removeAll(where: matches)
         persist()
@@ -257,8 +266,8 @@ final class PinnedItemsStore: ObservableObject {
     /// same kind exists, so a long track list without track pins never works anything out.
     private func identityKeys(ofQuery id: String) -> Set<String> {
         guard let aliases,
-              let kind = PinnedItem.kind(ofPinID: id),
-              items.contains(where: { $0.kind == kind })
+            let kind = PinnedItem.kind(ofPinID: id),
+            items.contains(where: { $0.kind == kind })
         else { return [id] }
         return aliases.knownAliases(ofPinID: id, checkingAlbum: false).union([id])
     }
@@ -364,8 +373,8 @@ final class PinnedItemsStore: ObservableObject {
         let generation = bindingGeneration
         return Task { [weak self] in
             guard let found = await aliases.lookUpAliases(of: pins, userID: userID),
-                  !Task.isCancelled, let self,
-                  self.boundUserID == userID, self.bindingGeneration == generation
+                !Task.isCancelled, let self,
+                self.boundUserID == userID, self.bindingGeneration == generation
             else { return }
             self.applyLookedUpAliases(found)
         }
@@ -442,7 +451,9 @@ final class PinnedItemsStore: ObservableObject {
         // too (#524). A row that names that ID itself keeps its own cover.
         if let aliases {
             for (id, url) in artworkByID {
-                for alias in aliases.knownAliases(ofPinID: PinnedItem.id(forKind: .playlist, spotifyID: id), checkingAlbum: false) {
+                for alias in aliases.knownAliases(
+                    ofPinID: PinnedItem.id(forKind: .playlist, spotifyID: id), checkingAlbum: false)
+                {
                     guard let aliasID = PinnedItem.itemID(ofPinID: alias), artworkByID[aliasID] == nil else { continue }
                     artworkByID[aliasID] = url
                 }
@@ -467,7 +478,7 @@ final class PinnedItemsStore: ObservableObject {
                 // offers that loads on its own (a shared playlist's catalog cover from Search)
                 // takes its place, so the pin keeps its cover if the playlist leaves the library.
                 guard AppleMusicArtworkRegistry.needsMusicKit(saved),
-                      let durable = artworkByID[id], !AppleMusicArtworkRegistry.needsMusicKit(durable)
+                    let durable = artworkByID[id], !AppleMusicArtworkRegistry.needsMusicKit(durable)
                 else { continue }
                 next[index].artworkURL = durable
             } else if let url = artworkByID[id] ?? knownArtwork(next[index].id) {

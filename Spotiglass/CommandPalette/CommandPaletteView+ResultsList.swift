@@ -30,7 +30,11 @@ struct CommandPaletteSectionedListView: View {
                     // the list scrolls instead of pushing the filters and the footer out (#462).
                     ScrollView(.vertical) {
                         sectionStack(scrolling)
-                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+                            .onGeometryChange(for: CGFloat.self) {
+                                $0.size.height
+                            } action: {
+                                contentHeight = $0
+                            }
                     }
                     .scrollBounceBehavior(.basedOnSize)
                     .frame(maxHeight: min(contentHeight, SpotiglassDesign.Layout.paletteResultsHeight))
@@ -159,13 +163,14 @@ struct CommandPaletteListRow: Identifiable {
                 let base = "\(entry.section.rawValue)\u{1f}\(item.id)"
                 let count = seen[base, default: 0]
                 seen[base] = count + 1
-                rows.append(Self(
-                    id: count == 0 ? base : "\(base)\u{1f}\(count)",
-                    flatIndex: rows.count,
-                    item: item,
-                    section: entry.section,
-                    startsSection: offset == 0
-                ))
+                rows.append(
+                    Self(
+                        id: count == 0 ? base : "\(base)\u{1f}\(count)",
+                        flatIndex: rows.count,
+                        item: item,
+                        section: entry.section,
+                        startsSection: offset == 0
+                    ))
             }
         }
         return rows
@@ -178,9 +183,9 @@ struct CommandPaletteResultRowView: View {
     /// no colour, so the selection has to be stated as a trait (#119).
     var isSelected: Bool = false
     #if DEBUG
-    /// The name this row is counted under while on screen, so it leaves the count under the same
-    /// name even when it disappears after its item or highlight changed.
-    @State private var tallied = TalliedName()
+        /// The name this row is counted under while on screen, so it leaves the count under the same
+        /// name even when it disappears after its item or highlight changed.
+        @State private var tallied = TalliedName()
     #endif
 
     var body: some View {
@@ -214,31 +219,31 @@ struct CommandPaletteResultRowView: View {
         .accessibilityLabel(Self.accessibilityLabel(for: item))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         #if DEBUG
-        .onAppear { tallied.set(tallyName) }
-        .onDisappear { tallied.set(nil) }
-        .onChange(of: tallyName) { _, new in tallied.set(new) }
+            .onAppear { tallied.set(tallyName) }
+            .onDisappear { tallied.set(nil) }
+            .onChange(of: tallyName) { _, new in tallied.set(new) }
         #endif
     }
 
     #if DEBUG
-    /// The item this row draws and whether it draws the highlight, for tests that check what is
-    /// on screen (#499).
-    private var tallyName: String {
-        "CommandPaletteResultRow:\(item.id)" + (isSelected ? Self.selectedTallySuffix : "")
-    }
-
-    static let selectedTallySuffix = "\u{1f}selected"
-
-    @MainActor
-    private final class TalliedName {
-        private var name: String?
-
-        func set(_ new: String?) {
-            if let name { ViewBodyTally.disappeared(name) }
-            name = new
-            if let new { ViewBodyTally.appeared(new) }
+        /// The item this row draws and whether it draws the highlight, for tests that check what is
+        /// on screen (#499).
+        private var tallyName: String {
+            "CommandPaletteResultRow:\(item.id)" + (isSelected ? Self.selectedTallySuffix : "")
         }
-    }
+
+        static let selectedTallySuffix = "\u{1f}selected"
+
+        @MainActor
+        private final class TalliedName {
+            private var name: String?
+
+            func set(_ new: String?) {
+                if let name { ViewBodyTally.disappeared(name) }
+                name = new
+                if let new { ViewBodyTally.appeared(new) }
+            }
+        }
     #endif
 
     /// One sentence per result: title, the explicit badge, then the subtitle.

@@ -1,5 +1,6 @@
 import CoreAudio
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -24,15 +25,16 @@ final class PlaybackSessionPlayCommandsAndTrayTests: XCTestCase {
         XCTAssertTrue(lines.first?.contains("[ERROR] [playback]") == true)
     }
 
-
     func testAFailedListenerStatusIsLoggedAndASuccessIsNot() throws {
         let marker = "listener-\(UUID().uuidString)"
         PlaybackSessionViewModel.logListenerStatus(noErr, "\(marker) ok")
-        PlaybackSessionViewModel.logListenerStatus(kAudioHardwareBadObjectError, "\(marker) failed", consequence: "; list stays")
+        PlaybackSessionViewModel.logListenerStatus(
+            kAudioHardwareBadObjectError, "\(marker) failed", consequence: "; list stays")
 
         let lines = try SpotiglassLogReader.lines(containing: marker)
         XCTAssertEqual(lines.count, 1, "\(lines)")
-        XCTAssertTrue(lines.first?.contains("\(marker) failed (OSStatus \(kAudioHardwareBadObjectError)); list stays") == true)
+        XCTAssertTrue(
+            lines.first?.contains("\(marker) failed (OSStatus \(kAudioHardwareBadObjectError)); list stays") == true)
     }
     func testPlayURIWithoutDeviceSetsPlaybackError() async {
         let viewModel = PlaybackSessionViewModel(
@@ -46,7 +48,8 @@ final class PlaybackSessionPlayCommandsAndTrayTests: XCTestCase {
     func testPlayContextURISendsAPIAndBridge() async {
         let api = MockPlaybackAPI()
         let commander = MockWebPlaybackCommander()
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: commander))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: commander))
         viewModel.handle(.ready(deviceID: "device-1"))
 
         await viewModel.play(contextURI: "spotify:album:album-1")
@@ -59,22 +62,24 @@ final class PlaybackSessionPlayCommandsAndTrayTests: XCTestCase {
     func testPlayFromPlaylistFallsBackToSingleURIWhenTrackMissingFromList() async {
         let api = MockPlaybackAPI()
         let commander = MockWebPlaybackCommander()
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: commander))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: commander))
         viewModel.handle(.ready(deviceID: "device-1"))
-        viewModel.handle(.stateChanged(
-            PlaybackNowPlaying(
-                name: "Seed",
-                artists: ["A"],
-                albumName: nil,
-                albumID: nil,
-                albumArtURL: nil,
-                durationMilliseconds: 100_000,
-                positionMilliseconds: 0,
-                uri: "spotify:track:seed"
-            ),
-            isPaused: false,
-            nextTracks: []
-        ))
+        viewModel.handle(
+            .stateChanged(
+                PlaybackNowPlaying(
+                    name: "Seed",
+                    artists: ["A"],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 100_000,
+                    positionMilliseconds: 0,
+                    uri: "spotify:track:seed"
+                ),
+                isPaused: false,
+                nextTracks: []
+            ))
 
         await viewModel.playFromPlaylist(
             clickedURI: "spotify:track:missing",
@@ -195,13 +200,13 @@ final class PlaybackSessionPlayCommandsAndTrayTests: XCTestCase {
         await viewModel.play(uri: "spotify:track:a")
 
         viewModel.handle(.stateChanged(differentTrack, isPaused: false, nextTracks: []))
-        guard case let .playing(afterDifferentTrack) = viewModel.connectionState else {
+        guard case .playing(let afterDifferentTrack) = viewModel.connectionState else {
             return XCTFail("Expected the deduped call to leave the accepted play transition active")
         }
         XCTAssertEqual(afterDifferentTrack.uri, "spotify:track:a")
 
         viewModel.handle(.stateChanged(oldTrack, isPaused: false, nextTracks: []))
-        guard case let .playing(afterMatch) = viewModel.connectionState else {
+        guard case .playing(let afterMatch) = viewModel.connectionState else {
             return XCTFail("Expected the accepted URI to clear its own state fence")
         }
         XCTAssertEqual(afterMatch.uri, "spotify:track:a")
@@ -264,13 +269,13 @@ final class PlaybackSessionPlayCommandsAndTrayTests: XCTestCase {
         await queuedPlayEntered.wait()
 
         viewModel.handle(.stateChanged(oldTrack.with(positionMilliseconds: 1_000), isPaused: false, nextTracks: []))
-        guard case let .playing(afterLateOldTrack) = viewModel.connectionState else {
+        guard case .playing(let afterLateOldTrack) = viewModel.connectionState else {
             return XCTFail("Expected the queued URI fence to suppress the old URI")
         }
         XCTAssertEqual(afterLateOldTrack.uri, "spotify:track:a")
 
         viewModel.handle(.stateChanged(queuedTrack, isPaused: false, nextTracks: []))
-        guard case let .playing(afterQueuedTrack) = viewModel.connectionState else {
+        guard case .playing(let afterQueuedTrack) = viewModel.connectionState else {
             return XCTFail("Expected the queued URI to clear its own fence")
         }
         XCTAssertEqual(afterQueuedTrack.uri, "spotify:track:b")
@@ -279,7 +284,7 @@ final class PlaybackSessionPlayCommandsAndTrayTests: XCTestCase {
         releaseQueuedPlay.signal()
         await firstPlay.value
         await queuedPlay.value
-        guard case let .playing(afterCompletions) = viewModel.connectionState else {
+        guard case .playing(let afterCompletions) = viewModel.connectionState else {
             return XCTFail("Expected old command completion not to mutate the newer queue request")
         }
         XCTAssertEqual(afterCompletions.uri, "spotify:track:b")
@@ -334,13 +339,13 @@ final class PlaybackSessionPlayCommandsAndTrayTests: XCTestCase {
 
         releaseFirstPlay.signal()
         await firstPlay.value
-        guard case let .playing(afterFailure) = viewModel.connectionState else {
+        guard case .playing(let afterFailure) = viewModel.connectionState else {
             return XCTFail("A superseded play failure must not publish over the newer context request")
         }
         XCTAssertEqual(afterFailure.uri, "spotify:track:a")
 
         viewModel.handle(.stateChanged(newTrack, isPaused: false, nextTracks: []))
-        guard case let .playing(afterNewTrack) = viewModel.connectionState else {
+        guard case .playing(let afterNewTrack) = viewModel.connectionState else {
             return XCTFail("Expected the newer context transition to remain owned after old failure")
         }
         XCTAssertEqual(afterNewTrack.uri, "spotify:track:b")
@@ -396,26 +401,27 @@ final class PlaybackSessionPlayCommandsAndTrayTests: XCTestCase {
         await contextPlayEntered.wait()
 
         viewModel.handle(.stateChanged(newTrack, isPaused: false, nextTracks: []))
-        guard case let .playing(afterNewTrack) = viewModel.connectionState else {
+        guard case .playing(let afterNewTrack) = viewModel.connectionState else {
             return XCTFail("Expected the context's first SDK track to render immediately")
         }
         XCTAssertEqual(afterNewTrack.uri, "spotify:track:b")
 
-        viewModel.handle(.stateChanged(
-            PlaybackNowPlaying(
-                name: oldTrack.name,
-                artists: oldTrack.artists,
-                albumName: oldTrack.albumName,
-                albumID: oldTrack.albumID,
-                albumArtURL: oldTrack.albumArtURL,
-                durationMilliseconds: oldTrack.durationMilliseconds,
-                positionMilliseconds: 1_000,
-                uri: oldTrack.uri
-            ),
-            isPaused: false,
-            nextTracks: []
-        ))
-        guard case let .playing(afterLateOldTrack) = viewModel.connectionState else {
+        viewModel.handle(
+            .stateChanged(
+                PlaybackNowPlaying(
+                    name: oldTrack.name,
+                    artists: oldTrack.artists,
+                    albumName: oldTrack.albumName,
+                    albumID: oldTrack.albumID,
+                    albumArtURL: oldTrack.albumArtURL,
+                    durationMilliseconds: oldTrack.durationMilliseconds,
+                    positionMilliseconds: 1_000,
+                    uri: oldTrack.uri
+                ),
+                isPaused: false,
+                nextTracks: []
+            ))
+        guard case .playing(let afterLateOldTrack) = viewModel.connectionState else {
             return XCTFail("Expected a stale superseded event to leave the new track visible")
         }
         XCTAssertEqual(afterLateOldTrack.uri, "spotify:track:b")
@@ -476,13 +482,13 @@ final class PlaybackSessionPlayCommandsAndTrayTests: XCTestCase {
         await contextPlay.value
 
         viewModel.handle(.stateChanged(oldTrack.with(positionMilliseconds: 1_000), isPaused: false, nextTracks: []))
-        guard case let .playing(afterLateOldTrack) = viewModel.connectionState else {
+        guard case .playing(let afterLateOldTrack) = viewModel.connectionState else {
             return XCTFail("Expected a stale event to leave the pre-transition track visible")
         }
         XCTAssertEqual(afterLateOldTrack.uri, "spotify:track:a")
 
         viewModel.handle(.stateChanged(newTrack, isPaused: false, nextTracks: []))
-        guard case let .playing(afterNewTrack) = viewModel.connectionState else {
+        guard case .playing(let afterNewTrack) = viewModel.connectionState else {
             return XCTFail("Expected the first new context track to render after API completion")
         }
         XCTAssertEqual(afterNewTrack.uri, "spotify:track:b")

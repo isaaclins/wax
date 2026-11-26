@@ -92,8 +92,8 @@ extension SpotifyAPIClient {
     }
 }
 
-private extension SpotifyAPIClient {
-    func fetchAlbumTracks(
+extension SpotifyAPIClient {
+    fileprivate func fetchAlbumTracks(
         albumID: String,
         market: String?,
         limit: Int,
@@ -112,7 +112,7 @@ private extension SpotifyAPIClient {
             } else {
                 var queryItems: [URLQueryItem] = [
                     URLQueryItem(name: "limit", value: String(limit)),
-                    URLQueryItem(name: "offset", value: "0")
+                    URLQueryItem(name: "offset", value: "0"),
                 ]
                 if let market {
                     queryItems.append(URLQueryItem(name: "market", value: market))

@@ -128,18 +128,26 @@ final class EqualizerDriverInstallPolicyTests: XCTestCase {
             status: 64,
             message: "the request did not identify this app's bundled driver"
         )
-        XCTAssertTrue(EqualizerPrivilegedHelperClient.shouldReRegister(
-            after: rejected, helperIsThisBuild: false, isEnabled: true))
-        XCTAssertFalse(EqualizerPrivilegedHelperClient.shouldReRegister(
-            after: rejected, helperIsThisBuild: true, isEnabled: true))
-        XCTAssertFalse(EqualizerPrivilegedHelperClient.shouldReRegister(
-            after: rejected, helperIsThisBuild: false, isEnabled: false))
-        XCTAssertTrue(EqualizerPrivilegedHelperClient.shouldReRegister(
-            after: .helperUnavailable(message: "connection invalidated"), helperIsThisBuild: false, isEnabled: true))
-        XCTAssertFalse(EqualizerPrivilegedHelperClient.shouldReRegister(
-            after: .approvalRequired, helperIsThisBuild: false, isEnabled: true))
-        XCTAssertFalse(EqualizerPrivilegedHelperClient.shouldReRegister(
-            after: .helperOperationFailed(status: 74, message: "copyfile failed"), helperIsThisBuild: false, isEnabled: true))
+        XCTAssertTrue(
+            EqualizerPrivilegedHelperClient.shouldReRegister(
+                after: rejected, helperIsThisBuild: false, isEnabled: true))
+        XCTAssertFalse(
+            EqualizerPrivilegedHelperClient.shouldReRegister(
+                after: rejected, helperIsThisBuild: true, isEnabled: true))
+        XCTAssertFalse(
+            EqualizerPrivilegedHelperClient.shouldReRegister(
+                after: rejected, helperIsThisBuild: false, isEnabled: false))
+        XCTAssertTrue(
+            EqualizerPrivilegedHelperClient.shouldReRegister(
+                after: .helperUnavailable(message: "connection invalidated"), helperIsThisBuild: false, isEnabled: true)
+        )
+        XCTAssertFalse(
+            EqualizerPrivilegedHelperClient.shouldReRegister(
+                after: .approvalRequired, helperIsThisBuild: false, isEnabled: true))
+        XCTAssertFalse(
+            EqualizerPrivilegedHelperClient.shouldReRegister(
+                after: .helperOperationFailed(status: 74, message: "copyfile failed"), helperIsThisBuild: false,
+                isEnabled: true))
     }
 
     func testCodeSigningRequirementsPinTeamOrExplicitLocalCertificate() {

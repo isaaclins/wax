@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -8,7 +9,7 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
             tracks: [],
             artists: [
                 MusicArtist(id: "a1", name: "Taylor Swift", imageURL: nil, uri: "spotify:artist:a1"),
-                MusicArtist(id: "a2", name: "Other", imageURL: nil, uri: "spotify:artist:a2")
+                MusicArtist(id: "a2", name: "Other", imageURL: nil, uri: "spotify:artist:a2"),
             ],
             albums: [],
             playlists: []
@@ -74,7 +75,8 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
     /// "Tyler" alone is someone else: the credit's search lists the real artist with the comma.
     func testANameWithACommaInACombinedCreditIsNotCutAtTheComma() async throws {
         var queries: [String] = []
-        let id = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Tyler, The Creator & Kali Uchis") { query, _ in
+        let id = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Tyler, The Creator & Kali Uchis")
+        { query, _ in
             queries.append(query)
             return Self.catalogSearch(query)
         }
@@ -116,7 +118,8 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
             PlaylistBrowserTapTargetResolver.creditNames("A feat. B, C x D"),
             ["A feat. B, C x D", "A", "B", "C", "D"]
         )
-        XCTAssertEqual(PlaylistBrowserTapTargetResolver.creditNames("Florence and the Machine"), ["Florence and the Machine"])
+        XCTAssertEqual(
+            PlaylistBrowserTapTargetResolver.creditNames("Florence and the Machine"), ["Florence and the Machine"])
         XCTAssertEqual(PlaylistBrowserTapTargetResolver.creditNames("  "), [])
     }
 
@@ -167,7 +170,9 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
             id: "1",
             name: "PERFuMITO NUEVO",
             artists: ["Bad Bunny & RaiNao"],
-            artistRefs: [MusicArtistRef(id: "bad-bunny", name: "Bad Bunny"), MusicArtistRef(id: "rainao", name: "RaiNao")],
+            artistRefs: [
+                MusicArtistRef(id: "bad-bunny", name: "Bad Bunny"), MusicArtistRef(id: "rainao", name: "RaiNao"),
+            ],
             albumArtworkURL: nil,
             albumName: nil,
             albumID: nil,
@@ -185,7 +190,9 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
             progressMilliseconds: 0
         )
         let nowPlaying = snapshot.playbackNowPlaying
-        let expected = [ArtistTapTarget(id: "bad-bunny", name: "Bad Bunny"), ArtistTapTarget(id: "rainao", name: "RaiNao")]
+        let expected = [
+            ArtistTapTarget(id: "bad-bunny", name: "Bad Bunny"), ArtistTapTarget(id: "rainao", name: "RaiNao"),
+        ]
         XCTAssertEqual(nowPlaying?.artistTapTargets, expected)
         // Moving the position keeps them, and so does the queue's copy of the item.
         XCTAssertEqual(nowPlaying?.with(positionMilliseconds: 5_000).artistTapTargets, expected)
@@ -218,16 +225,19 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
                         "durationMilliseconds": 100_000,
                         "positionMilliseconds": 0,
                         "uri": "spotify:track:2",
-                    ],
+                    ]
                 ],
             ],
         ])
-        guard case let .stateChanged(nowPlaying, _, nextTracks, _) = event else {
+        guard case .stateChanged(let nowPlaying, _, let nextTracks, _) = event else {
             return XCTFail("Expected state changed")
         }
         XCTAssertEqual(
             nowPlaying?.artistTapTargets,
-            [ArtistTapTarget(id: "4q3ewBCX7sLwd24euuV69X", name: "Bad Bunny"), ArtistTapTarget(id: "rainao", name: "RaiNao")]
+            [
+                ArtistTapTarget(id: "4q3ewBCX7sLwd24euuV69X", name: "Bad Bunny"),
+                ArtistTapTarget(id: "rainao", name: "RaiNao"),
+            ]
         )
         XCTAssertEqual(nextTracks.first?.artistTapTargets, [ArtistTapTarget(id: "rainao", name: "RaiNao")])
     }
@@ -292,8 +302,11 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
 
     func testResolveAlbumIDWithArtistHintBuildsQuery() async throws {
         var capturedQuery = ""
-        let album = MusicAlbum(id: "alb1", name: "Midnights", artists: ["Taylor Swift"], imageURL: nil, uri: "spotify:album:alb1")
-        let id = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Midnights", artistHint: "Taylor Swift") { query, limit in
+        let album = MusicAlbum(
+            id: "alb1", name: "Midnights", artists: ["Taylor Swift"], imageURL: nil, uri: "spotify:album:alb1")
+        let id = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(
+            name: "Midnights", artistHint: "Taylor Swift"
+        ) { query, limit in
             capturedQuery = query
             XCTAssertEqual(limit, 10)
             return MusicSearchResults(tracks: [], artists: [], albums: [album], playlists: [])
@@ -304,7 +317,8 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
 
     func testResolveAlbumIDWithoutArtistUsesAlbumOnlyQuery() async throws {
         var capturedQuery = ""
-        _ = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Greatest Hits", artistHint: "") { query, _ in
+        _ = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Greatest Hits", artistHint: "") {
+            query, _ in
             capturedQuery = query
             return MusicSearchResults(tracks: [], artists: [], albums: [], playlists: [])
         }
@@ -323,7 +337,8 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
     /// The library read failed but the catalog found the artist: the name still opens it,
     /// instead of "Couldn't open".
     func testResolveArtistIDUsesTheHalfThatAnsweredWhenTheOtherFailed() async throws {
-        let answered = MusicSearchResults(tracks: [], artists: [Self.artist("a1", "Taylor Swift")], albums: [], playlists: [])
+        let answered = MusicSearchResults(
+            tracks: [], artists: [Self.artist("a1", "Taylor Swift")], albums: [], playlists: [])
         let id = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Taylor Swift") { _, _ in
             throw MusicSearchPartialFailure(results: answered, missing: .library, underlying: URLError(.timedOut))
         }
@@ -332,10 +347,14 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
 
     /// Offline, a saved album is still found from the library half.
     func testResolveAlbumIDUsesTheHalfThatAnsweredWhenTheOtherFailed() async throws {
-        let album = MusicAlbum(id: "alb1", name: "Midnights", artists: ["Taylor Swift"], imageURL: nil, uri: "music:album:alb1")
+        let album = MusicAlbum(
+            id: "alb1", name: "Midnights", artists: ["Taylor Swift"], imageURL: nil, uri: "music:album:alb1")
         let answered = MusicSearchResults(tracks: [], artists: [], albums: [album], playlists: [])
-        let id = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Midnights", artistHint: "Taylor Swift") { _, _ in
-            throw MusicSearchPartialFailure(results: answered, missing: .catalog, underlying: URLError(.notConnectedToInternet))
+        let id = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(
+            name: "Midnights", artistHint: "Taylor Swift"
+        ) { _, _ in
+            throw MusicSearchPartialFailure(
+                results: answered, missing: .catalog, underlying: URLError(.notConnectedToInternet))
         }
         XCTAssertEqual(id, "alb1")
     }
@@ -358,7 +377,8 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
         do {
             _ = try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: "Taylor Swift") { _, _ in
                 throw MusicSearchPartialFailure(
-                    results: MusicSearchResults(tracks: [], artists: [Self.artist("a9", "Someone Else")], albums: [], playlists: []),
+                    results: MusicSearchResults(
+                        tracks: [], artists: [Self.artist("a9", "Someone Else")], albums: [], playlists: []),
                     missing: .catalog,
                     underlying: URLError(.notConnectedToInternet)
                 )
@@ -371,7 +391,8 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
 
     func testResolveAlbumIDReportsTheFailureWhenTheHalfThatAnsweredHasNoAlbums() async {
         do {
-            _ = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Midnights", artistHint: "Taylor Swift") { _, _ in
+            _ = try await PlaylistBrowserTapTargetResolver.resolveAlbumID(name: "Midnights", artistHint: "Taylor Swift")
+            { _, _ in
                 throw MusicSearchPartialFailure(
                     results: MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []),
                     missing: .catalog,

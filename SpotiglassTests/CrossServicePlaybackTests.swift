@@ -3,6 +3,7 @@ import Combine
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 /// Playback across Spotify and Apple Music (#396), one rule: what you hear is what the bar and
@@ -31,7 +32,8 @@ final class CrossServicePlaybackTests: XCTestCase {
         playback.deviceID = "device-1"
         playback.hasTransferredPlaybackToCurrentDevice = true
         playback.setTransportStateKnown(true)
-        playback.setConnectionState(.paused(Self.song("Midnight City", uri: "spotify:track:1", positionMilliseconds: 197_000)))
+        playback.setConnectionState(
+            .paused(Self.song("Midnight City", uri: "spotify:track:1", positionMilliseconds: 197_000)))
         return (host, commander)
     }
 
@@ -52,7 +54,9 @@ final class CrossServicePlaybackTests: XCTestCase {
 
     /// Apple Music's player, playing Piranguera for real (the scripted MusicKit player has it
     /// queued and playing).
-    private func playingAppleMusic(in hosts: SpotiglassPlaybackHosts, player: ScriptedAppleMusicPlayer) async throws -> PlaybackSessionViewModel {
+    private func playingAppleMusic(in hosts: SpotiglassPlaybackHosts, player: ScriptedAppleMusicPlayer) async throws
+        -> PlaybackSessionViewModel
+    {
         let appleMusic = hosts.appleMusic.playbackViewModel
         appleMusic.handle(.ready(deviceID: AppleMusicPlaybackProvider.deviceID))
         try await hosts.appleMusic.playbackProvider.play(
@@ -60,7 +64,8 @@ final class CrossServicePlaybackTests: XCTestCase {
             deviceID: AppleMusicPlaybackProvider.deviceID
         )
         player.advance(by: 1)
-        appleMusic.setConnectionState(.playing(Self.song("Piranguera", uri: "applemusic:song:piranguera", positionMilliseconds: 25_000)))
+        appleMusic.setConnectionState(
+            .playing(Self.song("Piranguera", uri: "applemusic:song:piranguera", positionMilliseconds: 25_000)))
         return appleMusic
     }
 
@@ -92,7 +97,8 @@ final class CrossServicePlaybackTests: XCTestCase {
         XCTAssertTrue(upcoming.isEmpty)
 
         // Playing again after adding it back reports the new song as usual.
-        try await provider.play(.items(uris: ["applemusic:song:new"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(
+            .items(uris: ["applemusic:song:new"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
         player.advance(by: 1)
         let afterPlay = try await provider.fetchPlaybackState()
         XCTAssertEqual(afterPlay?.isPlaying, true)
@@ -134,7 +140,8 @@ final class CrossServicePlaybackTests: XCTestCase {
 
         player.holdLookups = true
         let play = Task {
-            try await provider.play(.items(uris: ["applemusic:song:slow"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
+            try await provider.play(
+                .items(uris: ["applemusic:song:slow"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
         }
         await waitUntil("a lookup waiting", changes: player.changes) { !player.waitingLookups.isEmpty }
         XCTAssertEqual(player.waitingLookups, ["play applemusic:song:slow"])
@@ -178,13 +185,15 @@ final class CrossServicePlaybackTests: XCTestCase {
         let afterAdd = try await provider.fetchPlaybackState()
         XCTAssertNil(afterAdd, "the signed-out song doesn't come back")
 
-        try await provider.play(.items(uris: ["applemusic:song:fresh"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(
+            .items(uris: ["applemusic:song:fresh"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
         player.advance(by: 1)
         let upcoming = try await provider.fetchQueue().queue.compactMap { item -> String? in
-            guard case let .track(track) = item else { return nil }
+            guard case .track(let track) = item else { return nil }
             return track.uri
         }
-        XCTAssertFalse(upcoming.contains("applemusic:song:added-before"), "the old added song isn't carried into the new queue")
+        XCTAssertFalse(
+            upcoming.contains("applemusic:song:added-before"), "the old added song isn't carried into the new queue")
     }
 
     /// Signed out, added Apple Music again, then a play that fails (a song MusicKit can't
@@ -202,7 +211,8 @@ final class CrossServicePlaybackTests: XCTestCase {
         await waitUntil("the sign-out's stop", changes: player.changes) { player.commands.contains("stop") }
         player.advance(by: 1)
         player.failure = NSError(domain: "MusicKit", code: 404)
-        _ = try? await provider.play(.items(uris: ["applemusic:song:missing"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
+        _ = try? await provider.play(
+            .items(uris: ["applemusic:song:missing"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
 
         let afterFailedPlay = try await provider.fetchPlaybackState()
         XCTAssertNil(afterFailedPlay, "the signed-out song stays hidden")
@@ -236,10 +246,11 @@ final class CrossServicePlaybackTests: XCTestCase {
         player.advance(by: 1)
 
         XCTAssertFalse(player.commands.contains("enqueue applemusic:song:slow-add"))
-        try await provider.play(.items(uris: ["applemusic:song:fresh"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(
+            .items(uris: ["applemusic:song:fresh"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
         player.advance(by: 1)
         let upcoming = try await provider.fetchQueue().queue.compactMap { item -> String? in
-            guard case let .track(track) = item else { return nil }
+            guard case .track(let track) = item else { return nil }
             return track.uri
         }
         XCTAssertFalse(upcoming.contains("applemusic:song:slow-add"))
@@ -255,7 +266,9 @@ final class CrossServicePlaybackTests: XCTestCase {
             try await provider.disconnectPlayer(generation: .initial)
             player.holdLookups = true
             let play = Task {
-                try await provider.play(.items(uris: ["applemusic:song:first"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
+                try await provider.play(
+                    .items(uris: ["applemusic:song:first"], startURI: nil),
+                    deviceID: AppleMusicPlaybackProvider.deviceID)
             }
             await waitUntil("a lookup waiting", changes: player.changes) { !player.waitingLookups.isEmpty }
             // The add takes the running play to wait for before it first suspends; this goes on
@@ -288,13 +301,15 @@ final class CrossServicePlaybackTests: XCTestCase {
 
         player.holdAfterQueueSet = true
         let playA = Task {
-            try await provider.play(.items(uris: ["applemusic:song:a"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
+            try await provider.play(
+                .items(uris: ["applemusic:song:a"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
         }
         await waitUntil("a lookup waiting", changes: player.changes) { !player.waitingLookups.isEmpty }
         XCTAssertEqual(player.waitingLookups, ["started applemusic:song:a"])
         player.holdAfterQueueSet = false
         player.failure = NSError(domain: "MusicKit", code: 404)
-        _ = try? await provider.play(.items(uris: ["applemusic:song:b"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
+        _ = try? await provider.play(
+            .items(uris: ["applemusic:song:b"], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
         player.releaseLookups()
         _ = try? await playA.value
 
@@ -312,7 +327,7 @@ final class CrossServicePlaybackTests: XCTestCase {
         let hosts = hosts(spotify: spotify, player: player)
         hosts.gate(activeService: .appleMusic)
         let appleMusic = try await playingAppleMusic(in: hosts, player: player)
-        hosts.gate(activeService: .spotify) // ⌃2
+        hosts.gate(activeService: .spotify)  // ⌃2
 
         let playback = spotify.playbackViewModel
         XCTAssertTrue(playback.isOtherServiceHeard)
@@ -347,7 +362,8 @@ final class CrossServicePlaybackTests: XCTestCase {
         let appleMusic = hosts.appleMusic.playbackViewModel
         appleMusic.handle(.ready(deviceID: AppleMusicPlaybackProvider.deviceID))
         appleMusic.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
-        XCTAssertTrue(appleMusic.audiblePlayer === spotify.playbackViewModel, "before the press the bar shows what you hear")
+        XCTAssertTrue(
+            appleMusic.audiblePlayer === spotify.playbackViewModel, "before the press the bar shows what you hear")
 
         player.holdLookups = true
         let play = Task { await appleMusic.play(uri: "applemusic:song:piranguera") }
@@ -369,7 +385,7 @@ final class CrossServicePlaybackTests: XCTestCase {
         let hosts = hosts(spotify: spotify, player: player)
         hosts.gate(activeService: .appleMusic)
         let appleMusic = try await playingAppleMusic(in: hosts, player: player)
-        hosts.gate(activeService: .spotify) // ⌃2
+        hosts.gate(activeService: .spotify)  // ⌃2
         let playback = spotify.playbackViewModel
         let manager = wirePalette(to: playback)
 
@@ -404,18 +420,22 @@ final class CrossServicePlaybackTests: XCTestCase {
         let hosts = hosts(spotify: spotify, player: player)
         hosts.gate(activeService: .appleMusic)
         let appleMusic = try await playingAppleMusic(in: hosts, player: player)
-        hosts.gate(activeService: .spotify) // ⌃2
+        hosts.gate(activeService: .spotify)  // ⌃2
         let playback = spotify.playbackViewModel
         let manager = wirePalette(to: playback)
         manager.bindPlaybackReadiness(to: playback)
         // A song of its own: the lyrics cache is app-wide.
-        let piranguera = Self.song("Piranguera", uri: "applemusic:song:piranguera-\(UUID().uuidString)", positionMilliseconds: 25_000)
+        let piranguera = Self.song(
+            "Piranguera", uri: "applemusic:song:piranguera-\(UUID().uuidString)", positionMilliseconds: 25_000)
         appleMusic.setConnectionState(.playing(piranguera))
 
         // The Lyrics view in the main window loads the song in the bar while it plays.
         var looked: [String] = []
         let lookups = TestChanges()
-        let lyricsOverlay = try hostLyricsOverlay(onScreenPlayer: playback) { looked.append($0); lookups.send() }
+        let lyricsOverlay = try hostLyricsOverlay(onScreenPlayer: playback) {
+            looked.append($0)
+            lookups.send()
+        }
         defer { ViewTestHost.tearDownAll() }
         await waitUntil("the lyrics looked up", changes: lookups) { !looked.isEmpty }
         XCTAssertEqual(looked, ["Piranguera"], "not Midnight City, Spotify's paused song on screen")
@@ -452,7 +472,7 @@ final class CrossServicePlaybackTests: XCTestCase {
         enum Ending { case reported, fails, timesOut }
         let runs: [(start: PlaybackConnectionState, ending: Ending)] = [
             (.paused(nil), .reported),
-            (.ready(deviceID: "device-1"), .reported), // connected after launch, nothing loaded
+            (.ready(deviceID: "device-1"), .reported),  // connected after launch, nothing loaded
             (.paused(nil), .fails),
             (.paused(nil), .timesOut),
         ]
@@ -470,7 +490,8 @@ final class CrossServicePlaybackTests: XCTestCase {
             let appleMusic = try await playingAppleMusic(in: hosts, player: player)
             hosts.gate(activeService: .spotify)
             let playback = spotify.playbackViewModel
-            let piranguera = Self.song("Piranguera", uri: "applemusic:song:piranguera-\(UUID().uuidString)", positionMilliseconds: 25_000)
+            let piranguera = Self.song(
+                "Piranguera", uri: "applemusic:song:piranguera-\(UUID().uuidString)", positionMilliseconds: 25_000)
             appleMusic.setConnectionState(.playing(piranguera))
             _ = playback.audiblePlayer.requestTogglePlayPause()
             await appleMusic.playPauseCommandTail?.value
@@ -481,7 +502,10 @@ final class CrossServicePlaybackTests: XCTestCase {
 
             var looked: [String] = []
             let lookups = TestChanges()
-            let lyricsOverlay = try hostLyricsOverlay(onScreenPlayer: playback) { looked.append($0); lookups.send() }
+            let lyricsOverlay = try hostLyricsOverlay(onScreenPlayer: playback) {
+                looked.append($0)
+                lookups.send()
+            }
             let manager = wirePalette(
                 to: playback,
                 lyricsPresented: lyricsOverlay.presentedBinding {}
@@ -491,7 +515,9 @@ final class CrossServicePlaybackTests: XCTestCase {
             // Piranguera's own load ends first, so the `.loading` below can only be the wait for
             // the next song.
             let lyricsModel = try XCTUnwrap(lyricsOverlay.lyricsModel, label)
-            await waitUntil("Piranguera's lyrics loaded, \(label)", changes: lyricsModel.$phase) { lyricsModel.phase != .loading }
+            await waitUntil("Piranguera's lyrics loaded, \(label)", changes: lyricsModel.$phase) {
+                lyricsModel.phase != .loading
+            }
 
             // Play a Spotify song from the palette.
             let strobeURI = "spotify:track:strobe-\(UUID().uuidString)"
@@ -502,12 +528,15 @@ final class CrossServicePlaybackTests: XCTestCase {
             }
             if ending == .fails {
                 await play.value
-                await waitUntil("the lyrics closed, \(label)", changes: lyricsOverlay.$isPresented) { !lyricsOverlay.isPresented }
+                await waitUntil("the lyrics closed, \(label)", changes: lyricsOverlay.$isPresented) {
+                    !lyricsOverlay.isPresented
+                }
                 XCTAssertFalse(lyricsOverlay.isPresented, "the play failed: no song to show the lyrics of, \(label)")
                 ViewTestHost.tearDownAll()
                 continue
             }
-            XCTAssertTrue(playback.audiblePlayer === playback, "Spotify is the one you hear now, in the bar too, \(label)")
+            XCTAssertTrue(
+                playback.audiblePlayer === playback, "Spotify is the one you hear now, in the bar too, \(label)")
             // The lyrics take up the wait for Spotify's song: the same step closes them when no
             // song is coming. It ends on that, or at once on the lyrics closing, which fails below.
             await waitUntil(
@@ -516,14 +545,17 @@ final class CrossServicePlaybackTests: XCTestCase {
             ) { lyricsModel.phase == .loading || !lyricsOverlay.isPresented }
             await ViewTestHost.renderPendingUpdates()
             XCTAssertTrue(lyricsOverlay.isPresented, "the lyrics closed while Spotify's song was on its way, \(label)")
-            XCTAssertEqual(lyricsOverlay.lyricsModel?.phase, .loading, "the lyrics wait for the song, like the bar, \(label)")
+            XCTAssertEqual(
+                lyricsOverlay.lyricsModel?.phase, .loading, "the lyrics wait for the song, like the bar, \(label)")
             XCTAssertTrue(manager.isLyricsToggleAllowed, "Hide Lyrics doesn't work while the lyrics wait, \(label)")
             await play.value
 
             if ending == .timesOut {
                 // What the session does when no report came in time (`pendingPlayURITimeout`).
                 playback.clearPendingPlay()
-                await waitUntil("the lyrics closed, \(label)", changes: lyricsOverlay.$isPresented) { !lyricsOverlay.isPresented }
+                await waitUntil("the lyrics closed, \(label)", changes: lyricsOverlay.$isPresented) {
+                    !lyricsOverlay.isPresented
+                }
                 XCTAssertFalse(lyricsOverlay.isPresented, "the wait for the song never ended, \(label)")
                 ViewTestHost.tearDownAll()
                 continue
@@ -567,8 +599,10 @@ final class CrossServicePlaybackTests: XCTestCase {
         XCTAssertEqual(willOpen, 1, "opening the lyrics again saved the playlist's scroll position again")
         XCTAssertTrue(lyricsOverlay.isPresented, "the lyrics didn't open for the song in the bar")
         ViewTestHost.host(
-            LyricsOverlayLayer(lyricsOverlay: lyricsOverlay, keymapStore: CommandPaletteKeymapStore(settingsStore: settings))
-                .environmentObject(settings),
+            LyricsOverlayLayer(
+                lyricsOverlay: lyricsOverlay, keymapStore: CommandPaletteKeymapStore(settingsStore: settings)
+            )
+            .environmentObject(settings),
             size: CGSize(width: 960, height: 640)
         )
         return lyricsOverlay
@@ -589,7 +623,8 @@ final class CrossServicePlaybackTests: XCTestCase {
         XCTAssertTrue(appleMusic.audiblePlayer === spotifyPlayer)
 
         // Spotify's page reports the pause.
-        spotifyPlayer.setConnectionState(.paused(Self.song("Midnight City", uri: "spotify:track:1", positionMilliseconds: 60_000)))
+        spotifyPlayer.setConnectionState(
+            .paused(Self.song("Midnight City", uri: "spotify:track:1", positionMilliseconds: 60_000)))
 
         XCTAssertTrue(appleMusic.audiblePlayer === spotifyPlayer, "the bar stays on Midnight City")
         let manager = wirePalette(to: appleMusic)
@@ -608,7 +643,8 @@ final class CrossServicePlaybackTests: XCTestCase {
         hosts.gate(activeService: .spotify)
         let spotifyPlayer = spotify.playbackViewModel
         spotifyPlayer.setConnectionState(.playing(Self.song("Midnight City", uri: "spotify:track:1")))
-        spotifyPlayer.setConnectionState(.paused(Self.song("Midnight City", uri: "spotify:track:1", positionMilliseconds: 60_000)))
+        spotifyPlayer.setConnectionState(
+            .paused(Self.song("Midnight City", uri: "spotify:track:1", positionMilliseconds: 60_000)))
         XCTAssertNil(hosts.appleMusicIfCreated)
 
         // ⌃2 to Apple Music for the first time.
@@ -741,7 +777,8 @@ final class CrossServicePlaybackTests: XCTestCase {
 
         XCTAssertTrue(appleMusic.audiblePlayer === spotify.playbackViewModel)
         XCTAssertEqual(appleMusic.audiblePlayer.service, .spotify)
-        XCTAssertTrue(spotify.playbackViewModel.audiblePlayer === spotify.playbackViewModel, "Spotify plays: its own bar")
+        XCTAssertTrue(
+            spotify.playbackViewModel.audiblePlayer === spotify.playbackViewModel, "Spotify plays: its own bar")
     }
 
     /// Nothing changes for one service alone: the bar is always its own player.
@@ -878,9 +915,14 @@ final class CrossServicePlaybackTests: XCTestCase {
             manager.viewModel.staticItemsProvider().map(\.id)
         }
 
-        XCTAssertFalse(quickActionIDs().contains(CommandPaletteCommandID.nextTrack), "nothing to skip from", file: file, line: line)
-        XCTAssertFalse(commandIDs().contains(CommandPaletteCommandID.previousTrack), "nothing to go back from", file: file, line: line)
-        XCTAssertFalse(manager.canSkipTrack, "the Playback menu's Next and Previous are off too", file: file, line: line)
+        XCTAssertFalse(
+            quickActionIDs().contains(CommandPaletteCommandID.nextTrack), "nothing to skip from", file: file, line: line
+        )
+        XCTAssertFalse(
+            commandIDs().contains(CommandPaletteCommandID.previousTrack), "nothing to go back from", file: file,
+            line: line)
+        XCTAssertFalse(
+            manager.canSkipTrack, "the Playback menu's Next and Previous are off too", file: file, line: line)
         XCTAssertEqual(
             quickActionIDs().contains(CommandPaletteCommandID.togglePlayback), expectPlayPauseWhileEmpty,
             file: file, line: line
@@ -895,7 +937,9 @@ final class CrossServicePlaybackTests: XCTestCase {
         startSong()
         await manager.viewModel.waitForSearchCompletion()
 
-        XCTAssertTrue(quickActionIDs().contains(CommandPaletteCommandID.nextTrack), "a song plays: Next is back", file: file, line: line)
+        XCTAssertTrue(
+            quickActionIDs().contains(CommandPaletteCommandID.nextTrack), "a song plays: Next is back", file: file,
+            line: line)
         XCTAssertTrue(commandIDs().contains(CommandPaletteCommandID.previousTrack), file: file, line: line)
         XCTAssertTrue(manager.canSkipTrack, file: file, line: line)
         XCTAssertEqual(
@@ -933,7 +977,9 @@ final class CrossServicePlaybackTests: XCTestCase {
         let (played, playbackAPI) = connected()
         await DetailHeaderPlayback.play(target: target, using: played)
         XCTAssertEqual(played.activePlaylistID, "18P1", "Play")
-        XCTAssertEqual(playbackAPI.actions.filter { $0.hasPrefix("play-context:") }, ["play-context:device-1:spotify:playlist:18P1"])
+        XCTAssertEqual(
+            playbackAPI.actions.filter { $0.hasPrefix("play-context:") },
+            ["play-context:device-1:spotify:playlist:18P1"])
 
         // An artist's Play has no sidebar row.
         let (artist, _) = connected()
@@ -943,7 +989,9 @@ final class CrossServicePlaybackTests: XCTestCase {
 
     // MARK: - 5. A song started elsewhere is marked in the list
 
-    private static func row(_ name: String, uri: String, artists: [String] = ["Rihanna"], durationMilliseconds: Int = 200_000) -> MusicTrack {
+    private static func row(
+        _ name: String, uri: String, artists: [String] = ["Rihanna"], durationMilliseconds: Int = 200_000
+    ) -> MusicTrack {
         MusicTrack(
             id: uri, name: name, artists: artists, albumArtworkURL: nil,
             durationMilliseconds: durationMilliseconds, isExplicit: false, isPlayable: true,
@@ -952,23 +1000,25 @@ final class CrossServicePlaybackTests: XCTestCase {
     }
 
     private static func album(_ tracks: [MusicTrack]) -> BrowsingDetailContent {
-        .playlist(PlaylistDetailViewModel(
-            playlist: PlaylistRowViewModel(
-                albumDisplayName: "Good Girl Gone Bad: Reloaded", artistsDisplay: "Rihanna",
-                totalTrackCount: tracks.count, artworkURL: nil, albumID: "1440857781"
-            ),
-            tracks: TrackRowViewModel.numberedTopTracks(tracks)
-        ))
+        .playlist(
+            PlaylistDetailViewModel(
+                playlist: PlaylistRowViewModel(
+                    albumDisplayName: "Good Girl Gone Bad: Reloaded", artistsDisplay: "Rihanna",
+                    totalTrackCount: tracks.count, artworkURL: nil, albumID: "1440857781"
+                ),
+                tracks: TrackRowViewModel.numberedTopTracks(tracks)
+            ))
     }
 
     /// The report: "Breakin' Dishes" started from ⌘K played under its library id
     /// (`applemusic:song:i.B0VN4RQfxzX7aak`, from the log), while the album lists the same song
     /// under the id MusicKit gives it inside the album, so the row showed a plain "1".
     func testASongStartedFromSearchIsMarkedInItsAlbum() {
-        let playing = PlaybackConnectionState.playing(PlaybackNowPlaying(
-            name: "Breakin' Dishes", artists: ["Rihanna"], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 200_093, positionMilliseconds: 57_396, uri: "applemusic:song:i.B0VN4RQfxzX7aak"
-        ))
+        let playing = PlaybackConnectionState.playing(
+            PlaybackNowPlaying(
+                name: "Breakin' Dishes", artists: ["Rihanna"], albumName: nil, albumID: nil, albumArtURL: nil,
+                durationMilliseconds: 200_093, positionMilliseconds: 57_396, uri: "applemusic:song:i.B0VN4RQfxzX7aak"
+            ))
         let album = Self.album([
             Self.row("Breakin' Dishes", uri: "applemusic:song:-6046431734389870155", durationMilliseconds: 200_000),
             Self.row("Shut Up and Drive", uri: "applemusic:song:-6046431734389870154"),
@@ -998,13 +1048,17 @@ final class CrossServicePlaybackTests: XCTestCase {
         let fromAlbum = "applemusic:song:-6046431734389870155"
         let inLibrary = "applemusic:song:i.B0VN4RQfxzX7aak"
         let found = Self.row("Breakin' Dishes", uri: inLibrary, durationMilliseconds: 200_093)
-        let playback = PlaybackSessionViewModel(provider: AppleMusicPlaybackProvider(player: ScriptedAppleMusicPlayer()))
-        playback.setConnectionState(.playing(PlaybackNowPlaying(
-            name: "Breakin' Dishes", artists: ["Rihanna"], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 200_000, positionMilliseconds: 1_000, uri: fromAlbum
-        )))
+        let playback = PlaybackSessionViewModel(
+            provider: AppleMusicPlaybackProvider(player: ScriptedAppleMusicPlayer()))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Breakin' Dishes", artists: ["Rihanna"], albumName: nil, albumID: nil, albumArtURL: nil,
+                    durationMilliseconds: 200_000, positionMilliseconds: 1_000, uri: fromAlbum
+                )))
         let queue = QueueViewModel(provider: playback.provider, playbackSession: playback)
-        let browser = PlaylistBrowserViewModel(api: MockBrowsingAPI(playlistResults: [], trackResults: [:]), cache: MockBrowsingCache())
+        let browser = PlaylistBrowserViewModel(
+            api: MockBrowsingAPI(playlistResults: [], trackResults: [:]), cache: MockBrowsingCache())
         let pins = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
 
         let search = CatalogSearchViewModel()
@@ -1034,10 +1088,11 @@ final class CrossServicePlaybackTests: XCTestCase {
 
     /// A row with the playing URI wins: the same song twice in a list stays marked once.
     func testARowWithThePlayingURIIsTheOneMarked() {
-        let playing = PlaybackConnectionState.playing(PlaybackNowPlaying(
-            name: "Breakin' Dishes", artists: ["Rihanna"], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 200_000, positionMilliseconds: 0, uri: "applemusic:song:b"
-        ))
+        let playing = PlaybackConnectionState.playing(
+            PlaybackNowPlaying(
+                name: "Breakin' Dishes", artists: ["Rihanna"], albumName: nil, albumID: nil, albumArtURL: nil,
+                durationMilliseconds: 200_000, positionMilliseconds: 0, uri: "applemusic:song:b"
+            ))
         let list = Self.album([
             Self.row("Breakin' Dishes", uri: "applemusic:song:a"),
             Self.row("Breakin' Dishes", uri: "applemusic:song:b"),
@@ -1050,10 +1105,11 @@ final class CrossServicePlaybackTests: XCTestCase {
 
     /// Spotify names a track by one id everywhere: its rows match by URI only, as before.
     func testSpotifyRowsMatchByURIOnly() {
-        let playing = PlaybackConnectionState.playing(PlaybackNowPlaying(
-            name: "Breakin' Dishes", artists: ["Rihanna"], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 200_000, positionMilliseconds: 0, uri: "spotify:track:original"
-        ))
+        let playing = PlaybackConnectionState.playing(
+            PlaybackNowPlaying(
+                name: "Breakin' Dishes", artists: ["Rihanna"], albumName: nil, albumID: nil, albumArtURL: nil,
+                durationMilliseconds: 200_000, positionMilliseconds: 0, uri: "spotify:track:original"
+            ))
         let reloaded = Self.album([Self.row("Breakin' Dishes", uri: "spotify:track:reloaded")])
         XCTAssertEqual(
             PlaylistBrowserPlaybackHelpers.currentPlaybackURI(connectionState: playing, detailContent: reloaded),
@@ -1062,11 +1118,11 @@ final class CrossServicePlaybackTests: XCTestCase {
     }
 }
 
-private extension PlaybackConnectionState {
-    var nowPlayingName: String? {
+extension PlaybackConnectionState {
+    fileprivate var nowPlayingName: String? {
         switch self {
-        case let .playing(nowPlaying): nowPlaying.name
-        case let .paused(nowPlaying): nowPlaying?.name
+        case .playing(let nowPlaying): nowPlaying.name
+        case .paused(let nowPlaying): nowPlaying?.name
         default: nil
         }
     }

@@ -3,7 +3,8 @@ import Foundation
 @MainActor
 extension PlaybackSessionViewModel {
     func seek(to milliseconds: Int, file: String = #fileID, line: Int = #line) async {
-        PlaybackTrace.shared.request("seek to \(PlaybackPositionWatch.time(milliseconds)) (\(service))", file: file, line: line)
+        PlaybackTrace.shared.request(
+            "seek to \(PlaybackPositionWatch.time(milliseconds)) (\(service))", file: file, line: line)
         enqueueSeek(milliseconds: milliseconds)
     }
 
@@ -18,12 +19,13 @@ extension PlaybackSessionViewModel {
     /// invalidates every optimistic seek belonging to the previous owner.
     func updateSeekOwnership(from state: PlaybackConnectionState) {
         switch state {
-        case let .playing(nowPlaying):
+        case .playing(let nowPlaying):
             guard let trackURI = MusicPlayableURI.canonical(nowPlaying.uri) else { return }
             updateSeekOwnership(trackURI: trackURI)
-        case let .paused(nowPlaying):
+        case .paused(let nowPlaying):
             guard let nowPlaying,
-                  let trackURI = MusicPlayableURI.canonical(nowPlaying.uri) else { return }
+                let trackURI = MusicPlayableURI.canonical(nowPlaying.uri)
+            else { return }
             updateSeekOwnership(trackURI: trackURI)
         case .disconnected, .connecting, .ready, .transferring, .unavailable, .error:
             return
@@ -54,8 +56,10 @@ extension PlaybackSessionViewModel {
     }
 
     private func updateSeekOwnership(trackURI: String) {
-        guard seekOwnershipKey.hostGeneration != playbackHostGeneration
-            || seekOwnershipKey.trackURI != trackURI else { return }
+        guard
+            seekOwnershipKey.hostGeneration != playbackHostGeneration
+                || seekOwnershipKey.trackURI != trackURI
+        else { return }
         cancelSeekDispatch()
         seekOwnershipKey = PlaybackSeekOwnershipKey(
             hostGeneration: playbackHostGeneration,
@@ -111,8 +115,9 @@ extension PlaybackSessionViewModel {
                 continue
             }
             if let lastSentSeek,
-               lastSentSeek.owner == intent.owner,
-               abs(intent.milliseconds - lastSentSeek.milliseconds) < seekDeduplicationWindowMilliseconds {
+                lastSentSeek.owner == intent.owner,
+                abs(intent.milliseconds - lastSentSeek.milliseconds) < seekDeduplicationWindowMilliseconds
+            {
                 continue
             }
 
@@ -195,9 +200,9 @@ extension PlaybackSessionViewModel {
 
     private func applyOptimisticSeekPosition(_ milliseconds: Int) {
         switch connectionState {
-        case let .playing(nowPlaying):
+        case .playing(let nowPlaying):
             setConnectionState(.playing(nowPlaying.with(positionMilliseconds: milliseconds)))
-        case let .paused(nowPlaying):
+        case .paused(let nowPlaying):
             if let nowPlaying {
                 setConnectionState(.paused(nowPlaying.with(positionMilliseconds: milliseconds)))
             }

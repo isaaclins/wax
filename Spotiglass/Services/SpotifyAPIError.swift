@@ -35,19 +35,19 @@ enum SpotifyAPIError: Error, Equatable, LocalizedError {
             // which is not a sentence and is never translated, so the localized
             // one always wins. The server text stays in diagnosticDetails.
             return SpotiglassL10n.string("error.spotify.forbidden")
-        case let .rateLimited(retryAfter):
+        case .rateLimited(let retryAfter):
             return SpotiglassL10n.format(
                 "error.spotify.rateLimited",
                 SpotifyRateLimitDisplay.retryAfterClause(seconds: retryAfter)
             )
-        case let .notFound(message):
+        case .notFound(let message):
             return message ?? SpotiglassL10n.string("error.spotify.notFound")
-        case let .badRequest(message, _):
+        case .badRequest(let message, _):
             if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 return SpotiglassL10n.format("error.spotify.rejectedRequest", message)
             }
             return SpotiglassL10n.string("error.spotify.rejectedRequestGeneric")
-        case let .server(statusCode, message, _) where statusCode < 500:
+        case .server(let statusCode, let message, _) where statusCode < 500:
             // A 4xx other than the ones above is Spotify turning the request down
             // ("Invalid track uri"): its reason is what says what to change, and
             // trying again can't fix it (#470).
@@ -62,17 +62,17 @@ enum SpotifyAPIError: Error, Equatable, LocalizedError {
             return SpotiglassL10n.string("error.spotify.serverProblem")
         case .decoding:
             return SpotiglassL10n.string("error.spotify.unexpectedShape")
-        case let .network(message):
+        case .network(let message):
             // Resolved when the request failed; shown in the language the app has now (#548).
             return SpotiglassL10n.inAppLanguage(message)
-        case let .invalidRequest(message):
+        case .invalidRequest(let message):
             return message
         }
     }
 
     var diagnosticDetails: String? {
         switch self {
-        case let .insufficientScope(requiredScopes, message, details):
+        case .insufficientScope(let requiredScopes, let message, let details):
             // Everything the message no longer says, kept where a bug report can
             // still reach it.
             [
@@ -83,18 +83,18 @@ enum SpotifyAPIError: Error, Equatable, LocalizedError {
             .compactMap { $0 }
             .joined(separator: "\n")
             .nilWhenEmpty
-        case let .forbidden(message, details):
+        case .forbidden(let message, let details):
             [message, details].compactMap { $0 }.joined(separator: "\n").nilWhenEmpty
-        case let .badRequest(_, details):
+        case .badRequest(_, let details):
             details
-        case let .server(statusCode, message, details):
+        case .server(let statusCode, let message, let details):
             ["status code \(statusCode)", message, details]
                 .compactMap { $0 }
                 .joined(separator: "\n")
                 .nilWhenEmpty
-        case let .decoding(message):
+        case .decoding(let message):
             message
-        case let .rateLimited(retryAfter):
+        case .rateLimited(let retryAfter):
             SpotifyRateLimitDisplay.rawRetryDiagnostic(seconds: retryAfter)
         case .unauthorized, .notFound, .network, .invalidRequest:
             nil

@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// A new position from the player re-renders only the views that show it (#409). Before, every
@@ -52,7 +53,7 @@ final class PlaybackPositionUpdateScopeTests: XCTestCase {
             playback.progress.objectWillChange.sink { _ in progressChanges += 1 },
             playback.connectionStatePublisher.dropFirst().sink { states.append($0) },
         ]
-        defer { cancellables.forEach { $0.cancel() } }
+        defer { for cancellable in cancellables { cancellable.cancel() } }
 
         playThrough(playback, from: 0, readings: 5)
 
@@ -89,7 +90,7 @@ final class PlaybackPositionUpdateScopeTests: XCTestCase {
             playback.objectWillChange.sink { _ in sessionChanges += 1 },
             playback.$shuffleEnabled.dropFirst().sink { shuffleValues.append($0) },
         ]
-        defer { cancellables.forEach { $0.cancel() } }
+        defer { for cancellable in cancellables { cancellable.cancel() } }
 
         // Any write to the defaults re-renders every view using `@AppStorage`, the window included.
         var defaultsWrites = 0
@@ -194,7 +195,7 @@ final class ScrubberTickCostTests: XCTestCase {
     private var windows: [NSWindow] = []
 
     override func tearDown() {
-        windows.forEach { AppKitTestSupport.closeWindowSafely($0) }
+        for window in windows { AppKitTestSupport.closeWindowSafely(window) }
         windows = []
         super.tearDown()
     }
@@ -269,7 +270,8 @@ final class ScrubberTickCostTests: XCTestCase {
             "the track stopped ticking, so nothing was measured"
         )
         let seconds = Date().timeIntervalSince(start).rounded(.up)
-        XCTAssertLessThanOrEqual(hosting.layoutCount, 2 * Int(seconds) + 3, "the moving track must not lay out the window")
+        XCTAssertLessThanOrEqual(
+            hosting.layoutCount, 2 * Int(seconds) + 3, "the moving track must not lay out the window")
     }
 
     private static func trackView(in view: NSView) -> ScrubberTrackCanvasView? {

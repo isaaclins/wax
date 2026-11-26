@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Play/pause and a new track re-render only what shows them (#422): the bar, the playing row
@@ -78,7 +79,8 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         store.bind(userID: "u1")
         let tokens = RenderScopeTokenProvider()
-        let playbackHost = provider.map { SpotiglassPlaybackHost(provider: $0) } ?? SpotiglassPlaybackHost(tokenProvider: tokens)
+        let playbackHost =
+            provider.map { SpotiglassPlaybackHost(provider: $0) } ?? SpotiglassPlaybackHost(tokenProvider: tokens)
         let playback = playbackHost.playbackViewModel
         let view = PlaylistBrowserView(
             viewModel: browserVM,
@@ -107,7 +109,9 @@ final class PlayPauseRenderScopeTests: XCTestCase {
     /// change rendered, however late a busy machine gets to it, then until everything the change
     /// queued has run, so a body that runs late still counts and one that never runs had its chance.
     /// Async, so the main-actor work the change starts runs while it waits, as it does in the app.
-    private func bodies(file: StaticString = #filePath, line: UInt = #line, after change: () -> Void) async -> [String: Int] {
+    private func bodies(file: StaticString = #filePath, line: UInt = #line, after change: () -> Void) async -> [String:
+        Int]
+    {
         ViewBodyTally.counts = [:]
         change()
         let rendered = await AppKitTestSupport.settle(until: { !(ViewBodyTally.counts ?? [:]).isEmpty })
@@ -123,7 +127,10 @@ final class PlayPauseRenderScopeTests: XCTestCase {
     }
 
     private func playlistRows(in counts: [String: Int]) -> Set<String> {
-        Set(counts.keys.filter { $0.hasPrefix("PlaylistListRow:") }.map { String($0.dropFirst("PlaylistListRow:".count)) })
+        Set(
+            counts.keys.filter { $0.hasPrefix("PlaylistListRow:") }.map {
+                String($0.dropFirst("PlaylistListRow:".count))
+            })
     }
 
     private func assertOnlyTheRowsChanged(
@@ -177,16 +184,23 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             tracks: (1...rowCount).map { PlaylistBrowsingTestFixtures.track(id: "o\($0)") },
             playing: .playing(Self.nowPlaying(last))
         )
-        let table = try XCTUnwrap(AppKitTestSupport.tables(in: hostedWindow?.contentView).first { $0.numberOfRows >= rowCount })
+        let table = try XCTUnwrap(
+            AppKitTestSupport.tables(in: hostedWindow?.contentView).first { $0.numberOfRows >= rowCount })
         XCTAssertFalse(table.rows(in: table.visibleRect).contains(rowCount - 1), "the playing row started on screen")
 
         playback.setConnectionState(.paused(Self.nowPlaying(last)))
         await AppKitTestSupport.settle()
         ViewBodyTally.counts = [:]
         table.scrollRowToVisible(rowCount - 1)
-        let shown = await AppKitTestSupport.settle(until: { ViewBodyTally.counts?["TrackListRowMark:\(last):paused"] != nil })
-        XCTAssertTrue(shown, "the playing row scrolled in without showing the pause: \((ViewBodyTally.counts ?? [:]).keys.filter { $0.hasPrefix("TrackListRowMark:\(last)") })")
-        XCTAssertNil(ViewBodyTally.counts?["TrackListRowMark:\(last):playing"], "the playing row scrolled in still playing")
+        let shown = await AppKitTestSupport.settle(until: {
+            ViewBodyTally.counts?["TrackListRowMark:\(last):paused"] != nil
+        })
+        XCTAssertTrue(
+            shown,
+            "the playing row scrolled in without showing the pause: \((ViewBodyTally.counts ?? [:]).keys.filter { $0.hasPrefix("TrackListRowMark:\(last)") })"
+        )
+        XCTAssertNil(
+            ViewBodyTally.counts?["TrackListRowMark:\(last):playing"], "the playing row scrolled in still playing")
     }
 
     /// An Apple Music song started from another list is found among the rows by title, artists
@@ -198,18 +212,21 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         // still goes through every row first, for a row with the catalog id.
         let matched = 4
         func song(_ index: Int) -> MusicPlaylistTrackItem {
-            MusicPlaylistTrackItem(id: "r\(index)", content: .track(MusicTrack(
+            MusicPlaylistTrackItem(
                 id: "r\(index)",
-                name: "Song \(index)",
-                artists: ["Artist"],
-                albumArtworkURL: nil,
-                albumName: nil,
-                durationMilliseconds: 180_000,
-                isExplicit: false,
-                isPlayable: true,
-                linkedFromID: nil,
-                uri: "applemusic:song:\(index)"
-            )))
+                content: .track(
+                    MusicTrack(
+                        id: "r\(index)",
+                        name: "Song \(index)",
+                        artists: ["Artist"],
+                        albumArtworkURL: nil,
+                        albumName: nil,
+                        durationMilliseconds: 180_000,
+                        isExplicit: false,
+                        isPlayable: true,
+                        linkedFromID: nil,
+                        uri: "applemusic:song:\(index)"
+                    )))
         }
         // Played from Search: the player reports the catalog id, which no row of the list has.
         func state(playing: Bool) -> PlaybackConnectionState {
@@ -229,7 +246,8 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         // The matched row on screen, as when someone looks at it. A row off screen isn't built
         // again on a pause; it shows the player's state when it comes into view (#655, tested
         // above).
-        let table = try XCTUnwrap(AppKitTestSupport.tables(in: hostedWindow?.contentView).first { $0.numberOfRows >= rowCount })
+        let table = try XCTUnwrap(
+            AppKitTestSupport.tables(in: hostedWindow?.contentView).first { $0.numberOfRows >= rowCount })
         table.scrollRowToVisible(matched)
         XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { table.rows(in: table.visibleRect).contains(matched) }))
         await AppKitTestSupport.settle()
@@ -263,11 +281,15 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         // On screen, as the song you just pressed play on is.
         let matched = 5
         func song(_ index: Int) -> MusicPlaylistTrackItem {
-            MusicPlaylistTrackItem(id: "r\(index)", content: .track(MusicTrack(
-                id: "r\(index)", name: "Song \(index)", artists: ["Artist"], albumArtworkURL: nil, albumName: nil,
-                durationMilliseconds: 180_000, isExplicit: false, isPlayable: true, linkedFromID: nil,
-                uri: "applemusic:song:\(index)"
-            )))
+            MusicPlaylistTrackItem(
+                id: "r\(index)",
+                content: .track(
+                    MusicTrack(
+                        id: "r\(index)", name: "Song \(index)", artists: ["Artist"], albumArtworkURL: nil,
+                        albumName: nil,
+                        durationMilliseconds: 180_000, isExplicit: false, isPlayable: true, linkedFromID: nil,
+                        uri: "applemusic:song:\(index)"
+                    )))
         }
         let playingURI = "applemusic:song:i.fromSearch"
         let nowPlaying = PlaybackNowPlaying(
@@ -284,12 +306,14 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         )
         let provider = AppleMusicPlaybackProvider(player: player)
         // The bar shows Play before a song starts, as the app's does, then the song plays.
-        let playback = try await hostBrowser(tracks: (0..<rowCount).map(song), playing: .paused(nowPlaying), provider: provider)
+        let playback = try await hostBrowser(
+            tracks: (0..<rowCount).map(song), playing: .paused(nowPlaying), provider: provider)
         playback.deviceID = AppleMusicPlaybackProvider.deviceID
         playback.setActivePlaybackDeviceID(AppleMusicPlaybackProvider.deviceID)
         // Started in the player, as a song from Search is: a press then has a song to pause and
         // resume, and the player's reads agree with what the bar shows (#693).
-        try await provider.play(.items(uris: [playingURI], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
+        try await provider.play(
+            .items(uris: [playingURI], startURI: nil), deviceID: AppleMusicPlaybackProvider.deviceID)
         playback.setConnectionState(.playing(nowPlaying))
         await AppKitTestSupport.settle()
         let window = try XCTUnwrap(ViewTestHost.windows.last)
@@ -300,7 +324,9 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             ViewBodyTally.counts = [:]
             let pressedAt = ContinuousClock.now
             playback.requestTogglePlayPause()
-            XCTAssertEqual(PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: playback.connectionState), press.isMultiple(of: 2))
+            XCTAssertEqual(
+                PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: playback.connectionState),
+                press.isMultiple(of: 2))
             let drawn = await AppKitTestSupport.settle(until: {
                 (ViewBodyTally.counts?["PlaybackControlsView"] ?? 0) > 0
                     && (ViewBodyTally.counts?["TrackListRow:r\(matched)"] ?? 0) > 0
@@ -323,7 +349,8 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             let sentSoFar = { player.commands.filter { $0 == command }.count }
             let sent = await AppKitTestSupport.settle(until: { sentSoFar() >= (press + 1) / 2 })
             XCTAssertTrue(sent, "press \(press): the \(command) never reached the player")
-            XCTAssertEqual(sentSoFar(), (press + 1) / 2, "press \(press): the \(command) reached the player more than once")
+            XCTAssertEqual(
+                sentSoFar(), (press + 1) / 2, "press \(press): the \(command) reached the player more than once")
             player.advance(by: ScriptedAppleMusicPlayer.lag[command] ?? 0)
             // The next press comes once this press's icon swap is over, as a person's would: the
             // swap is a 0.18 s animation on the wall clock (`PlaybackControlsView`), so its end is
@@ -349,7 +376,9 @@ private final class RenderScopeTokenProvider: PlaybackAccessTokenProviding, Spot
 extension TrackRowPlaybackSource {
     /// A player that never connects: every row shows as not playing.
     static var nothingPlaying: TrackRowPlaybackSource {
-        TrackRowPlaybackSource(session: PlaybackSessionViewModel(
-            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander())))
+        TrackRowPlaybackSource(
+            session: PlaybackSessionViewModel(
+                provider: SpotifyPlaybackProvider(
+                    playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander())))
     }
 }

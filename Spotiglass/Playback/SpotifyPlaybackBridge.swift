@@ -49,8 +49,9 @@ enum SpotifyPlaybackHost {
 
     static var html: String {
         guard let url = Bundle.main.url(forResource: "SpotifyPlaybackHost", withExtension: "html"),
-              let data = try? Data(contentsOf: url),
-              let text = String(data: data, encoding: .utf8) else {
+            let data = try? Data(contentsOf: url),
+            let text = String(data: data, encoding: .utf8)
+        else {
             SpotiglassLog.error(SpotiglassLog.playback, "Missing bundled SpotifyPlaybackHost.html")
             return "<html><body></body></html>"
         }
@@ -81,7 +82,7 @@ enum SpotifyPlaybackBridgeParser {
         guard let artists = value as? [[String: Any]] else { return [] }
         return artists.compactMap { artist in
             guard let uri = artist["uri"] as? String, uri.hasPrefix("spotify:artist:"),
-                  let name = artist["name"] as? String
+                let name = artist["name"] as? String
             else { return nil }
             let id = String(uri.dropFirst("spotify:artist:".count)).trimmingCharacters(in: .whitespacesAndNewlines)
             return id.isEmpty ? nil : MusicArtistRef(id: id, name: name)
@@ -90,7 +91,8 @@ enum SpotifyPlaybackBridgeParser {
 
     static func parse(_ body: Any) throws -> MusicPlaybackEvent {
         guard let dictionary = body as? [String: Any],
-              let name = dictionary["name"] as? String else {
+            let name = dictionary["name"] as? String
+        else {
             throw PlaybackBridgeMessageError.invalidEnvelope
         }
         let payload = dictionary["payload"] as? [String: Any] ?? [:]
@@ -150,7 +152,9 @@ enum SpotifyPlaybackBridgeParser {
             return nil
         }
         let rawAlbum = track["albumName"] as? String
-        let albumName = rawAlbum.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : $0 }
+        let albumName = rawAlbum.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap {
+            $0.isEmpty ? nil : $0
+        }
         let albumURI = track["albumURI"] as? String
         return PlaybackNowPlaying(
             name: track["name"] as? String ?? "",
@@ -207,7 +211,8 @@ enum SpotifyPlaybackWebViewCoordinatorDispatch {
     }
 
     static func playbackEventEnvelope(body: Any) -> MusicPlaybackEventEnvelope {
-        let generation = ((body as? [String: Any])?["payload"] as? [String: Any])?["hostGeneration"]
+        let generation =
+            ((body as? [String: Any])?["payload"] as? [String: Any])?["hostGeneration"]
             .flatMap { value -> UInt64? in
                 if let number = value as? NSNumber {
                     return number.uint64Value

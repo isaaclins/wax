@@ -4,6 +4,7 @@ import CoreAudio
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -49,7 +50,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
         let positionMs = progress.positionMilliseconds(at: Date().addingTimeInterval(30))
         XCTAssertEqual(PlaybackProgressScrubberGroup.elapsedText(positionMs: positionMs), "1:30")
         XCTAssertEqual(
-            PlaybackProgressScrubberGroup.remainingText(positionMs: positionMs, durationMs: progress.durationMilliseconds),
+            PlaybackProgressScrubberGroup.remainingText(
+                positionMs: positionMs, durationMs: progress.durationMilliseconds),
             "−1:30"
         )
     }
@@ -181,7 +183,7 @@ final class PlaybackChromeViewsTests: XCTestCase {
             buttons.first { $0.accessibilityLabel() == SpotiglassL10n.string("playback.controls.openLyrics") }
         )
 
-        isPresented = true // View › Show Lyrics, the bar not built again yet
+        isPresented = true  // View › Show Lyrics, the bar not built again yet
         lyricsButton.performClick(nil)
         XCTAssertFalse(isPresented, "the bar's Lyrics button didn't close lyrics opened elsewhere")
 
@@ -418,23 +420,25 @@ final class PlaybackChromeViewsTests: XCTestCase {
             )
             let position = try XCTUnwrap(scrubber.position)
             let size = try XCTUnwrap(scrubber.size)
-            return NSRect(x: position.x, y: screenHeight - position.y - size.height, width: size.width, height: size.height)
+            return NSRect(
+                x: position.x, y: screenHeight - position.y - size.height, width: size.width, height: size.height)
         }
         let bar = try scrubberFrameOnScreen()
         let location = window.convertPoint(fromScreen: NSPoint(x: bar.minX + bar.width * 0.75, y: bar.midY))
 
         func send(_ type: NSEvent.EventType) {
-            window.sendEvent(NSEvent.mouseEvent(
-                with: type,
-                location: location,
-                modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: window.windowNumber,
-                context: nil,
-                eventNumber: 0,
-                clickCount: 1,
-                pressure: type == .leftMouseDown ? 1 : 0
-            )!)
+            window.sendEvent(
+                NSEvent.mouseEvent(
+                    with: type,
+                    location: location,
+                    modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber,
+                    context: nil,
+                    eventNumber: 0,
+                    clickCount: 1,
+                    pressure: type == .leftMouseDown ? 1 : 0
+                )!)
         }
         // Each change lands in full before the next, so the press really lives through every one.
         send(.leftMouseDown)
@@ -456,9 +460,11 @@ final class PlaybackChromeViewsTests: XCTestCase {
         AppKitTestSupport.settle()
 
         let seeks = sentSeeks.values
-        XCTAssertEqual(seeks.count, 1, "the click must seek once; window \(window.frame), bar \(bar) then \(barAtRelease)")
+        XCTAssertEqual(
+            seeks.count, 1, "the click must seek once; window \(window.frame), bar \(bar) then \(barAtRelease)")
         if let seek = seeks.first {
-            XCTAssertEqual(Double(seek), Double(fraction) * 240_000, accuracy: 4_000, "the seek lands where the pointer is")
+            XCTAssertEqual(
+                Double(seek), Double(fraction) * 240_000, accuracy: 4_000, "the seek lands where the pointer is")
         }
     }
 
@@ -488,14 +494,18 @@ final class PlaybackChromeViewsTests: XCTestCase {
             defer { AppKitTestSupport.closeWindowSafely(window) }
             AppKitTestSupport.settle()
             XCTAssertTrue(
-                AppKitTestSupport.pumpRunLoop(until: { (try? voiceOverOrder(in: window))?.contains("Playback progress") == true }),
+                AppKitTestSupport.pumpRunLoop(until: {
+                    (try? voiceOverOrder(in: window))?.contains("Playback progress") == true
+                }),
                 "the scrubber never reached the accessibility tree at \(width)"
             )
 
             let order = try voiceOverOrder(in: window)
             let scrubber = try XCTUnwrap(order.firstIndex(of: "Playback progress"), "\(order)")
-            let lyrics = try XCTUnwrap(order.firstIndex(of: SpotiglassL10n.string("playback.controls.lyrics")), "\(order)")
-            let previous = try XCTUnwrap(order.firstIndex(of: SpotiglassL10n.string("playback.controls.previous")), "\(order)")
+            let lyrics = try XCTUnwrap(
+                order.firstIndex(of: SpotiglassL10n.string("playback.controls.lyrics")), "\(order)")
+            let previous = try XCTUnwrap(
+                order.firstIndex(of: SpotiglassL10n.string("playback.controls.previous")), "\(order)")
             let next = try XCTUnwrap(order.firstIndex(of: "Next track"), "\(order)")
             XCTAssertLessThan(lyrics, previous, "Lyrics comes before Previous at \(width): \(order)")
             XCTAssertLessThan(previous, next, "at \(width): \(order)")
@@ -523,34 +533,53 @@ final class PlaybackChromeViewsTests: XCTestCase {
 
         return [
             ("playing", { self.makePlayingPlayback() }),
-            ("long title", {
-                let playback = self.makePlayingPlayback()
-                playback.handle(.stateChanged(
-                    Self.midnightCity(name: "Midnight City (Live at the Hollywood Bowl, Extended Version With the Full Orchestra)"),
-                    isPaused: false,
-                    nextTracks: []
-                ))
-                return playback
-            }),
+            (
+                "long title",
+                {
+                    let playback = self.makePlayingPlayback()
+                    playback.handle(
+                        .stateChanged(
+                            Self.midnightCity(
+                                name:
+                                    "Midnight City (Live at the Hollywood Bowl, Extended Version With the Full Orchestra)"
+                            ),
+                            isPaused: false,
+                            nextTracks: []
+                        ))
+                    return playback
+                }
+            ),
             ("paused", { self.makePlayingPlayback(paused: true) }),
             ("apple music", { appleMusic }),
             ("other service", { self.makePlayingPlayback() }),
-            ("disconnected", {
-                PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(
-                    playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
-            }),
-            ("reconnect", {
-                let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(
-                    playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
-                playback.handle(.initializationError("Web Playback failed to load"))
-                return playback
-            }),
-            ("retry", {
-                let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(
-                    playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
-                playback.handle(.playbackError("No active device"))
-                return playback
-            }),
+            (
+                "disconnected",
+                {
+                    PlaybackSessionViewModel(
+                        provider: SpotifyPlaybackProvider(
+                            playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+                }
+            ),
+            (
+                "reconnect",
+                {
+                    let playback = PlaybackSessionViewModel(
+                        provider: SpotifyPlaybackProvider(
+                            playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+                    playback.handle(.initializationError("Web Playback failed to load"))
+                    return playback
+                }
+            ),
+            (
+                "retry",
+                {
+                    let playback = PlaybackSessionViewModel(
+                        provider: SpotifyPlaybackProvider(
+                            playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+                    playback.handle(.playbackError("No active device"))
+                    return playback
+                }
+            ),
         ]
     }
 
@@ -597,9 +626,10 @@ final class PlaybackChromeViewsTests: XCTestCase {
     /// VoiceOver doesn't see the times, so the row is laid out on its own.
     private func measuredScrubberRow() throws -> (height: CGFloat, overhead: CGFloat) {
         let rowWidth: CGFloat = 400
-        let host = NSHostingView(rootView: PlaybackProgressScrubberGroup(
-            progressAnchor: nil, durationMilliseconds: 180_000, isEnabled: true, onSeek: { _ in }
-        ))
+        let host = NSHostingView(
+            rootView: PlaybackProgressScrubberGroup(
+                progressAnchor: nil, durationMilliseconds: 180_000, isEnabled: true, onSeek: { _ in }
+            ))
         let height = host.fittingSize.height
         let window = OffscreenTestWindow(
             contentRect: NSRect(x: 0, y: 0, width: rowWidth, height: height),
@@ -615,7 +645,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
         window.orderFrontRegardless()
         XCTAssertTrue(waitForAccessibilityTree(in: window), "the scrubber never reached the accessibility tree")
         let progressLabel = SpotiglassL10n.string("playback.scrubber.progress")
-        let scrubber = try XCTUnwrap(try realizedAccessibilityTree(in: window).first { $0.axDescription == progressLabel })
+        let scrubber = try XCTUnwrap(
+            try realizedAccessibilityTree(in: window).first { $0.axDescription == progressLabel })
         return (height, rowWidth - scrubber.size.width)
     }
 
@@ -652,29 +683,37 @@ final class PlaybackChromeViewsTests: XCTestCase {
             // The widest line of text before Reconnect or Retry at the last width.
             var recoveryTextWidth: CGFloat = 0
             for width in [CGFloat(520), 640, 760, 880, 900, 1_000, 1_100, 1_400] {
-                try withPlayerBar(state: state, playback: makePlayback(), width: width, appearance: .aqua) { elements, window in
+                try withPlayerBar(state: state, playback: makePlayback(), width: width, appearance: .aqua) {
+                    elements, window in
                     let controls = playerBarControls(in: elements)
                     func midX(_ element: RealizedAccessibilityElement) -> CGFloat {
                         (element.position?.x ?? 0) + element.size.width / 2
                     }
                     func minX(_ element: RealizedAccessibilityElement) -> CGFloat { element.position?.x ?? 0 }
                     func maxX(_ element: RealizedAccessibilityElement) -> CGFloat { minX(element) + element.size.width }
-                    let label = "\(state) at \(Int(width)): \(controls.map { "\($0.axDescription) x \(minX($0))-\(maxX($0))" })"
+                    let label =
+                        "\(state) at \(Int(width)): \(controls.map { "\($0.axDescription) x \(minX($0))-\(maxX($0))" })"
                     let centre = window.frame.minX + width / 2
                     let previous = try XCTUnwrap(controls.first { $0.axDescription == previousLabel }, label)
                     let next = try XCTUnwrap(controls.first { $0.axDescription == nextLabel }, label)
-                    let playPauseIndex = try XCTUnwrap(controls.firstIndex { $0.axDescription == previousLabel }, label) + 1
+                    let playPauseIndex =
+                        try XCTUnwrap(controls.firstIndex { $0.axDescription == previousLabel }, label) + 1
                     let playPause = controls[playPauseIndex]
                     XCTAssertTrue(
                         [SpotiglassL10n.string("playback.play"), SpotiglassL10n.string("playback.pause")]
                             .contains(playPause.axDescription),
                         "play/pause follows Previous, \(label)"
                     )
-                    XCTAssertEqual(midX(playPause), centre, accuracy: 0.5, "play/pause is off the window's centre, \(label)")
-                    XCTAssertEqual(centre - midX(previous), midX(next) - centre, accuracy: 0.5, "Previous and Next aren't either side of play/pause, \(label)")
+                    XCTAssertEqual(
+                        midX(playPause), centre, accuracy: 0.5, "play/pause is off the window's centre, \(label)")
+                    XCTAssertEqual(
+                        centre - midX(previous), midX(next) - centre, accuracy: 0.5,
+                        "Previous and Next aren't either side of play/pause, \(label)")
                     let scrubber = try XCTUnwrap(controls.first { $0.axDescription == progressLabel }, label)
-                    XCTAssertEqual(midX(scrubber), centre, accuracy: 0.5, "the scrubber isn't under the controls, \(label)")
-                    XCTAssertGreaterThanOrEqual(scrubber.size.width, PlaybackTransportLayoutPolicy.scrubberMinimumWidth, label)
+                    XCTAssertEqual(
+                        midX(scrubber), centre, accuracy: 0.5, "the scrubber isn't under the controls, \(label)")
+                    XCTAssertGreaterThanOrEqual(
+                        scrubber.size.width, PlaybackTransportLayoutPolicy.scrubberMinimumWidth, label)
 
                     // The cluster is Lyrics' slot, the three buttons and Repeat,
                     // evenly spaced and symmetric around play/pause.
@@ -693,18 +732,24 @@ final class PlaybackChromeViewsTests: XCTestCase {
                         }
                     }
                     // The title truncates before the controls: no text reaches them.
-                    for text in elements where text.role == "AXStaticText" && text.position != nil && text.value != window.title {
+                    for text in elements
+                    where text.role == "AXStaticText" && text.position != nil && text.value != window.title {
                         if minX(text) < centre {
-                            XCTAssertLessThanOrEqual(maxX(text), clusterMinX - SpotiglassDesign.spacingS, "\(text.value) runs into the controls, \(label)")
+                            XCTAssertLessThanOrEqual(
+                                maxX(text), clusterMinX - SpotiglassDesign.spacingS,
+                                "\(text.value) runs into the controls, \(label)")
                         }
                     }
                     // Reconnect and Retry sit right after the line that says what
                     // went wrong, not at the far end of the left half.
-                    let recoveryLabels = ["playback.controls.reconnect.label", "playback.controls.retry.label"].map { SpotiglassL10n.string($0) }
+                    let recoveryLabels = ["playback.controls.reconnect.label", "playback.controls.retry.label"].map {
+                        SpotiglassL10n.string($0)
+                    }
                     if let recovery = controls.first(where: { recoveryLabels.contains($0.axDescription) }) {
                         // The status lines: the texts of the bar left of the button.
                         let texts = elements.filter {
-                            $0.role == "AXStaticText" && $0.position != nil && $0.value != window.title && minX($0) < minX(recovery)
+                            $0.role == "AXStaticText" && $0.position != nil && $0.value != window.title
+                                && minX($0) < minX(recovery)
                         }
                         let textEnd = try XCTUnwrap(
                             texts.map(maxX).max(),
@@ -712,18 +757,24 @@ final class PlaybackChromeViewsTests: XCTestCase {
                         )
                         // A truncated line's frame ends at its last glyph, a few points
                         // short of its slot; before the fix the gap was 40 pt and more.
-                        XCTAssertLessThanOrEqual(minX(recovery) - textEnd, SpotiglassDesign.spacingM + SpotiglassDesign.spacingXS + 1.5, "\(recovery.axDescription) is far from its text, \(label)")
+                        XCTAssertLessThanOrEqual(
+                            minX(recovery) - textEnd, SpotiglassDesign.spacingM + SpotiglassDesign.spacingXS + 1.5,
+                            "\(recovery.axDescription) is far from its text, \(label)")
                         // A wider window never gives that text less room: the button
                         // used to take its title at about 876 pt and cut the message
                         // to a third of what it had at 872 pt.
                         let textWidth = texts.map(\.size.width).max() ?? 0
-                        XCTAssertGreaterThanOrEqual(textWidth, recoveryTextWidth - 0.5, "the status text lost room as the window widened, \(label)")
+                        XCTAssertGreaterThanOrEqual(
+                            textWidth, recoveryTextWidth - 0.5,
+                            "the status text lost room as the window widened, \(label)")
                         recoveryTextWidth = textWidth
                     }
                     // Nothing spills out of the window.
                     for control in controls {
-                        XCTAssertGreaterThanOrEqual(minX(control), window.frame.minX - 0.5, "\(control.axDescription), \(label)")
-                        XCTAssertLessThanOrEqual(maxX(control), window.frame.maxX + 0.5, "\(control.axDescription), \(label)")
+                        XCTAssertGreaterThanOrEqual(
+                            minX(control), window.frame.minX - 0.5, "\(control.axDescription), \(label)")
+                        XCTAssertLessThanOrEqual(
+                            maxX(control), window.frame.maxX + 0.5, "\(control.axDescription), \(label)")
                     }
                 }
             }
@@ -744,17 +795,20 @@ final class PlaybackChromeViewsTests: XCTestCase {
         let widths = Array(stride(from: CGFloat(520), through: 760, by: 6)) + [1_000, 1_400]
         // "playing" comes before "paused" in `playerBarStates()`.
         var playingTitleWidths: [CGFloat: CGFloat] = [:]
-        for (state, makePlayback) in try await playerBarStates() where ["playing", "paused", "other service"].contains(state) {
+        for (state, makePlayback) in try await playerBarStates()
+        where ["playing", "paused", "other service"].contains(state) {
             var titleWidth: CGFloat = 0
             var pausedWidth: CGFloat?
             for width in widths {
-                try withPlayerBar(state: state, playback: makePlayback(), width: width, appearance: .aqua) { elements, _ in
+                try withPlayerBar(state: state, playback: makePlayback(), width: width, appearance: .aqua) {
+                    elements, _ in
                     let label = "\(state) at \(Int(width))"
                     let texts = elements.filter { $0.role == "AXStaticText" && $0.position != nil }
                     let title = try XCTUnwrap(texts.first { $0.value == "Midnight City" }, label)
                     // Paused waits until the whole title fits beside it, so not
                     // even its arrival takes room from the title.
-                    XCTAssertGreaterThanOrEqual(title.size.width, titleWidth - 0.5, "the title lost room as the window widened, \(label)")
+                    XCTAssertGreaterThanOrEqual(
+                        title.size.width, titleWidth - 0.5, "the title lost room as the window widened, \(label)")
                     titleWidth = title.size.width
                     let titleEnd = (title.position?.x ?? 0) + title.size.width
                     if state == "playing" {
@@ -763,25 +817,38 @@ final class PlaybackChromeViewsTests: XCTestCase {
                     if state == "paused" {
                         if let badge = texts.first(where: { $0.value == paused }) {
                             // Paused shows whole, right after a title that keeps its floor.
-                            XCTAssertEqual(badge.size.width, pausedWidth ?? badge.size.width, accuracy: 0.5, "Paused is cut short, \(label)")
+                            XCTAssertEqual(
+                                badge.size.width, pausedWidth ?? badge.size.width, accuracy: 0.5,
+                                "Paused is cut short, \(label)")
                             pausedWidth = pausedWidth ?? badge.size.width
                             let wholeTitle = try XCTUnwrap(playingTitleWidths[1_400], label)
-                            XCTAssertGreaterThanOrEqual(title.size.width, wholeTitle - 0.5, "Paused cut the title short, \(label)")
+                            XCTAssertGreaterThanOrEqual(
+                                title.size.width, wholeTitle - 0.5, "Paused cut the title short, \(label)")
                             // A truncated title's frame ends at its last glyph, a few
                             // points short of its slot.
-                            XCTAssertLessThanOrEqual((badge.position?.x ?? 0) - titleEnd, SpotiglassDesign.spacingXS + SpotiglassDesign.spacingXS + 0.5, "Paused drifted from the title, \(label)")
+                            XCTAssertLessThanOrEqual(
+                                (badge.position?.x ?? 0) - titleEnd,
+                                SpotiglassDesign.spacingXS + SpotiglassDesign.spacingXS + 0.5,
+                                "Paused drifted from the title, \(label)")
                         } else {
                             // Too narrow for both: the title keeps all the room it
                             // has while playing, and Paused waits for a wider bar.
                             XCTAssertNil(pausedWidth, "Paused went away in a wider window, \(label)")
                             let playing = try XCTUnwrap(playingTitleWidths[width], label)
-                            XCTAssertGreaterThanOrEqual(title.size.width, playing - 0.5, "the paused title has less room than the playing one, \(label)")
+                            XCTAssertGreaterThanOrEqual(
+                                title.size.width, playing - 0.5,
+                                "the paused title has less room than the playing one, \(label)")
                         }
                     }
                     if state == "other service" {
-                        let line = try XCTUnwrap(texts.first { $0.value.hasPrefix(service) }, "the bar doesn't say which service plays, \(label)")
-                        XCTAssertLessThanOrEqual(abs((line.position?.x ?? 0) - (title.position?.x ?? 0)), 0.5, "the service doesn't lead the line under the title, \(label)")
-                        XCTAssertGreaterThan(line.size.width, title.size.width / 2, "the service line is squeezed, \(label)")
+                        let line = try XCTUnwrap(
+                            texts.first { $0.value.hasPrefix(service) },
+                            "the bar doesn't say which service plays, \(label)")
+                        XCTAssertLessThanOrEqual(
+                            abs((line.position?.x ?? 0) - (title.position?.x ?? 0)), 0.5,
+                            "the service doesn't lead the line under the title, \(label)")
+                        XCTAssertGreaterThan(
+                            line.size.width, title.size.width / 2, "the service line is squeezed, \(label)")
                     }
                 }
             }
@@ -814,7 +881,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
             for (appearance, width) in [NSAppearance.Name.darkAqua, .aqua].flatMap({ name in
                 [CGFloat(1_400), 1_100, 900, 760, 640, 580, 520].map { (name, $0) }
             }) {
-                try withPlayerBar(state: state, playback: makePlayback(), width: width, appearance: appearance) { elements, window in
+                try withPlayerBar(state: state, playback: makePlayback(), width: width, appearance: appearance) {
+                    elements, window in
                     let controls = playerBarControls(in: elements)
                     func midY(_ element: RealizedAccessibilityElement) -> CGFloat {
                         (element.position?.y ?? 0) + element.size.height / 2
@@ -827,12 +895,15 @@ final class PlaybackChromeViewsTests: XCTestCase {
                     func name(_ element: RealizedAccessibilityElement) -> String {
                         "\(element.role) \(element.axDescription.isEmpty ? element.title : element.axDescription)"
                     }
-                    let label = "\(state), \(appearance.rawValue) at \(Int(width)): \(controls.map { "\(name($0)) x \(minX($0))-\(maxX($0)) y \(midY($0))" })"
+                    let label =
+                        "\(state), \(appearance.rawValue) at \(Int(width)): \(controls.map { "\(name($0)) x \(minX($0))-\(maxX($0)) y \(midY($0))" })"
                     let previous = try XCTUnwrap(
-                        controls.first { $0.axDescription == SpotiglassL10n.string("playback.controls.previous") }, label
+                        controls.first { $0.axDescription == SpotiglassL10n.string("playback.controls.previous") },
+                        label
                     )
                     let scrubber = try XCTUnwrap(controls.first { $0.axDescription == progressLabel }, label)
-                    XCTAssertGreaterThan(midY(scrubber), midY(previous) + 10, "the scrubber sits under the controls, \(label)")
+                    XCTAssertGreaterThan(
+                        midY(scrubber), midY(previous) + 10, "the scrubber sits under the controls, \(label)")
                     // The scrubber's row: the bar and the times either side of it.
                     let scrubberRowMinX = minX(scrubber) - scrubberRow.overhead / 2
                     let scrubberRowMaxX = maxX(scrubber) + scrubberRow.overhead / 2
@@ -844,30 +915,43 @@ final class PlaybackChromeViewsTests: XCTestCase {
                     // The transport cluster: Lyrics' slot, the three buttons and
                     // Repeat, symmetric around play/pause.
                     let centre = window.frame.minX + width / 2
-                    let clusterHalfWidth = 2 * (centre - midX(previous)) + SpotiglassDesign.Layout.iconButtonSize / 2 + 1.5
-                    func isSide(_ control: RealizedAccessibilityElement) -> Bool { abs(midX(control) - centre) > clusterHalfWidth }
+                    let clusterHalfWidth =
+                        2 * (centre - midX(previous)) + SpotiglassDesign.Layout.iconButtonSize / 2 + 1.5
+                    func isSide(_ control: RealizedAccessibilityElement) -> Bool {
+                        abs(midX(control) - centre) > clusterHalfWidth
+                    }
                     let sideControls = controls.filter { $0.axDescription != progressLabel && isSide($0) }
                     for control in controls where control.axDescription != progressLabel && !isSide(control) {
-                        XCTAssertEqual(midY(control), midY(previous), accuracy: 0.5, "\(name(control)) is off the buttons' row, \(label)")
+                        XCTAssertEqual(
+                            midY(control), midY(previous), accuracy: 0.5,
+                            "\(name(control)) is off the buttons' row, \(label)")
                     }
                     // The sides sit on the bar's middle once the scrubber's row
                     // fits between them, which it does from 640 pt up.
-                    let isStacked = sideControls.contains { maxX($0) > scrubberRowMinX - 0.5 && minX($0) < scrubberRowMaxX + 0.5 }
-                    XCTAssertEqual(isStacked, width < 640, "the bar \(isStacked ? "stacks" : "doesn't stack"), \(label)")
+                    let isStacked = sideControls.contains {
+                        maxX($0) > scrubberRowMinX - 0.5 && minX($0) < scrubberRowMaxX + 0.5
+                    }
+                    XCTAssertEqual(
+                        isStacked, width < 640, "the bar \(isStacked ? "stacks" : "doesn't stack"), \(label)")
                     let sidesLine = isStacked ? midY(previous) : barMiddle
                     if !isStacked {
                         let barInnerWidth = width - 4 * SpotiglassDesign.spacingM
                         XCTAssertGreaterThanOrEqual(
                             scrubberRowMaxX - scrubberRowMinX,
-                            min(barInnerWidth * PlaybackTransportLayoutPolicy.scrubberShareOfBar, PlaybackTransportLayoutPolicy.scrubberMaximumWidth) - 1,
+                            min(
+                                barInnerWidth * PlaybackTransportLayoutPolicy.scrubberShareOfBar,
+                                PlaybackTransportLayoutPolicy.scrubberMaximumWidth) - 1,
                             "the scrubber's row is narrower than two fifths of the bar, \(label)"
                         )
                     }
                     for control in sideControls {
-                        XCTAssertEqual(midY(control), sidesLine, accuracy: 0.5, "\(name(control)) is off the \(isStacked ? "buttons' row" : "bar's middle"), \(label)")
+                        XCTAssertEqual(
+                            midY(control), sidesLine, accuracy: 0.5,
+                            "\(name(control)) is off the \(isStacked ? "buttons' row" : "bar's middle"), \(label)")
                     }
                     XCTAssertTrue(
-                        controls.contains { $0.role == "AXMenuButton" || $0.role == "AXPopUpButton" } || !state.contains("play"),
+                        controls.contains { $0.role == "AXMenuButton" || $0.role == "AXPopUpButton" }
+                            || !state.contains("play"),
                         "the device menu is missing, \(label)"
                     )
                     // Whatever plays and at every width, the buttons stay where
@@ -889,29 +973,40 @@ final class PlaybackChromeViewsTests: XCTestCase {
                     let summaryEnd = previous.position?.x ?? 0
                     let text = elements.filter { element in
                         guard let position = element.position, element.size.height > 0 else { return false }
-                        let isText = element.role == "AXStaticText" || element.title.contains("M83") || element.axDescription.contains("M83")
+                        let isText =
+                            element.role == "AXStaticText" || element.title.contains("M83")
+                            || element.axDescription.contains("M83")
                         return isText && element.value != window.title
                             && position.x + element.size.width <= summaryEnd + 0.5
                             && (!isStacked || position.y + element.size.height <= (scrubber.position?.y ?? 0))
                     }
                     let top = try XCTUnwrap(text.compactMap { $0.position?.y }.min(), "no title, \(label)")
-                    let bottom = try XCTUnwrap(text.compactMap { element in element.position.map { $0.y + element.size.height } }.max())
-                    XCTAssertGreaterThan(text.count, 1, "the title and the line under it were not both found, \(text), \(label)")
-                    XCTAssertEqual((top + bottom) / 2, sidesLine, accuracy: 1, "the title block is off the sides' line, \(text), \(label)")
+                    let bottom = try XCTUnwrap(
+                        text.compactMap { element in element.position.map { $0.y + element.size.height } }.max())
+                    XCTAssertGreaterThan(
+                        text.count, 1, "the title and the line under it were not both found, \(text), \(label)")
+                    XCTAssertEqual(
+                        (top + bottom) / 2, sidesLine, accuracy: 1,
+                        "the title block is off the sides' line, \(text), \(label)")
                     if !isStacked {
                         for element in text {
-                            XCTAssertLessThanOrEqual(maxX(element), scrubberRowMinX + 0.5, "\(element.value) runs over the scrubber's row, \(label)")
+                            XCTAssertLessThanOrEqual(
+                                maxX(element), scrubberRowMinX + 0.5,
+                                "\(element.value) runs over the scrubber's row, \(label)")
                         }
                     }
 
                     // The other service's song in the bar opens its own lyrics (#486).
-                    let showsLyrics = ["playing", "long title", "paused", "apple music", "other service"].contains(state)
+                    let showsLyrics = ["playing", "long title", "paused", "apple music", "other service"].contains(
+                        state)
                     XCTAssertEqual(
                         controls.contains { $0.axDescription == lyricsLabel }, showsLyrics,
                         showsLyrics ? "the Lyrics button is missing, \(label)" : "no track, no Lyrics button, \(label)"
                     )
                     if state == "apple music" {
-                        XCTAssertFalse(controls.contains { $0.axDescription == SpotiglassL10n.string("playback.controls.volume") }, "Apple Music has no volume control, \(label)")
+                        XCTAssertFalse(
+                            controls.contains { $0.axDescription == SpotiglassL10n.string("playback.controls.volume") },
+                            "Apple Music has no volume control, \(label)")
                     }
                 }
             }
@@ -923,7 +1018,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
     func testTheBarLaysOutAgainWhenAPartChangesItsSize() {
         let probe = BarPartProbe()
         _ = ViewTestHost.host(BarPartProbeView(probe: probe), size: CGSize(width: 900, height: 120))
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { probe.controlsMinX != nil }), "the controls were never placed")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { probe.controlsMinX != nil }), "the controls were never placed")
         let narrow = probe.controlsMinX ?? 0
 
         probe.controlsWidth = 240
@@ -948,7 +1044,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
             window.title = "AXTestLayout\(Int(size.width))"
             controller.view.frame = window.contentView?.bounds ?? NSRect(origin: .zero, size: size)
             window.makeKeyAndOrderFront(nil)
-            XCTAssertTrue(waitForAccessibilityTree(in: window), "the scrubber never reached the accessibility tree at \(size)")
+            XCTAssertTrue(
+                waitForAccessibilityTree(in: window), "the scrubber never reached the accessibility tree at \(size)")
 
             let elements = try realizedAccessibilityTree(in: window)
             let scrubber = try XCTUnwrap(
@@ -1017,16 +1114,18 @@ final class PlaybackChromeViewsTests: XCTestCase {
     func testDeviceMenuHidesConnectDevicesWhenTheProviderCannotTransfer() throws {
         let playback = PlaybackSessionViewModel(provider: ReadOnlyStatePlaybackProvider())
         playback.handle(.ready(deviceID: "local"))
-        playback.handle(.stateChanged(PlaybackNowPlaying(
-            name: "Midnight City",
-            artists: ["M83"],
-            albumName: nil,
-            albumID: nil,
-            albumArtURL: nil,
-            durationMilliseconds: 240_000,
-            positionMilliseconds: 30_000,
-            uri: "music:song:1"
-        ), isPaused: false, nextTracks: []))
+        playback.handle(
+            .stateChanged(
+                PlaybackNowPlaying(
+                    name: "Midnight City",
+                    artists: ["M83"],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 240_000,
+                    positionMilliseconds: 30_000,
+                    uri: "music:song:1"
+                ), isPaused: false, nextTracks: []))
         playback.macAudioOutputDevices = [MacAudioOutputDevice(id: 11, name: "Built-in Output")]
         playback.systemDefaultOutputDeviceID = 11
 
@@ -1194,12 +1293,15 @@ final class PlaybackChromeViewsTests: XCTestCase {
 
     func testQueuePanelEmptyStates() async throws {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: nil,
-            isPlaying: false
-        )]
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         playback.handle(.ready(deviceID: "device-1"))
         await playback.syncTransportFromSpotify()
         let queue = QueueViewModel(
@@ -1224,7 +1326,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
 
     func testQueuePanelOmitsPlayAndCopyActionsForURIlessRows() throws {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
         queue.nowPlayingItem = QueueItem(
             name: "Display only",
@@ -1247,7 +1350,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
 
     func testQueuePanelPopulatedNowPlayingAndUpNext() async throws {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api),
             playbackSession: playback,
@@ -1317,7 +1421,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
 
     func testQueuePanelShowsPlaybackUnavailableError() async throws {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api),
             playbackSession: playback,
@@ -1338,12 +1443,15 @@ final class PlaybackChromeViewsTests: XCTestCase {
 
     func testQueuePanelRepeatOneSubtitle() async throws {
         let api = MockPlaybackAPI()
-        api.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .track),
-            activeDevice: nil,
-            isPlaying: false
-        )]
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        api.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .track),
+                activeDevice: nil,
+                isPlaying: false
+            )
+        ]
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         playback.handle(.ready(deviceID: "device-1"))
         await playback.syncTransportFromSpotify()
         let queue = QueueViewModel(
@@ -1376,7 +1484,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
 
         var description: String {
             let positionDescription = position.map { String(describing: $0) } ?? "<unavailable>"
-            return "role=\(role.debugDescription) description=\(axDescription.debugDescription) title=\(title.debugDescription) value=\(value.debugDescription) position=\(positionDescription) size=\(size)"
+            return
+                "role=\(role.debugDescription) description=\(axDescription.debugDescription) title=\(title.debugDescription) value=\(value.debugDescription) position=\(positionDescription) size=\(size)"
         }
 
         var isInteractiveTransportControl: Bool {
@@ -1410,7 +1519,7 @@ final class PlaybackChromeViewsTests: XCTestCase {
         in elements: [RealizedAccessibilityElement]
     ) -> [RealizedAccessibilityElement]? {
         guard let matchIndex = elements.firstIndex(where: { $0.axDescription == description }),
-              let rootIndex = elements[..<matchIndex].lastIndex(where: { $0.depth == 1 })
+            let rootIndex = elements[..<matchIndex].lastIndex(where: { $0.depth == 1 })
         else { return nil }
 
         let rootDepth = elements[rootIndex].depth
@@ -1446,9 +1555,9 @@ final class PlaybackChromeViewsTests: XCTestCase {
     private func realizedAccessibilityTreeIfAvailable(in window: NSWindow) -> [RealizedAccessibilityElement]? {
         let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
         guard let windows = try? axChildren(of: application, attribute: kAXWindowsAttribute),
-              let windowElement = windows.first(where: { axString($0, attribute: kAXTitleAttribute) == window.title }),
-              let children = try? axChildren(of: windowElement, attribute: kAXChildrenAttribute),
-              !children.isEmpty
+            let windowElement = windows.first(where: { axString($0, attribute: kAXTitleAttribute) == window.title }),
+            let children = try? axChildren(of: windowElement, attribute: kAXChildrenAttribute),
+            !children.isEmpty
         else {
             return nil
         }
@@ -1480,7 +1589,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
         let windows = try axChildren(of: application, attribute: kAXWindowsAttribute)
         let windowElement = try XCTUnwrap(windows.first { axString($0, attribute: kAXTitleAttribute) == window.title })
         func walk(_ element: AXUIElement) -> [String] {
-            let children = (try? axChildren(of: element, attribute: "AXChildrenInNavigationOrder"))
+            let children =
+                (try? axChildren(of: element, attribute: "AXChildrenInNavigationOrder"))
                 ?? (try? axChildren(of: element, attribute: kAXChildrenAttribute)) ?? []
             let own = axString(element, attribute: kAXDescriptionAttribute)
             return (own.isEmpty ? [] : [own]) + children.flatMap(walk)
@@ -1508,8 +1618,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
     private func axPosition(_ element: AXUIElement) -> CGPoint? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &value) == .success,
-              let value,
-              CFGetTypeID(value) == AXValueGetTypeID()
+            let value,
+            CFGetTypeID(value) == AXValueGetTypeID()
         else { return nil }
         let axValue = value as! AXValue
         guard AXValueGetType(axValue) == .cgPoint else { return nil }
@@ -1521,7 +1631,7 @@ final class PlaybackChromeViewsTests: XCTestCase {
     private func axSize(_ element: AXUIElement) -> CGSize {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &value) == .success,
-              let value
+            let value
         else { return .zero }
         let axValue = value as! AXValue
         var size = CGSize.zero

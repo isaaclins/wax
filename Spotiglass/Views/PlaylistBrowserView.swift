@@ -294,7 +294,7 @@ struct PlaylistBrowserView: View {
                         }
                     )
                     .equatable()
-                case let .unavailable(message):
+                case .unavailable(let message):
                     PlaybackUnavailableBar(message: message)
                 }
             }
@@ -351,7 +351,8 @@ struct PlaylistBrowserView: View {
                 Button {
                     isConfirmingDisconnect = true
                 } label: {
-                    Label(SpotiglassL10n.string("browser.disconnect"), systemImage: "rectangle.portrait.and.arrow.right")
+                    Label(
+                        SpotiglassL10n.string("browser.disconnect"), systemImage: "rectangle.portrait.and.arrow.right")
                 }
                 .help(SpotiglassL10n.string("browser.disconnect"))
                 .accessibilityHint(Self.disconnectHint(switchingTo: disconnectSwitchesTo))
@@ -368,44 +369,44 @@ struct PlaylistBrowserView: View {
 
     private var browserChrome: some View {
         browserSplitLayout
-        .animation(.easeOut(duration: 0.22), value: lyricsOverlay.isPresented)
-        .animation(.easeOut(duration: 0.2), value: viewModel.canNavigateBack)
-        // Measure the width the window offers, not the split view's own width. Below the
-        // sidebar + detail minimums the split view keeps its minimum and overflows the window,
-        // so its own width never dropped under the collapse breakpoint: the sidebar was cut off
-        // instead of collapsing (#400). A flexible frame takes exactly the offered width.
-        .frame(minWidth: 0, maxWidth: .infinity)
-        .onGeometryChange(for: CGFloat.self, of: \.size.width) { _, newWidth in
-            commitBrowserContentWidthIfNeeded(newWidth)
-        }
-        .background {
-            BrowserPlaybackReactions(
-                playbackViewModel: playbackViewModel,
-                queueViewModel: queueViewModel,
-                lyricsViewModel: lyricsViewModel,
-                commandPaletteManager: commandPaletteManager
-            )
-        }
-        .background(.background)
-        // An empty title left the window untitled: blank in the Window menu, in
-        // Mission Control and to assistive tech, while the Settings window was
-        // correctly named (#161). The title is the current location rather than
-        // the app name; the back button names the place before it (#443). Home keeps
-        // that name for the window but shows none in the bar (#495).
-        .navigationTitle(windowTitle)
-        .toolbar(removing: showsTitleInToolbar ? nil : .title)
-        .alert(
-            SpotiglassL10n.string("browser.disconnect.confirm.title"),
-            isPresented: $isConfirmingDisconnect
-        ) {
-            Button(SpotiglassL10n.string("browser.disconnect.confirm.cancel"), role: .cancel) {}
-            Button(SpotiglassL10n.string("browser.disconnect"), role: .destructive) {
-                viewModel.clearForSignOut()
-                signOut()
+            .animation(.easeOut(duration: 0.22), value: lyricsOverlay.isPresented)
+            .animation(.easeOut(duration: 0.2), value: viewModel.canNavigateBack)
+            // Measure the width the window offers, not the split view's own width. Below the
+            // sidebar + detail minimums the split view keeps its minimum and overflows the window,
+            // so its own width never dropped under the collapse breakpoint: the sidebar was cut off
+            // instead of collapsing (#400). A flexible frame takes exactly the offered width.
+            .frame(minWidth: 0, maxWidth: .infinity)
+            .onGeometryChange(for: CGFloat.self, of: \.size.width) { _, newWidth in
+                commitBrowserContentWidthIfNeeded(newWidth)
             }
-        } message: {
-            Text(Self.disconnectConfirmationMessage(switchingTo: disconnectSwitchesTo))
-        }
+            .background {
+                BrowserPlaybackReactions(
+                    playbackViewModel: playbackViewModel,
+                    queueViewModel: queueViewModel,
+                    lyricsViewModel: lyricsViewModel,
+                    commandPaletteManager: commandPaletteManager
+                )
+            }
+            .background(.background)
+            // An empty title left the window untitled: blank in the Window menu, in
+            // Mission Control and to assistive tech, while the Settings window was
+            // correctly named (#161). The title is the current location rather than
+            // the app name; the back button names the place before it (#443). Home keeps
+            // that name for the window but shows none in the bar (#495).
+            .navigationTitle(windowTitle)
+            .toolbar(removing: showsTitleInToolbar ? nil : .title)
+            .alert(
+                SpotiglassL10n.string("browser.disconnect.confirm.title"),
+                isPresented: $isConfirmingDisconnect
+            ) {
+                Button(SpotiglassL10n.string("browser.disconnect.confirm.cancel"), role: .cancel) {}
+                Button(SpotiglassL10n.string("browser.disconnect"), role: .destructive) {
+                    viewModel.clearForSignOut()
+                    signOut()
+                }
+            } message: {
+                Text(Self.disconnectConfirmationMessage(switchingTo: disconnectSwitchesTo))
+            }
     }
 
     private var sidebarToggleButton: some View {
@@ -417,203 +418,206 @@ struct PlaylistBrowserView: View {
 
     private var browserLifecycle: some View {
         browserChrome
-        .task {
-            await viewModel.loadIfNeeded()
-        }
-        .task {
-            guard playbackMode == .live else { return }
-            playbackViewModel.start(recoveryCause: .startupTask)
-        }
-        .task {
-            await bindPinnedStoreToCurrentUser()
-        }
-        .onChange(of: signInResumptions) { _, _ in
-            // While the sign-in was paused, the pins couldn't find the account, and the playlist
-            // list and Home could only show the cache or an error (#593).
-            Task {
-                if pinnedStore.didFailToBind {
-                    await bindPinnedStoreToCurrentUser()
-                }
-                switch viewModel.playlistState {
-                case .error, .staleCache(_, .some):
-                    await viewModel.refreshPlaylists()
-                case .loading, .loaded, .empty, .staleCache(_, .none), .refreshing:
-                    break
-                }
-                if case .loaded(.home) = viewModel.detailState {
-                    await viewModel.reloadHomeSections()
+            .task {
+                await viewModel.loadIfNeeded()
+            }
+            .task {
+                guard playbackMode == .live else { return }
+                playbackViewModel.start(recoveryCause: .startupTask)
+            }
+            .task {
+                await bindPinnedStoreToCurrentUser()
+            }
+            .onChange(of: signInResumptions) { _, _ in
+                // While the sign-in was paused, the pins couldn't find the account, and the playlist
+                // list and Home could only show the cache or an error (#593).
+                Task {
+                    if pinnedStore.didFailToBind {
+                        await bindPinnedStoreToCurrentUser()
+                    }
+                    switch viewModel.playlistState {
+                    case .error, .staleCache(_, .some):
+                        await viewModel.refreshPlaylists()
+                    case .loading, .loaded, .empty, .staleCache(_, .none), .refreshing:
+                        break
+                    }
+                    if case .loaded(.home) = viewModel.detailState {
+                        await viewModel.reloadHomeSections()
+                    }
                 }
             }
-        }
-        .onAppear {
-            unifiedRefreshFocus = .mainContent
-            syncUnifiedRefreshRoutingToViewModel()
-            lyricsOverlay.attach(
-                playback: playbackViewModel,
-                queue: queueViewModel,
-                lyrics: lyricsViewModel,
-                navigateToArtist: { target in
+            .onAppear {
+                unifiedRefreshFocus = .mainContent
+                syncUnifiedRefreshRoutingToViewModel()
+                lyricsOverlay.attach(
+                    playback: playbackViewModel,
+                    queue: queueViewModel,
+                    lyrics: lyricsViewModel,
+                    navigateToArtist: { target in
+                        lyricsOverlay.dismiss()
+                        openArtistFromTapTarget(target, origin: .reset)
+                    },
+                    navigateToAlbum: { album, artistSubtitle, artworkURL in
+                        lyricsOverlay.dismiss()
+                        openAlbumFromTapTarget(
+                            album, artistSubtitle: artistSubtitle, artworkURL: artworkURL, origin: .reset)
+                    }
+                )
+                bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
+                commandPaletteManager.dismissLyricsOverlayIfPresented = { [lyricsOverlay] in
+                    guard lyricsOverlay.isPresented else { return false }
                     lyricsOverlay.dismiss()
-                    openArtistFromTapTarget(target, origin: .reset)
-                },
-                navigateToAlbum: { album, artistSubtitle, artworkURL in
-                    lyricsOverlay.dismiss()
-                    openAlbumFromTapTarget(album, artistSubtitle: artistSubtitle, artworkURL: artworkURL, origin: .reset)
+                    return true
                 }
-            )
-            bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
-            commandPaletteManager.dismissLyricsOverlayIfPresented = { [lyricsOverlay] in
-                guard lyricsOverlay.isPresented else { return false }
-                lyricsOverlay.dismiss()
-                return true
+                queueViewModel.setAppActive(NSApplication.shared.isActive)
+                queueViewModel.setPanelVisible(isQueueVisible)
+                commandPaletteManager.canNavigateBack = viewModel.canNavigateBack
+                syncTrackSelectionMenuState()
             }
-            queueViewModel.setAppActive(NSApplication.shared.isActive)
-            queueViewModel.setPanelVisible(isQueueVisible)
-            commandPaletteManager.canNavigateBack = viewModel.canNavigateBack
-            syncTrackSelectionMenuState()
-        }
     }
 
     private var browserCommandBindings: some View {
         browserLifecycle
-        .onChange(of: viewModel.sidebarSelection) { _, _ in
-            bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
-        }
-        .onChange(of: viewModel.detailState) { _, _ in
-            bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
-            syncTrackSelectionMenuState()
-        }
-        .onChange(of: viewModel.prefetchAllPlaylistsProgress) { _, newValue in
-            commandPaletteManager.setPrefetchProgress(newValue)
-        }
-        .onChange(of: viewModel.canNavigateBack) { _, newValue in
-            commandPaletteManager.canNavigateBack = newValue
-        }
-        // The menu bar dims and re-titles its selection items from this, so it
-        // has to follow both the selection and the pinned set (#132).
-        .onReceive(viewModel.detailTrackSelection.changed) { _ in
-            syncTrackSelectionMenuState()
-        }
-        // On Home the selection is read against the top tracks, which go away while a refresh
-        // loads and when it fails; the menu bar must stop offering them then (#173).
-        .onChange(of: viewModel.homeTopTracks) { _, _ in
-            syncTrackSelectionMenuState()
-        }
-        // `$deviceID` announces the new id before storing it: keep the value it delivers.
-        .onReceive(playbackViewModel.$deviceID) { deviceID in
-            if playbackDeviceID != deviceID { playbackDeviceID = deviceID }
-        }
-        .onChange(of: playbackDeviceID) { _, _ in
-            syncTrackSelectionMenuState()
-        }
-        .onReceive(viewModel.$playlistState) { state in
-            guard let playlists = state.currentValue else { return }
-            pinnedStore.fillMissingPlaylistArtwork(from: playlists)
-        }
-        // A shared playlist pinned from Search is pinned under its catalog ID, which only a
-        // search result carries (#477).
-        .onReceive(viewModel.catalogSearch.$state) { state in
-            guard let results = state.currentValue else { return }
-            pinnedStore.fillMissingPlaylistArtwork(from: results.playlists)
-        }
-        .onChange(of: pinnedStore.items) { _, _ in
-            // Auth teardown detaches this scene before clearing account-bound
-            // pins. Do not let that published clear rebind browser callbacks
-            // after the palette has been reset.
-            guard commandPaletteManager.isSignedIn else { return }
-            syncTrackSelectionMenuState()
-            syncLibraryRowOrder()
-            bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
-        }
+            .onChange(of: viewModel.sidebarSelection) { _, _ in
+                bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
+            }
+            .onChange(of: viewModel.detailState) { _, _ in
+                bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
+                syncTrackSelectionMenuState()
+            }
+            .onChange(of: viewModel.prefetchAllPlaylistsProgress) { _, newValue in
+                commandPaletteManager.setPrefetchProgress(newValue)
+            }
+            .onChange(of: viewModel.canNavigateBack) { _, newValue in
+                commandPaletteManager.canNavigateBack = newValue
+            }
+            // The menu bar dims and re-titles its selection items from this, so it
+            // has to follow both the selection and the pinned set (#132).
+            .onReceive(viewModel.detailTrackSelection.changed) { _ in
+                syncTrackSelectionMenuState()
+            }
+            // On Home the selection is read against the top tracks, which go away while a refresh
+            // loads and when it fails; the menu bar must stop offering them then (#173).
+            .onChange(of: viewModel.homeTopTracks) { _, _ in
+                syncTrackSelectionMenuState()
+            }
+            // `$deviceID` announces the new id before storing it: keep the value it delivers.
+            .onReceive(playbackViewModel.$deviceID) { deviceID in
+                if playbackDeviceID != deviceID { playbackDeviceID = deviceID }
+            }
+            .onChange(of: playbackDeviceID) { _, _ in
+                syncTrackSelectionMenuState()
+            }
+            .onReceive(viewModel.$playlistState) { state in
+                guard let playlists = state.currentValue else { return }
+                pinnedStore.fillMissingPlaylistArtwork(from: playlists)
+            }
+            // A shared playlist pinned from Search is pinned under its catalog ID, which only a
+            // search result carries (#477).
+            .onReceive(viewModel.catalogSearch.$state) { state in
+                guard let results = state.currentValue else { return }
+                pinnedStore.fillMissingPlaylistArtwork(from: results.playlists)
+            }
+            .onChange(of: pinnedStore.items) { _, _ in
+                // Auth teardown detaches this scene before clearing account-bound
+                // pins. Do not let that published clear rebind browser callbacks
+                // after the palette has been reset.
+                guard commandPaletteManager.isSignedIn else { return }
+                syncTrackSelectionMenuState()
+                syncLibraryRowOrder()
+                bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
+            }
     }
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("PlaylistBrowserView")
+            let _ = ViewBodyTally.record("PlaylistBrowserView")
         #endif
         browserCommandBindings
-        .onReceive(queuePanel.didChange) { visible in
-            queueViewModel.setPanelVisible(visible)
-            browserWidthSampler.commitLatestWidth()
-            if !visible {
-                unifiedRefreshFocus = .mainContent
-            }
-            syncUnifiedRefreshRoutingToViewModel()
+            .onReceive(queuePanel.didChange) { visible in
+                queueViewModel.setPanelVisible(visible)
+                browserWidthSampler.commitLatestWidth()
+                if !visible {
+                    unifiedRefreshFocus = .mainContent
+                }
+                syncUnifiedRefreshRoutingToViewModel()
 
-            if visible {
-                lastOpenedSidebar = .queue
-                if isMutualExclusionWidth, playlistColumnVisibility != .detailOnly {
-                    playlistColumnVisibility = .detailOnly
+                if visible {
+                    lastOpenedSidebar = .queue
+                    if isMutualExclusionWidth, playlistColumnVisibility != .detailOnly {
+                        playlistColumnVisibility = .detailOnly
+                    }
                 }
             }
-        }
-        // "Edit playlist name" on the tile of an empty playlist renames it in its sidebar row
-        // (its page has no header), so a hidden sidebar comes back for it (#478).
-        .onChange(of: viewModel.pendingSidebarPlaylistNameEditID) { _, requestedID in
-            if requestedID != nil, playlistColumnVisibility == .detailOnly {
-                playlistColumnVisibility = .all
-            }
-        }
-        .onChange(of: playlistColumnVisibility, initial: true) { _, newValue in
-            viewModel.isSidebarShown = newValue != .detailOnly
-        }
-        .onChange(of: playlistColumnVisibility) { _, newValue in
-            // After the frame: the manager re-renders the whole window and the menu bar (#672).
-            MainRunLoop.afterThisFrame { [commandPaletteManager] in
-                commandPaletteManager.setSidebarVisible(newValue != .detailOnly)
-            }
-            if newValue != .detailOnly {
-                // The sidebar is back (by hand or by widening), so nothing is held for the
-                // queue any more; a later hide by hand must not be undone by a widening (#413).
-                isSidebarHeldForQueue = false
-                lastOpenedSidebar = .playlist
-                if isMutualExclusionWidth, isQueueVisible {
-                    isQueueVisible = false
+            // "Edit playlist name" on the tile of an empty playlist renames it in its sidebar row
+            // (its page has no header), so a hidden sidebar comes back for it (#478).
+            .onChange(of: viewModel.pendingSidebarPlaylistNameEditID) { _, requestedID in
+                if requestedID != nil, playlistColumnVisibility == .detailOnly {
+                    playlistColumnVisibility = .all
                 }
             }
-        }
-        .onChange(of: unifiedRefreshFocus) { _, _ in
-            syncUnifiedRefreshRoutingToViewModel()
-        }
-        .onChange(of: lyricsOverlay.isPresented) { _, _ in
-            syncUnifiedRefreshRoutingToViewModel()
-        }
-        // The sidebar, the queue and the player bar stay usable next to the lyrics, so you can
-        // go somewhere else while they are open (a sidebar row, an artist link, Back). The new
-        // page would load out of sight under the lyrics, so going there closes them (#438).
-        .onChange(of: LyricsCoveredPage(viewModel)) { oldPage, newPage in
-            if lyricsOverlay.isPresented, newPage.isAnotherPage(than: oldPage) { lyricsOverlay.dismiss() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            queueViewModel.setAppActive(true)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
-            queueViewModel.setAppActive(false)
-        }
-        .alert(SpotiglassL10n.string("playlist.detail.newPlaylist.title"), isPresented: $isPromptingNewPlaylist) {
-            TextField(SpotiglassL10n.string("playlist.detail.newPlaylist.field"), text: $newPlaylistName)
-            Button(SpotiglassL10n.string("playlist.detail.newPlaylist.cancel"), role: .cancel) {
-                newPlaylistInitialRows = []
-                newPlaylistName = ""
+            .onChange(of: playlistColumnVisibility, initial: true) { _, newValue in
+                viewModel.isSidebarShown = newValue != .detailOnly
             }
-            Button(SpotiglassL10n.string("playlist.detail.newPlaylist.create")) {
-                let rows = newPlaylistInitialRows
-                let name = newPlaylistName
-                newPlaylistInitialRows = []
-                newPlaylistName = ""
-                Task { await viewModel.createPlaylistWithRows(name: name, rows: rows) }
+            .onChange(of: playlistColumnVisibility) { _, newValue in
+                // After the frame: the manager re-renders the whole window and the menu bar (#672).
+                MainRunLoop.afterThisFrame { [commandPaletteManager] in
+                    commandPaletteManager.setSidebarVisible(newValue != .detailOnly)
+                }
+                if newValue != .detailOnly {
+                    // The sidebar is back (by hand or by widening), so nothing is held for the
+                    // queue any more; a later hide by hand must not be undone by a widening (#413).
+                    isSidebarHeldForQueue = false
+                    lastOpenedSidebar = .playlist
+                    if isMutualExclusionWidth, isQueueVisible {
+                        isQueueVisible = false
+                    }
+                }
             }
-            .disabled(newPlaylistName.trimmingCharacters(in: .whitespaces).isEmpty)
-        } message: {
-            Text(newPlaylistInitialRows.isEmpty
-                 ? SpotiglassL10n.format("playlist.detail.newPlaylist.empty", MusicServiceSelection.current.displayName)
-                 : SpotiglassL10n.format(
-                    "playlist.detail.newPlaylist.withTracks",
-                    Int64(newPlaylistInitialRows.count)
-                   ))
-        }
-        .modifier(PlaylistDeletionConfirmation(viewModel: viewModel))
-        .modifier(LibraryRemovalConfirmation(viewModel: viewModel))
+            .onChange(of: unifiedRefreshFocus) { _, _ in
+                syncUnifiedRefreshRoutingToViewModel()
+            }
+            .onChange(of: lyricsOverlay.isPresented) { _, _ in
+                syncUnifiedRefreshRoutingToViewModel()
+            }
+            // The sidebar, the queue and the player bar stay usable next to the lyrics, so you can
+            // go somewhere else while they are open (a sidebar row, an artist link, Back). The new
+            // page would load out of sight under the lyrics, so going there closes them (#438).
+            .onChange(of: LyricsCoveredPage(viewModel)) { oldPage, newPage in
+                if lyricsOverlay.isPresented, newPage.isAnotherPage(than: oldPage) { lyricsOverlay.dismiss() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                queueViewModel.setAppActive(true)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+                queueViewModel.setAppActive(false)
+            }
+            .alert(SpotiglassL10n.string("playlist.detail.newPlaylist.title"), isPresented: $isPromptingNewPlaylist) {
+                TextField(SpotiglassL10n.string("playlist.detail.newPlaylist.field"), text: $newPlaylistName)
+                Button(SpotiglassL10n.string("playlist.detail.newPlaylist.cancel"), role: .cancel) {
+                    newPlaylistInitialRows = []
+                    newPlaylistName = ""
+                }
+                Button(SpotiglassL10n.string("playlist.detail.newPlaylist.create")) {
+                    let rows = newPlaylistInitialRows
+                    let name = newPlaylistName
+                    newPlaylistInitialRows = []
+                    newPlaylistName = ""
+                    Task { await viewModel.createPlaylistWithRows(name: name, rows: rows) }
+                }
+                .disabled(newPlaylistName.trimmingCharacters(in: .whitespaces).isEmpty)
+            } message: {
+                Text(
+                    newPlaylistInitialRows.isEmpty
+                        ? SpotiglassL10n.format(
+                            "playlist.detail.newPlaylist.empty", MusicServiceSelection.current.displayName)
+                        : SpotiglassL10n.format(
+                            "playlist.detail.newPlaylist.withTracks",
+                            Int64(newPlaylistInitialRows.count)
+                        ))
+            }
+            .modifier(PlaylistDeletionConfirmation(viewModel: viewModel))
+            .modifier(LibraryRemovalConfirmation(viewModel: viewModel))
     }
 }
 
@@ -631,9 +635,9 @@ struct LyricsCoveredPage: Equatable {
             switch crumb.kind {
             case .search: "search"
             case .likedSongs: "likedSongs"
-            case let .playlist(id): "playlist:\(id)"
-            case let .artist(id): "artist:\(id)"
-            case let .album(id, _, _, _): "album:\(id)"
+            case .playlist(let id): "playlist:\(id)"
+            case .artist(let id): "artist:\(id)"
+            case .album(let id, _, _, _): "album:\(id)"
             }
         }
     }
@@ -698,7 +702,7 @@ private struct BrowserTransportBar: View, Equatable {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("BrowserTransportBar")
+            let _ = ViewBodyTally.record("BrowserTransportBar")
         #endif
         // The bar shows and controls the music you hear (#396): the other service's player
         // while it plays and nothing plays here.
@@ -750,8 +754,8 @@ private struct BrowserPlaybackReactions: View {
             }
             .task(id: lyricsHalfwayNextPreloadTaskID) {
                 guard let current = lyricsPrefetchTrack,
-                      current.durationMilliseconds > 0,
-                      current.lyricsTrackKey != nil
+                    current.durationMilliseconds > 0,
+                    current.lyricsTrackKey != nil
                 else { return }
                 let halfMs = current.durationMilliseconds / 2
                 let waitMs = max(0, halfMs - current.positionMilliseconds)
@@ -762,7 +766,7 @@ private struct BrowserPlaybackReactions: View {
                 await Task(priority: .userInitiated) {
                     await queueViewModel.prefetchQueueForLyricsOverlay()
                     guard let nextPlayback = queueViewModel.upcomingItems.first?.playbackNowPlayingForLyricsPrefetch(),
-                          let nextID = nextPlayback.lyricsTrackKey
+                        let nextID = nextPlayback.lyricsTrackKey
                     else { return }
                     guard nextID != current.lyricsTrackKey else { return }
                     await lyricsViewModel.preload(track: nextPlayback)

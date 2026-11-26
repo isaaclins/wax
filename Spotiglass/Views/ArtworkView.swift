@@ -133,7 +133,8 @@ struct MusicKitArtwork: View {
                 .background(OnScreenArtworkMarker(url: url, itemKey: itemKey))
                 .onAppear {
                     // MusicKit loads these itself and says nothing about how long it took (#734).
-                    SpotiglassLog.debug(.artwork, "cover \(url.absoluteString) drawn by MusicKit at \(Int(width))x\(Int(height)) pt")
+                    SpotiglassLog.debug(
+                        .artwork, "cover \(url.absoluteString) drawn by MusicKit at \(Int(width))x\(Int(height)) pt")
                 }
         } else if let url, AppleMusicArtworkRegistry.needsMusicKit(url) {
             Color.clear
@@ -141,7 +142,10 @@ struct MusicKitArtwork: View {
                 .onAppear {
                     // Info, not error: errors are written before returning, and this runs on the
                     // main thread for every such cover scrolled into view.
-                    SpotiglassLog.info(.artwork, "cover \(url.absoluteString) unknown to MusicKit (item \(itemKey ?? "none")); the placeholder shows")
+                    SpotiglassLog.info(
+                        .artwork,
+                        "cover \(url.absoluteString) unknown to MusicKit (item \(itemKey ?? "none")); the placeholder shows"
+                    )
                 }
         }
     }
@@ -269,7 +273,8 @@ struct OnScreenArtworkMarker: NSViewRepresentable {
         private func coverLayer(_ layer: CALayer, over marker: CALayer, depth: Int) -> CALayer? {
             let frame = layer.convert(layer.bounds, to: marker)
             let bounds = marker.bounds
-            let hasMarkersFrame = abs(frame.minX - bounds.minX) <= 1 && abs(frame.minY - bounds.minY) <= 1
+            let hasMarkersFrame =
+                abs(frame.minX - bounds.minX) <= 1 && abs(frame.minY - bounds.minY) <= 1
                 && abs(frame.width - bounds.width) <= 1 && abs(frame.height - bounds.height) <= 1
             // A layer with that frame and nothing inside is the cover before MusicKit filled it:
             // it counts as found (and draws nothing), so a layer further in front isn't taken.
@@ -292,11 +297,13 @@ struct OnScreenArtworkMarker: NSViewRepresentable {
             let scale = window?.backingScaleFactor ?? 2
             let width = max(1, Int((layer.bounds.width * scale).rounded()))
             let height = max(1, Int((layer.bounds.height * scale).rounded()))
-            guard let rep = NSBitmapImageRep(
-                bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
-                samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
-                bytesPerRow: 0, bitsPerPixel: 0
-            ), let context = NSGraphicsContext(bitmapImageRep: rep)?.cgContext else { return nil }
+            guard
+                let rep = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height, bitsPerSample: 8,
+                    samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                    bytesPerRow: 0, bitsPerPixel: 0
+                ), let context = NSGraphicsContext(bitmapImageRep: rep)?.cgContext
+            else { return nil }
             context.scaleBy(x: CGFloat(width) / layer.bounds.width, y: CGFloat(height) / layer.bounds.height)
             // SwiftUI's layers are flipped, the bitmap is not: draw the cover the right way up.
             if layer.contentsAreFlipped() {

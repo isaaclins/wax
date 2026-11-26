@@ -20,7 +20,8 @@ struct HomeView: View {
     let onRequestLibraryContinuation: ((TrackRowViewModel) -> Void)?
 
     private let quickAccessColumns = [
-        GridItem(.adaptive(minimum: SpotiglassDesign.Layout.quickAccessTileMinWidth), spacing: SpotiglassDesign.spacingS)
+        GridItem(
+            .adaptive(minimum: SpotiglassDesign.Layout.quickAccessTileMinWidth), spacing: SpotiglassDesign.spacingS)
     ]
 
     init(
@@ -41,7 +42,7 @@ struct HomeView: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("HomeView")
+            let _ = ViewBodyTally.record("HomeView")
         #endif
         let tracks = viewModel.homeTopTracks.value ?? []
         let marks = TrackRowPlaybackSource(session: playbackViewModel).marks(in: tracks)
@@ -55,7 +56,9 @@ struct HomeView: View {
                 tracks: tracks,
                 selection: selection,
                 rowBuilder: { track in
-                    marks.row(for: track) { mark in topTrackRow(track, mark: mark, in: tracks, selectedRows: selectedRows) }
+                    marks.row(for: track) { mark in
+                        topTrackRow(track, mark: mark, in: tracks, selectedRows: selectedRows)
+                    }
                 },
                 pendingScrollRestoreTrackID: .constant(nil),
                 onFirstVisibleTrackChanged: { _ in },
@@ -102,12 +105,13 @@ struct HomeView: View {
             switch viewModel.homeRecentlyPlayed {
             case .loading:
                 HomeSectionNotice(style: .loading)
-            case let .loaded(cards):
+            case .loaded(let cards):
                 if cards.isEmpty {
-                    HomeSectionNotice(style: .message(
-                        icon: "clock.arrow.circlepath",
-                        text: SpotiglassL10n.string("home.recentlyPlayed.empty")
-                    ))
+                    HomeSectionNotice(
+                        style: .message(
+                            icon: "clock.arrow.circlepath",
+                            text: SpotiglassL10n.string("home.recentlyPlayed.empty")
+                        ))
                 } else {
                     // The shelf hid its indicator and cut the last card in half,
                     // so nothing said it scrolled (#162). The indicator is back,
@@ -129,14 +133,19 @@ struct HomeView: View {
                     .shelfScrollBehavior()
                 }
             case .unavailable:
-                HomeSectionNotice(style: .message(
-                    icon: "lock.fill",
-                    text: SpotiglassL10n.string("home.section.reconnect")
-                ))
-            case let .failed(error):
-                ErrorBanner(error: error, retry: error.canRetry ? {
-                    Task { await viewModel.reloadHomeSections(forceRefresh: true) }
-                } : nil)
+                HomeSectionNotice(
+                    style: .message(
+                        icon: "lock.fill",
+                        text: SpotiglassL10n.string("home.section.reconnect")
+                    ))
+            case .failed(let error):
+                ErrorBanner(
+                    error: error,
+                    retry: error.canRetry
+                        ? {
+                            Task { await viewModel.reloadHomeSections(forceRefresh: true) }
+                        } : nil
+                )
                 .frame(minHeight: SpotiglassDesign.Layout.sectionNoticeMinHeight)
             }
         }
@@ -153,22 +162,28 @@ struct HomeView: View {
             switch viewModel.homeTopTracks {
             case .loading:
                 HomeSectionNotice(style: .loading)
-            case let .loaded(tracks):
+            case .loaded(let tracks):
                 if tracks.isEmpty {
-                    HomeSectionNotice(style: .message(
-                        icon: "music.note",
-                        text: SpotiglassL10n.string("home.topTracks.empty")
-                    ))
+                    HomeSectionNotice(
+                        style: .message(
+                            icon: "music.note",
+                            text: SpotiglassL10n.string("home.topTracks.empty")
+                        ))
                 }
             case .unavailable:
-                HomeSectionNotice(style: .message(
-                    icon: "lock.fill",
-                    text: SpotiglassL10n.string("home.section.reconnect")
-                ))
-            case let .failed(error):
-                ErrorBanner(error: error, retry: error.canRetry ? {
-                    Task { await viewModel.reloadHomeSections(forceRefresh: true) }
-                } : nil)
+                HomeSectionNotice(
+                    style: .message(
+                        icon: "lock.fill",
+                        text: SpotiglassL10n.string("home.section.reconnect")
+                    ))
+            case .failed(let error):
+                ErrorBanner(
+                    error: error,
+                    retry: error.canRetry
+                        ? {
+                            Task { await viewModel.reloadHomeSections(forceRefresh: true) }
+                        } : nil
+                )
                 .frame(minHeight: SpotiglassDesign.Layout.sectionNoticeMinHeight)
             }
         }
@@ -195,23 +210,24 @@ struct HomeView: View {
             drawsRowHighlights: false,
             isKeyboardFocusable: false,
             trackOpsMenuItems: {
-                AnyView(TrackOpsMenuItems(
-                    targets: viewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
-                    browserViewModel: viewModel,
-                    sourcePlaylistID: nil,
-                    onRequestCreatePlaylist: onRequestCreatePlaylist,
-                    onRequestLibraryContinuation: onRequestLibraryContinuation,
-                    openArtist: { target in
-                        if let id = target.id {
-                            Task { await viewModel.selectArtist(id: id, origin: .extend, displayName: target.name) }
-                        }
-                    },
-                    addToQueue: { uri in
-                        await queueViewModel.addToQueue(uri: uri)
-                    },
-                    hasPlaybackDevice: hasPlaybackDevice,
-                    copyableURI: track.playableURI
-                ))
+                AnyView(
+                    TrackOpsMenuItems(
+                        targets: viewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
+                        browserViewModel: viewModel,
+                        sourcePlaylistID: nil,
+                        onRequestCreatePlaylist: onRequestCreatePlaylist,
+                        onRequestLibraryContinuation: onRequestLibraryContinuation,
+                        openArtist: { target in
+                            if let id = target.id {
+                                Task { await viewModel.selectArtist(id: id, origin: .extend, displayName: target.name) }
+                            }
+                        },
+                        addToQueue: { uri in
+                            await queueViewModel.addToQueue(uri: uri)
+                        },
+                        hasPlaybackDevice: hasPlaybackDevice,
+                        copyableURI: track.playableURI
+                    ))
             }
         )
     }
@@ -233,9 +249,9 @@ struct HomeView: View {
         switch destination {
         case .likedSongs:
             Task { await viewModel.selectSidebar(.likedSongs) }
-        case let .playlist(id):
+        case .playlist(let id):
             Task { await viewModel.selectSidebar(.playlist(id)) }
-        case let .album(id, title, subtitle, artworkURL):
+        case .album(let id, let title, let subtitle, let artworkURL):
             Task {
                 await viewModel.selectAlbum(
                     id: id,
@@ -258,7 +274,8 @@ private struct HomeGreetingHeader: View {
 
     var body: some View {
         TimelineView(HomeGreetingSchedule(calendar: clock.calendar)) { context in
-            HomeSectionHeader(title: viewModel.homeGreeting(now: context.date, calendar: clock.calendar), style: .pageTitle)
+            HomeSectionHeader(
+                title: viewModel.homeGreeting(now: context.date, calendar: clock.calendar), style: .pageTitle)
         }
         // A new identity drops the entries already scheduled for the old time zone.
         .id(clock.generation)

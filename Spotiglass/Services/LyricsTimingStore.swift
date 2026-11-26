@@ -35,7 +35,9 @@ final class LyricsTimingStore: ObservableObject {
         self.maxSongs = maxSongs
         self.now = now
         if let data = defaults.data(forKey: Self.defaultsKey),
-           let decoded = try? JSONDecoder().decode([String: Entry].self, from: data) {
+            // try?: saved shifts that don't decode start over empty; they are only a convenience.
+            let decoded = try? JSONDecoder().decode([String: Entry].self, from: data)
+        {
             entries = decoded
         } else {
             entries = [:]

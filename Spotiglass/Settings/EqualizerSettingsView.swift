@@ -96,8 +96,9 @@ struct EqualizerSettingsView: View {
                             while: "saving an equalizer preset",
                             in: .settings,
                             level: .info,
-                            showing: ErrorMessage(message: (error as? LocalizedError)?.errorDescription
-                                ?? SpotiglassL10n.string("error.browsing.generic.title"))
+                            showing: ErrorMessage(
+                                message: (error as? LocalizedError)?.errorDescription
+                                    ?? SpotiglassL10n.string("error.browsing.generic.title"))
                         )
                     }
                 }
@@ -240,8 +241,9 @@ struct EqualizerSettingsView: View {
         equalizer: EqualizerSettings,
         devices: [AudioDeviceEnumerator.Device]
     ) -> String? {
-        guard let uid = equalizer.forwardingTargetUID
-            ?? engine.currentForwardingTargetUID()
+        guard
+            let uid = equalizer.forwardingTargetUID
+                ?? engine.currentForwardingTargetUID()
         else { return nil }
         return devices.first { $0.uid == uid }?.name ?? uid
     }
@@ -407,7 +409,8 @@ struct EqualizerSettingsView: View {
             get: { settingsStore.settings.equalizer.activePresetName },
             set: { newValue in
                 guard let name = newValue,
-                      let preset = EqualizerPreset.find(named: name, userPresets: settingsStore.settings.equalizer.userPresets)
+                    let preset = EqualizerPreset.find(
+                        named: name, userPresets: settingsStore.settings.equalizer.userPresets)
                 else {
                     mutateEqualizer { $0.activePresetName = nil }
                     return
@@ -424,7 +427,10 @@ struct EqualizerSettingsView: View {
                 let clamped = EqualizerSettings.clampPreamp(newValue)
                 mutateEqualizer { eq in
                     eq.preamp = clamped
-                    if !eq.matches(EqualizerPreset.find(named: eq.activePresetName ?? "", userPresets: eq.userPresets) ?? EqualizerPreset.flat) {
+                    if !eq.matches(
+                        EqualizerPreset.find(named: eq.activePresetName ?? "", userPresets: eq.userPresets)
+                            ?? EqualizerPreset.flat)
+                    {
                         eq.activePresetName = nil
                     }
                 }
@@ -441,8 +447,9 @@ struct EqualizerSettingsView: View {
                 mutateEqualizer { eq in
                     eq.bands[index] = clamped
                     if let activeName = eq.activePresetName,
-                       let activePreset = EqualizerPreset.find(named: activeName, userPresets: eq.userPresets),
-                       !eq.matches(activePreset) {
+                        let activePreset = EqualizerPreset.find(named: activeName, userPresets: eq.userPresets),
+                        !eq.matches(activePreset)
+                    {
                         eq.activePresetName = nil
                     }
                 }
@@ -482,7 +489,7 @@ struct EqualizerSettingsView: View {
 
     private func deleteActiveUserPreset() {
         guard let name = settingsStore.settings.equalizer.activePresetName,
-              settingsStore.settings.equalizer.userPresets.contains(where: { $0.name == name })
+            settingsStore.settings.equalizer.userPresets.contains(where: { $0.name == name })
         else { return }
         settingsStore.update { file in
             file.equalizer.userPresets.removeAll { $0.name == name }

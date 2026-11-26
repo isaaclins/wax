@@ -54,13 +54,17 @@ final class InteractionLog {
             return event
         }
         let center = NotificationCenter.default
-        observers.append(center.addObserver(forName: NSMenu.didSendActionNotification, object: nil, queue: .main) { [weak self] note in
-            let item = note.userInfo?["MenuItem"] as? NSMenuItem
-            let menu = (note.object as? NSMenu)?.title ?? ""
-            MainActor.assumeIsolated {
-                self?.record("menu pick “\(item?.title ?? "?")”" + (menu.isEmpty ? "" : " in “\(menu)”"), target: nil, at: nil)
-            }
-        })
+        observers.append(
+            center.addObserver(forName: NSMenu.didSendActionNotification, object: nil, queue: .main) {
+                [weak self] note in
+                let item = note.userInfo?["MenuItem"] as? NSMenuItem
+                let menu = (note.object as? NSMenu)?.title ?? ""
+                MainActor.assumeIsolated {
+                    self?.record(
+                        "menu pick “\(item?.title ?? "?")”" + (menu.isEmpty ? "" : " in “\(menu)”"), target: nil,
+                        at: nil)
+                }
+            })
         let windowEvents: [(Notification.Name, String)] = [
             (NSWindow.didBecomeKeyNotification, "became key"),
             (NSWindow.willCloseNotification, "closing"),
@@ -73,25 +77,27 @@ final class InteractionLog {
             (NSWindow.didChangeOcclusionStateNotification, "visibility changed"),
         ]
         for (name, what) in windowEvents {
-            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
-                guard let window = note.object as? NSWindow else { return }
-                MainActor.assumeIsolated {
-                    let frame = window.frame
-                    let visible = window.occlusionState.contains(.visible) ? "visible" : "hidden"
-                    self?.write(
-                        "window \(Self.name(window)) \(what): \(Int(frame.width))x\(Int(frame.height)) at "
-                            + "(\(Int(frame.minX)), \(Int(frame.minY))), \(visible)"
-                    )
-                }
-            })
+            observers.append(
+                center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                    guard let window = note.object as? NSWindow else { return }
+                    MainActor.assumeIsolated {
+                        let frame = window.frame
+                        let visible = window.occlusionState.contains(.visible) ? "visible" : "hidden"
+                        self?.write(
+                            "window \(Self.name(window)) \(what): \(Int(frame.width))x\(Int(frame.height)) at "
+                                + "(\(Int(frame.minX)), \(Int(frame.minY))), \(visible)"
+                        )
+                    }
+                })
         }
         for (name, what) in [
             (NSApplication.didBecomeActiveNotification, "app became active"),
             (NSApplication.didResignActiveNotification, "app went to the background"),
         ] {
-            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.write(what) }
-            })
+            observers.append(
+                center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.write(what) }
+                })
         }
     }
 
@@ -111,7 +117,9 @@ final class InteractionLog {
         switch event.type {
         case .leftMouseDown, .rightMouseDown, .otherMouseDown:
             dragging = false
-            let button = event.type == .rightMouseDown ? "right-click" : event.type == .otherMouseDown ? "click (button \(event.buttonNumber))" : "click"
+            let button =
+                event.type == .rightMouseDown
+                ? "right-click" : event.type == .otherMouseDown ? "click (button \(event.buttonNumber))" : "click"
             let label = event.clickCount > 1 ? "\(event.clickCount)x \(button)" : button
             record(label, target: target(of: event), at: event.timestamp, point: event)
         case .leftMouseDragged:
@@ -200,7 +208,8 @@ final class InteractionLog {
     /// Runs `block` once, after the Core Animation commit of this run loop turn.
     private func afterNextCommit(_ block: @escaping @MainActor () -> Void) {
         // Core Animation commits in a before-waiting observer of order 2000000; this one is later.
-        let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, false, Int.max) { _, _ in
+        let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, false, Int.max)
+        { _, _ in
             MainActor.assumeIsolated(block)
         }
         CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
@@ -241,13 +250,15 @@ final class InteractionLog {
                 slowLookups += 1
                 if slowLookups >= Self.slowLookupsAllowed {
                     lookupsAllowed = false
-                    write("looking up controls took \(CallLog.milliseconds(took)); interaction lines name only the view from now on")
+                    write(
+                        "looking up controls took \(CallLog.milliseconds(took)); interaction lines name only the view from now on"
+                    )
                 }
             }
         }
         var element = content.accessibilityHitTest(point)
         var parts: [String] = []
-        for _ in 0 ..< 4 {
+        for _ in 0..<4 {
             guard let current = element as? NSAccessibilityProtocol else { break }
             let role = current.accessibilityRole()?.rawValue ?? ""
             let label = current.accessibilityLabel() ?? ""

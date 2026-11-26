@@ -41,7 +41,8 @@ struct PlaylistBrowserSidebarToggleButton: View {
     let commandPaletteManager: CommandPaletteManager
 
     var body: some View {
-        let title = isSidebarVisible
+        let title =
+            isSidebarVisible
             ? SpotiglassL10n.string("menu.view.hideSidebar")
             : SpotiglassL10n.string("menu.view.showSidebar")
         Button {

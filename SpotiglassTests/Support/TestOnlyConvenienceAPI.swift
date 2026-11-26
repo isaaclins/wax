@@ -1,4 +1,5 @@
 import Foundation
+
 @testable import Spotiglass
 
 // Convenience wrappers that only tests need. They used to live in the app
@@ -9,7 +10,7 @@ import Foundation
 extension PlaybackSessionViewModel {
     /// Unwraps the display error carried by ``connectionState``.
     var connectionStateError: DisplayError? {
-        guard case let .error(error) = connectionState else { return nil }
+        guard case .error(let error) = connectionState else { return nil }
         return error
     }
 

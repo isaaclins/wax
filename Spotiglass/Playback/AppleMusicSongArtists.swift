@@ -37,8 +37,8 @@ final class AppleMusicSongArtists {
     /// `track` with its song's artists when it came without them and they are known.
     func filling(_ track: MusicTrack, songID: String, load: @escaping Load) -> MusicTrack {
         guard track.artistRefs.isEmpty,
-              let refs = artists(ofSong: songID, load: load),
-              !refs.isEmpty
+            let refs = artists(ofSong: songID, load: load),
+            !refs.isEmpty
         else { return track }
         return MusicTrack(
             id: track.id,

@@ -1,6 +1,6 @@
 import Foundation
-import os
 import SwiftUI
+import os
 
 private struct SpotiglassLocaleKey: EnvironmentKey {
     static let defaultValue = Locale(identifier: "en")
@@ -168,10 +168,10 @@ enum SpotiglassL10n {
     /// spent most of its layout time here (#442).
     private static let localizationBundles = OSAllocatedUnfairLock<[String: [Bundle]]>(initialState: [:])
     #if DEBUG
-    /// How many strings were looked up, for tests.
-    static let lookups = OSAllocatedUnfairLock<Int>(initialState: 0)
-    /// How often the bundles were looked for, for tests.
-    static let localizationBundleSearches = OSAllocatedUnfairLock<Int>(initialState: 0)
+        /// How many strings were looked up, for tests.
+        static let lookups = OSAllocatedUnfairLock<Int>(initialState: 0)
+        /// How often the bundles were looked for, for tests.
+        static let localizationBundleSearches = OSAllocatedUnfairLock<Int>(initialState: 0)
     #endif
 
     static var locale: Locale {
@@ -205,15 +205,15 @@ enum SpotiglassL10n {
     /// and service code can continue to use the current-store overload above.
     static func string(_ key: String, locale: Locale) -> String {
         #if DEBUG
-        lookups.withLock { $0 += 1 }
+            lookups.withLock { $0 += 1 }
         #endif
         let localizationBundle = bundle(for: locale, key: key)
         let value = localizationBundle.localizedString(forKey: key, value: key, table: nil)
         #if DEBUG
-        assert(
-            value != key || containsKey(key, in: localizationBundle),
-            "Missing localization key: \(key)"
-        )
+            assert(
+                value != key || containsKey(key, in: localizationBundle),
+                "Missing localization key: \(key)"
+            )
         #endif
         return value
     }
@@ -243,8 +243,8 @@ enum SpotiglassL10n {
             let locale = Locale(identifier: language.rawValue)
             for bundle in appLocalizationBundles(for: locale) {
                 guard let path = bundle.path(forResource: "Localizable", ofType: "strings"),
-                      let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
-                      let table = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+                    let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+                    let table = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil)
                         as? [String: String]
                 else { continue }
                 for key in table.keys.sorted() {
@@ -263,8 +263,9 @@ enum SpotiglassL10n {
         for owner in [Bundle.main, Bundle(for: SpotiglassSettingsStore.self)] {
             for name in [locale.identifier, locale.language.languageCode?.identifier].compactMap({ $0 }) {
                 if let path = owner.path(forResource: name, ofType: "lproj"),
-                   let bundle = Bundle(path: path),
-                   !bundles.contains(where: { $0.bundleURL == bundle.bundleURL }) {
+                    let bundle = Bundle(path: path),
+                    !bundles.contains(where: { $0.bundleURL == bundle.bundleURL })
+                {
                     bundles.append(bundle)
                 }
             }
@@ -296,7 +297,7 @@ enum SpotiglassL10n {
     private static func localizationBundles(for loc: Locale) -> [Bundle] {
         if let known = localizationBundles.withLock({ $0[loc.identifier] }) { return known }
         #if DEBUG
-        localizationBundleSearches.withLock { $0 += 1 }
+            localizationBundleSearches.withLock { $0 += 1 }
         #endif
         // `Bundle.main` is the app bundle in production. The test host can make
         // it the XCTest bundle, so also search the bundle that owns the app
@@ -326,12 +327,12 @@ enum SpotiglassL10n {
         var keys: Set<String> = []
         for fileExtension in ["strings", "stringsdict"] {
             guard let path = bundle.path(forResource: "Localizable", ofType: fileExtension),
-                  let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
-                  let propertyList = try? PropertyListSerialization.propertyList(
-                      from: data,
-                      options: [],
-                      format: nil
-                  ) as? [String: Any]
+                let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+                let propertyList = try? PropertyListSerialization.propertyList(
+                    from: data,
+                    options: [],
+                    format: nil
+                ) as? [String: Any]
             else { continue }
             keys.formUnion(propertyList.keys)
         }

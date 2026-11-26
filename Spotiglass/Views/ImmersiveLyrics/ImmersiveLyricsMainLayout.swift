@@ -50,7 +50,10 @@ struct ImmersiveLyricsMainLayout: View {
                             currentTrack: currentTrack,
                             linksToLibrary: !followsOtherService
                         )
-                        .frame(width: min(SpotiglassDesign.Layout.lyricsSideColumnMaxWidth, geo.size.width * 0.36), alignment: .leading)
+                        .frame(
+                            width: min(SpotiglassDesign.Layout.lyricsSideColumnMaxWidth, geo.size.width * 0.36),
+                            alignment: .leading
+                        )
                         // In a short window Next in Queue runs longer than the room above the
                         // player bar. The column runs behind the bar now (#474), so the list
                         // fades out above it like the lyrics instead of showing under the bar.
@@ -92,7 +95,9 @@ struct ImmersiveLyricsMainLayout: View {
                             reduceMotion: reduceMotion,
                             usesLyricsScrollEdgeFade: usesLyricsScrollEdgeFade,
                             lyricsTextSize: lyricsTextSize,
-                            maxHeight: max(SpotiglassDesign.Layout.lyricsColumnMinHeight, usableHeight - compactHeaderHeight - SpotiglassDesign.spacingM),
+                            maxHeight: max(
+                                SpotiglassDesign.Layout.lyricsColumnMinHeight,
+                                usableHeight - compactHeaderHeight - SpotiglassDesign.spacingM),
                             onSeek: seekHandler
                         )
                         .frame(maxHeight: .infinity, alignment: .top)

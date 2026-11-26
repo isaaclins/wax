@@ -59,7 +59,9 @@ final class UnifiedTitlebarProbeView: NSView {
 final class SettingsToolbarItems: NSObject, NSToolbarDelegate {
     static let shared = SettingsToolbarItems()
 
-    static let itemIdentifiers: [NSToolbarItem.Identifier] = [.flexibleSpace, .toggleSidebar, .sidebarTrackingSeparator]
+    static let itemIdentifiers: [NSToolbarItem.Identifier] = [
+        .flexibleSpace, .toggleSidebar, .sidebarTrackingSeparator,
+    ]
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         Self.itemIdentifiers

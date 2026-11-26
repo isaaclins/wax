@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class PlaylistBrowserLibraryActionsTests: XCTestCase {
@@ -15,7 +16,7 @@ final class PlaylistBrowserLibraryActionsTests: XCTestCase {
         )
         XCTAssertEqual(rows.count, 2)
         XCTAssertEqual(rows[0], .home)
-        if case let .pinned(item) = rows[1] {
+        if case .pinned(let item) = rows[1] {
             XCTAssertEqual(item.id, pinned.id)
         } else {
             XCTFail("expected pinned row")

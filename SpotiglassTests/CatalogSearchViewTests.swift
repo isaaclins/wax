@@ -1,6 +1,7 @@
 import Combine
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Covers the dedicated catalog Search surface: sidebar routing, pill filtering,
@@ -41,7 +42,8 @@ final class CatalogSearchViewTests: XCTestCase {
                 MusicArtist(id: "a1", name: "Found Artist", imageURL: nil, uri: "spotify:artist:a1")
             ],
             albums: [
-                MusicAlbum(id: "al1", name: "Found Album", artists: ["Found Artist"], imageURL: nil, uri: "spotify:album:al1")
+                MusicAlbum(
+                    id: "al1", name: "Found Album", artists: ["Found Artist"], imageURL: nil, uri: "spotify:album:al1")
             ],
             playlists: [
                 PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Found Playlist")
@@ -120,13 +122,15 @@ final class CatalogSearchViewTests: XCTestCase {
             viewModel: viewModel,
             searchViewModel: viewModel.catalogSearch,
             playbackViewModel: PlaybackSessionViewModel(
-                provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()),
+                provider: SpotifyPlaybackProvider(
+                    playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()),
                 defaults: makeEphemeralDefaults()
             ),
             queueViewModel: QueueViewModel(
                 provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()),
                 playbackSession: PlaybackSessionViewModel(
-                    provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()),
+                    provider: SpotifyPlaybackProvider(
+                        playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()),
                     defaults: makeEphemeralDefaults()
                 )
             ),
@@ -306,7 +310,7 @@ final class CatalogSearchViewTests: XCTestCase {
         await oldRequestGate.release()
         await fulfillment(of: [oldRequestFinished], timeout: mustHappenTimeout)
 
-        guard case let .loaded(results) = viewModel.state else {
+        guard case .loaded(let results) = viewModel.state else {
             return XCTFail("A late error from the old query must not replace the newer results")
         }
         XCTAssertEqual(results.tracks.map(\.id), ["t1"])
@@ -472,15 +476,18 @@ final class CatalogSearchViewTests: XCTestCase {
         )
 
         let rebound = try CommandShortcut(keystroke: "shift-cmd-8")
-        try store.setBinding(commandID: CommandPaletteCommandID.openSearch, shortcut: rebound, replaceConflicting: false)
+        try store.setBinding(
+            commandID: CommandPaletteCommandID.openSearch, shortcut: rebound, replaceConflicting: false)
         XCTAssertEqual(store.primaryShortcut(for: CommandPaletteCommandID.openSearch), rebound)
 
         // Conflict detection and the Settings "Replace" flow come for free.
         let taken = try CommandShortcut(keystroke: "cmd-k")
         XCTAssertThrowsError(
-            try store.setBinding(commandID: CommandPaletteCommandID.openSearch, shortcut: taken, replaceConflicting: false)
+            try store.setBinding(
+                commandID: CommandPaletteCommandID.openSearch, shortcut: taken, replaceConflicting: false)
         ) { error in
-            XCTAssertEqual(error as? KeymapConflictError, .conflict(existingCommandID: CommandPaletteCommandID.openPalette))
+            XCTAssertEqual(
+                error as? KeymapConflictError, .conflict(existingCommandID: CommandPaletteCommandID.openPalette))
         }
         try store.setBinding(commandID: CommandPaletteCommandID.openSearch, shortcut: taken, replaceConflicting: true)
         XCTAssertEqual(store.primaryShortcut(for: CommandPaletteCommandID.openSearch), taken)
@@ -516,12 +523,14 @@ final class CatalogSearchViewTests: XCTestCase {
 
     /// Guards the regression where a section header rendered as its raw key.
     func testEverySearchStringResolvesToRealCopy() {
-        var keys = ["browser.search", "menu.view.search", "palette.section.showAll",
-                    "palette.showAllResults.subtitle", "search.field.placeholder",
-                    "search.field.clear", "search.loadMore", "search.loadingMore",
-                    "search.state.searching", "search.empty.title",
-                    "palette.command.\(CommandPaletteCommandID.openSearch).title",
-                    "palette.command.\(CommandPaletteCommandID.openSearch).subtitle"]
+        var keys = [
+            "browser.search", "menu.view.search", "palette.section.showAll",
+            "palette.showAllResults.subtitle", "search.field.placeholder",
+            "search.field.clear", "search.loadMore", "search.loadingMore",
+            "search.state.searching", "search.empty.title",
+            "palette.command.\(CommandPaletteCommandID.openSearch).title",
+            "palette.command.\(CommandPaletteCommandID.openSearch).subtitle",
+        ]
         keys += CatalogSearchCategory.allCases.map { "search.category.\($0.rawValue)" }
 
         for key in keys {
@@ -548,13 +557,14 @@ final class CatalogSearchViewTests: XCTestCase {
         viewModel.searchProvider = { _, offset, _ in
             calls.increment()
             guard offset == 0 else { return MusicSearchResults(tracks: [], artists: [], albums: [], playlists: []) }
-            throw MusicSearchPartialFailure(results: loaded, missing: .catalog, underlying: URLError(.notConnectedToInternet))
+            throw MusicSearchPartialFailure(
+                results: loaded, missing: .catalog, underlying: URLError(.notConnectedToInternet))
         }
         viewModel.query = "found"
         viewModel.queryDidChange()
         await viewModel.waitForSearchCompletion()
 
-        guard case let .staleCache(results, error) = viewModel.state else {
+        guard case .staleCache(let results, let error) = viewModel.state else {
             return XCTFail("expected the rows under a note, got \(viewModel.state)")
         }
         XCTAssertEqual(results.tracks.map(\.id), ["t1"])
@@ -562,7 +572,8 @@ final class CatalogSearchViewTests: XCTestCase {
         XCTAssertEqual(
             error?.message,
             ErrorMessage.partialSearch(
-                MusicSearchPartialFailure(results: loaded, missing: .catalog, underlying: URLError(.notConnectedToInternet))
+                MusicSearchPartialFailure(
+                    results: loaded, missing: .catalog, underlying: URLError(.notConnectedToInternet))
             ).message
         )
         XCTAssertEqual(calls.count, 1, "the loop stops at the partial page")
@@ -610,7 +621,7 @@ final class CatalogSearchViewTests: XCTestCase {
         await viewModel.loadMore()
 
         XCTAssertEqual(viewModel.visibleResults.tracks.count, 31)
-        guard case let .staleCache(_, error) = viewModel.state else {
+        guard case .staleCache(_, let error) = viewModel.state else {
             return XCTFail("the note went away while the library is still missing: \(viewModel.state)")
         }
         XCTAssertEqual(error?.message, ErrorMessage.partialSearch(missing).message)
@@ -643,7 +654,7 @@ private actor CatalogSearchErrorGate {
         hasStarted = true
         let waiters = startWaiters
         startWaiters.removeAll()
-        waiters.forEach { $0.resume() }
+        for waiter in waiters { waiter.resume() }
         if isReleased {
             return
         }

@@ -44,7 +44,7 @@ enum EqualizerRouteState: Equatable {
         switch self {
         case .starting, .live:
             return true
-        case let .failed(_, isEngaged):
+        case .failed(_, let isEngaged):
             return isEngaged
         case .disabled:
             return false
@@ -57,17 +57,17 @@ enum EqualizerRouteState: Equatable {
     func logDescription(target: (String) -> String = AudioOutputTrace.describe(uid:)) -> String {
         switch self {
         case .disabled: "off"
-        case let .starting(targetUID): "starting(target \(targetUID.map(target) ?? "none"))"
-        case let .live(targetUID, error): "live(target \(target(targetUID))\(error == nil ? "" : ", with error"))"
-        case let .failed(_, isEngaged): "failed(\(isEngaged ? "still engaged" : "released"))"
+        case .starting(let targetUID): "starting(target \(targetUID.map(target) ?? "none"))"
+        case .live(let targetUID, let error): "live(target \(target(targetUID))\(error == nil ? "" : ", with error"))"
+        case .failed(_, let isEngaged): "failed(\(isEngaged ? "still engaged" : "released"))"
         }
     }
 
     var targetUID: String? {
         switch self {
-        case let .starting(targetUID):
+        case .starting(let targetUID):
             return targetUID
-        case let .live(targetUID, _):
+        case .live(let targetUID, _):
             return targetUID
         case .disabled, .failed:
             return nil
@@ -76,8 +76,8 @@ enum EqualizerRouteState: Equatable {
 
     var error: DisplayError? {
         switch self {
-        case let .live(_, error): return error
-        case let .failed(error, _): return error
+        case .live(_, let error): return error
+        case .failed(let error, _): return error
         case .disabled, .starting: return nil
         }
     }
@@ -92,7 +92,8 @@ final class AudioEqualizerEngine: ObservableObject {
         didSet {
             updateRouteHealthTimer()
             if routeState != oldValue {
-                AudioOutputTrace.shared.log(reason: "equalizer route \(oldValue.logDescription()) -> \(routeState.logDescription())")
+                AudioOutputTrace.shared.log(
+                    reason: "equalizer route \(oldValue.logDescription()) -> \(routeState.logDescription())")
             }
         }
     }
@@ -189,11 +190,12 @@ final class AudioEqualizerEngine: ObservableObject {
         if settings.enabled {
             apply(settings: settings)
             switch routeState {
-            case let .live(_, _):
+            case .live(_, _):
                 if let previousSettings,
-                   previousSettings.forwardingTargetUID != settings.forwardingTargetUID,
-                   let forwardingTargetUID = settings.forwardingTargetUID,
-                   !forwardingTargetUID.isEmpty {
+                    previousSettings.forwardingTargetUID != settings.forwardingTargetUID,
+                    let forwardingTargetUID = settings.forwardingTargetUID,
+                    !forwardingTargetUID.isEmpty
+                {
                     Task { @MainActor [weak self] in await self?.setForwardingTarget(uid: forwardingTargetUID) }
                 }
             case .starting:
@@ -214,7 +216,8 @@ final class AudioEqualizerEngine: ObservableObject {
                     do {
                         try await start(forwardingTargetUID: settingsStore.settings.equalizer.forwardingTargetUID)
                     } catch {
-                        SpotiglassLog.error(.playback, "Switching the equalizer on failed: \(error.localizedDescription)")
+                        SpotiglassLog.error(
+                            .playback, "Switching the equalizer on failed: \(error.localizedDescription)")
                         putPersistedSwitchBack(in: settingsStore)
                     }
                 }
@@ -315,9 +318,9 @@ final class AudioEqualizerEngine: ObservableObject {
             // for a failed transactional disable.
             let shown = reportFailure(error, while: "turning the equalizer off")
             switch stateBeforeStop {
-            case let .live(targetUID, _):
+            case .live(let targetUID, _):
                 routeState = .live(targetUID: targetUID, error: shown)
-            case let .failed(_, isEngaged):
+            case .failed(_, let isEngaged):
                 routeState = .failed(error: shown, isEngaged: isEngaged)
             default:
                 routeState = .failed(error: shown, isEngaged: false)
@@ -345,7 +348,9 @@ final class AudioEqualizerEngine: ObservableObject {
             do {
                 try settingsStore.mutate { $0.equalizer.enabled = false }
             } catch {
-                SpotiglassLog.error(.settings, "Could not save the EQ switch as off before removing the driver: \(error.localizedDescription)")
+                SpotiglassLog.error(
+                    .settings,
+                    "Could not save the EQ switch as off before removing the driver: \(error.localizedDescription)")
             }
         }
         guard isStarting else {
@@ -371,7 +376,10 @@ final class AudioEqualizerEngine: ObservableObject {
                 } catch {
                     // The device the sound was on before the EQ is gone (unplugged
                     // headphones): the release below moves it to another output.
-                    SpotiglassLog.info(.playback, "Removing the equalizer driver: switching it off failed (\(error.localizedDescription)), moving the sound to another output")
+                    SpotiglassLog.info(
+                        .playback,
+                        "Removing the equalizer driver: switching it off failed (\(error.localizedDescription)), moving the sound to another output"
+                    )
                 }
             }
             try pluginController.releaseOutputForRemoval()
@@ -388,7 +396,7 @@ final class AudioEqualizerEngine: ObservableObject {
             let result = Result { try controller.removeInstalledDriver() }
             await MainActor.run { [weak self] in
                 guard let self else { return }
-                if case let .failure(error) = result {
+                if case .failure(let error) = result {
                     self.finishDriverRemoval(with: error)
                 } else {
                     self.finishDriverRemoval(with: nil)
@@ -534,7 +542,7 @@ final class AudioEqualizerEngine: ObservableObject {
         // A change that arrives while a route change runs is kept for when it ends (#604).
         guard routeState.isLive || isStarting else { return }
         guard let virtualDeviceID = pluginController.lookupSpotiglassEQDeviceID(),
-              outputDeviceID != virtualDeviceID
+            outputDeviceID != virtualDeviceID
         else { return }
         await selectOutputDevice(outputDeviceID)
     }
@@ -551,7 +559,7 @@ final class AudioEqualizerEngine: ObservableObject {
     /// Puts the Mac's output back when the live route has stopped processing:
     /// the router gave up on its target or the EQ device disappeared.
     func checkRouteHealth() {
-        guard case let .live(targetUID, _) = routeState else {
+        guard case .live(let targetUID, _) = routeState else {
             consecutiveBrokenRouteReadings = 0
             return
         }
@@ -569,7 +577,9 @@ final class AudioEqualizerEngine: ObservableObject {
             nil,
             while: "routing sound through the equalizer (it stopped processing)",
             in: .playback,
-            context: [.public("target", AudioOutputTrace.describe(uid: targetUID)), .public("outputRestored", released)],
+            context: [
+                .public("target", AudioOutputTrace.describe(uid: targetUID)), .public("outputRestored", released),
+            ],
             showing: ErrorMessage(message: SpotiglassL10n.string("eq.error.routerStopped"))
         )
         // Still engaged when the output could not be moved, so a later stop retries it.
@@ -631,18 +641,20 @@ final class AudioEqualizerEngine: ObservableObject {
         defer {
             let waiters = routeChangeEndWaiters
             routeChangeEndWaiters = []
-            waiters.forEach { $0.resume() }
+            for waiter in waiters { waiter.resume() }
         }
         if let settingsStore = observedSettingsStore, !settingsStore.settings.equalizer.enabled,
-           routeState.isEngaged {
+            routeState.isEngaged
+        {
             do {
                 try stop()
             } catch {
-                SpotiglassLog.error(.playback, "Switching the equalizer off after it started failed: \(error.localizedDescription)")
+                SpotiglassLog.error(
+                    .playback, "Switching the equalizer off after it started failed: \(error.localizedDescription)")
                 putPersistedSwitchBack(in: settingsStore)
             }
         }
-        guard case let .live(targetUID, _) = routeState else {
+        guard case .live(let targetUID, _) = routeState else {
             // The equalizer is off now (switched off meanwhile, or it could not start), and
             // putting the sound back chose the device from before. A device picked meanwhile is
             // where the sound should go, as if the equalizer had been off when it was picked.
@@ -662,7 +674,10 @@ final class AudioEqualizerEngine: ObservableObject {
         do {
             try pluginController.setDefaultOutputDevice(to: outputDeviceID)
         } catch {
-            SpotiglassLog.error(.playback, "Could not move the output to the device picked while the equalizer was starting: \(error.localizedDescription)")
+            SpotiglassLog.error(
+                .playback,
+                "Could not move the output to the device picked while the equalizer was starting: \(error.localizedDescription)"
+            )
         }
     }
 
@@ -695,8 +710,9 @@ final class AudioEqualizerEngine: ObservableObject {
             context: details.map { [.public("details", $0)] } ?? [],
             // The equalizer's own errors are sentences in the app's language; anything else
             // gets the general one, not a raw system sentence.
-            showing: ErrorMessage(message: (error as? LocalizedError)?.errorDescription
-                ?? SpotiglassL10n.string("eq.error.coreAudioStatus"))
+            showing: ErrorMessage(
+                message: (error as? LocalizedError)?.errorDescription
+                    ?? SpotiglassL10n.string("eq.error.coreAudioStatus"))
         )
     }
 

@@ -15,14 +15,14 @@ enum KeychainRefreshTokenStoreError: Error, Equatable, LocalizedError {
         switch self {
         case .invalidStoredData:
             SpotiglassL10n.string("auth.persistence.invalidStoredData")
-        case let .unexpectedStatus(status):
+        case .unexpectedStatus(let status):
             Self.message(forUnexpectedStatus: status)
         }
     }
 
     var recoverySuggestion: String? {
         switch self {
-        case let .unexpectedStatus(status):
+        case .unexpectedStatus(let status):
             SecCopyErrorMessageString(status, nil).map { $0 as String }
         case .invalidStoredData:
             nil

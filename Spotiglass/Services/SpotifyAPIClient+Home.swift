@@ -36,7 +36,7 @@ extension SpotifyAPIClient {
             path: "/v1/me/top/tracks",
             queryItems: [
                 URLQueryItem(name: "limit", value: String(pageLimit)),
-                URLQueryItem(name: "time_range", value: timeRange.rawValue)
+                URLQueryItem(name: "time_range", value: timeRange.rawValue),
             ],
             cacheMode: cacheMode
         )
@@ -55,7 +55,7 @@ extension SpotifyAPIClient {
             path: "/v1/me/top/artists",
             queryItems: [
                 URLQueryItem(name: "limit", value: String(pageLimit)),
-                URLQueryItem(name: "time_range", value: timeRange.rawValue)
+                URLQueryItem(name: "time_range", value: timeRange.rawValue),
             ],
             cacheMode: cacheMode
         )

@@ -73,7 +73,7 @@ final class CommandPaletteKeymapStore: ObservableObject {
         var seen = Set<String>()
         return (bindings[shortcut] ?? []).compactMap { binding in
             guard binding.command != commandID,
-                  !CommandPaletteContext.bindingsOverlapInRuntime(binding.when, proposedWhen)
+                !CommandPaletteContext.bindingsOverlapInRuntime(binding.when, proposedWhen)
             else { return nil }
 
             let context = binding.when ?? .always
@@ -93,7 +93,9 @@ final class CommandPaletteKeymapStore: ObservableObject {
         // Menu-owned chords are checked first: the key monitor consumes a match
         // before AppKit reaches the menu, so this binding would silently kill a
         // menu item that still shows the chord (#129).
-        if let titleKey = CommandPaletteReservedShortcuts.reservingMenuTitleKey(for: shortcut, bindingCommand: commandID) {
+        if let titleKey = CommandPaletteReservedShortcuts.reservingMenuTitleKey(
+            for: shortcut, bindingCommand: commandID)
+        {
             throw KeymapConflictError.reservedByMenuItem(menuTitleKey: titleKey)
         }
         if let other = Self.conflictingCommandID(
@@ -259,11 +261,11 @@ final class CommandPaletteKeymapStore: ObservableObject {
         for (index, binding) in keybinds.enumerated() {
             // A row that can't be used is set aside; why goes into the one report below.
             switch Result(catching: { try Self.shortcuts(of: binding) }) {
-            case let .success(shortcuts):
+            case .success(let shortcuts):
                 for shortcut in shortcuts {
                     usable[shortcut, default: []].append(binding)
                 }
-            case let .failure(error):
+            case .failure(let error):
                 unusable.append(binding)
                 reasons.append("row \(index) (command \(binding.command), keys \(binding.keystrokes)): \(error)")
             }
@@ -273,13 +275,16 @@ final class CommandPaletteKeymapStore: ObservableObject {
         if unusable != unusableRows {
             unusableRows = unusable
             let count = unusable.count
-            unusableRowsNotice = unusable.isEmpty ? nil : ErrorReporting.report(
-                nil,
-                while: "reading shortcut rows (left out of the shortcuts in use, kept in the file)",
-                in: .settings,
-                context: [.public("file", fileURL.path), .public("rows", reasons.joined(separator: "; "))],
-                showing: ErrorMessage(message: SpotiglassL10n.format("keymap.unusableRows", count))
-            )
+            unusableRowsNotice =
+                unusable.isEmpty
+                ? nil
+                : ErrorReporting.report(
+                    nil,
+                    while: "reading shortcut rows (left out of the shortcuts in use, kept in the file)",
+                    in: .settings,
+                    context: [.public("file", fileURL.path), .public("rows", reasons.joined(separator: "; "))],
+                    showing: ErrorMessage(message: SpotiglassL10n.format("keymap.unusableRows", count))
+                )
         }
         // A load that worked replaces any earlier error; a failed reload sets its own after this.
         lastError = nil
@@ -301,7 +306,7 @@ final class CommandPaletteKeymapStore: ObservableObject {
             let shortcuts: [CommandShortcut]
             do {
                 shortcuts = try Self.shortcuts(of: binding)
-            } catch where kept.contains(binding) {
+            } catch  where kept.contains(binding) {
                 continue
             }
             for shortcut in shortcuts {
@@ -318,7 +323,7 @@ final class CommandPaletteKeymapStore: ObservableObject {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
         guard let data = try? encoder.encode(CommandPaletteKeymapFile(bindings: bindings)),
-              let text = String(data: data, encoding: .utf8)
+            let text = String(data: data, encoding: .utf8)
         else {
             return defaultKeymapText
         }

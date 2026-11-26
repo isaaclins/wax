@@ -36,11 +36,14 @@ enum DiskCacheTrim {
         defer { lock.unlock() }
 
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey]
-        guard let files = try? fileManager.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: keys,
-            options: [.skipsHiddenFiles]
-        ) else {
+        guard
+            // try?: a folder that can't be listed has nothing to trim.
+            let files = try? fileManager.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: keys,
+                options: [.skipsHiddenFiles]
+            )
+        else {
             return
         }
 
@@ -49,7 +52,8 @@ enum DiskCacheTrim {
             fileLock.lock()
             defer { fileLock.unlock() }
             guard let current = (try? fileManager.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date,
-                  current <= listedDate else {
+                current <= listedDate
+            else {
                 return false
             }
             willDelete(url)
@@ -60,8 +64,9 @@ enum DiskCacheTrim {
         var entries: [(url: URL, size: Int64, date: Date)] = []
         for url in files where !kept.contains(url.lastPathComponent) {
             guard let values = try? url.resourceValues(forKeys: Set(keys)),
-                  values.isRegularFile == true,
-                  let size = values.fileSize.map(Int64.init) else {
+                values.isRegularFile == true,
+                let size = values.fileSize.map(Int64.init)
+            else {
                 continue
             }
             let date = values.contentModificationDate ?? .distantPast

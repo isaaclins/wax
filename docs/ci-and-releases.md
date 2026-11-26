@@ -18,6 +18,7 @@ The workflow **CI** lives at [.github/workflows/ci.yml](../.github/workflows/ci.
 | Trigger | Every pull request, every push to `main`, and by hand (`gh workflow run ci.yml --ref <branch>`) |
 | macOS jobs on pull requests | `test` and `latency` run once, right before merging (started by hand, see below), not on every push to a branch of this repo. Fork pull requests run them right away. |
 | `static-checks` job | `ubuntu-latest`: microphone / process-tap audit, then the four-part localization audit |
+| `format` job | `ubuntu-latest` in the `swift:6.4.3-noble` image (pinned by digest): `make lint`, so a pull request that adds a format violation fails |
 | `test` job | `macos-26`: resolve packages, full unit test suite with coverage, per-file coverage gate |
 | `latency` job | `macos-26`, Xcode 26.6: times every interaction in a Release build and fails when one gets clearly slower than its time on that runner or stops showing ([latency.md](latency.md)) |
 | On failure | The `.xcresult` bundle is uploaded as an artifact for 14 days; the latency job always uploads its report |

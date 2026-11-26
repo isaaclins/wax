@@ -84,16 +84,19 @@ extension SpotifyAPIClient {
         guard !removals.isEmpty, !playlistID.isEmpty else { return }
         var currentSnapshotID = snapshotID
         let batches = removals.chunkedByPositionCount(maximum: Self.playlistTracksMutationBatchSize)
+        let removedRows: ([MusicPlaylistTrackRemoval]) -> Int = { $0.reduce(0) { $0 + $1.positions.count } }
         try await MusicLibraryPartialEditError.sendingBatches(
             batches,
             step: "remove from playlist",
-            count: { $0.reduce(0) { $0 + $1.positions.count } }
+            count: removedRows
         ) { chunk in
             var body: [String: Any] = [
-                "items": chunk.map { [
-                    "uri": $0.uri,
-                    "positions": $0.positions
-                ] }
+                "items": chunk.map {
+                    [
+                        "uri": $0.uri,
+                        "positions": $0.positions,
+                    ]
+                }
             ]
             if let currentSnapshotID, !currentSnapshotID.isEmpty {
                 body["snapshot_id"] = currentSnapshotID
@@ -105,8 +108,9 @@ extension SpotifyAPIClient {
                 jsonBody: body
             )
             if let response = try? decoder.decode(SpotifyPlaylistMutationResponse.self, from: responseData),
-               let nextSnapshotID = response.snapshotID,
-               !nextSnapshotID.isEmpty {
+                let nextSnapshotID = response.snapshotID,
+                !nextSnapshotID.isEmpty
+            {
                 currentSnapshotID = nextSnapshotID
             }
         }
@@ -132,13 +136,14 @@ extension SpotifyAPIClient {
         guard !moves.isEmpty else { return snapshotID }
         // Rows after the last one the order moves keep their places and aren't counted in.
         let rowsMoved = (reorder.order.indices.last { reorder.order[$0] != $0 } ?? -1) + 1
-        var currentSnapshotID = try await snapshotListing(reorder.currentTrackIDs, upTo: rowsMoved, playlistID: playlistID)
+        var currentSnapshotID = try await snapshotListing(
+            reorder.currentTrackIDs, upTo: rowsMoved, playlistID: playlistID)
         var orderSoFar = Array(reorder.order.indices)
         for (index, move) in moves.enumerated() {
             var body: [String: Any] = [
                 "range_start": move.rangeStart,
                 "insert_before": move.insertBefore,
-                "range_length": move.rangeLength
+                "range_length": move.rangeLength,
             ]
             if let currentSnapshotID, !currentSnapshotID.isEmpty {
                 body["snapshot_id"] = currentSnapshotID
@@ -151,8 +156,9 @@ extension SpotifyAPIClient {
                     queryItems: [],
                     jsonBody: body
                 )
-            } catch where index > 0 {
-                throw MusicPlaylistReorderPartialFailure(orderSoFar: orderSoFar, snapshotID: currentSnapshotID, underlying: error)
+            } catch  where index > 0 {
+                throw MusicPlaylistReorderPartialFailure(
+                    orderSoFar: orderSoFar, snapshotID: currentSnapshotID, underlying: error)
             }
             PlaylistTrackReorder.apply(move, to: &orderSoFar)
             // Without a snapshot in the reply the next request names none, so Spotify counts it in
@@ -170,11 +176,12 @@ extension SpotifyAPIClient {
     private func snapshotListing(_ trackIDs: [String?], upTo count: Int, playlistID: String) async throws -> String? {
         let pageSize = 50
         let before = try await playlistSnapshotID(playlistID)
-        let items = try await playlistTracks(playlistID: playlistID, limit: pageSize, maxPages: max(1, (count + pageSize - 1) / pageSize))
+        let items = try await playlistTracks(
+            playlistID: playlistID, limit: pageSize, maxPages: max(1, (count + pageSize - 1) / pageSize))
         let listed = TrackRowViewModel.numberedPlaylistRows(items).map(\.spotifyTrackID)
         let after = try await playlistSnapshotID(playlistID)
         guard count <= trackIDs.count, listed.count >= count,
-              listed.prefix(count) == trackIDs.prefix(count), before == after
+            listed.prefix(count) == trackIDs.prefix(count), before == after
         else { throw MusicPlaylistChangedElsewhere() }
         return after
     }
@@ -205,7 +212,7 @@ extension SpotifyAPIClient {
         }
         let body: [String: Any] = [
             "name": trimmedName,
-            "public": isPublic
+            "public": isPublic,
         ]
         let data = try await sendDataWrite(
             method: "POST",
@@ -251,7 +258,8 @@ extension SpotifyAPIClient {
             }
         }
 
-        let descendingPairs = positionsByURI
+        let descendingPairs =
+            positionsByURI
             .flatMap { uri, positions in positions.map { (uri: uri, position: $0) } }
             .sorted { $0.position > $1.position }
 
@@ -388,15 +396,15 @@ extension SpotifyAPIClient {
             "\(String(describing: key)): \(String(describing: value))"
         }.sorted().joined(separator: "\n")
         return """
-        \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "<missing URL>")
-        HTTP \(statusCode)
+            \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "<missing URL>")
+            HTTP \(statusCode)
 
-        Response headers:
-        \(headerDump.isEmpty ? "<none>" : headerDump)
+            Response headers:
+            \(headerDump.isEmpty ? "<none>" : headerDump)
 
-        Response body:
-        \(body)
-        """
+            Response body:
+            \(body)
+            """
     }
 
     private func errorDiagnosticSuffix(_ error: Error) -> String {
@@ -413,13 +421,13 @@ private struct SpotifyPlaylistMutationResponse: Decodable {
     }
 }
 
-private extension Array where Element == MusicPlaylistTrackRemoval {
+extension Array where Element == MusicPlaylistTrackRemoval {
     /// Splits a position-descending list into requests of at most `maximum`
     /// positions, merging entries that share a URI inside a single request.
     /// Merging is safe within one request because Spotify applies it against a
     /// single snapshot; merging across requests is not, so batch boundaries
     /// always follow the descending order.
-    func chunkedByPositionCount(maximum: Int) -> [[Element]] {
+    fileprivate func chunkedByPositionCount(maximum: Int) -> [[Element]] {
         guard maximum > 0 else { return [self] }
         var batches: [[Element]] = []
         var current: [Element] = []
@@ -453,8 +461,8 @@ private extension Array where Element == MusicPlaylistTrackRemoval {
     }
 }
 
-private extension Array {
-    func chunked(into size: Int) -> [[Element]] {
+extension Array {
+    fileprivate func chunked(into size: Int) -> [[Element]] {
         guard size > 0 else { return [self] }
         return stride(from: 0, to: count, by: size).map {
             Array(self[$0..<Swift.min($0 + size, count)])

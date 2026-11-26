@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class SpotifyLocalCacheTests: XCTestCase {
@@ -142,9 +143,10 @@ final class SpotifyLocalCacheTests: XCTestCase {
     func testLoadGETResponseExpiredReturnsNilWhenNotAllowed() throws {
         let (cache, _) = try makeCache()
         try cache.saveGETResponse(digest: "d", body: Data([1, 2]), ttl: 60, cachedAt: Date(timeIntervalSince1970: 0))
-        XCTAssertNil(try cache.loadGETResponseRecord(
-            digest: "d", now: Date(timeIntervalSince1970: 1_000), allowExpired: false
-        ))
+        XCTAssertNil(
+            try cache.loadGETResponseRecord(
+                digest: "d", now: Date(timeIntervalSince1970: 1_000), allowExpired: false
+            ))
     }
 
     func testLoadGETResponseExpiredReturnedWhenAllowed() throws {
@@ -191,7 +193,8 @@ final class SpotifyLocalCacheTests: XCTestCase {
         XCTAssertEqual(getResponseFiles(in: root), ["recent.json"])
         XCTAssertNil(try cache.loadGETResponseRecord(digest: "old-search", now: now, allowExpired: true))
         // A kept response still loads, also as a stale fallback once its TTL has passed.
-        let stale = try cache.loadGETResponseRecord(digest: "recent", now: now.addingTimeInterval(3_600), allowExpired: true)
+        let stale = try cache.loadGETResponseRecord(
+            digest: "recent", now: now.addingTimeInterval(3_600), allowExpired: true)
         XCTAssertEqual(stale?.data, Data("recent".utf8))
         XCTAssertEqual(stale?.isExpired, true)
         // Pruning only touches the GET responses.
@@ -203,11 +206,13 @@ final class SpotifyLocalCacheTests: XCTestCase {
         let directory = root.appendingPathComponent("get_responses", isDirectory: true)
         let now = Date()
         let body = Data(repeating: 7, count: 1_000)
-        for index in 0 ..< 40 {
+        for index in 0..<40 {
             let digest = String(format: "search-%02d", index)
             try cache.saveGETResponse(digest: digest, body: body, ttl: 90, cachedAt: now)
             // search-00 was written first, search-39 last.
-            try setModificationDate(now.addingTimeInterval(TimeInterval(index - 40)), forFileAt: directory.appendingPathComponent("\(digest).json"))
+            try setModificationDate(
+                now.addingTimeInterval(TimeInterval(index - 40)),
+                forFileAt: directory.appendingPathComponent("\(digest).json"))
         }
         let sizeBefore = try directorySize(directory)
         let maxBytes = sizeBefore / 2
@@ -221,7 +226,7 @@ final class SpotifyLocalCacheTests: XCTestCase {
         XCTAssertTrue(left.contains("search-39.json"))
         XCTAssertEqual(try cache.loadGETResponseRecord(digest: "search-39", now: now, allowExpired: false)?.data, body)
         // The newest files are the ones left.
-        XCTAssertEqual(left, (40 - left.count ..< 40).map { String(format: "search-%02d.json", $0) })
+        XCTAssertEqual(left, (40 - left.count..<40).map { String(format: "search-%02d.json", $0) })
     }
 
     func testTrimKeepsFilesWrittenOrReadWhileItRuns() throws {
@@ -234,7 +239,9 @@ final class SpotifyLocalCacheTests: XCTestCase {
 
         // A request stores a fresh response for the same key just as the trim deletes the old one.
         let writer = DispatchGroup()
-        DiskCacheTrim.trim(directory: directory, maxBytes: .max, maxAge: SpotifyLocalCache.getResponseRetention, now: now) { url in
+        DiskCacheTrim.trim(
+            directory: directory, maxBytes: .max, maxAge: SpotifyLocalCache.getResponseRetention, now: now
+        ) { url in
             guard url.lastPathComponent == "artist.json" else { return }
             writer.enter()
             DispatchQueue.global().async {
@@ -249,10 +256,12 @@ final class SpotifyLocalCacheTests: XCTestCase {
         // A song played after the lyrics trim listed the folder counts as used and stays.
         let lyricsDirectory = root.appendingPathComponent("lyrics", isDirectory: true)
         let lyrics = try LyricsDiskCache(directory: lyricsDirectory)
-        for index in 0 ..< 4 {
+        for index in 0..<4 {
             let key = "track-\(index)"
             try lyrics.save(trackKey: key, lyrics: .instrumental)
-            try setModificationDate(now.addingTimeInterval(TimeInterval(index - 10) * 60), forFileAt: lyricsDirectory.appendingPathComponent("\(key).json"))
+            try setModificationDate(
+                now.addingTimeInterval(TimeInterval(index - 10) * 60),
+                forFileAt: lyricsDirectory.appendingPathComponent("\(key).json"))
         }
         DiskCacheTrim.trim(directory: lyricsDirectory, maxBytes: 1, now: now) { url in
             if url.lastPathComponent == "track-0.json" {
@@ -270,7 +279,8 @@ final class SpotifyLocalCacheTests: XCTestCase {
         let lyrics = try LyricsDiskCache(directory: lyricsDirectory)
         let now = Date()
         try lyrics.save(trackKey: "track-0", lyrics: .instrumental)
-        try setModificationDate(now.addingTimeInterval(-3_600), forFileAt: lyricsDirectory.appendingPathComponent("track-0.json"))
+        try setModificationDate(
+            now.addingTimeInterval(-3_600), forFileAt: lyricsDirectory.appendingPathComponent("track-0.json"))
 
         // The song is opened just as the trim, having checked it, deletes it.
         let reader = DispatchGroup()
@@ -296,10 +306,12 @@ final class SpotifyLocalCacheTests: XCTestCase {
         let (cache, root) = try makeCache()
         let directory = root.appendingPathComponent("get_responses", isDirectory: true)
         let now = Date()
-        for index in 0 ..< 40 {
+        for index in 0..<40 {
             let digest = String(format: "search-%02d", index)
             try cache.saveGETResponse(digest: digest, body: Data(repeating: 7, count: 1_000), ttl: 90, cachedAt: now)
-            try setModificationDate(now.addingTimeInterval(TimeInterval(index - 40)), forFileAt: directory.appendingPathComponent("\(digest).json"))
+            try setModificationDate(
+                now.addingTimeInterval(TimeInterval(index - 40)),
+                forFileAt: directory.appendingPathComponent("\(digest).json"))
         }
         let maxBytes = try directorySize(directory) / 2
 
@@ -319,7 +331,7 @@ final class SpotifyLocalCacheTests: XCTestCase {
         XCTAssertEqual(second.wait(timeout: .now() + 10), .success)
 
         let left = getResponseFiles(in: root)
-        XCTAssertEqual(left, (25 ..< 40).map { String(format: "search-%02d.json", $0) })
+        XCTAssertEqual(left, (25..<40).map { String(format: "search-%02d.json", $0) })
     }
 
     private func directorySize(_ directory: URL) throws -> Int64 {
@@ -361,8 +373,10 @@ final class SpotifyLocalCacheTests: XCTestCase {
         let cached = CachedPlaylistTracks(
             playlistID: "P", snapshotID: "S", tracks: [track], cachedAt: Date(timeIntervalSince1970: 0)
         )
-        XCTAssertTrue(cached.isValid(forPlaylist: "P", snapshotID: "S", now: Date(timeIntervalSince1970: 300), maxAge: 300))
-        XCTAssertFalse(cached.isValid(forPlaylist: "P", snapshotID: "S", now: Date(timeIntervalSince1970: 301), maxAge: 300))
+        XCTAssertTrue(
+            cached.isValid(forPlaylist: "P", snapshotID: "S", now: Date(timeIntervalSince1970: 300), maxAge: 300))
+        XCTAssertFalse(
+            cached.isValid(forPlaylist: "P", snapshotID: "S", now: Date(timeIntervalSince1970: 301), maxAge: 300))
         XCTAssertFalse(cached.isValid(forPlaylist: "OTHER", snapshotID: "S"))
         XCTAssertFalse(cached.isValid(forPlaylist: "P", snapshotID: "OTHER"))
     }

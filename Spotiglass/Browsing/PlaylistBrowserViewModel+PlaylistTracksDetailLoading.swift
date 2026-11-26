@@ -5,36 +5,42 @@ extension PlaylistBrowserViewModel {
         guard !Task.isCancelled else { return }
         guard session == detailSession else { return }
         guard let playlist = playlistsByID[playlistID] ?? knownPlaylistSummariesByID[playlistID] else {
-            detailState = .error(ErrorReporting.report(
-                nil,
-                while: "opening a playlist that is no longer in the library",
-                in: .browsing,
-                context: [.private("playlist", playlistID)],
-                showing: ErrorMessage(
-                    title: SpotiglassL10n.string("error.browsing.playlistUnavailable.title"),
-                    message: SpotiglassL10n.string("error.browsing.playlistUnavailable.gone"),
-                    canRetry: true
-                )
-            ))
+            detailState = .error(
+                ErrorReporting.report(
+                    nil,
+                    while: "opening a playlist that is no longer in the library",
+                    in: .browsing,
+                    context: [.private("playlist", playlistID)],
+                    showing: ErrorMessage(
+                        title: SpotiglassL10n.string("error.browsing.playlistUnavailable.title"),
+                        message: SpotiglassL10n.string("error.browsing.playlistUnavailable.gone"),
+                        canRetry: true
+                    )
+                ))
             return
         }
 
         let playlistRow = PlaylistRowViewModel(playlist)
 
         if refreshCachedData,
-           let cachedTracks = try? cache.loadTracks(playlistID: playlist.id, snapshotID: playlist.snapshotID, now: now(), maxAge: maxCacheAge) {
+            // try?: an unreadable cache entry is a miss; the tracks load from the service below.
+            let cachedTracks = try? cache.loadTracks(
+                playlistID: playlist.id, snapshotID: playlist.snapshotID, now: now(), maxAge: maxCacheAge)
+        {
             if cachedTracks.isEmpty {
                 detailState = .empty(LocalizedText(SpotiglassL10n.string("browser.noTracks.emptyPlaylist")))
             } else {
                 await showPlaylistRows(
-                    PlaylistDetailViewModel(playlist: playlistRow, tracks: TrackRowViewModel.numberedPlaylistRows(cachedTracks)),
+                    PlaylistDetailViewModel(
+                        playlist: playlistRow, tracks: TrackRowViewModel.numberedPlaylistRows(cachedTracks)),
                     session: session
                 )
                 guard session == detailSession else { return }
             }
             if let last = lastTracksRevalidationByID[playlist.id],
-               last.snapshotID == playlist.snapshotID,
-               now().timeIntervalSince(last.at) < tracksRevalidateMinInterval {
+                last.snapshotID == playlist.snapshotID,
+                now().timeIntervalSince(last.at) < tracksRevalidateMinInterval
+            {
                 return
             }
             await revalidatePlaylistTracks(playlist: playlist, playlistRow: playlistRow, session: session)
@@ -42,12 +48,15 @@ extension PlaylistBrowserViewModel {
         }
 
         if refreshCachedData,
-           let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: playlist.id, snapshotID: playlist.snapshotID) {
+            // try?: an unreadable cache entry is a miss; the tracks load from the service below.
+            let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: playlist.id, snapshotID: playlist.snapshotID)
+        {
             if staleTracks.isEmpty {
                 detailState = .empty(LocalizedText(SpotiglassL10n.string("browser.noTracks.emptyPlaylist")))
             } else {
                 await showPlaylistRows(
-                    PlaylistDetailViewModel(playlist: playlistRow, tracks: TrackRowViewModel.numberedPlaylistRows(staleTracks)),
+                    PlaylistDetailViewModel(
+                        playlist: playlistRow, tracks: TrackRowViewModel.numberedPlaylistRows(staleTracks)),
                     refreshing: true,
                     session: session
                 )
@@ -65,7 +74,9 @@ extension PlaylistBrowserViewModel {
         if refreshCachedData, let lastRead = await api.lastReadPlaylistTracks(playlistID: playlist.id) {
             guard session == detailSession else { return }
             await showPlaylistRows(
-                PlaylistDetailViewModel(playlist: withSidebarTrackCount(playlistRow), tracks: TrackRowViewModel.numberedPlaylistRows(lastRead)),
+                PlaylistDetailViewModel(
+                    playlist: withSidebarTrackCount(playlistRow),
+                    tracks: TrackRowViewModel.numberedPlaylistRows(lastRead)),
                 session: session
             )
             guard session == detailSession else { return }
@@ -84,7 +95,9 @@ extension PlaylistBrowserViewModel {
         await revalidatePlaylistTracks(playlist: playlist, playlistRow: playlistRow, session: session)
     }
 
-    private func revalidatePlaylistTracks(playlist: MusicPlaylistSummary, playlistRow: PlaylistRowViewModel, session: Int) async {
+    private func revalidatePlaylistTracks(
+        playlist: MusicPlaylistSummary, playlistRow: PlaylistRowViewModel, session: Int
+    ) async {
         do {
             var reorderGeneration = reorderGenerationByPlaylistID[playlist.id]
             // Spotify's `/v1/playlists/{id}/items` endpoint accepts a maximum
@@ -96,18 +109,22 @@ extension PlaylistBrowserViewModel {
             // list the old order (#543). It is never cached. With this playlist's rows on screen,
             // they have the new order and stay; without (opened again meanwhile), it is read once
             // more, and shown even if a save crosses that read too, so the page never keeps loading.
-            var crossed = reorderGenerationByPlaylistID[playlist.id] != reorderGeneration || reorderingPlaylistID == playlist.id
+            var crossed =
+                reorderGenerationByPlaylistID[playlist.id] != reorderGeneration || reorderingPlaylistID == playlist.id
             if crossed {
                 if session == detailSession,
-                   case let .playlist(shown)? = detailState.currentValue, shown.playlist.id == playlist.id {
-                    if case let .refreshing(content) = detailState { detailState = .loaded(content) }
+                    case .playlist(let shown)? = detailState.currentValue, shown.playlist.id == playlist.id
+                {
+                    if case .refreshing(let content) = detailState { detailState = .loaded(content) }
                     if reorderingPlaylistID == playlist.id { playlistsWithReadLeftOut.insert(playlist.id) }
                     return
                 }
                 guard session == detailSession else { return }
                 reorderGeneration = reorderGenerationByPlaylistID[playlist.id]
                 tracks = try await api.playlistTracks(playlistID: playlist.id, limit: 50, maxPages: 200)
-                crossed = reorderGenerationByPlaylistID[playlist.id] != reorderGeneration || reorderingPlaylistID == playlist.id
+                crossed =
+                    reorderGenerationByPlaylistID[playlist.id] != reorderGeneration
+                    || reorderingPlaylistID == playlist.id
             }
             if !crossed {
                 try? cache.saveTracks(tracks, playlistID: playlist.id, snapshotID: playlist.snapshotID, cachedAt: now())
@@ -181,14 +198,16 @@ extension PlaylistBrowserViewModel {
     /// at once, as cutting it back would make it jump.
     /// `isComplete`: `detail` holds every row of the list, not the first page of a read still
     /// running.
-    func showPlaylistRows(_ detail: PlaylistDetailViewModel, refreshing: Bool = false, isComplete: Bool = true, session: Int) async {
+    func showPlaylistRows(
+        _ detail: PlaylistDetailViewModel, refreshing: Bool = false, isComplete: Bool = true, session: Int
+    ) async {
         if isComplete {
             completeRowsOnScreen = (session, detail.playlist.id, detail.tracks)
         }
         let state: (PlaylistDetailViewModel) -> BrowsingLoadState<BrowsingDetailContent> = { shown in
             refreshing ? .refreshing(.playlist(shown)) : .loaded(.playlist(shown))
         }
-        if case let .playlist(shown)? = detailState.currentValue, shown.playlist.id == detail.playlist.id {
+        if case .playlist(let shown)? = detailState.currentValue, shown.playlist.id == detail.playlist.id {
             // A fresh read that found what is on screen changes nothing: setting it anyway lays
             // the whole list out again.
             let next = state(detail)
@@ -205,14 +224,16 @@ extension PlaylistBrowserViewModel {
         // Another surface, or a newer read of this one, took over meanwhile. A new header for
         // the same rows (a count or a name that arrived) is kept, with the rest added below.
         guard session == detailSession,
-              case let .playlist(shown)? = detailState.currentValue,
-              shown.playlist.id == detail.playlist.id,
-              shown.tracks == firstScreenRows else { return }
-        let full = BrowsingDetailContent.playlist(PlaylistDetailViewModel(playlist: shown.playlist, tracks: detail.tracks))
+            case .playlist(let shown)? = detailState.currentValue,
+            shown.playlist.id == detail.playlist.id,
+            shown.tracks == firstScreenRows
+        else { return }
+        let full = BrowsingDetailContent.playlist(
+            PlaylistDetailViewModel(playlist: shown.playlist, tracks: detail.tracks))
         switch detailState {
         case .loaded: detailState = .loaded(full)
         case .refreshing: detailState = .refreshing(full)
-        case let .staleCache(_, error): detailState = .staleCache(full, error)
+        case .staleCache(_, let error): detailState = .staleCache(full, error)
         default: return
         }
     }
@@ -221,7 +242,8 @@ extension PlaylistBrowserViewModel {
     /// loaded (Apple Music counts arrive after the listing, #407).
     func withSidebarTrackCount(_ row: PlaylistRowViewModel) -> PlaylistRowViewModel {
         guard api.listsPlaylistsWithoutTrackCounts,
-              let summary = playlistsByID[row.id], summary.trackCount != row.trackCount else { return row }
+            let summary = playlistsByID[row.id], summary.trackCount != row.trackCount
+        else { return row }
         return PlaylistRowViewModel(summary)
     }
 

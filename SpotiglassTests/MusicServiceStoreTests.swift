@@ -1,7 +1,8 @@
-import Combine
 import AppKit
+import Combine
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 /// The service switcher (#373): which services are added, which one is on screen, how existing
@@ -133,8 +134,9 @@ final class MusicServiceStoreTests: XCTestCase {
         XCTAssertEqual(store.active, .appleMusic)
         XCTAssertEqual(store.pendingAddition, .appleMusic)
         XCTAssertEqual(store.services, [.spotify], "not added before access is granted")
-        XCTAssertEqual(storage.string(forKey: MusicServiceStore.activeKey), "spotify",
-                       "a relaunch mid-sign-in comes back to the space that was signed in")
+        XCTAssertEqual(
+            storage.string(forKey: MusicServiceStore.activeKey), "spotify",
+            "a relaunch mid-sign-in comes back to the space that was signed in")
 
         store.completeAddition(of: .appleMusic)
         XCTAssertEqual(store.services, [.spotify, .appleMusic])
@@ -290,7 +292,10 @@ final class MusicServiceStoreTests: XCTestCase {
         let manager = CommandPaletteManager()
         var switched: [MusicService] = []
         let switchRan = expectation(description: "the switch ran")
-        manager.switchService = { switched.append($0); switchRan.fulfill() }
+        manager.switchService = {
+            switched.append($0)
+            switchRan.fulfill()
+        }
         manager.switchableServices = [.appleMusic]
 
         let ids = Set(manager.viewModel.staticItemsProvider().map(\.id))
@@ -314,7 +319,10 @@ final class MusicServiceStoreTests: XCTestCase {
         let manager = CommandPaletteManager()
         var switched: [MusicService] = []
         let switchRan = expectation(description: "the switch ran")
-        manager.switchService = { switched.append($0); switchRan.fulfill() }
+        manager.switchService = {
+            switched.append($0)
+            switchRan.fulfill()
+        }
         manager.switchableServices = [.spotify]
 
         manager.detach()
@@ -328,19 +336,23 @@ final class MusicServiceStoreTests: XCTestCase {
         let manager = CommandPaletteManager(keymapStore: makeKeymapStore())
         var switched: [MusicService] = []
         let switchRan = expectation(description: "the switch ran")
-        manager.switchService = { switched.append($0); switchRan.fulfill() }
-        let event = try XCTUnwrap(NSEvent.keyEvent(
-            with: .keyDown,
-            location: .zero,
-            modifierFlags: [.control],
-            timestamp: 0,
-            windowNumber: 0,
-            context: nil,
-            characters: "2",
-            charactersIgnoringModifiers: "2",
-            isARepeat: false,
-            keyCode: 19
-        ))
+        manager.switchService = {
+            switched.append($0)
+            switchRan.fulfill()
+        }
+        let event = try XCTUnwrap(
+            NSEvent.keyEvent(
+                with: .keyDown,
+                location: .zero,
+                modifierFlags: [.control],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                characters: "2",
+                charactersIgnoringModifiers: "2",
+                isARepeat: false,
+                keyCode: 19
+            ))
 
         // Not added: the chord passes through untouched.
         manager.switchableServices = []
@@ -379,7 +391,10 @@ final class MusicServiceStoreTests: XCTestCase {
         let switcher = MusicServiceSwitcher(
             store: store,
             keymapStore: makeKeymapStore(),
-            switchTo: { switched.append($0); ran.fulfill() },
+            switchTo: {
+                switched.append($0)
+                ran.fulfill()
+            },
             add: { _ in XCTFail("nothing left to add") }
         )
         let anchor = MusicServiceMenuAnchor()
@@ -411,7 +426,10 @@ final class MusicServiceStoreTests: XCTestCase {
             store: store,
             keymapStore: makeKeymapStore(),
             switchTo: { _ in },
-            add: { added.append($0); ran.fulfill() }
+            add: {
+                added.append($0)
+                ran.fulfill()
+            }
         )
         let anchor = MusicServiceMenuAnchor()
         let menu = anchor.makeMenu(items: switcher.menuItems())
@@ -503,11 +521,14 @@ final class MusicServiceStoreTests: XCTestCase {
     func testSpotifySignInWithNoWindowAddsSpotify() async throws {
         let defaults = makeDefaults()
         defaults.set("client", forKey: MusicServiceStore.legacySpotifyClientIDKey)
-        let http = QueueHTTPClient([.json("""
-            {"access_token":"test-access","token_type":"Bearer","expires_in":3600,
-             "refresh_token":"test-refresh",
-             "scope":"playlist-read-private playlist-read-collaborative user-library-read streaming"}
-            """)])
+        let http = QueueHTTPClient([
+            .json(
+                """
+                {"access_token":"test-access","token_type":"Bearer","expires_in":3600,
+                 "refresh_token":"test-refresh",
+                 "scope":"playlist-read-private playlist-read-collaborative user-library-read streaming"}
+                """)
+        ])
         let auth = AuthViewModel(
             settings: SpotifyAuthSettings(defaults: defaults),
             authorizationFlow: ImmediateSpotifyAuthorizationFlow(),
@@ -577,7 +598,8 @@ final class MusicServiceStoreTests: XCTestCase {
             PlaylistBrowserView.disconnectConfirmationMessage(switchingTo: next),
             "Spotify is removed from Wax and the window switches to Apple Music. The saved session is cleared."
         )
-        XCTAssertEqual(PlaylistBrowserView.disconnectHint(switchingTo: next), "Disconnects Spotify and switches to Apple Music.")
+        XCTAssertEqual(
+            PlaylistBrowserView.disconnectHint(switchingTo: next), "Disconnects Spotify and switches to Apple Music.")
 
         store.signOutRemoving(.spotify)
         XCTAssertEqual(store.active, next)
@@ -604,10 +626,12 @@ final class PlaybackHandoverTests: XCTestCase {
         playback.deviceID = "device-1"
         playback.hasTransferredPlaybackToCurrentDevice = true
         playback.setTransportStateKnown(true)
-        playback.setConnectionState(.playing(PlaybackNowPlaying(
-            name: "Midnight City", artists: [], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 240_000, positionMilliseconds: 1_000, uri: "spotify:track:1"
-        )))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Midnight City", artists: [], albumName: nil, albumID: nil, albumArtURL: nil,
+                    durationMilliseconds: 240_000, positionMilliseconds: 1_000, uri: "spotify:track:1"
+                )))
         return (host, commander)
     }
 
@@ -646,10 +670,12 @@ final class PlaybackHandoverTests: XCTestCase {
         let appleMusic = hosts.appleMusic.playbackViewModel
         hosts.gate(activeService: .appleMusic)
         appleMusic.handle(.ready(deviceID: AppleMusicPlaybackProvider.deviceID))
-        appleMusic.setConnectionState(.paused(PlaybackNowPlaying(
-            name: "Can't Hold Us", artists: [], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 258_000, positionMilliseconds: 30_000, uri: "applemusic:song:1"
-        )))
+        appleMusic.setConnectionState(
+            .paused(
+                PlaybackNowPlaying(
+                    name: "Can't Hold Us", artists: [], albumName: nil, albumID: nil, albumArtURL: nil,
+                    durationMilliseconds: 258_000, positionMilliseconds: 30_000, uri: "applemusic:song:1"
+                )))
 
         await appleMusic.togglePlayPause()
         await waitUntil("Spotify told to pause", changes: commander.changes) { pauses(commander) > 0 }
@@ -684,4 +710,3 @@ private struct ImmediateSpotifyAuthorizationFlow: SpotifyAuthorizationFlowing {
         )
     }
 }
-

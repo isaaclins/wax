@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// One path from a failure to the screen and the log (#608). Before it, the line a user saw and
@@ -77,11 +78,16 @@ final class ErrorReportingTests: XCTestCase {
 
     func testRewordingAReportedErrorDoesNotLogItAgain() throws {
         let failure = ReplayedFailure()
-        let shown = ErrorReporting.report(failure, while: "connecting", in: .playback, showing: ErrorMessage(
-            message: "Reconnect",
-            action: .reconnect
-        ))
-        let reworded = shown.with { $0.action = nil; $0.isMomentary = true }
+        let shown = ErrorReporting.report(
+            failure, while: "connecting", in: .playback,
+            showing: ErrorMessage(
+                message: "Reconnect",
+                action: .reconnect
+            ))
+        let reworded = shown.with {
+            $0.action = nil
+            $0.isMomentary = true
+        }
         XCTAssertNil(reworded.action)
         XCTAssertTrue(reworded.isMomentary)
         XCTAssertEqual(try SpotiglassLogReader.lines(containing: failure.marker).count, 1)
@@ -129,7 +135,7 @@ final class ErrorReportingTests: XCTestCase {
             for: failure,
             while: "loading Home's top tracks"
         )
-        guard case let .failed(shown) = state else { return XCTFail("Expected a failed section, got \(state)") }
+        guard case .failed(let shown) = state else { return XCTFail("Expected a failed section, got \(state)") }
         XCTAssertFalse(shown.message.isEmpty)
         XCTAssertEqual(try SpotiglassLogReader.lines(containing: failure.marker).count, 1)
     }
@@ -138,7 +144,8 @@ final class ErrorReportingTests: XCTestCase {
         let operation = "using the queue without a player failed"
         let before = try SpotiglassLogReader.lines(containing: operation).count
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
 
         await queue.addToQueue(uri: "spotify:track:x")
@@ -152,9 +159,12 @@ final class ErrorReportingTests: XCTestCase {
         let session = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander())
         )
-        session.showPlaybackError(failure, while: "moving playback to a device", PlaybackSessionViewModel.displayError(for: failure))
+        session.showPlaybackError(
+            failure, while: "moving playback to a device", PlaybackSessionViewModel.displayError(for: failure))
 
-        guard case .error = session.connectionState else { return XCTFail("Expected an error, got \(session.connectionState)") }
+        guard case .error = session.connectionState else {
+            return XCTFail("Expected an error, got \(session.connectionState)")
+        }
         let lines = try SpotiglassLogReader.lines(containing: failure.marker)
         XCTAssertEqual(lines.count, 1, "\(lines)")
         XCTAssertTrue(lines.first?.contains("[playback] moving playback to a device failed") == true, "\(lines)")

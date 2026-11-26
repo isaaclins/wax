@@ -97,6 +97,28 @@ jobs:
         # staging tests need macOS and skip here; the test job runs them.
         run: python3 -m unittest discover -s scripts/tests -v
 
+  format:
+    name: Format check
+    # `make lint` on every pull request and push (#365). It went unenforced
+    # for months and grew to almost 10,000 violations, so a style rule only
+    # holds once a pull request that breaks it fails here.
+    # The formatter is pinned through the Swift image, so this verdict does
+    # not drift with the runner's toolchain. To move to a newer swift-format,
+    # bump the tag and digest together and land the reformat in the same PR.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: swift:6.4.3-noble@sha256:4ed5e0210b244aab174450e0b79014c17db60c63c6daf0709347fe50c767293a
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: swift-format version
+        run: swift-format --version
+
+      - name: Lint
+        # On failure, run `make format` locally and commit the result.
+        run: ./scripts/swift-format.sh lint
+
   test:
     name: Unit tests and coverage gate
     # macOS runners are few and shared, and a pull request gets several pushes

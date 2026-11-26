@@ -20,8 +20,9 @@ extension PlaybackSessionViewModel {
         if lastFailedControlCommandWasReplaced, failedCommand != nil { return }
         let restoreState = stateToRestoreOnRetry()
         showPlaybackError(error, while: "sending a player command", Self.displayError(for: error, service: service))
-        guard case let .error(shown) = connectionState, shown.action == .retryTransfer,
-              !lastFailedControlCommandWasReplaced, Self.sendingAgainCanHelp(error) else { return }
+        guard case .error(let shown) = connectionState, shown.action == .retryTransfer,
+            !lastFailedControlCommandWasReplaced, Self.sendingAgainCanHelp(error)
+        else { return }
         failedCommand = FailedPlaybackCommand(restoreState: restoreState, resend: resend)
     }
 
@@ -57,7 +58,7 @@ extension PlaybackSessionViewModel {
             // don't stay up while the command goes out (a second click moved playback here with
             // `play: false` next to the command sent again).
             failedCommand?.restoreState ?? deviceID.map { .ready(deviceID: $0) }
-        case let .transferring(deviceID):
+        case .transferring(let deviceID):
             // A play moves playback here first; the play sent again does that again.
             .ready(deviceID: deviceID)
         case .disconnected, .connecting, .ready, .unavailable, .playing, .paused:

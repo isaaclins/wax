@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// The menu bar's Add to Queue and Pin items act on the track table's

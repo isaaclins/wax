@@ -93,7 +93,8 @@ struct ImmersiveLyricsQueueUpcomingSubtitleView: View {
                                 .lineLimit(2)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(String(format: SpotiglassL10n.string("lyrics.openArtist"), target.nameInAppLanguage))
+                        .accessibilityLabel(
+                            String(format: SpotiglassL10n.string("lyrics.openArtist"), target.nameInAppLanguage))
                     }
                     Spacer(minLength: 0)
                 }

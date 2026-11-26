@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class PlaylistBrowserWidthPolicyTests: XCTestCase {
@@ -99,7 +100,8 @@ final class PlaylistBrowserWidthPolicyTests: XCTestCase {
         XCTAssertFalse(shrink(from: 900, to: 700).crossedIntoSidebarCollapse)
         // macOS 26's split view takes 8 pt more than its two columns: at 680 it ran 4 pt past
         // each edge of the window.
-        XCTAssertFalse(shrink(from: 700, to: sidebar + SpotiglassDesign.detailColumnMinWidth + 8).crossedIntoSidebarCollapse)
+        XCTAssertFalse(
+            shrink(from: 700, to: sidebar + SpotiglassDesign.detailColumnMinWidth + 8).crossedIntoSidebarCollapse)
         XCTAssertTrue(shrink(from: 700, to: sidebar + SpotiglassDesign.detailColumnMinWidth).crossedIntoSidebarCollapse)
         XCTAssertTrue(shrink(from: 700, to: 660).crossedIntoSidebarCollapse)
         XCTAssertTrue(shrink(from: 700, to: 640).crossedIntoSidebarCollapse)
@@ -113,7 +115,8 @@ final class PlaylistBrowserWidthPolicyTests: XCTestCase {
                 lastCommitTime: 10,
                 now: 10.01,
                 comfortableMinWidth: 900,
-                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(sidebarWidth: SpotiglassDesign.sidebarWidth)
+                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(
+                    sidebarWidth: SpotiglassDesign.sidebarWidth)
             )
         )
         XCTAssertFalse(result.shouldCommit)
@@ -127,7 +130,8 @@ final class PlaylistBrowserWidthPolicyTests: XCTestCase {
                 lastCommitTime: 0,
                 now: 1,
                 comfortableMinWidth: 900,
-                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(sidebarWidth: SpotiglassDesign.sidebarWidth)
+                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(
+                    sidebarWidth: SpotiglassDesign.sidebarWidth)
             )
         )
         XCTAssertTrue(result.shouldCommit)
@@ -145,7 +149,8 @@ final class PlaylistBrowserWidthPolicyTests: XCTestCase {
                 lastCommitTime: 10,
                 now: 10.01,
                 comfortableMinWidth: 900,
-                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(sidebarWidth: SpotiglassDesign.sidebarWidth)
+                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(
+                    sidebarWidth: SpotiglassDesign.sidebarWidth)
             )
         )
 
@@ -162,7 +167,8 @@ final class PlaylistBrowserWidthPolicyTests: XCTestCase {
                 lastCommitTime: 10,
                 now: 10.01,
                 comfortableMinWidth: 900,
-                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(sidebarWidth: SpotiglassDesign.sidebarWidth)
+                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(
+                    sidebarWidth: SpotiglassDesign.sidebarWidth)
             )
         )
 
@@ -199,8 +205,10 @@ final class PlaylistBrowserWidthPolicyTests: XCTestCase {
                 committedWidth: committed,
                 lastCommitTime: 0,
                 now: 1,
-                comfortableMinWidth: SpotiglassDesign.dualSidebarComfortableMinWidth(sidebarWidth: SpotiglassDesign.sidebarWidth),
-                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(sidebarWidth: SpotiglassDesign.sidebarWidth)
+                comfortableMinWidth: SpotiglassDesign.dualSidebarComfortableMinWidth(
+                    sidebarWidth: SpotiglassDesign.sidebarWidth),
+                sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(
+                    sidebarWidth: SpotiglassDesign.sidebarWidth)
             )
         )
     }

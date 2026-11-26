@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// The playback log's line on how long Apple Music's player took to start or stop (#679). Each
@@ -9,7 +10,9 @@ final class AppleMusicSoundWatchTests: XCTestCase {
     /// What the player reports `t` ms after the command.
     private typealias Timeline = (Int) -> AppleMusicSoundWatch.Reading
 
-    private func reading(_ position: TimeInterval, _ entry: String, playing: Bool = true) -> AppleMusicSoundWatch.Reading {
+    private func reading(_ position: TimeInterval, _ entry: String, playing: Bool = true)
+        -> AppleMusicSoundWatch.Reading
+    {
         AppleMusicSoundWatch.Reading(positionSeconds: position, entryID: entry, isPlaying: playing)
     }
 
@@ -75,7 +78,9 @@ final class AppleMusicSoundWatchTests: XCTestCase {
     /// Resume: the position holds where it was paused for about 25 ms, then moves.
     func testResumeIsTimedUntilThePositionMoves() async {
         let lines = await run("resume", .moves) { t in
-            t < 25 ? self.reading(63.412, "song-3", playing: t >= 5) : self.reading(63.412 + Double(t - 25) / 1000, "song-3")
+            t < 25
+                ? self.reading(63.412, "song-3", playing: t >= 5)
+                : self.reading(63.412 + Double(t - 25) / 1000, "song-3")
         }
         XCTAssertEqual(lines, ["resume: playing 30.0 ms after the command"])
     }
@@ -123,9 +128,11 @@ final class AppleMusicSoundWatchTests: XCTestCase {
         _ = await clock.waitForSleepers(1)
         clock.advance(by: .milliseconds(5))
         // MusicKit hadn't moved on from the first press yet when the second went out.
-        watch.watch("skipToNext", for: .movesOnAnotherSong, sentAt: second, before: AppleMusicSoundWatch.Reading(
-            positionSeconds: 10, entryID: "song-1", isPlaying: true
-        ))
+        watch.watch(
+            "skipToNext", for: .movesOnAnotherSong, sentAt: second,
+            before: AppleMusicSoundWatch.Reading(
+                positionSeconds: 10, entryID: "song-1", isPlaying: true
+            ))
         for _ in 0..<40 where lines.isEmpty {
             guard await clock.waitForSleepers(1) else { break }
             clock.advance(by: AppleMusicSoundWatch.interval)

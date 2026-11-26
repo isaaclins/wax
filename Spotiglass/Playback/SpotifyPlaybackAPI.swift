@@ -23,10 +23,10 @@ private enum SpotifyQueueUnionDTO: Decodable {
 
     var domainModel: MusicPlaybackItem? {
         switch self {
-        case let .track(dto):
+        case .track(let dto):
             guard let track = dto.domainModel() else { return nil }
             return .track(track)
-        case let .episode(dto):
+        case .episode(let dto):
             guard let episode = dto.domainModel() else { return nil }
             return .episode(episode)
         }
@@ -199,7 +199,9 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
 
     func play(contextURI: String, deviceID: String) async throws {
         let body = PlayContextRequest(contextURI: contextURI)
-        try await send(path: "/v1/me/player/play", method: "PUT", body: body, queryItems: [URLQueryItem(name: "device_id", value: deviceID)])
+        try await send(
+            path: "/v1/me/player/play", method: "PUT", body: body,
+            queryItems: [URLQueryItem(name: "device_id", value: deviceID)])
     }
 
     func pause(deviceID: String) async throws {
@@ -241,7 +243,9 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
             offset: offsetURI.map { ["uri": $0] },
             positionMilliseconds: 0
         )
-        try await send(path: "/v1/me/player/play", method: "PUT", body: body, queryItems: [URLQueryItem(name: "device_id", value: deviceID)])
+        try await send(
+            path: "/v1/me/player/play", method: "PUT", body: body,
+            queryItems: [URLQueryItem(name: "device_id", value: deviceID)])
     }
 
     func seek(to milliseconds: Int, deviceID: String) async throws {
@@ -251,17 +255,21 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
             body: EmptyBody(),
             queryItems: [
                 URLQueryItem(name: "position_ms", value: String(milliseconds)),
-                URLQueryItem(name: "device_id", value: deviceID)
+                URLQueryItem(name: "device_id", value: deviceID),
             ]
         )
     }
 
     func next(deviceID: String) async throws {
-        try await send(path: "/v1/me/player/next", method: "POST", body: EmptyBody(), queryItems: [URLQueryItem(name: "device_id", value: deviceID)])
+        try await send(
+            path: "/v1/me/player/next", method: "POST", body: EmptyBody(),
+            queryItems: [URLQueryItem(name: "device_id", value: deviceID)])
     }
 
     func previous(deviceID: String) async throws {
-        try await send(path: "/v1/me/player/previous", method: "POST", body: EmptyBody(), queryItems: [URLQueryItem(name: "device_id", value: deviceID)])
+        try await send(
+            path: "/v1/me/player/previous", method: "POST", body: EmptyBody(),
+            queryItems: [URLQueryItem(name: "device_id", value: deviceID)])
     }
 
     func fetchQueue() async throws -> MusicPlaybackQueue {
@@ -273,7 +281,7 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
     func addToQueue(uri: String, deviceID: String) async throws {
         let queryItems: [URLQueryItem] = [
             URLQueryItem(name: "uri", value: uri),
-            URLQueryItem(name: "device_id", value: deviceID)
+            URLQueryItem(name: "device_id", value: deviceID),
         ]
         try await send(path: "/v1/me/player/queue", method: "POST", body: EmptyBody(), queryItems: queryItems)
     }
@@ -315,7 +323,7 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
             body: EmptyBody(),
             queryItems: [
                 URLQueryItem(name: "state", value: enabled ? "true" : "false"),
-                URLQueryItem(name: "device_id", value: deviceID)
+                URLQueryItem(name: "device_id", value: deviceID),
             ]
         )
     }
@@ -327,7 +335,7 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
             body: EmptyBody(),
             queryItems: [
                 URLQueryItem(name: "state", value: mode.rawValue),
-                URLQueryItem(name: "device_id", value: deviceID)
+                URLQueryItem(name: "device_id", value: deviceID),
             ]
         )
     }
@@ -343,14 +351,17 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
     /// Successful polls stay out of the log; a failed one is what a stuck player bar needs.
     private func loggedGETFailure(path: String, data: Data, response: HTTPURLResponse) -> Error {
         let error = mapPlaybackError(statusCode: response.statusCode, data: data, response: response)
-        SpotiglassLog.error(.api, "Spotify GET \(path) -> status=\(response.statusCode) (\(error)); passed to the player")
+        SpotiglassLog.error(
+            .api, "Spotify GET \(path) -> status=\(response.statusCode) (\(error)); passed to the player")
         return error
     }
 
     private func performGET(path: String, queryItems: [URLQueryItem]) async throws -> (Data, HTTPURLResponse) {
         try await enforceScopeRequirement(path: path, method: "GET")
         let accessToken = try await tokenProvider.playbackAccessToken()
-        var components = URLComponents(url: baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))),
+            resolvingAgainstBaseURL: false)!
         components.queryItems = queryItems.isEmpty ? nil : queryItems
         var request = URLRequest(url: components.url!)
         request.httpMethod = "GET"
@@ -365,13 +376,19 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
         return try await performGETWithRetry(request: request, path: path)
     }
 
-    private func refreshedTokenAfterUnauthorized(_ rejectedToken: String, method: String, path: String) async throws -> String {
-        SpotiglassLog.info(.api, "Spotify \(method) \(path) -> status=401; refreshing the token once and sending it again")
+    private func refreshedTokenAfterUnauthorized(_ rejectedToken: String, method: String, path: String) async throws
+        -> String
+    {
+        SpotiglassLog.info(
+            .api, "Spotify \(method) \(path) -> status=401; refreshing the token once and sending it again")
         do {
             return try await tokenProvider.refreshedPlaybackAccessToken(afterRejecting: rejectedToken)
         } catch {
             if !(error is CancellationError) {
-                SpotiglassLog.error(.api, "Spotify \(method) \(path) token refresh after 401 failed: \(SpotiglassLog.describe(error)); passed to the player")
+                SpotiglassLog.error(
+                    .api,
+                    "Spotify \(method) \(path) token refresh after 401 failed: \(SpotiglassLog.describe(error)); passed to the player"
+                )
             }
             throw error
         }
@@ -397,7 +414,10 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
             } catch {
                 guard shouldRetryGET(error: error, path: path, attempt: attempt) else {
                     if !(error is CancellationError) {
-                        SpotiglassLog.error(.api, "Spotify GET \(path) failed on attempt \(attempt): \(SpotiglassLog.describe(error)); passed to the player")
+                        SpotiglassLog.error(
+                            .api,
+                            "Spotify GET \(path) failed on attempt \(attempt): \(SpotiglassLog.describe(error)); passed to the player"
+                        )
                     }
                     throw error
                 }
@@ -422,7 +442,8 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
         guard shouldRetryGETPath(path) else { return false }
         guard let urlError = error as? URLError else { return false }
         switch urlError.code {
-        case .timedOut, .networkConnectionLost, .notConnectedToInternet, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed:
+        case .timedOut, .networkConnectionLost, .notConnectedToInternet, .cannotConnectToHost, .cannotFindHost,
+            .dnsLookupFailed:
             return true
         default:
             return false
@@ -452,7 +473,9 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
     ) async throws {
         try await enforceScopeRequirement(path: path, method: method)
         let accessToken = try await tokenProvider.playbackAccessToken()
-        var components = URLComponents(url: baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))), resolvingAgainstBaseURL: false)!
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))),
+            resolvingAgainstBaseURL: false)!
         components.queryItems = queryItems.isEmpty ? nil : queryItems
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
@@ -466,7 +489,10 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
         }
 
         let queryString = queryItems.map { "\($0.name)=\($0.value ?? "")" }.joined(separator: "&")
-        SpotiglassLog.info(.api, "Spotify \(method) \(path)\(queryString.isEmpty ? "" : "?\(queryString)") body=\(bodyPreview.isEmpty ? "" : SpotiglassLog.personal(bodyPreview))")
+        SpotiglassLog.info(
+            .api,
+            "Spotify \(method) \(path)\(queryString.isEmpty ? "" : "?\(queryString)") body=\(bodyPreview.isEmpty ? "" : SpotiglassLog.personal(bodyPreview))"
+        )
         var (data, response) = try await performSend(request: request, method: method, path: path)
         if response.statusCode == 401 {
             let refreshedToken = try await refreshedTokenAfterUnauthorized(accessToken, method: method, path: path)
@@ -478,14 +504,16 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
         }
     }
 
-    private func performSend(request: URLRequest, method: String, path: String) async throws -> (Data, HTTPURLResponse) {
+    private func performSend(request: URLRequest, method: String, path: String) async throws -> (Data, HTTPURLResponse)
+    {
         let data: Data
         let response: HTTPURLResponse
         do {
             (data, response) = try await httpClient.data(for: request)
         } catch {
             if !(error is CancellationError) {
-                SpotiglassLog.error(.api, "Spotify \(method) \(path) failed: \(SpotiglassLog.describe(error)); passed to the caller")
+                SpotiglassLog.error(
+                    .api, "Spotify \(method) \(path) failed: \(SpotiglassLog.describe(error)); passed to the caller")
             }
             throw error
         }

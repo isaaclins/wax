@@ -1,7 +1,8 @@
-import MusicKit
 import Combine
+import MusicKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Opening the palette, closing it and every key typed in it reach only the palette (#671).
@@ -39,7 +40,7 @@ final class CommandPaletteRenderScopeTests: XCTestCase {
             // The menu bar observes the registry: a change here builds every menu again.
             registry.objectWillChange.sink { changes["menu bar", default: 0] += 1 },
         ]
-        defer { subscriptions.forEach { $0.cancel() } }
+        defer { for subscription in subscriptions { subscription.cancel() } }
 
         useThePalette(manager.viewModel)
 
@@ -50,9 +51,10 @@ final class CommandPaletteRenderScopeTests: XCTestCase {
     /// handing focus to the palette writes its text back into what the root observes, and that is
     /// the page's doing, not the palette's.
     func testThePaletteShowsWithoutRunningTheWindowsRootAgain() async throws {
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(
-            services: [.appleMusic], active: .appleMusic
-        ))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(
+                services: [.appleMusic], active: .appleMusic
+            ))
         let session = AppleMusicSession(authorization: PermissionDenied())
         await session.refresh()
         let settings = try ViewTestHost.makeSettingsStore()
@@ -60,18 +62,22 @@ final class CommandPaletteRenderScopeTests: XCTestCase {
         let root = RootView(
             keymapStore: CommandPaletteKeymapStore(settingsStore: settings),
             sceneRegistry: registry,
-            playbackHosts: .forTests(spotify: SpotiglassPlaybackHost(tokenProvider: MockPlaybackTokenProvider(
-                accessToken: "test", refreshedAccessToken: "test-refresh"
-            ))),
+            playbackHosts: .forTests(
+                spotify: SpotiglassPlaybackHost(
+                    tokenProvider: MockPlaybackTokenProvider(
+                        accessToken: "test", refreshedAccessToken: "test-refresh"
+                    ))),
             serviceStore: services,
             appleMusicSession: session
         )
         .environmentObject(settings)
-        .environmentObject(AuthViewModel(
-            settings: SpotifyAuthSettings(defaults: makeEphemeralDefaults()),
-            refreshTokenStore: MemoryOnlyRefreshTokenStore(),
-            signOutDataCleaner: {}
-        ))
+        .environmentObject(
+            AuthViewModel(
+                settings: SpotifyAuthSettings(defaults: makeEphemeralDefaults()),
+                refreshTokenStore: MemoryOnlyRefreshTokenStore(),
+                signOutDataCleaner: {}
+            )
+        )
         .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
         let controller = ViewTestHost.host(root, size: CGSize(width: 900, height: 640))
         let window = try XCTUnwrap(controller.view.window)

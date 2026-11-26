@@ -34,7 +34,8 @@ enum BrowserWidthCommitPolicy {
 
     static func evaluate(_ input: CommitInput) -> CommitResult {
         let narrowNew = mutualExclusionWidth(for: input.newWidth, comfortableMinWidth: input.comfortableMinWidth)
-        let narrowCommitted = mutualExclusionWidth(for: input.committedWidth, comfortableMinWidth: input.comfortableMinWidth)
+        let narrowCommitted = mutualExclusionWidth(
+            for: input.committedWidth, comfortableMinWidth: input.comfortableMinWidth)
         let sidebarCollapseNew = mutualExclusionWidth(
             for: input.newWidth,
             comfortableMinWidth: input.sidebarCollapseMinWidth
@@ -97,12 +98,12 @@ enum BrowserWidthCommitPolicy {
         isNarrow: Bool
     ) -> SidebarOnWidening {
         guard sidebarCollapsed,
-              result.crossedOutOfSidebarCollapse
-              || (heldForQueue && result.crossedOutOfNarrow)
-              // Held and the queue closed since: the next widening brings the sidebar back,
-              // as crossing the collapse width would have without the queue. Restoring it the
-              // moment the queue closes would make macOS grow the window for it.
-              || (heldForQueue && !isQueueVisible && result.widenedWithRoomForSidebar)
+            result.crossedOutOfSidebarCollapse
+                || (heldForQueue && result.crossedOutOfNarrow)
+                // Held and the queue closed since: the next widening brings the sidebar back,
+                // as crossing the collapse width would have without the queue. Restoring it the
+                // moment the queue closes would make macOS grow the window for it.
+                || (heldForQueue && !isQueueVisible && result.widenedWithRoomForSidebar)
         else { return .none }
         return isQueueVisible && isNarrow ? .hold : .restore
     }

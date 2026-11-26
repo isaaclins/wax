@@ -22,7 +22,7 @@ extension SpotifyAPIClient {
         var queryItems = [
             URLQueryItem(name: "q", value: trimmed),
             URLQueryItem(name: "type", value: "track,artist,album,playlist"),
-            URLQueryItem(name: "limit", value: String(cappedLimit))
+            URLQueryItem(name: "limit", value: String(cappedLimit)),
         ]
         if offset > 0 {
             queryItems.append(URLQueryItem(name: "offset", value: String(offset)))
@@ -45,7 +45,7 @@ extension SpotifyAPIClient {
             queryItems: [
                 URLQueryItem(name: "q", value: trimmed),
                 URLQueryItem(name: "type", value: "track"),
-                URLQueryItem(name: "limit", value: String(capped))
+                URLQueryItem(name: "limit", value: String(capped)),
             ]
         )
         return dto.domainModel().tracks

@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -24,7 +25,8 @@ final class PlaylistBrowserPinnedSidebarPolicyTests: XCTestCase {
     func testPermanentPinnedLoadErrorMessagePhrases() {
         XCTAssertTrue(
             PlaylistBrowserPinnedSidebarPolicy.isPermanentPinnedLoadError(
-                DisplayError.reported(ErrorMessage(title: "Error", message: "Playlist is no longer accessible.", canRetry: false))
+                DisplayError.reported(
+                    ErrorMessage(title: "Error", message: "Playlist is no longer accessible.", canRetry: false))
             )
         )
     }
@@ -36,16 +38,17 @@ final class PlaylistBrowserPinnedSidebarPolicyTests: XCTestCase {
         let transient = DisplayError.reported(ErrorMessage(title: "Offline", message: "retry", canRetry: true))
         XCTAssertFalse(PlaylistBrowserPinnedSidebarPolicy.itemShouldBeMarkedStale(for: .error(transient)))
 
-        let cachedDetail = BrowsingDetailContent.playlist(PlaylistDetailViewModel(
-            playlist: PlaylistRowViewModel(
-                MusicPlaylistSummary(
-                    id: "p", name: "P",
-                ownerID: "test-owner", ownerName: "O",
-                    imageURL: nil, trackCount: 0, snapshotID: "s"
-                )
-            ),
-            tracks: []
-        ))
+        let cachedDetail = BrowsingDetailContent.playlist(
+            PlaylistDetailViewModel(
+                playlist: PlaylistRowViewModel(
+                    MusicPlaylistSummary(
+                        id: "p", name: "P",
+                        ownerID: "test-owner", ownerName: "O",
+                        imageURL: nil, trackCount: 0, snapshotID: "s"
+                    )
+                ),
+                tracks: []
+            ))
         XCTAssertTrue(
             PlaylistBrowserPinnedSidebarPolicy.itemShouldBeMarkedStale(
                 for: .staleCache(cachedDetail, err)

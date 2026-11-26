@@ -10,8 +10,8 @@ enum CollectionMenuTarget: Equatable {
 
     var pinnedItem: PinnedItem {
         switch self {
-        case let .playlist(summary): .playlist(summary)
-        case let .pinnable(item): item
+        case .playlist(let summary): .playlist(summary)
+        case .pinnable(let item): item
         }
     }
 }
@@ -93,11 +93,12 @@ extension View {
         browserViewModel: PlaylistBrowserViewModel,
         includesAccessibilityActions: Bool = true
     ) -> some View {
-        modifier(CollectionContextMenuModifier(
-            target: target,
-            browserViewModel: browserViewModel,
-            parts: includesAccessibilityActions ? [.menu, .accessibilityActions] : [.menu]
-        ))
+        modifier(
+            CollectionContextMenuModifier(
+                target: target,
+                browserViewModel: browserViewModel,
+                parts: includesAccessibilityActions ? [.menu, .accessibilityActions] : [.menu]
+            ))
     }
 
     /// The menu's entries as VoiceOver actions only, without a right-click menu.
@@ -105,11 +106,12 @@ extension View {
         _ target: CollectionMenuTarget?,
         browserViewModel: PlaylistBrowserViewModel
     ) -> some View {
-        modifier(CollectionContextMenuModifier(
-            target: target,
-            browserViewModel: browserViewModel,
-            parts: [.accessibilityActions]
-        ))
+        modifier(
+            CollectionContextMenuModifier(
+                target: target,
+                browserViewModel: browserViewModel,
+                parts: [.accessibilityActions]
+            ))
     }
 }
 
@@ -131,9 +133,11 @@ struct CollectionContextMenuModifier: ViewModifier {
         if let target {
             let menu = menu(for: target)
             content
-                .modifier(OptionalContextMenu(isEnabled: parts.contains(.menu)) {
-                    CollectionMenuItems(menu: menu, placement: .content) { perform($0, on: target) }
-                })
+                .modifier(
+                    OptionalContextMenu(isEnabled: parts.contains(.menu)) {
+                        CollectionMenuItems(menu: menu, placement: .content) { perform($0, on: target) }
+                    }
+                )
                 .accessibilityActions {
                     if parts.contains(.accessibilityActions) {
                         ForEach(menu.entries, id: \.self) { entry in
@@ -151,7 +155,7 @@ struct CollectionContextMenuModifier: ViewModifier {
     private func menu(for target: CollectionMenuTarget) -> CollectionMenu {
         var canRename = false
         var canDelete = false
-        if case let .playlist(summary) = target {
+        if case .playlist(let summary) = target {
             canRename = browserViewModel.canRenamePlaylist(summary)
             canDelete = browserViewModel.canDeletePlaylist(summary)
         }
@@ -166,10 +170,10 @@ struct CollectionContextMenuModifier: ViewModifier {
     func perform(_ entry: CollectionMenuEntry, on target: CollectionMenuTarget) {
         switch entry {
         case .editPlaylistName:
-            guard case let .playlist(summary) = target else { return }
+            guard case .playlist(let summary) = target else { return }
             Task { await browserViewModel.openPlaylistForNameEditing(summary) }
         case .deletePlaylist:
-            guard case let .playlist(summary) = target else { return }
+            guard case .playlist(let summary) = target else { return }
             browserViewModel.requestPlaylistDeletion(summary)
         case .pin:
             pinnedStore.pin(target.pinnedItem)

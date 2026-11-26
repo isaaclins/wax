@@ -4,7 +4,10 @@ import Foundation
 extension PlaybackSessionViewModel {
     func handle(_ envelope: MusicPlaybackEventEnvelope) {
         guard ownsPlaybackHostGeneration(envelope.hostGeneration) else {
-            SpotiglassLog.info(.playback, "Ignoring stale SDK event generation=\(envelope.hostGeneration.rawValue) current=\(playbackHostGeneration.rawValue)")
+            SpotiglassLog.info(
+                .playback,
+                "Ignoring stale SDK event generation=\(envelope.hostGeneration.rawValue) current=\(playbackHostGeneration.rawValue)"
+            )
             return
         }
         handleCurrentPlaybackEvent(envelope.event)
@@ -12,14 +15,18 @@ extension PlaybackSessionViewModel {
 
     private func handleCurrentPlaybackEvent(_ event: MusicPlaybackEvent) {
         switch event {
-        case let .ready(deviceID):
-            SpotiglassLog.info(.playback, "SDK ready deviceID=\(deviceID) previousDeviceID=\(self.deviceID ?? "<nil>") autoResumeOnNextReady=\(autoResumeOnNextReady)")
+        case .ready(let deviceID):
+            SpotiglassLog.info(
+                .playback,
+                "SDK ready deviceID=\(deviceID) previousDeviceID=\(self.deviceID ?? "<nil>") autoResumeOnNextReady=\(autoResumeOnNextReady)"
+            )
             // A reloaded SDK page registers a new device, so a late `ready` for
             // a superseded one comes from an old page. A player that keeps one
             // constant id reports that same id on every reconnect, and the
             // event's generation already fences stale lifecycles.
             if provider.capabilities.contains(.reloadablePlayer),
-               supersededSDKDeviceIDs.contains(deviceID) {
+                supersededSDKDeviceIDs.contains(deviceID)
+            {
                 guard self.deviceID == nil, reclaimableSDKDeviceID == deviceID else {
                     SpotiglassLog.info(.playback, "Ignoring stale SDK ready deviceID=\(deviceID)")
                     return
@@ -49,7 +56,8 @@ extension PlaybackSessionViewModel {
             }
             refreshTrayOutputSymbol()
             let persistedVolume = playbackVolume
-            let persistedVolumeMutationVersion = shouldRefreshTransportState
+            let persistedVolumeMutationVersion =
+                shouldRefreshTransportState
                 ? beginPendingPlaybackVolumeMutation(target: persistedVolume)
                 : volumeMutationVersion
             let persistedVolumeSendSerial = playbackVolumeSendSerial
@@ -64,7 +72,8 @@ extension PlaybackSessionViewModel {
                 guard let self else { return }
                 defer {
                     if self.ownsPlaybackHostGeneration(generation),
-                       self.playbackHostAutoResumeSerial == autoResumeSerial {
+                        self.playbackHostAutoResumeSerial == autoResumeSerial
+                    {
                         self.playbackHostAutoResumeTask = nil
                         if shouldAutoResume {
                             self.autoResumeOnNextReady = false
@@ -72,8 +81,9 @@ extension PlaybackSessionViewModel {
                     }
                 }
                 guard self.ownsPlaybackHostGeneration(generation),
-                      self.playbackHostAutoResumeSerial == autoResumeSerial,
-                      !Task.isCancelled else { return }
+                    self.playbackHostAutoResumeSerial == autoResumeSerial,
+                    !Task.isCancelled
+                else { return }
                 await self.syncPlaybackVolumeToWebPlayer(
                     persistedVolume,
                     mutationVersion: persistedVolumeMutationVersion,
@@ -81,8 +91,9 @@ extension PlaybackSessionViewModel {
                     generation: generation
                 )
                 guard self.ownsPlaybackHostGeneration(generation),
-                      self.playbackHostAutoResumeSerial == autoResumeSerial,
-                      !Task.isCancelled else { return }
+                    self.playbackHostAutoResumeSerial == autoResumeSerial,
+                    !Task.isCancelled
+                else { return }
                 if shouldAutoResume {
                     await self.autoResumeFromStaleSpotiglassDeviceIfNeeded(
                         targetDeviceID: deviceID,
@@ -91,14 +102,16 @@ extension PlaybackSessionViewModel {
                     )
                 }
             }
-        case let .notReady(deviceID):
+        case .notReady(let deviceID):
             SpotiglassLog.info(.playback, "SDK not_ready deviceID=\(deviceID)")
             if self.deviceID == deviceID {
                 supersededSDKDeviceIDs.insert(deviceID)
                 reclaimableSDKDeviceID = deviceID
             }
             guard self.deviceID == deviceID else {
-                SpotiglassLog.info(.playback, "Ignoring stale SDK not_ready deviceID=\(deviceID) currentDeviceID=\(self.deviceID ?? "<nil>")")
+                SpotiglassLog.info(
+                    .playback,
+                    "Ignoring stale SDK not_ready deviceID=\(deviceID) currentDeviceID=\(self.deviceID ?? "<nil>")")
                 return
             }
             self.deviceID = nil
@@ -121,13 +134,14 @@ extension PlaybackSessionViewModel {
                 guard let self else { return }
                 defer {
                     if self.ownsPlaybackHostGeneration(generation),
-                       self.playbackHostRecoverySerial == recoverySerial {
+                        self.playbackHostRecoverySerial == recoverySerial
+                    {
                         self.playbackHostRecoveryTask = nil
                     }
                 }
                 await self.attemptPlaybackHostRecovery(cause: .notReady, generation: generation)
             }
-        case let .stateChanged(nowPlaying, isPaused, nextTracks, previousTracks):
+        case .stateChanged(let nowPlaying, let isPaused, let nextTracks, let previousTracks):
             if isRemotePlaybackActive {
                 // The embedded SDK is intentionally idle while another
                 // Connect device owns playback. Its state_changed events must
@@ -136,7 +150,10 @@ extension PlaybackSessionViewModel {
                 return
             }
             let suppressed = shouldSuppressStaleStateChange(nowPlaying: nowPlaying, isPlaying: !isPaused)
-            SpotiglassLog.info(.playback, "SDK state_changed nowPlayingURI=\(nowPlaying?.uri ?? "<nil>") isPaused=\(isPaused) nextCount=\(nextTracks.count) pendingPlayURI=\(pendingPlayURI ?? "<nil>") suppressed=\(suppressed)")
+            SpotiglassLog.info(
+                .playback,
+                "SDK state_changed nowPlayingURI=\(nowPlaying?.uri ?? "<nil>") isPaused=\(isPaused) nextCount=\(nextTracks.count) pendingPlayURI=\(pendingPlayURI ?? "<nil>") suppressed=\(suppressed)"
+            )
             observeSkipAdvance(nowPlayingURI: nowPlaying?.uri)
             if suppressed {
                 return
@@ -151,11 +168,13 @@ extension PlaybackSessionViewModel {
             // A report without a track (the player going away) always goes through.
             guard nowPlaying == nil || acceptsPushedPlayState(isPlaying: !isPaused) else {
                 heldBackPageReport = MusicPlaybackEventEnvelope(event: event, hostGeneration: playbackHostGeneration)
-                SpotiglassLog.info(.playback, "Ignoring SDK state_changed isPaused=\(isPaused) older than the last play/pause")
+                SpotiglassLog.info(
+                    .playback, "Ignoring SDK state_changed isPaused=\(isPaused) older than the last play/pause")
                 return
             }
             cancelPlaybackHostConnectTimeout()
-            let authoritativeState: PlaybackConnectionState = isPaused
+            let authoritativeState: PlaybackConnectionState =
+                isPaused
                 ? .paused(nowPlaying)
                 : .playing(nowPlaying ?? fallbackNowPlaying())
             updateSeekOwnership(from: authoritativeState)
@@ -168,26 +187,30 @@ extension PlaybackSessionViewModel {
             if effectiveNowPlaying != nil, !isRemotePlaybackActive {
                 hasTransferredPlaybackToCurrentDevice = true
             }
-            setConnectionState(isPaused ? .paused(effectiveNowPlaying) : .playing(effectiveNowPlaying ?? fallbackNowPlaying()))
-        case let .playerCommandFinished(command, id):
+            setConnectionState(
+                isPaused ? .paused(effectiveNowPlaying) : .playing(effectiveNowPlaying ?? fallbackNowPlaying()))
+        case .playerCommandFinished(let command, let id):
             handleInAppCommandFinished(command, id: id)
-        case let .playerCommandFailed(command, message, id):
+        case .playerCommandFailed(let command, let message, let id):
             // A refused pause or play goes back instead of replacing the bar with an error (#437).
             if Self.isPlayPauseCommand(command) {
                 handleInAppPlayPauseFailure(command: command, message: message, id: id)
             } else {
                 handleCurrentPlaybackEvent(.playbackError(message))
             }
-        case let .initializationError(message):
+        case .initializationError(let message):
             cancelPlaybackHostConnectTimeout()
             // Its error says what to do; a report held back for a press mustn't replace it (#437).
             clearPushedPlayStateExpectation()
-            showPlaybackError(nil, while: "starting the Spotify player (SDK initialization)", context: [.public("sdkMessage", message)], ErrorMessage(
-                title: SpotiglassL10n.string("error.playback.couldNotStart.title"),
-                // The SDK's text is English whatever the app's language (#470); it's in the log.
-                message: SpotiglassL10n.string("error.playback.connectionTimeout.message"),
-                action: .reconnect
-            ))
+            showPlaybackError(
+                nil, while: "starting the Spotify player (SDK initialization)",
+                context: [.public("sdkMessage", message)],
+                ErrorMessage(
+                    title: SpotiglassL10n.string("error.playback.couldNotStart.title"),
+                    // The SDK's text is English whatever the app's language (#470); it's in the log.
+                    message: SpotiglassL10n.string("error.playback.connectionTimeout.message"),
+                    action: .reconnect
+                ))
             playbackHostRecoveryTask?.cancel()
             playbackHostRecoveryTask = nil
             playbackHostRecoverySerial &+= 1
@@ -197,50 +220,60 @@ extension PlaybackSessionViewModel {
                 guard let self else { return }
                 defer {
                     if self.ownsPlaybackHostGeneration(generation),
-                       self.playbackHostRecoverySerial == recoverySerial {
+                        self.playbackHostRecoverySerial == recoverySerial
+                    {
                         self.playbackHostRecoveryTask = nil
                     }
                 }
                 await self.attemptPlaybackHostRecovery(cause: .initializationError, generation: generation)
             }
-        case let .authenticationError(message):
+        case .authenticationError(let message):
             cancelPlaybackHostConnectTimeout()
             // Its error says what to do; a report held back for a press mustn't replace it (#437).
             clearPushedPlayStateExpectation()
-            showPlaybackError(nil, while: "signing the Spotify player in", context: [.public("sdkMessage", message)], ErrorMessage(
-                title: SpotiglassL10n.string("error.playback.signInAgain.title"),
-                message: SpotiglassL10n.string("error.playback.signInAgain.message"),
-                action: .reauthenticate
-            ))
-        case let .signInPaused(message):
+            showPlaybackError(
+                nil, while: "signing the Spotify player in", context: [.public("sdkMessage", message)],
+                ErrorMessage(
+                    title: SpotiglassL10n.string("error.playback.signInAgain.title"),
+                    message: SpotiglassL10n.string("error.playback.signInAgain.message"),
+                    action: .reauthenticate
+                ))
+        case .signInPaused(let message):
             cancelPlaybackHostConnectTimeout()
             clearPushedPlayStateExpectation()
             // Reconnect, never "sign in again": the sign-in still works and the app starts the
             // player again by itself once it has refreshed (#593).
-            showPlaybackError(nil, while: "starting the Spotify player while the sign-in is paused", context: [.public("sdkMessage", message)], level: .info, ErrorMessage(
-                title: SpotiglassL10n.string("app.connection.paused.title"),
-                message: message,
-                action: .reconnect
-            ))
-        case let .accountError(message):
+            showPlaybackError(
+                nil, while: "starting the Spotify player while the sign-in is paused",
+                context: [.public("sdkMessage", message)], level: .info,
+                ErrorMessage(
+                    title: SpotiglassL10n.string("app.connection.paused.title"),
+                    message: message,
+                    action: .reconnect
+                ))
+        case .accountError(let message):
             cancelPlaybackHostConnectTimeout()
             // Its error says what to do; a report held back for a press mustn't replace it (#437).
             clearPushedPlayStateExpectation()
-            showPlaybackError(nil, while: "starting the Spotify player (account)", context: [.public("sdkMessage", message)], ErrorMessage(
-                title: SpotiglassL10n.string("error.playback.premium.title"),
-                message: SpotiglassL10n.string("error.playback.premium.message"),
-                action: nil
-            ))
-        case let .playbackError(message):
+            showPlaybackError(
+                nil, while: "starting the Spotify player (account)", context: [.public("sdkMessage", message)],
+                ErrorMessage(
+                    title: SpotiglassL10n.string("error.playback.premium.title"),
+                    message: SpotiglassL10n.string("error.playback.premium.message"),
+                    action: nil
+                ))
+        case .playbackError(let message):
             cancelPlaybackHostConnectTimeout()
             clearPushedPlayStateExpectation()
             finishInAppCommand()
-            showPlaybackError(nil, while: "playing in the Spotify player", context: [.public("sdkMessage", message)], ErrorMessage(
-                title: SpotiglassL10n.string("error.playback.error.title"),
-                message: SpotiglassL10n.string("error.playback.spotify.failed"),
-                action: .retryTransfer
-            ))
-        case let .log(message):
+            showPlaybackError(
+                nil, while: "playing in the Spotify player", context: [.public("sdkMessage", message)],
+                ErrorMessage(
+                    title: SpotiglassL10n.string("error.playback.error.title"),
+                    message: SpotiglassL10n.string("error.playback.spotify.failed"),
+                    action: .retryTransfer
+                ))
+        case .log(let message):
             SpotiglassLog.info(.playback, "Spotify playback SDK: \(message)")
         case .playerChanged:
             // A pause from a media key, Control Center or AirPods shows at once instead of at
@@ -268,7 +301,8 @@ extension PlaybackSessionViewModel {
     ) async {
         guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
         guard mutationVersion == volumeMutationVersion,
-              sendSerial == playbackVolumeSendSerial else { return }
+            sendSerial == playbackVolumeSendSerial
+        else { return }
         try? await provider.setVolume(volume, generation: generation)
     }
 }

@@ -21,8 +21,8 @@ extension PlaylistBrowserView {
     /// collapsed sidebar keeps the last one: that is the width it comes back at.
     func recordPlaylistSidebarWidth(_ width: CGFloat) {
         guard playlistColumnVisibility != .detailOnly,
-              width >= SpotiglassDesign.playlistSidebarMinWidth - 0.5,
-              abs(width - browserWidthSampler.playlistSidebarWidth) >= 0.5
+            width >= SpotiglassDesign.playlistSidebarMinWidth - 0.5,
+            abs(width - browserWidthSampler.playlistSidebarWidth) >= 0.5
         else { return }
         browserWidthSampler.playlistSidebarWidth = width
     }
@@ -56,7 +56,8 @@ extension PlaylistBrowserView {
                 committedWidth: browserWidthSampler.committedWidth,
                 lastCommitTime: browserWidthSampler.lastCommitTime,
                 now: now,
-                comfortableMinWidth: SpotiglassDesign.dualSidebarComfortableMinWidth(sidebarWidth: browserWidthSampler.playlistSidebarWidth),
+                comfortableMinWidth: SpotiglassDesign.dualSidebarComfortableMinWidth(
+                    sidebarWidth: browserWidthSampler.playlistSidebarWidth),
                 sidebarCollapseMinWidth: SpotiglassDesign.playlistSidebarAndDetailMinWidth(
                     sidebarWidth: browserWidthSampler.playlistSidebarWidth
                 )
@@ -71,7 +72,8 @@ extension PlaylistBrowserView {
         browserWidthSampler.commit(width: result.committedWidth, at: result.lastCommitTime)
 
         if result.crossedIntoNarrow,
-           isQueueVisible, playlistColumnVisibility != .detailOnly {
+            isQueueVisible, playlistColumnVisibility != .detailOnly
+        {
             let lastOpened: BrowserWidthCommitPolicy.SidebarToCloseOnNarrow =
                 lastOpenedSidebar == .queue ? .queue : .playlistColumn
             switch BrowserWidthCommitPolicy.sidebarToCloseOnNarrow(

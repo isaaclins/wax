@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class SpotifyPlaybackModelsTests: XCTestCase {
@@ -11,7 +12,8 @@ final class SpotifyPlaybackModelsTests: XCTestCase {
         )
         let now = Date(timeIntervalSinceReferenceDate: 105)
         XCTAssertEqual(anchor.interpolatedPositionMs(at: now), 15_000)
-        XCTAssertEqual(ScrubberProgress(anchor: anchor, durationMilliseconds: 0).fraction(at: now), 0.25, accuracy: 0.001)
+        XCTAssertEqual(
+            ScrubberProgress(anchor: anchor, durationMilliseconds: 0).fraction(at: now), 0.25, accuracy: 0.001)
         let paused = PlaybackProgressAnchor(
             positionMilliseconds: 10_000,
             anchorDate: now,

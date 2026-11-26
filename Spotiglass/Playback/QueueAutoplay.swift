@@ -325,7 +325,7 @@ final class QueueAutoplay: ObservableObject {
         switch state {
         // Only a song that plays counts: a paused one (restored at launch, or skipped to while
         // paused) counts once it plays.
-        case let .playing(item):
+        case .playing(let item):
             nowPlayingChanged(QueueAutoplaySeed(uri: item.uri, title: item.name, artists: item.artists))
         case .disconnected, .unavailable:
             sessionEnded()
@@ -495,7 +495,8 @@ final class QueueAutoplay: ObservableObject {
             guard isEnabled, !Task.isCancelled else { return }
             var excluded = heardKeys.union(addedKeys).union(failedKeys).union(currentKeys).union(removedKeys)
             for track in upcoming { excluded.formUnion(QueueAutoplayIdentity.keys(track)) }
-            let lastArtist = upcoming.last.map(QueueAutoplayIdentity.artistKey)
+            let lastArtist =
+                upcoming.last.map(QueueAutoplayIdentity.artistKey)
                 ?? currentSeed.flatMap { $0.artists.first }.map(QueueAutoplayIdentity.normalized)
             // Every suggestion in order: the next one stands in for a song the player refuses,
             // chosen against the artist that really went in last.
@@ -551,7 +552,9 @@ final class QueueAutoplay: ObservableObject {
                         stalled = true
                         break
                     }
-                    SpotiglassLog.error(.playback, "Autoplay couldn't add \(track.uri), trying the next suggestion: \(String(describing: error))")
+                    SpotiglassLog.error(
+                        .playback,
+                        "Autoplay couldn't add \(track.uri), trying the next suggestion: \(String(describing: error))")
                     plainlyFailed = track
                 }
             }
@@ -632,7 +635,7 @@ final class ProviderQueueAutoplayPlayer: QueueAutoplayPlayer {
 
     func autoplayUpcomingTracks() async throws -> [MusicTrack] {
         try await provider.fetchQueue().queue.compactMap { item in
-            if case let .track(track) = item { return track }
+            if case .track(let track) = item { return track }
             return nil
         }
     }

@@ -27,7 +27,8 @@ actor ArtworkImageStore {
     private let logFailure: FailureLog
 
     private init() {
-        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        let base =
+            FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         let disk = Self.defaultDiskDirectory
         let urlCacheDir = base.appendingPathComponent(AppMetadata.storageDirectoryName, isDirectory: true)
@@ -94,9 +95,11 @@ actor ArtworkImageStore {
     /// store and the synchronous read below resolve it from here, so a test can
     /// point the read at its own directory instead of the user's real cache.
     nonisolated static var defaultDiskDirectory: URL {
-        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        let base =
+            FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
-        return base
+        return
+            base
             .appendingPathComponent(AppMetadata.storageDirectoryName, isDirectory: true)
             .appendingPathComponent("Artwork", isDirectory: true)
     }
@@ -123,10 +126,12 @@ actor ArtworkImageStore {
         let took = { CallLog.milliseconds(ProcessInfo.processInfo.systemUptime - start) }
         let fileURL = Self.cacheFileURL(for: url, diskDirectory: diskDirectory)
         if let data = try? Data(contentsOf: fileURL),
-           generation == cacheGeneration,
-           let image = NSImage(data: data) {
+            generation == cacheGeneration,
+            let image = NSImage(data: data)
+        {
             memoryKeys.setObject(image, forKey: key as NSString)
-            SpotiglassLog.info(.artwork, "cover \(key) from disk cache in \(took()), \(Self.pixels(image)), \(data.count) bytes")
+            SpotiglassLog.info(
+                .artwork, "cover \(key) from disk cache in \(took()), \(Self.pixels(image)), \(data.count) bytes")
             return image
         }
 
@@ -140,18 +145,21 @@ actor ArtworkImageStore {
             let (data, response) = try await CallLog.http(url, session: urlSession)
             guard generation == cacheGeneration else { return nil }
             guard let http = response as? HTTPURLResponse else { return logFailed("no HTTP response") }
-            guard (200 ... 299).contains(http.statusCode) else { return logFailed("HTTP \(http.statusCode)") }
+            guard (200...299).contains(http.statusCode) else { return logFailed("HTTP \(http.statusCode)") }
             guard let image = NSImage(data: data) else {
                 return logFailed("\(data.count) bytes that are not an image (\(http.mimeType ?? "no type"))")
             }
             memoryKeys.setObject(image, forKey: key as NSString)
             // URLCache answers a repeat without going out; the log can't tell the two apart.
-            SpotiglassLog.info(.artwork, "cover \(key) loaded (not cached on disk) in \(took()), \(Self.pixels(image)), \(data.count) bytes")
+            SpotiglassLog.info(
+                .artwork,
+                "cover \(key) loaded (not cached on disk) in \(took()), \(Self.pixels(image)), \(data.count) bytes")
             DiskCacheTrim.write { try? data.write(to: fileURL, options: [.atomic]) }
             await trimDiskCacheIfNeeded()
             return image
         } catch {
-            guard generation == cacheGeneration, !(error is CancellationError), (error as? URLError)?.code != .cancelled else { return nil }
+            guard generation == cacheGeneration, !(error is CancellationError), (error as? URLError)?.code != .cancelled
+            else { return nil }
             return logFailed(SpotiglassLog.describe(error))
         }
     }

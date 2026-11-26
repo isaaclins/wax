@@ -212,10 +212,11 @@ enum CommandPaletteCommandCatalog {
         var entries: [String] = []
         for commandID in defaultKeymapFileOrder {
             guard let spec = editable.first(where: { $0.commandID == commandID }),
-                  let ks = spec.defaultKeystroke
+                let ks = spec.defaultKeystroke
             else { continue }
             let whenRaw = spec.defaultWhen.rawValue
-            entries.append("    { \"keystrokes\": [\"\(ks)\"], \"command\": \"\(spec.commandID)\", \"when\": \"\(whenRaw)\" }")
+            entries.append(
+                "    { \"keystrokes\": [\"\(ks)\"], \"command\": \"\(spec.commandID)\", \"when\": \"\(whenRaw)\" }")
         }
         lines.append(entries.joined(separator: ",\n"))
         lines.append("  ]")

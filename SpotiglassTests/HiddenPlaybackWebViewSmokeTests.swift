@@ -1,5 +1,6 @@
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -74,20 +75,21 @@ final class HiddenPlaybackWebViewSmokeTests: XCTestCase {
         )
         let playbackViewModel = host.playbackViewModel
         playbackViewModel.handle(.ready(deviceID: "device-1"))
-        playbackViewModel.handle(.stateChanged(
-            PlaybackNowPlaying(
-                name: "Track",
-                artists: ["Artist"],
-                albumName: nil,
-                albumID: nil,
-                albumArtURL: nil,
-                durationMilliseconds: 180_000,
-                positionMilliseconds: 12_000,
-                uri: "spotify:track:1"
-            ),
-            isPaused: false,
-            nextTracks: []
-        ))
+        playbackViewModel.handle(
+            .stateChanged(
+                PlaybackNowPlaying(
+                    name: "Track",
+                    artists: ["Artist"],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 180_000,
+                    positionMilliseconds: 12_000,
+                    uri: "spotify:track:1"
+                ),
+                isPaused: false,
+                nextTracks: []
+            ))
         let initialState = playbackViewModel.connectionState
 
         let settingsStore = try ViewTestHost.makeSettingsStore()

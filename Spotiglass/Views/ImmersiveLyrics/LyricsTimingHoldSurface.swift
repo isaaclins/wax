@@ -13,15 +13,16 @@ extension View {
         haptics: any LyricsHaptics = TrackpadLyricsHaptics.shared,
         clock: any PlaybackClock = ContinuousClock()
     ) -> some View {
-        modifier(LyricsTimingHoldModifier(
-            playbackViewModel: playbackViewModel,
-            songID: songID,
-            lyrics: lyrics,
-            textSize: textSize,
-            store: store,
-            haptics: haptics,
-            clock: clock
-        ))
+        modifier(
+            LyricsTimingHoldModifier(
+                playbackViewModel: playbackViewModel,
+                songID: songID,
+                lyrics: lyrics,
+                textSize: textSize,
+                store: store,
+                haptics: haptics,
+                clock: clock
+            ))
     }
 }
 
@@ -66,7 +67,7 @@ private struct LyricsTimingHoldModifier: ViewModifier {
 
     private func updateContext() {
         let songID = songID
-        let lines: [SyncedLyricLine]? = if case let .synced(lines)? = lyrics, !lines.isEmpty { lines } else { nil }
+        let lines: [SyncedLyricLine]? = if case .synced(let lines)? = lyrics, !lines.isEmpty { lines } else { nil }
         let pitch = textSize.inactiveFontSize * 1.25 + textSize.timedLineSpacing
         let store = store
         let playbackViewModel = playbackViewModel

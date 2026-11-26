@@ -37,7 +37,8 @@ struct LyricsDiskCache: Sendable {
         guard let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             throw LyricsDiskCacheError.applicationSupportUnavailable
         }
-        let root = support
+        let root =
+            support
             .appendingPathComponent(AppMetadata.storageDirectoryName, isDirectory: true)
             .appendingPathComponent("LyricsCache", isDirectory: true)
         try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
@@ -84,7 +85,9 @@ struct LyricsDiskCache: Sendable {
 
     /// Deletes lyrics older than `maxAge` and, past `maxBytes`, the least recently used ones.
     /// The cooldown and backoff files bound themselves and are never deleted here.
-    func prune(now: Date = Date(), maxAge: TimeInterval = LyricsDiskCache.maxAge, maxBytes: Int64 = LyricsDiskCache.maxBytes) {
+    func prune(
+        now: Date = Date(), maxAge: TimeInterval = LyricsDiskCache.maxAge, maxBytes: Int64 = LyricsDiskCache.maxBytes
+    ) {
         DiskCacheTrim.trim(
             directory: directory,
             maxBytes: maxBytes,

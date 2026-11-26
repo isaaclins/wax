@@ -21,7 +21,7 @@ enum BrowsingLoadState<Value: Equatable>: Equatable {
 
     var currentValue: Value? {
         switch self {
-        case let .loaded(value), let .staleCache(value, _), let .refreshing(value):
+        case .loaded(let value), .staleCache(let value, _), .refreshing(let value):
             value
         case .loading, .empty, .error:
             nil

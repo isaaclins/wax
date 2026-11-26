@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Switching the language in an open Settings window left the segmented controls in

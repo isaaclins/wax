@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -55,18 +56,21 @@ final class PlaylistBrowserMainSurfaceRefreshTests: XCTestCase {
         let playlist = PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")
         let cache = MockBrowsingCache(
             cachedPlaylists: [playlist],
-            cachedTracks: [SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID: [
-                PlaylistBrowsingTestFixtures.track(id: "stale-liked")
-            ]],
+            cachedTracks: [
+                SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID: [
+                    PlaylistBrowsingTestFixtures.track(id: "stale-liked")
+                ]
+            ],
             playlistListCacheAge: 5
         )
         let api = MockBrowsingAPI(
             playlistResults: [.success([playlist])],
             trackResults: ["one": [.success([PlaylistBrowsingTestFixtures.track(id: "t1")])]],
-            savedTracksResult: .success(MusicSavedTracksResult(
-                tracks: [PlaylistBrowsingTestFixtures.track(id: "fresh-liked")],
-                totalAvailable: 1
-            ))
+            savedTracksResult: .success(
+                MusicSavedTracksResult(
+                    tracks: [PlaylistBrowsingTestFixtures.track(id: "fresh-liked")],
+                    totalAvailable: 1
+                ))
         )
         let vm = PlaylistBrowserViewModel(api: api, cache: cache)
         await vm.load()
@@ -150,7 +154,7 @@ final class PlaylistBrowserMainSurfaceRefreshTests: XCTestCase {
         await vm.load()
         await vm.selectArtist(id: "artist-1")
         await vm.refreshSelectedPlaylist()
-        guard case let .loaded(.artist(detail)) = vm.detailState else {
+        guard case .loaded(.artist(let detail)) = vm.detailState else {
             return XCTFail("expected artist detail")
         }
         XCTAssertEqual(detail.artist.name, "Artist artist-1")

@@ -11,7 +11,8 @@ extension PlaybackSessionViewModel {
         let generation = generation ?? playbackHostGeneration
         guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
         if let scheduledTask = transportSyncSchedulerTask,
-           transportSyncSchedulerGeneration == generation {
+            transportSyncSchedulerGeneration == generation
+        {
             await scheduledTask.value
             return
         }
@@ -56,14 +57,16 @@ extension PlaybackSessionViewModel {
                 let snapshot = try await provider.fetchPlaybackState()
                 guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
                 // Checked before the read is applied: applying it can end the expectation.
-                let readHoldsSettle = snapshot.map {
-                    playPauseReadHoldsSettle($0, predatesPress: playPauseRequestSerial != pressSerialAtRequest)
-                } ?? false
+                let readHoldsSettle =
+                    snapshot.map {
+                        playPauseReadHoldsSettle($0, predatesPress: playPauseRequestSerial != pressSerialAtRequest)
+                    } ?? false
                 if let snapshot {
                     latestPlayerSnapshot = snapshot
                     setTransportStateKnown(true)
                     if localMutationSettleTicksRemaining == 0,
-                       let activeDeviceID = snapshot.activeDevice?.deviceID {
+                        let activeDeviceID = snapshot.activeDevice?.deviceID
+                    {
                         setActivePlaybackDeviceID(activeDeviceID)
                     }
                     applyTransportVolume(
@@ -89,7 +92,8 @@ extension PlaybackSessionViewModel {
                 // A read still showing the state from before a pause or resume doesn't end the
                 // window; it stays open on its last tick until a read agrees or the hold ends.
                 if localMutationSettleTicksRemaining > 1
-                    || (localMutationSettleTicksRemaining == 1 && !readHoldsSettle) {
+                    || (localMutationSettleTicksRemaining == 1 && !readHoldsSettle)
+                {
                     localMutationSettleTicksRemaining -= 1
                     // A play still waiting to start keeps its expectation past
                     // the settle window; `clearPendingPlay()` ends it then.
@@ -145,22 +149,27 @@ extension PlaybackSessionViewModel {
         let snapshotDeviceID: String
         if provider.capabilities.contains(.pushesPlayerState) {
             guard let activeDevice = snapshot.activeDevice,
-                  activeDevice.deviceID != localDeviceID else { return }
+                activeDevice.deviceID != localDeviceID
+            else { return }
             // A just-issued local command can be followed by one stale player
             // snapshot. Preserve the selected target and the last pause or resume
             // during that settle window, but accept the snapshot once it agrees
             // with both (a late read must not flip a press back, #437).
-            guard localMutationSettleTicksRemaining == 0
-                || (activePlaybackDeviceID == activeDevice.deviceID
-                    && readAgreesWithLocalCommand(snapshot)) else { return }
+            guard
+                localMutationSettleTicksRemaining == 0
+                    || (activePlaybackDeviceID == activeDevice.deviceID
+                        && readAgreesWithLocalCommand(snapshot))
+            else { return }
             snapshotDeviceID = activeDevice.deviceID
         } else {
             // The in-app player's own reads lag its commands (a player can
             // still report "playing" right after it was stopped), so during
             // the settle window after a local command only a read that agrees
             // with that command is applied.
-            guard localMutationSettleTicksRemaining == 0
-                || readAgreesWithLocalCommand(snapshot) else { return }
+            guard
+                localMutationSettleTicksRemaining == 0
+                    || readAgreesWithLocalCommand(snapshot)
+            else { return }
             snapshotDeviceID = snapshot.activeDevice?.deviceID ?? localDeviceID
         }
 
@@ -174,7 +183,8 @@ extension PlaybackSessionViewModel {
         observeSkipAdvance(nowPlayingURI: remoteNowPlaying?.uri)
         guard !suppressed else { return }
 
-        let authoritativeState: PlaybackConnectionState = snapshot.isPlaying
+        let authoritativeState: PlaybackConnectionState =
+            snapshot.isPlaying
             ? .playing(remoteNowPlaying ?? fallbackNowPlaying())
             : .paused(remoteNowPlaying)
         updateSeekOwnership(from: authoritativeState)
@@ -213,8 +223,9 @@ extension PlaybackSessionViewModel {
     /// waiting for the player to start.
     private func applyEmptyReadForReadOnlyPlayer() {
         guard !provider.capabilities.contains(.pushesPlayerState),
-              pendingPlayTransition == nil,
-              let localDeviceID = deviceID else { return }
+            pendingPlayTransition == nil,
+            let localDeviceID = deviceID
+        else { return }
         switch connectionState {
         case .playing, .paused:
             SpotiglassLog.info(.playback, "Empty player read; nothing is playing on deviceID=\(localDeviceID)")
@@ -231,8 +242,9 @@ extension PlaybackSessionViewModel {
         startedWithVolumeMutationVersion requestVersion: UInt64
     ) {
         guard requestVersion == volumeMutationVersion,
-              let pendingVolumeMutation,
-              clock.now >= pendingVolumeMutation.deadline else { return }
+            let pendingVolumeMutation,
+            clock.now >= pendingVolumeMutation.deadline
+        else { return }
         self.pendingVolumeMutation = nil
     }
 
@@ -245,10 +257,11 @@ extension PlaybackSessionViewModel {
             startedWithVolumeMutationVersion: requestVersion
         )
         guard let localDeviceID = deviceID,
-              let activeDevice = snapshot.activeDevice,
-              activeDevice.deviceID == localDeviceID,
-              activeDevice.isActive,
-              let volume = activeDevice.volumeFraction else { return }
+            let activeDevice = snapshot.activeDevice,
+            activeDevice.deviceID == localDeviceID,
+            activeDevice.isActive,
+            let volume = activeDevice.volumeFraction
+        else { return }
 
         if let pending = pendingVolumeMutation {
             if abs(volume - pending.target) <= volumeMatchTolerance {
@@ -327,7 +340,7 @@ extension PlaybackSessionViewModel {
             return
         }
         switch playbackError.reason {
-        case let .rateLimited(retryAfter):
+        case .rateLimited(let retryAfter):
             let retryDelay = max(1, retryAfter ?? 15)
             transportRateLimitedUntil = clock.now.advanced(by: .seconds(retryDelay))
             transportTransientErrorCount = 0
@@ -350,13 +363,15 @@ extension PlaybackSessionViewModel {
         // Services without device transfer have no device list to show.
         guard let deviceTransfer = provider.deviceTransfer else { return true }
         if !force,
-           let lastConnectDevicesRefreshAt,
-           clock.now < lastConnectDevicesRefreshAt.advanced(by: connectDevicesFreshnessWindow) {
+            let lastConnectDevicesRefreshAt,
+            clock.now < lastConnectDevicesRefreshAt.advanced(by: connectDevicesFreshnessWindow)
+        {
             return true
         }
 
         if let inFlight = connectDevicesRefreshTask,
-           connectDevicesRefreshGeneration == generation {
+            connectDevicesRefreshGeneration == generation
+        {
             isRefreshingConnectDevices = true
             do {
                 let devices = try await inFlight.value
@@ -364,7 +379,8 @@ extension PlaybackSessionViewModel {
                 applyRefreshedConnectDevices(devices)
             } catch {
                 if !(error is CancellationError) {
-                    SpotiglassLog.error(.playback, Self.connectDevicesRefreshFailureLine(error, kept: connectDevices.count))
+                    SpotiglassLog.error(
+                        .playback, Self.connectDevicesRefreshFailureLine(error, kept: connectDevices.count))
                 }
                 guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return false }
                 connectDevicesRefreshFailed = true
@@ -435,7 +451,8 @@ extension PlaybackSessionViewModel {
         case .paused: localCommandExpectsPlaying = false
         }
         if !provider.capabilities.contains(.pushesPlayerState),
-           transportPollReadingSerial != transportPollLoopSerial {
+            transportPollReadingSerial != transportPollLoopSerial
+        {
             // Reads are this player's only state source. Restart the poll loop
             // so it reads at the settle cadence now instead of finishing a long
             // sleep picked before the command (20 s while `.ready`). A loop

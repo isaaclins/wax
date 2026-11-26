@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -56,11 +57,12 @@ final class PlaybackTransportPollingTests: XCTestCase {
         let baselineFetchCount = playbackAPI.actions.filter { $0 == "fetchPlayerSnapshot" }.count
 
         for offset in stride(from: 1_000, through: 50_000, by: 1_000) {
-            viewModel.handle(.stateChanged(
-                track.with(positionMilliseconds: offset),
-                isPaused: false,
-                nextTracks: []
-            ))
+            viewModel.handle(
+                .stateChanged(
+                    track.with(positionMilliseconds: offset),
+                    isPaused: false,
+                    nextTracks: []
+                ))
         }
 
         let fetchCountAfterTicks = playbackAPI.actions.filter { $0 == "fetchPlayerSnapshot" }.count
@@ -216,7 +218,7 @@ final class PlaybackTransportPollingTests: XCTestCase {
 
         await viewModel.syncTransportFromSpotify()
 
-        guard case let .error(error) = viewModel.connectionState else {
+        guard case .error(let error) = viewModel.connectionState else {
             return XCTFail("A missing playback scope must surface an actionable transport error")
         }
         XCTAssertEqual(error.action, .reauthenticate)
@@ -230,13 +232,17 @@ final class PlaybackTransportPollingTests: XCTestCase {
     /// 2 s (#598). It now says "sign in again" and stops reading.
     func testA401OnThePlayerReadSaysSignInAgainAndStopsReading() async {
         let playbackAPI = MockPlaybackAPI()
-        playbackAPI.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: MusicPlaybackDevice(deviceID: "phone-device", isActive: true, isRestricted: false, name: "Phone", type: "smartphone"),
-            isPlaying: true,
-            item: .track(PlaylistBrowsingTestFixtures.fallbackTrack(id: "remote", name: "Remote song", artistId: "a")),
-            progressMilliseconds: 42_000
-        )]
+        playbackAPI.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: MusicPlaybackDevice(
+                    deviceID: "phone-device", isActive: true, isRestricted: false, name: "Phone", type: "smartphone"),
+                isPlaying: true,
+                item: .track(
+                    PlaylistBrowsingTestFixtures.fallbackTrack(id: "remote", name: "Remote song", artistId: "a")),
+                progressMilliseconds: 42_000
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()))
         viewModel.deviceID = "local-device"
@@ -250,7 +256,7 @@ final class PlaybackTransportPollingTests: XCTestCase {
         playbackAPI.fetchPlayerSnapshotError = SpotifyAPIError.unauthorized
         await viewModel.syncTransportFromSpotify()
 
-        guard case let .error(error) = viewModel.connectionState else {
+        guard case .error(let error) = viewModel.connectionState else {
             return XCTFail("The 401 left the bar on \(viewModel.connectionState)")
         }
         XCTAssertEqual(error.action, .reauthenticate)
@@ -280,13 +286,15 @@ final class PlaybackTransportPollingTests: XCTestCase {
             linkedFromID: nil,
             uri: "spotify:track:remote-track"
         )
-        playbackAPI.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: remoteDevice,
-            isPlaying: true,
-            item: .track(remoteTrack),
-            progressMilliseconds: 42_000
-        )]
+        playbackAPI.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: remoteDevice,
+                isPlaying: true,
+                item: .track(remoteTrack),
+                progressMilliseconds: 42_000
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()))
         viewModel.deviceID = "local-device"
@@ -294,7 +302,7 @@ final class PlaybackTransportPollingTests: XCTestCase {
 
         await viewModel.syncTransportFromSpotify()
 
-        guard case let .playing(nowPlaying) = viewModel.connectionState else {
+        guard case .playing(let nowPlaying) = viewModel.connectionState else {
             return XCTFail("Expected remote playback to publish a playing transport state")
         }
         XCTAssertEqual(nowPlaying.name, "Remote song")
@@ -306,20 +314,21 @@ final class PlaybackTransportPollingTests: XCTestCase {
         XCTAssertTrue(viewModel.progressAnchor?.isAdvancing == true)
         XCTAssertEqual(viewModel.progressAnchor?.positionMilliseconds, 42_000)
 
-        viewModel.handle(.stateChanged(
-            PlaybackNowPlaying(
-                name: "Idle SDK track",
-                artists: ["Local artist"],
-                albumName: nil,
-                albumID: nil,
-                albumArtURL: nil,
-                durationMilliseconds: 90_000,
-                positionMilliseconds: 0,
-                uri: "spotify:track:local"
-            ),
-            isPaused: true,
-            nextTracks: []
-        ))
+        viewModel.handle(
+            .stateChanged(
+                PlaybackNowPlaying(
+                    name: "Idle SDK track",
+                    artists: ["Local artist"],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 90_000,
+                    positionMilliseconds: 0,
+                    uri: "spotify:track:local"
+                ),
+                isPaused: true,
+                nextTracks: []
+            ))
         XCTAssertEqual(viewModel.currentNowPlaying?.uri, "spotify:track:remote-track")
     }
 
@@ -337,13 +346,15 @@ final class PlaybackTransportPollingTests: XCTestCase {
             name: "Snapshot track",
             artistId: "snapshot-artist"
         )
-        playbackAPI.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: localDevice,
-            isPlaying: true,
-            item: .track(snapshotTrack),
-            progressMilliseconds: 25_000
-        )]
+        playbackAPI.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: localDevice,
+                isPlaying: true,
+                item: .track(snapshotTrack),
+                progressMilliseconds: 25_000
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()))
         viewModel.deviceID = "local-device"
@@ -384,13 +395,15 @@ final class PlaybackTransportPollingTests: XCTestCase {
             isPlayable: true,
             uri: "spotify:episode:episode-1"
         )
-        playbackAPI.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: remoteDevice,
-            isPlaying: false,
-            item: .episode(episode),
-            progressMilliseconds: 12_000
-        )]
+        playbackAPI.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: remoteDevice,
+                isPlaying: false,
+                item: .episode(episode),
+                progressMilliseconds: 12_000
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()))
         viewModel.deviceID = "local-device"
@@ -398,7 +411,7 @@ final class PlaybackTransportPollingTests: XCTestCase {
 
         await viewModel.syncTransportFromSpotify()
 
-        guard case let .paused(nowPlaying) = viewModel.connectionState else {
+        guard case .paused(let nowPlaying) = viewModel.connectionState else {
             return XCTFail("Expected remote episode playback to publish a paused transport state")
         }
         XCTAssertEqual(nowPlaying?.name, "Remote episode")
@@ -421,13 +434,15 @@ final class PlaybackTransportPollingTests: XCTestCase {
             name: "Remote song",
             artistId: "remote-artist"
         )
-        playbackAPI.snapshotResponses = [MusicPlaybackSnapshot(
-            transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
-            activeDevice: remoteDevice,
-            isPlaying: true,
-            item: .track(track),
-            progressMilliseconds: 1_000
-        )]
+        playbackAPI.snapshotResponses = [
+            MusicPlaybackSnapshot(
+                transport: MusicPlaybackTransport(shuffle: false, repeatMode: .off),
+                activeDevice: remoteDevice,
+                isPlaying: true,
+                item: .track(track),
+                progressMilliseconds: 1_000
+            )
+        ]
         let viewModel = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: playbackAPI, webCommander: MockWebPlaybackCommander()))
         viewModel.deviceID = "local-device"

@@ -18,7 +18,8 @@ extension PlaylistBrowserViewModel {
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
-                SpotiglassLog.error(.browsing, "Profile didn't load for the artist page: \(SpotiglassLog.describe(error))")
+                SpotiglassLog.error(
+                    .browsing, "Profile didn't load for the artist page: \(SpotiglassLog.describe(error))")
                 market = nil
             }
             if preferCached {
@@ -62,7 +63,8 @@ extension PlaylistBrowserViewModel {
                     if seenNextURLs.contains(key) {
                         // A broken response, not the end of the list: the albums read so far
                         // still show, and the loop is logged (#595).
-                        SpotiglassLog.error(.browsing, "Artist albums linked back to a page already read; showing what loaded")
+                        SpotiglassLog.error(
+                            .browsing, "Artist albums linked back to a page already read; showing what loaded")
                         break
                     }
                     seenNextURLs.insert(key)
@@ -127,11 +129,13 @@ extension PlaylistBrowserViewModel {
         market: String?
     ) async throws -> Result<[MusicTrack], Error> {
         guard let extras else {
-            return .success(try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market))
+            return .success(
+                try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market))
         }
         if !extras.topTracks.isEmpty { return .success(extras.topTracks) }
         do {
-            return .success(try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market))
+            return .success(
+                try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market))
         } catch is CancellationError {
             throw CancellationError()
         } catch {
@@ -167,12 +171,12 @@ extension PlaylistBrowserViewModel {
     }
 }
 
-private extension Result {
+extension Result {
     /// The value, or `fallback` and the failure: a part of a page that didn't load.
-    func valueOrFailure(_ fallback: Success) -> (Success, Failure?) {
+    fileprivate func valueOrFailure(_ fallback: Success) -> (Success, Failure?) {
         switch self {
-        case let .success(value): (value, nil)
-        case let .failure(error): (fallback, error)
+        case .success(let value): (value, nil)
+        case .failure(let error): (fallback, error)
         }
     }
 }

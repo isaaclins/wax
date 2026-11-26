@@ -45,35 +45,38 @@ struct PlaylistsSidebarSectionContent: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("PlaylistsSidebarSectionContent")
+            let _ = ViewBodyTally.record("PlaylistsSidebarSectionContent")
         #endif
         Group {
             likedSongsSidebarRow
             switch playlistState {
             case .loading:
                 ProgressView(SpotiglassL10n.string("browser.loadingPlaylists"))
-            case let .loaded(playlists), let .refreshing(playlists), let .staleCache(playlists, _):
+            case .loaded(let playlists), .refreshing(let playlists), .staleCache(let playlists, _):
                 ForEach(playlists) { playlist in
                     playlistSidebarRow(playlist: playlist)
                 }
-            case let .empty(text):
+            case .empty(let text):
                 let message = text.string
                 EmptyStateView(title: SpotiglassL10n.string("browser.noPlaylists.title"), message: message)
-            case let .error(error):
-                ErrorPage(error: error, retry: error.canRetry ? {
-                    Task { await viewModel.refreshPlaylists(trigger: .userInitiated) }
-                } : nil)
+            case .error(let error):
+                ErrorPage(
+                    error: error,
+                    retry: error.canRetry
+                        ? {
+                            Task { await viewModel.refreshPlaylists(trigger: .userInitiated) }
+                        } : nil)
             }
         }
         .onChange(of: viewModel.sidebarSelection) { _, newSelection in
             guard let editingPlaylistID,
-                  newSelection != .playlist(editingPlaylistID)
+                newSelection != .playlist(editingPlaylistID)
             else { return }
             cancelPlaylistNameEditing()
         }
         .onChange(of: visiblePlaylistIDs) { _, playlistIDs in
             guard let editingPlaylistID,
-                  playlistIDs.contains(editingPlaylistID) == false
+                playlistIDs.contains(editingPlaylistID) == false
             else { return }
             cancelPlaylistNameEditing()
         }
@@ -81,7 +84,7 @@ struct PlaylistsSidebarSectionContent: View {
         // header to edit in, so the row edits here as if it had been right-clicked (#478).
         .onChange(of: viewModel.sidebarPlaylistNameEditRequestID, initial: true) { _, requestedID in
             guard let requestedID,
-                  let playlist = playlistState.currentValue?.first(where: { $0.id == requestedID })
+                let playlist = playlistState.currentValue?.first(where: { $0.id == requestedID })
             else { return }
             viewModel.playlistNameEditRequestID = nil
             beginPlaylistNameEditing(for: playlist)
@@ -173,11 +176,12 @@ struct PlaylistsSidebarSectionContent: View {
     }
 
     private func commitPlaylistName(for playlistID: String) {
-        guard let capturedPlaylistID = PlaylistRenameEditingPolicy.commitTarget(
-            editingPlaylistID: editingPlaylistID,
-            rowID: playlistID,
-            visiblePlaylistIDs: visiblePlaylistIDs
-        )
+        guard
+            let capturedPlaylistID = PlaylistRenameEditingPolicy.commitTarget(
+                editingPlaylistID: editingPlaylistID,
+                rowID: playlistID,
+                visiblePlaylistIDs: visiblePlaylistIDs
+            )
         else {
             cancelPlaylistNameEditing()
             return

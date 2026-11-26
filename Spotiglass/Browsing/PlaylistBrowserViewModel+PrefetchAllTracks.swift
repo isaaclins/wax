@@ -118,8 +118,8 @@ extension PlaylistBrowserViewModel {
         guard var progress = prefetchAllPlaylistsProgress else { return }
         switch outcome {
         case .completed: progress.completed += 1
-        case .skipped:   progress.skipped += 1
-        case .failed:    progress.failed += 1
+        case .skipped: progress.skipped += 1
+        case .failed: progress.failed += 1
         case .cancelled: break
         }
         publishPrefetchProgress(progress, event: "progress")
@@ -141,7 +141,7 @@ extension PlaylistBrowserViewModel {
         if Task.isCancelled { return .cancelled }
 
         switch item {
-        case let .playlist(summary):
+        case .playlist(let summary):
             if isPlaylistTrackCacheFresh(playlistID: summary.id, snapshotID: summary.snapshotID) {
                 return .skipped
             }
@@ -160,8 +160,9 @@ extension PlaylistBrowserViewModel {
     private func isPlaylistTrackCacheFresh(playlistID: String, snapshotID: String) -> Bool {
         // Recently revalidated under the same snapshot — coalesce with the detail loader.
         if let last = lastTracksRevalidationByID[playlistID],
-           last.snapshotID == snapshotID,
-           now().timeIntervalSince(last.at) < tracksRevalidateMinInterval {
+            last.snapshotID == snapshotID,
+            now().timeIntervalSince(last.at) < tracksRevalidateMinInterval
+        {
             return true
         }
         if let fresh = try? cache.loadTracks(
@@ -188,7 +189,7 @@ extension PlaylistBrowserViewModel {
         } catch let urlError as URLError where urlError.code == .cancelled {
             return .cancelled
         } catch let apiError as SpotifyAPIError {
-            if case let .rateLimited(retryAfter) = apiError, retryRemaining > 0 {
+            if case .rateLimited(let retryAfter) = apiError, retryRemaining > 0 {
                 let delay = (retryAfter ?? 5).clamped(to: Self.prefetchAllPlaylistsRetryAfterBounds)
                 do {
                     try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -197,6 +198,7 @@ extension PlaylistBrowserViewModel {
                 }
                 return await fetchAndCachePlaylistTracks(summary: summary, retryRemaining: retryRemaining - 1)
             }
+            SpotiglassLog.info(.browsing, "Prefetching a playlist's songs failed: \(SpotiglassLog.describe(apiError))")
             return .failed
         } catch {
             return .failed
@@ -222,7 +224,7 @@ extension PlaylistBrowserViewModel {
         } catch let urlError as URLError where urlError.code == .cancelled {
             return .cancelled
         } catch let apiError as SpotifyAPIError {
-            if case let .rateLimited(retryAfter) = apiError, retryRemaining > 0 {
+            if case .rateLimited(let retryAfter) = apiError, retryRemaining > 0 {
                 let delay = (retryAfter ?? 5).clamped(to: Self.prefetchAllPlaylistsRetryAfterBounds)
                 do {
                     try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -231,6 +233,7 @@ extension PlaylistBrowserViewModel {
                 }
                 return await fetchAndCacheLikedSongs(retryRemaining: retryRemaining - 1)
             }
+            SpotiglassLog.info(.browsing, "Prefetching Liked Songs failed: \(SpotiglassLog.describe(apiError))")
             return .failed
         } catch {
             return .failed
@@ -279,8 +282,8 @@ enum PrefetchItemOutcome: Equatable {
     case cancelled
 }
 
-private extension TimeInterval {
-    func clamped(to range: ClosedRange<TimeInterval>) -> TimeInterval {
+extension TimeInterval {
+    fileprivate func clamped(to range: ClosedRange<TimeInterval>) -> TimeInterval {
         Swift.min(Swift.max(self, range.lowerBound), range.upperBound)
     }
 }

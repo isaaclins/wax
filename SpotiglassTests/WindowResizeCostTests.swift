@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// A window manager (Hammerspoon's `setFrame`, Rectangle, Magnet) resizes the window from code and
@@ -31,10 +32,12 @@ final class WindowResizeCostTests: XCTestCase {
     private func hostBrowser(on page: Page) async throws -> NSWindow {
         let tracks = (0..<500).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") }
         let api = MockBrowsingAPI(
-            playlistResults: [.success([
-                PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Big"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
-            ])],
+            playlistResults: [
+                .success([
+                    PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Big"),
+                    PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Daily"),
+                ])
+            ],
             trackResults: ["p1": [.success(tracks)]]
         )
         // Home as a Spotify account fills it: 20 top tracks and a shelf of recently played
@@ -49,7 +52,9 @@ final class WindowResizeCostTests: XCTestCase {
         switch page {
         case .home:
             await browserVM.selectSidebar(.home)
-            guard case let .loaded(top) = browserVM.homeTopTracks, case let .loaded(recent) = browserVM.homeRecentlyPlayed else {
+            guard case .loaded(let top) = browserVM.homeTopTracks,
+                case .loaded(let recent) = browserVM.homeRecentlyPlayed
+            else {
                 XCTFail("Home's sections didn't load: \(browserVM.homeTopTracks), \(browserVM.homeRecentlyPlayed)")
                 throw CancellationError()
             }
@@ -71,10 +76,13 @@ final class WindowResizeCostTests: XCTestCase {
         playback.deviceID = "device-1"
         playback.hasTransferredPlaybackToCurrentDevice = true
         playback.setTransportStateKnown(true)
-        playback.setConnectionState(.paused(PlaybackNowPlaying(
-            name: "Midnight City", artists: ["M83"], albumName: "Hurry Up, We're Dreaming", albumID: nil,
-            albumArtURL: nil, durationMilliseconds: 243_000, positionMilliseconds: 60_000, uri: "spotify:track:t1"
-        )))
+        playback.setConnectionState(
+            .paused(
+                PlaybackNowPlaying(
+                    name: "Midnight City", artists: ["M83"], albumName: "Hurry Up, We're Dreaming", albumID: nil,
+                    albumArtURL: nil, durationMilliseconds: 243_000, positionMilliseconds: 60_000,
+                    uri: "spotify:track:t1"
+                )))
         let view = PlaylistBrowserView(
             viewModel: browserVM,
             playbackHost: playbackHost,
@@ -90,7 +98,8 @@ final class WindowResizeCostTests: XCTestCase {
         // Each step waits for what it needs to see, not for a time: on a busy Mac the sidebar
         // rows came after a fixed 0.5 s (#533).
         let rendered = { (view: String) in ViewBodyTally.counts?[view] != nil }
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { rendered("PlaybackControlsView") }), "the browser never rendered")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { rendered("PlaybackControlsView") }), "the browser never rendered")
         // The browser starts at a width of zero and collapses the sidebar; a widening brings it
         // back, as it does when a real window opens.
         window.setContentSize(NSSize(width: 1_450, height: 900))
@@ -213,9 +222,12 @@ final class WindowResizeCostTests: XCTestCase {
     /// Back on All after a category pill, a row of cards holds every page that pill fetched.
     func testSearchBuildsOnlyTheAlbumCardsOnScreen() async throws {
         let albums = (0..<30).map { index in
-            MusicAlbum(id: "found-album-\(index)", name: "Album \(index)", artists: ["Artist \(index)"], imageURL: nil, uri: "spotify:album:found-album-\(index)")
+            MusicAlbum(
+                id: "found-album-\(index)", name: "Album \(index)", artists: ["Artist \(index)"], imageURL: nil,
+                uri: "spotify:album:found-album-\(index)")
         }
-        try await assertSearchBuildsOnlyWhatIsOnScreen(tracks: [], albums: albums, farOff: "HomeMediaCardView:found-album-29")
+        try await assertSearchBuildsOnlyWhatIsOnScreen(
+            tracks: [], albums: albums, farOff: "HomeMediaCardView:found-album-29")
     }
 
     /// Hosts Search on results, lays it out once, and checks `farOff` (a row below the window or
@@ -252,7 +264,8 @@ final class WindowResizeCostTests: XCTestCase {
             viewModel: browserVM,
             searchViewModel: search,
             playbackViewModel: playback,
-            queueViewModel: QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playback),
+            queueViewModel: QueueViewModel(
+                provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playback),
             hasPlaybackDevice: false
         )
         .environmentObject(PinnedItemsStore(cache: InMemoryPinnedItemsCache()))
@@ -267,13 +280,15 @@ final class WindowResizeCostTests: XCTestCase {
             "the results never came on screen", file: file, line: line
         )
         await AppKitTestSupport.settle()
-        XCTAssertNil(ViewBodyTally.counts?[farOff], "Search built \(farOff) far outside the window", file: file, line: line)
+        XCTAssertNil(
+            ViewBodyTally.counts?[farOff], "Search built \(farOff) far outside the window", file: file, line: line)
 
         for step in 0..<12 {
             resize(window, toWidth: 900 - CGFloat(step) * 20, height: 600 - CGFloat(step) * 10)
         }
         await AppKitTestSupport.settle()
-        XCTAssertNil(ViewBodyTally.counts?[farOff], "a resize built \(farOff) far outside the window", file: file, line: line)
+        XCTAssertNil(
+            ViewBodyTally.counts?[farOff], "a resize built \(farOff) far outside the window", file: file, line: line)
     }
 
     private func assertAnAnimatedResizeReRendersNothing(
@@ -285,7 +300,8 @@ final class WindowResizeCostTests: XCTestCase {
     ) {
         // Wide to narrow and back, all of it wider than the narrowest breakpoint, so no panel
         // opens or closes and nothing on screen changes but the layout.
-        let comfortable: CGFloat = SpotiglassDesign.dualSidebarComfortableMinWidth(sidebarWidth: SpotiglassDesign.sidebarWidth)
+        let comfortable: CGFloat = SpotiglassDesign.dualSidebarComfortableMinWidth(
+            sidebarWidth: SpotiglassDesign.sidebarWidth)
         let steps = 12
         let span: CGFloat = 1_400 - (comfortable + 40)
         let widths: [CGFloat] = (1...steps).map { step in 1_400 - span * CGFloat(step) / CGFloat(steps) }
@@ -332,16 +348,21 @@ final class WindowResizeCostTests: XCTestCase {
         let rows = (rowsMayReturnWhileGrowing ? countsWhileShrinking : counts).keys.filter { name in
             ["TrackListRow:", "PlaylistListRow:", "HomeMediaCardView:"].contains(where: name.hasPrefix)
         }
-        XCTAssertTrue(rows.isEmpty, "rows re-rendered while resizing: \(rows.sorted().prefix(5))", file: file, line: line)
+        XCTAssertTrue(
+            rows.isEmpty, "rows re-rendered while resizing: \(rows.sorted().prefix(5))", file: file, line: line)
         if rowsMayReturnWhileGrowing {
             // How often a row coming into view is built is up to SwiftUI (on CI one card was built
             // twice). The shelf's first card stays on screen the whole time, so a growing half that
             // re-renders rows and cards shows on it: it may not run in either half.
             let alwaysOnScreen = counts.keys.filter { $0 == "HomeMediaCardView:recent-album-0" }
-            XCTAssertTrue(alwaysOnScreen.isEmpty, "rows on screen the whole time re-rendered: \(alwaysOnScreen.sorted())", file: file, line: line)
+            XCTAssertTrue(
+                alwaysOnScreen.isEmpty, "rows on screen the whole time re-rendered: \(alwaysOnScreen.sorted())",
+                file: file, line: line)
             // The sidebar's rows never leave the window, so none may run in either half.
             let sidebarRows = counts.keys.filter { $0.hasPrefix("PlaylistListRow:") }
-            XCTAssertTrue(sidebarRows.isEmpty, "sidebar rows re-rendered while resizing: \(sidebarRows.sorted().prefix(5))", file: file, line: line)
+            XCTAssertTrue(
+                sidebarRows.isEmpty, "sidebar rows re-rendered while resizing: \(sidebarRows.sorted().prefix(5))",
+                file: file, line: line)
         }
     }
 
@@ -366,7 +387,8 @@ final class WindowResizeCostTests: XCTestCase {
     func testOpeningTheQueueNarrowsTheSidebarsDragLimit() async throws {
         let window = try await hostBrowser(on: .bigPlaylist)
         let content = try XCTUnwrap(window.contentView)
-        let queueShare = SpotiglassDesign.playlistSidebarMaxWidth(browserWidth: 2_000, isQueueVisible: false)
+        let queueShare =
+            SpotiglassDesign.playlistSidebarMaxWidth(browserWidth: 2_000, isQueueVisible: false)
             - SpotiglassDesign.playlistSidebarMaxWidth(browserWidth: 2_000, isQueueVisible: true)
         // Waits for the limit AppKit applies to change, however late a busy Mac gets there (#533).
         let limitBecomes = { (expected: CGFloat) in
@@ -449,7 +471,9 @@ final class WindowResizeCostTests: XCTestCase {
             flag.isOn = visible
             let expected = visible ? open : closed
             let followed = await AppKitTestSupport.settle(until: { abs(minimumWidth() - expected) < 0.5 })
-            XCTAssertTrue(followed, "with the queue \(visible ? "open" : "closed") the minimum width is \(minimumWidth()), not \(expected)")
+            XCTAssertTrue(
+                followed,
+                "with the queue \(visible ? "open" : "closed") the minimum width is \(minimumWidth()), not \(expected)")
         }
     }
 
@@ -488,7 +512,8 @@ final class WindowResizeCostTests: XCTestCase {
         // What else drew, and at what size, so a failure on another machine says where to look.
         let others = counts.filter { !$0.key.contains(":") }.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)x" }
         let window = NSApp.windows.first { $0.contentView?.frame.width ?? 0 > 1_000 }
-        let context = "drew: \(others); window \(window.map { "\($0.frame.size)" } ?? "none"), screen \(NSScreen.main.map { "\($0.frame.size)" } ?? "none"), app active \(NSApp.isActive)"
+        let context =
+            "drew: \(others); window \(window.map { "\($0.frame.size)" } ?? "none"), screen \(NSScreen.main.map { "\($0.frame.size)" } ?? "none"), app active \(NSApp.isActive)"
         for container in [
             "PlaylistBrowserView",
             "BrowserTransportBar",
@@ -521,8 +546,9 @@ final class WindowResizeCostTests: XCTestCase {
     /// The playlist sidebar's widest drag as the split view controller has it.
     private static func sidebarMaximumThickness(in view: NSView) -> CGFloat? {
         if let split = view as? NSSplitView, split.arrangedSubviews.count >= 2,
-           let controller = split.delegate as? NSSplitViewController,
-           let sidebar = controller.splitViewItems.first {
+            let controller = split.delegate as? NSSplitViewController,
+            let sidebar = controller.splitViewItems.first
+        {
             return sidebar.maximumThickness
         }
         for subview in view.subviews {

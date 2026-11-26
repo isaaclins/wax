@@ -31,7 +31,8 @@ enum MusicServiceErrorText {
         if let urlError = error as? URLError { return networkMessage(for: urlError, service: service) }
         // A response that didn't decode (SpotifyPlaybackAPI decodes outside the client).
         if error is DecodingError {
-            return service == .spotify ? SpotiglassL10n.string("error.spotify.unexpectedShape") : failedMessage(for: service)
+            return service == .spotify
+                ? SpotiglassL10n.string("error.spotify.unexpectedShape") : failedMessage(for: service)
         }
         // Spotiglass's own errors already say it in the app's language. Anything else (a WebKit
         // or Foundation NSError) would read in the Mac's language, so it gets the app's sentence.
@@ -44,7 +45,8 @@ enum MusicServiceErrorText {
 
     /// "<Service> couldn't do that. Try again in a moment."
     static func failedMessage(for service: MusicService) -> String {
-        SpotiglassL10n.string(service == .appleMusic ? "error.playback.appleMusic.failed" : "error.playback.spotify.failed")
+        SpotiglassL10n.string(
+            service == .appleMusic ? "error.playback.appleMusic.failed" : "error.playback.spotify.failed")
     }
 
     /// A transport failure in the app's language, saying what to check. `fallback` is the
@@ -57,8 +59,8 @@ enum MusicServiceErrorText {
         case .cancelled:
             return SpotiglassL10n.string("auth.error.cancelled")
         case .timedOut, .cannotFindHost, .dnsLookupFailed, .secureConnectionFailed, .serverCertificateUntrusted,
-             .serverCertificateHasBadDate, .serverCertificateNotYetValid, .serverCertificateHasUnknownRoot,
-             .clientCertificateRejected, .clientCertificateRequired, .cannotConnectToHost, .networkConnectionLost:
+            .serverCertificateHasBadDate, .serverCertificateNotYetValid, .serverCertificateHasUnknownRoot,
+            .clientCertificateRejected, .clientCertificateRequired, .cannotConnectToHost, .networkConnectionLost:
             switch service {
             case .spotify: return spotifyConnectionMessage(for: error.code)
             case .appleMusic: return SpotiglassL10n.string("appleMusic.error.network.message")

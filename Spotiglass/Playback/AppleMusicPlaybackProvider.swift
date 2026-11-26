@@ -147,7 +147,8 @@ final class AppleMusicPlaybackProvider: MusicPlaybackProvider {
 
     func connectPlayer(generation: PlaybackHostGeneration) async throws {
         guard player.isAuthorized() else {
-            throw MusicPlaybackError(service: .appleMusic, reason: .missingPermission, detail: "Apple Music access is off")
+            throw MusicPlaybackError(
+                service: .appleMusic, reason: .missingPermission, detail: "Apple Music access is off")
         }
         connectedGeneration = generation
         eventHandler?(MusicPlaybackEventEnvelope(event: .ready(deviceID: Self.deviceID), hostGeneration: generation))
@@ -228,7 +229,8 @@ final class AppleMusicPlaybackProvider: MusicPlaybackProvider {
         try await add(uri: uri, atEnd: false, isWanted: { true })
     }
 
-    func appendToQueueEnd(_ track: MusicTrack, deviceID: String, isWanted: @escaping @MainActor () -> Bool) async throws {
+    func appendToQueueEnd(_ track: MusicTrack, deviceID: String, isWanted: @escaping @MainActor () -> Bool) async throws
+    {
         try await add(uri: track.uri, atEnd: true, isWanted: isWanted, identity: QueueAutoplayIdentity.keys(track))
     }
 
@@ -257,7 +259,8 @@ final class AppleMusicPlaybackProvider: MusicPlaybackProvider {
             if atEnd {
                 // An add waiting its turn behind one made by hand finds that one queued now,
                 // whichever copy of the song it was.
-                if player.readUpcoming().contains(where: { !QueueAutoplayIdentity.keys($0).isDisjoint(with: identity) }) {
+                if player.readUpcoming().contains(where: { !QueueAutoplayIdentity.keys($0).isDisjoint(with: identity) })
+                {
                     throw QueueAppendSkipped.alreadyQueued
                 }
                 try await player.append(uri: uri, isCurrent: isCurrent)
@@ -317,7 +320,9 @@ final class AppleMusicPlaybackProvider: MusicPlaybackProvider {
     /// fails out loud instead of staying paused (#586).
     private func resumePlayer() async throws {
         guard !isSessionEnded else {
-            throw MusicPlaybackError(service: .appleMusic, reason: .notFound, detail: "Nothing to resume: no song was started since Apple Music connected")
+            throw MusicPlaybackError(
+                service: .appleMusic, reason: .notFound,
+                detail: "Nothing to resume: no song was started since Apple Music connected")
         }
         try await perform { try await player.resume() }
     }
@@ -380,7 +385,7 @@ final class AppleMusicPlaybackProvider: MusicPlaybackProvider {
     private func releaseQueueReads() {
         let waiters = queueReadWaiters
         queueReadWaiters = [:]
-        waiters.values.forEach { $0.resume() }
+        for waiter in waiters.values { waiter.resume() }
     }
 
     // MARK: - Mapping
@@ -389,14 +394,14 @@ final class AppleMusicPlaybackProvider: MusicPlaybackProvider {
     /// that isn't an Apple Music reference can't be played here.
     static func queueRequest(for request: MusicPlaybackRequest) throws -> AppleMusicQueueRequest {
         switch request {
-        case let .item(uri):
+        case .item(let uri):
             guard reference(uri) != nil else { throw notPlayable(uri) }
             return .items(uris: [uri], startURI: uri)
-        case let .items(uris, startURI):
+        case .items(let uris, let startURI):
             let playable = uris.filter { reference($0) != nil }
             guard !playable.isEmpty else { throw notPlayable(startURI ?? uris.first ?? "") }
             return .items(uris: playable, startURI: startURI.flatMap { playable.contains($0) ? $0 : nil })
-        case let .context(uri):
+        case .context(let uri):
             guard let (kind, id) = reference(uri) else { throw notPlayable(uri) }
             switch kind {
             case "album": return .album(id: id)

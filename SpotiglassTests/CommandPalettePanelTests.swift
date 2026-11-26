@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 /// The palette as one panel near the top of the window (#472, #462, #469): what it offers before
@@ -14,7 +15,9 @@ final class CommandPalettePanelTests: XCTestCase {
     }
 
     private func command(_ id: String, title: String) -> CommandPaletteItem {
-        CommandPaletteItem(id: id, title: title, subtitle: nil, iconSystemName: "command", section: .commands, keywords: []) {}
+        CommandPaletteItem(
+            id: id, title: title, subtitle: nil, iconSystemName: "command", section: .commands, keywords: []
+        ) {}
     }
 
     private func track(_ index: Int) -> CommandPaletteItem {
@@ -38,7 +41,7 @@ final class CommandPalettePanelTests: XCTestCase {
             [
                 command(CommandPaletteCommandID.openSettings, title: "Open Settings"),
                 command(CommandPaletteCommandID.refreshPlaylists, title: "Refresh"),
-                command(CommandPaletteCommandID.togglePlayback, title: "Play/Pause")
+                command(CommandPaletteCommandID.togglePlayback, title: "Play/Pause"),
             ]
         }
 
@@ -92,8 +95,9 @@ final class CommandPalettePanelTests: XCTestCase {
         var pinned = 0
         let usable = CommandPaletteItem(
             id: "track-q", title: "Song", subtitle: "Artist", iconSystemName: "music.note",
-            section: .tracks, keywords: [], pinAction: { pinned += 1 }, queueAction: { queued += 1 }
-        ) {}
+            section: .tracks, keywords: [], pinAction: { pinned += 1 }, queueAction: { queued += 1 },
+            action: {}
+        )
         viewModel.show()
         viewModel.query = "midnight city"
         viewModel.testingReplaceSections([(.tracks, [usable])])
@@ -171,13 +175,15 @@ final class CommandPalettePanelTests: XCTestCase {
         var ran: [String] = []
         viewModel.staticItemsProvider = {
             [CommandPaletteCommandID.togglePlayback, CommandPaletteCommandID.nextTrack].map { id in
-                CommandPaletteItem(id: id, title: id, subtitle: nil, iconSystemName: "command", section: .commands, keywords: []) {
+                CommandPaletteItem(
+                    id: id, title: id, subtitle: nil, iconSystemName: "command", section: .commands, keywords: []
+                ) {
                     ran.append(id)
                 }
             }
         }
         viewModel.show()
-        viewModel.selectedIndex = 2 // Next Track, below the recent search and Play/Pause
+        viewModel.selectedIndex = 2  // Next Track, below the recent search and Play/Pause
         viewModel.query = "d"
         viewModel.queryDidChangeFromTextField()
         await viewModel.waitForSearchCompletion()
@@ -199,7 +205,9 @@ final class CommandPalettePanelTests: XCTestCase {
         manager.setLyricsToggleAvailability(true)
         manager.nextTrack = {}
         manager.viewModel.show()
-        for (letter, expected) in [("o", CommandPaletteCommandID.openSettings), ("s", CommandPaletteCommandID.openSettings)] {
+        for (letter, expected) in [
+            ("o", CommandPaletteCommandID.openSettings), ("s", CommandPaletteCommandID.openSettings),
+        ] {
             manager.viewModel.query = letter
             manager.viewModel.queryDidChangeFromTextField()
             await manager.viewModel.waitForSearchCompletion()
@@ -324,15 +332,16 @@ final class CommandPalettePanelTests: XCTestCase {
             id: "palette.showAllResults", title: "Show all results", subtitle: nil,
             iconSystemName: "magnifyingglass", section: .showAll, keywords: []
         ) {}
-        viewModel.testingReplaceSections([(.tracks, (0 ..< 30).map(track)), (.showAll, [showAll])])
+        viewModel.testingReplaceSections([(.tracks, (0..<30).map(track)), (.showAll, [showAll])])
 
-        let controller = NSHostingController(rootView: CommandPaletteView(viewModel: viewModel).environmentObject(store))
+        let controller = NSHostingController(
+            rootView: CommandPaletteView(viewModel: viewModel).environmentObject(store))
         // The palette sits below the toolbar (52 pt), so it gets that much less than the window.
         let toolbar: CGFloat = 52
         let windows = [
             CGSize(width: 900, height: 450),
             CGSize(width: 640, height: 400),
-            CGSize(width: SpotiglassApp.windowMinWidth, height: SpotiglassApp.windowMinHeight)
+            CGSize(width: SpotiglassApp.windowMinWidth, height: SpotiglassApp.windowMinHeight),
         ]
         for window in windows.map({ CGSize(width: $0.width, height: $0.height - toolbar) }) {
             let fitted = controller.sizeThatFits(in: window)
@@ -350,11 +359,12 @@ final class CommandPalettePanelTests: XCTestCase {
             let viewModel = CommandPaletteViewModel()
             viewModel.show()
             viewModel.query = "song"
-            viewModel.testingReplaceSections([(.tracks, (0 ..< rows).map(track))])
-            let host = NSHostingView(rootView: CommandPaletteView(viewModel: viewModel)
-                .environmentObject(store)
-                .background(Color.white)
-                .environment(\.colorScheme, .light))
+            viewModel.testingReplaceSections([(.tracks, (0..<rows).map(track))])
+            let host = NSHostingView(
+                rootView: CommandPaletteView(viewModel: viewModel)
+                    .environmentObject(store)
+                    .background(Color.white)
+                    .environment(\.colorScheme, .light))
             host.frame = NSRect(origin: .zero, size: size)
             host.layoutSubtreeIfNeeded()
             AppKitTestSupport.settle()
@@ -387,11 +397,12 @@ final class CommandPalettePanelTests: XCTestCase {
                 id: "palette.showAllResults", title: "Show all results", subtitle: "Open the Search view",
                 iconSystemName: "magnifyingglass", section: .showAll, keywords: []
             ) {}
-            viewModel.testingReplaceSections([(.tracks, (0 ..< rows).map(track)), (.showAll, [showAll])])
-            let host = NSHostingView(rootView: CommandPaletteView(viewModel: viewModel)
-                .environmentObject(store)
-                .background(Color.white)
-                .environment(\.colorScheme, .light))
+            viewModel.testingReplaceSections([(.tracks, (0..<rows).map(track)), (.showAll, [showAll])])
+            let host = NSHostingView(
+                rootView: CommandPaletteView(viewModel: viewModel)
+                    .environmentObject(store)
+                    .background(Color.white)
+                    .environment(\.colorScheme, .light))
             host.frame = NSRect(origin: .zero, size: size)
             host.layoutSubtreeIfNeeded()
             AppKitTestSupport.settle()
@@ -416,17 +427,19 @@ final class CommandPalettePanelTests: XCTestCase {
         let width = image.width
         let height = image.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        guard let context = CGContext(
-            data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
+        guard
+            let context = CGContext(
+                data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { return nil }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         func brightness(_ row: Int) -> Int {
             let start = (row * width + width * 3 / 4) * 4
-            return (0 ..< 3).map { Int(pixels[start + $0]) }.reduce(0, +)
+            return (0..<3).map { Int(pixels[start + $0]) }.reduce(0, +)
         }
         let backdrop = brightness(1)
-        for row in (top + 1) ..< height where brightness(row) <= backdrop + 30 {
+        for row in (top + 1)..<height where brightness(row) <= backdrop + 30 {
             return row - top
         }
         return height - top
@@ -436,17 +449,19 @@ final class CommandPalettePanelTests: XCTestCase {
         let width = image.width
         let height = image.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        guard let context = CGContext(
-            data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
+        guard
+            let context = CGContext(
+                data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { return nil }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         func pixel(_ row: Int) -> [Int] {
             let start = (row * width + width / 2) * 4
-            return (0 ..< 4).map { Int(pixels[start + $0]) }
+            return (0..<4).map { Int(pixels[start + $0]) }
         }
-        let reference = pixel(1)[0 ..< 3].reduce(0, +)
-        for row in 2 ..< height where pixel(row)[0 ..< 3].reduce(0, +) > reference + 30 {
+        let reference = pixel(1)[0..<3].reduce(0, +)
+        for row in 2..<height where pixel(row)[0..<3].reduce(0, +) > reference + 30 {
             return row
         }
         return nil
@@ -467,14 +482,16 @@ final class CommandPalettePanelTests: XCTestCase {
             viewModel.query = "song"
             let queueable = CommandPaletteItem(
                 id: "track-q", title: "Song", subtitle: "Artist", iconSystemName: "music.note",
-                section: .tracks, keywords: [], pinAction: {}, queueAction: {}
-            ) {}
+                section: .tracks, keywords: [], pinAction: {}, queueAction: {},
+                action: {}
+            )
             viewModel.testingReplaceSections([(.tracks, [queueable])])
             XCTAssertTrue(viewModel.canEnqueueSelectedItem && viewModel.canPinSelectedItem)
 
-            let renderer = ImageRenderer(content: CommandPaletteFooterView(viewModel: viewModel)
-                .frame(width: panelWidth)
-                .environment(\.colorScheme, .light))
+            let renderer = ImageRenderer(
+                content: CommandPaletteFooterView(viewModel: viewModel)
+                    .frame(width: panelWidth)
+                    .environment(\.colorScheme, .light))
             renderer.scale = 1
             let image = try XCTUnwrap(renderer.cgImage)
             let lastInk = try XCTUnwrap(Self.lastInkColumn(in: image))
@@ -490,13 +507,15 @@ final class CommandPalettePanelTests: XCTestCase {
         let width = image.width
         let height = image.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        guard let context = CGContext(
-            data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
+        guard
+            let context = CGContext(
+                data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { return nil }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         for column in stride(from: width - 1, through: 0, by: -1) {
-            for row in 0 ..< height where pixels[(row * width + column) * 4 + 3] > 24 {
+            for row in 0..<height where pixels[(row * width + column) * 4 + 3] > 24 {
                 return column
             }
         }
@@ -535,10 +554,12 @@ final class CommandPalettePanelTests: XCTestCase {
         let width = image.width
         let height = image.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        guard let context = CGContext(
-            data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return 0 }
+        guard
+            let context = CGContext(
+                data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { return 0 }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         return stride(from: 0, to: pixels.count, by: 4).filter { index in
             Int(pixels[index + 2]) - Int(pixels[index]) > 80
@@ -552,7 +573,7 @@ final class CommandPalettePanelTests: XCTestCase {
         let viewModel = CommandPaletteViewModel()
         viewModel.show()
         viewModel.query = "the"
-        let rows = (0 ..< 6_000).map(track)
+        let rows = (0..<6_000).map(track)
         viewModel.testingReplaceSections([(.tracks, rows)])
         let list = CommandPaletteSectionedListView(
             viewModel: viewModel, sections: viewModel.sections, accessibilityReduceMotion: true
@@ -581,7 +602,8 @@ final class CommandPalettePanelTests: XCTestCase {
                 renderer.scale = 2
                 let image = try XCTUnwrap(renderer.cgImage)
                 let contrast = try XCTUnwrap(Self.labelContrast(in: image))
-                XCTAssertGreaterThan(contrast, 0.35, "label unreadable on the selected chip (\(scheme), active \(active))")
+                XCTAssertGreaterThan(
+                    contrast, 0.35, "label unreadable on the selected chip (\(scheme), active \(active))")
             }
         }
     }
@@ -591,15 +613,19 @@ final class CommandPalettePanelTests: XCTestCase {
         let width = image.width
         let height = image.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        guard let context = CGContext(
-            data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
+        guard
+            let context = CGContext(
+                data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { return nil }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         var buckets = [Int](repeating: 0, count: 21)
         var lumas: [Double] = []
         for index in stride(from: 0, to: pixels.count, by: 4) where pixels[index + 3] > 250 {
-            let luma = (0.2126 * Double(pixels[index]) + 0.7152 * Double(pixels[index + 1]) + 0.0722 * Double(pixels[index + 2])) / 255
+            let luma =
+                (0.2126 * Double(pixels[index]) + 0.7152 * Double(pixels[index + 1]) + 0.0722
+                    * Double(pixels[index + 2])) / 255
             lumas.append(luma)
             buckets[Int((luma * 20).rounded())] += 1
         }

@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -8,7 +9,8 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
             PlaybackSessionViewModel.displayError(for: SpotifyAPIError.unauthorized).action,
             .reauthenticate
         )
-        let forbidden = PlaybackSessionViewModel.displayError(for: SpotifyAPIError.forbidden(message: "Need Premium", details: nil))
+        let forbidden = PlaybackSessionViewModel.displayError(
+            for: SpotifyAPIError.forbidden(message: "Need Premium", details: nil))
         XCTAssertEqual(forbidden.title, "Spotify Premium required")
         XCTAssertEqual(forbidden.message, "Need Premium")
 
@@ -32,13 +34,16 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
         SpotiglassL10n.settingsStore = store
         defer { SpotiglassL10n.settingsStore = nil }
         let german = "Verbindung zu Spotify fehlgeschlagen. Prüfe dein Netzwerk und versuche es erneut."
-        let urlError = URLError(.cannotConnectToHost, userInfo: [NSLocalizedDescriptionKey: "Could not connect to the server."])
+        let urlError = URLError(
+            .cannotConnectToHost, userInfo: [NSLocalizedDescriptionKey: "Could not connect to the server."])
 
         XCTAssertEqual(PlaybackSessionViewModel.displayError(for: urlError).message, german)
         XCTAssertEqual(PlaybackSessionViewModel.playbackHostConnectionFailedError(for: urlError).message, german)
         XCTAssertEqual(PlaybackSessionViewModel.displayError(for: SpotifyAPIError.network(german)).message, german)
         XCTAssertEqual(
-            PlaybackSessionViewModel.displayError(for: SpotifyAPIError.server(statusCode: 502, message: nil, details: nil)).message,
+            PlaybackSessionViewModel.displayError(
+                for: SpotifyAPIError.server(statusCode: 502, message: nil, details: nil)
+            ).message,
             "Bei den Servern von Spotify ist ein Problem aufgetreten. Versuchen Sie es gleich noch einmal."
         )
     }
@@ -54,23 +59,33 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
         SpotiglassL10n.settingsStore = store
         defer { SpotiglassL10n.settingsStore = nil }
         let cases: [(MusicPlaybackEvent, String, String)] = [
-            (.initializationError("Spotify Web Playback SDK could not connect to Spotify."),
-             "Wiedergabe konnte nicht gestartet werden",
-             "Wax konnte keine Verbindung zur Spotify-Wiedergabe herstellen. Prüfen Sie die Verbindung und wählen Sie „Erneut verbinden“ aus."),
-            (.authenticationError("Authentication failed"),
-             "Erneut anmelden",
-             "Ihre Spotify-Sitzung ist abgelaufen. Verbinden Sie sich erneut, um weiter abzuspielen."),
-            (.accountError("This functionality is restricted to premium users only"),
-             "Spotify Premium erforderlich",
-             "Zum Abspielen von Musik in Wax ist Spotify Premium erforderlich."),
-            (.playbackError("Playback error"),
-             "Wiedergabefehler",
-             "Spotify konnte das nicht ausführen. Versuche es gleich erneut.")
+            (
+                .initializationError("Spotify Web Playback SDK could not connect to Spotify."),
+                "Wiedergabe konnte nicht gestartet werden",
+                "Wax konnte keine Verbindung zur Spotify-Wiedergabe herstellen. Prüfen Sie die Verbindung und wählen Sie „Erneut verbinden“ aus."
+            ),
+            (
+                .authenticationError("Authentication failed"),
+                "Erneut anmelden",
+                "Ihre Spotify-Sitzung ist abgelaufen. Verbinden Sie sich erneut, um weiter abzuspielen."
+            ),
+            (
+                .accountError("This functionality is restricted to premium users only"),
+                "Spotify Premium erforderlich",
+                "Zum Abspielen von Musik in Wax ist Spotify Premium erforderlich."
+            ),
+            (
+                .playbackError("Playback error"),
+                "Wiedergabefehler",
+                "Spotify konnte das nicht ausführen. Versuche es gleich erneut."
+            ),
         ]
         for (event, title, message) in cases {
-            let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+            let viewModel = PlaybackSessionViewModel(
+                provider: SpotifyPlaybackProvider(
+                    playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
             viewModel.handle(event)
-            guard case let .error(shown) = viewModel.connectionState else {
+            guard case .error(let shown) = viewModel.connectionState else {
                 return XCTFail("\(event) should show an error, got \(viewModel.connectionState)")
             }
             XCTAssertEqual(shown.title, title, "\(event)")
@@ -82,11 +97,12 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
     /// Reconnect, never "Your Spotify session has expired" with a way to sign in again.
     func testPausedSignInShowsItsReasonAndOffersReconnectNotSignIn() {
         let message = SpotiglassL10n.string("app.connection.paused.offline")
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
 
         viewModel.handle(.signInPaused(message))
 
-        guard case let .error(shown) = viewModel.connectionState else {
+        guard case .error(let shown) = viewModel.connectionState else {
             return XCTFail("Expected the pause on the player, got \(viewModel.connectionState)")
         }
         XCTAssertEqual(shown.title, SpotiglassL10n.string("app.connection.paused.title"))
@@ -105,13 +121,17 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
         SpotiglassL10n.settingsStore = store
         defer { SpotiglassL10n.settingsStore = nil }
         let failed = "Spotify konnte das nicht ausführen. Versuche es gleich erneut."
-        let webKit = NSError(domain: "WKErrorDomain", code: 2, userInfo: [NSLocalizedDescriptionKey: "The web content process was terminated."])
+        let webKit = NSError(
+            domain: "WKErrorDomain", code: 2,
+            userInfo: [NSLocalizedDescriptionKey: "The web content process was terminated."])
 
         let tryAgain = "Das hat nicht geklappt. Versuche es gleich erneut."
         XCTAssertEqual(PlaybackSessionViewModel.playbackHostConnectionFailedError(for: webKit).message, tryAgain)
         XCTAssertEqual(PlaybackSessionViewModel.displayError(for: webKit).message, tryAgain)
         XCTAssertEqual(
-            PlaybackSessionViewModel.displayError(for: MusicPlaybackError(service: .spotify, reason: .failed, detail: "Spotify togglePlay threw: offline")).message,
+            PlaybackSessionViewModel.displayError(
+                for: MusicPlaybackError(service: .spotify, reason: .failed, detail: "Spotify togglePlay threw: offline")
+            ).message,
             failed
         )
 
@@ -120,12 +140,15 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
             XCTAssertEqual(PlaybackSessionViewModel.displayError(for: URLError(code)).message, failed, "\(code)")
         }
 
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
         viewModel.handle(.ready(deviceID: "device-1"))
         viewModel.handle(.notReady(deviceID: "device-1"))
         XCTAssertEqual(
             viewModel.connectionState,
-            .unavailable("Das Spotify-Wiedergabegerät ist nicht mehr verfügbar. Verbinde die Wiedergabe erneut, um weiterzuhören.")
+            .unavailable(
+                "Das Spotify-Wiedergabegerät ist nicht mehr verfügbar. Verbinde die Wiedergabe erneut, um weiterzuhören."
+            )
         )
     }
 
@@ -140,9 +163,13 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
         defer { SpotiglassL10n.settingsStore = nil }
 
         let rejected = SpotifyAPIError.server(statusCode: 400, message: "Invalid track uri", details: nil)
-        XCTAssertEqual(PlaybackSessionViewModel.displayError(for: rejected).message, "Spotify hat diese Anfrage abgelehnt: Invalid track uri")
         XCTAssertEqual(
-            PlaybackSessionViewModel.displayError(for: SpotifyAPIError.server(statusCode: 400, message: nil, details: nil)).message,
+            PlaybackSessionViewModel.displayError(for: rejected).message,
+            "Spotify hat diese Anfrage abgelehnt: Invalid track uri")
+        XCTAssertEqual(
+            PlaybackSessionViewModel.displayError(
+                for: SpotifyAPIError.server(statusCode: 400, message: nil, details: nil)
+            ).message,
             "Spotify hat diese Anfrage abgelehnt."
         )
 
@@ -159,7 +186,8 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
     }
 
     func testPlaybackToggleReadinessMatchesLocalTransportStates() {
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
         XCTAssertFalse(viewModel.isPlaybackToggleReady)
 
         viewModel.deviceID = "local-device"
@@ -177,7 +205,7 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
             PlaybackConnectionState.ready(deviceID: "local-device"),
             .transferring(deviceID: "local-device"),
             .playing(track),
-            .paused(track)
+            .paused(track),
         ] {
             viewModel.setConnectionState(state)
             XCTAssertTrue(viewModel.isPlaybackToggleReady, "expected local state to be toggle-ready: \\(state)")
@@ -192,7 +220,7 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
             PlaybackConnectionState.disconnected,
             .connecting,
             .unavailable("offline"),
-            .error(DisplayError.reported(ErrorMessage(title: "Error", message: "Failed", action: nil)))
+            .error(DisplayError.reported(ErrorMessage(title: "Error", message: "Failed", action: nil))),
         ] {
             viewModel.setConnectionState(state)
             XCTAssertFalse(viewModel.isPlaybackToggleReady, "expected unavailable state to be gated: \\(state)")
@@ -200,7 +228,8 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
     }
 
     func testTransportReadyAndNowPlayingAccessors() {
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
         XCTAssertFalse(viewModel.isPlaybackTransportReady)
 
         let track = PlaybackNowPlaying(
@@ -235,7 +264,8 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
     }
 
     func testFallbackNowPlayingAndStableTrackURI() {
-        let viewModel = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
         XCTAssertEqual(viewModel.fallbackNowPlaying().name, "Spotify playback")
 
         let track = PlaybackNowPlaying(

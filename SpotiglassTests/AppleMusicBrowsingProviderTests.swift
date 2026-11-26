@@ -1,7 +1,8 @@
 import Combine
 import MusicKit
-import os
 import XCTest
+import os
+
 @testable import Spotiglass
 
 /// Apple Music behind `MusicBrowsingProvider`. MusicKit items are decoded from Apple Music API
@@ -10,15 +11,16 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     // MARK: - Mapping
 
     func testSongMapsToANeutralTrack() throws {
-        let track = AppleMusicItemMapping.track(try AppleMusicFixtures.song(
-            id: "1440818839",
-            title: "Kerala",
-            artist: "Bonobo",
-            album: "Migration",
-            durationMs: 245_500,
-            explicit: true,
-            artistRefs: [("5201", "Bonobo")]
-        ))
+        let track = AppleMusicItemMapping.track(
+            try AppleMusicFixtures.song(
+                id: "1440818839",
+                title: "Kerala",
+                artist: "Bonobo",
+                album: "Migration",
+                durationMs: 245_500,
+                explicit: true,
+                artistRefs: [("5201", "Bonobo")]
+            ))
 
         XCTAssertEqual(track.id, "1440818839")
         XCTAssertEqual(track.name, "Kerala")
@@ -33,13 +35,14 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     }
 
     func testSongWithoutPlayParametersOrArtworkStaysBrowsable() throws {
-        let track = AppleMusicItemMapping.track(try AppleMusicFixtures.song(
-            id: "i.1",
-            title: "Demo",
-            artist: nil,
-            withArtwork: false,
-            playable: false
-        ))
+        let track = AppleMusicItemMapping.track(
+            try AppleMusicFixtures.song(
+                id: "i.1",
+                title: "Demo",
+                artist: nil,
+                withArtwork: false,
+                playable: false
+            ))
 
         XCTAssertEqual(track.artists, [])
         XCTAssertNil(track.albumArtworkURL)
@@ -58,10 +61,12 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     }
 
     func testMusicVideoTrackMapsWithItsOwnURIKind() throws {
-        let video = try AppleMusicFixtures.decode(MusicVideo.self, """
-        {"id":"mv1","type":"music-videos","attributes":{"name":"Live","artistName":"Bonobo","durationInMillis":60000,
-         "playParams":{"id":"mv1","kind":"musicVideo"}}}
-        """)
+        let video = try AppleMusicFixtures.decode(
+            MusicVideo.self,
+            """
+            {"id":"mv1","type":"music-videos","attributes":{"name":"Live","artistName":"Bonobo","durationInMillis":60000,
+             "playParams":{"id":"mv1","kind":"musicVideo"}}}
+            """)
         let album = try AppleMusicFixtures.album(id: "a1", title: "Live Album")
         let track = AppleMusicItemMapping.track(.musicVideo(video), album: album)
 
@@ -161,8 +166,10 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     }
 
     func testArtistAlbumGroupsAndReleaseYear() throws {
-        let single = AppleMusicItemMapping.artistAlbum(try AppleMusicFixtures.album(id: "s", title: "S", isSingle: true))
-        let compilation = AppleMusicItemMapping.artistAlbum(try AppleMusicFixtures.album(id: "c", title: "C", isCompilation: true))
+        let single = AppleMusicItemMapping.artistAlbum(
+            try AppleMusicFixtures.album(id: "s", title: "S", isSingle: true))
+        let compilation = AppleMusicItemMapping.artistAlbum(
+            try AppleMusicFixtures.album(id: "c", title: "C", isCompilation: true))
         let album = AppleMusicItemMapping.artistAlbum(try AppleMusicFixtures.album(id: "a", title: "A", trackCount: 12))
 
         XCTAssertEqual(single.group, .single)
@@ -179,7 +186,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         XCTAssertEqual(detail.genres, ["Electronic"])
         XCTAssertNil(detail.followersTotal)
         XCTAssertEqual(detail.uri, "applemusic:artist:5201")
-        XCTAssertEqual(AppleMusicItemMapping.artist(artist).imageURL?.absoluteString, "https://example.com/art/5201/600x600bb.jpg")
+        XCTAssertEqual(
+            AppleMusicItemMapping.artist(artist).imageURL?.absoluteString, "https://example.com/art/5201/600x600bb.jpg")
 
         let album = AppleMusicItemMapping.album(try AppleMusicFixtures.album(id: "a", title: "Migration"))
         XCTAssertEqual(album.artists, ["Bonobo"])
@@ -254,26 +262,31 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testPlaylistsKeepTheCoverTheMusicAppShowsAlsoAGeneratedOne() async throws {
         let source = MockAppleMusicSource()
         let road = try AppleMusicFixtures.playlist(id: "-7585332124925747685", name: "Road")
-        let shared = try AppleMusicFixtures.playlist(id: "46595082274209082", name: "Shared", globalID: "pl.u-ZmblDrrtVmXYkko")
+        let shared = try AppleMusicFixtures.playlist(
+            id: "46595082274209082", name: "Shared", globalID: "pl.u-ZmblDrrtVmXYkko")
         source.playlists = [road, shared]
         source.librarySearchItems = AppleMusicSearchItems(playlists: [road])
         source.catalogSearchItems = AppleMusicSearchItems(playlists: [
-            try AppleMusicFixtures.playlist(id: "pl.u-ZmblDrrtVmXYkko", name: "Shared"),
+            try AppleMusicFixtures.playlist(id: "pl.u-ZmblDrrtVmXYkko", name: "Shared")
         ])
         let provider = AppleMusicBrowsingProvider(source: source)
 
         let playlists = try await provider.currentUserPlaylists(limit: 50)
         let results = try await provider.search(query: "road", limit: 10)
 
-        XCTAssertEqual(playlists.map(\.imageURL?.absoluteString), [
-            "https://example.com/art/-7585332124925747685/600x600bb.jpg",
-            "https://example.com/art/46595082274209082/600x600bb.jpg",
-        ])
+        XCTAssertEqual(
+            playlists.map(\.imageURL?.absoluteString),
+            [
+                "https://example.com/art/-7585332124925747685/600x600bb.jpg",
+                "https://example.com/art/46595082274209082/600x600bb.jpg",
+            ])
         XCTAssertEqual(results.playlists.map(\.name), ["Road", "Shared"])
-        XCTAssertEqual(results.playlists.map(\.imageURL?.absoluteString), [
-            "https://example.com/art/-7585332124925747685/600x600bb.jpg",
-            "https://example.com/art/pl.u-ZmblDrrtVmXYkko/600x600bb.jpg",
-        ])
+        XCTAssertEqual(
+            results.playlists.map(\.imageURL?.absoluteString),
+            [
+                "https://example.com/art/-7585332124925747685/600x600bb.jpg",
+                "https://example.com/art/pl.u-ZmblDrrtVmXYkko/600x600bb.jpg",
+            ])
     }
 
     /// A catalog playlist saved to the library is listed by the local library under a library ID
@@ -283,7 +296,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testASavedPlaylistHidesItsOwnCatalogCopyInSearch() async throws {
         let source = MockAppleMusicSource()
         source.librarySearchItems = AppleMusicSearchItems(playlists: [
-            try AppleMusicFixtures.playlist(id: "p.Lk2MnB7xQ4", name: "Late Night Jazz", curator: "Apple Music Jazz", catalogID: "pl.5e1a2b3c4d"),
+            try AppleMusicFixtures.playlist(
+                id: "p.Lk2MnB7xQ4", name: "Late Night Jazz", curator: "Apple Music Jazz", catalogID: "pl.5e1a2b3c4d"),
             try AppleMusicFixtures.playlist(id: "p.Rq8TzW1vC9", name: "Late Night Drives"),
         ])
         source.catalogSearchItems = AppleMusicSearchItems(playlists: [
@@ -324,14 +338,21 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testALaterPageHoldingOnlyASavedPlaylistsCopySkipsToTheNextPage() async throws {
         let source = MockAppleMusicSource()
         source.librarySearchItems = AppleMusicSearchItems(playlists: [
-            try AppleMusicFixtures.playlist(id: "p.Lk2MnB7xQ4", name: "Late Night Jazz", curator: "Apple Music Jazz", catalogID: "pl.5e1a2b3c4d"),
+            try AppleMusicFixtures.playlist(
+                id: "p.Lk2MnB7xQ4", name: "Late Night Jazz", curator: "Apple Music Jazz", catalogID: "pl.5e1a2b3c4d")
         ])
         source.catalogPagesByOffset[10] = AppleMusicSearchItems(
-            playlists: [try AppleMusicFixtures.playlist(id: "pl.5e1a2b3c4d", name: "Late Night Jazz", curator: "Apple Music Jazz")],
+            playlists: [
+                try AppleMusicFixtures.playlist(
+                    id: "pl.5e1a2b3c4d", name: "Late Night Jazz", curator: "Apple Music Jazz")
+            ],
             hasMore: true
         )
         source.catalogPagesByOffset[20] = AppleMusicSearchItems(
-            playlists: [try AppleMusicFixtures.playlist(id: "pl.9f8e7d6c5b", name: "Late Night Soul", curator: "Apple Music Soul")]
+            playlists: [
+                try AppleMusicFixtures.playlist(
+                    id: "pl.9f8e7d6c5b", name: "Late Night Soul", curator: "Apple Music Soul")
+            ]
         )
 
         let page = try await AppleMusicBrowsingProvider(source: source).search(
@@ -354,13 +375,15 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         )
         // The sidebar lists it the way the library listing maps it.
         let row = PlaylistRowViewModel(AppleMusicItemMapping.playlistSummary(saved, fallbackOwnerName: "You"))
-        let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache(), aliases: AppleMusicPinAliases(
-            registry: .shared,
-            lookUp: { _, _ in [:] },
-            albums: { _ in [] },
-            searchAlbums: { _ in AppleMusicAlbumSearch(catalog: [], library: []) },
-            songReferences: AppleMusicSongReferenceRegistry()
-        ))
+        let store = PinnedItemsStore(
+            cache: InMemoryPinnedItemsCache(),
+            aliases: AppleMusicPinAliases(
+                registry: .shared,
+                lookUp: { _, _ in [:] },
+                albums: { _ in [] },
+                searchAlbums: { _ in AppleMusicAlbumSearch(catalog: [], library: []) },
+                songReferences: AppleMusicSongReferenceRegistry()
+            ))
         store.bind(userID: AppleMusicBrowsingProvider.libraryUserID)
         let environment = PlaylistBrowserPaletteSearchEnvironment(
             isPinnedByID: { _ in false },
@@ -379,8 +402,10 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
             let source = MockAppleMusicSource()
             if libraryFails { source.librarySearchError = LibraryOffline() }
             source.catalogSearchItems = AppleMusicSearchItems(playlists: [
-                try AppleMusicFixtures.playlist(id: "pl.f523a1b2c3", name: "Late Night Jazz", curator: "Apple Music Jazz"),
-                try AppleMusicFixtures.playlist(id: "pl.f523d4e5f6", name: "Jazz Essentials", curator: "Apple Music Jazz"),
+                try AppleMusicFixtures.playlist(
+                    id: "pl.f523a1b2c3", name: "Late Night Jazz", curator: "Apple Music Jazz"),
+                try AppleMusicFixtures.playlist(
+                    id: "pl.f523d4e5f6", name: "Jazz Essentials", curator: "Apple Music Jazz"),
             ])
             let results: CommandPaletteSearchResults
             do {
@@ -400,7 +425,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
                 XCTAssertEqual(partial.missing.missing, .library)
                 results = partial.results
             }
-            XCTAssertEqual(results.myPlaylists.map { $0.id }, ["playlist-p.F523Lk2MnB"], "library search fails: \(libraryFails)")
+            XCTAssertEqual(
+                results.myPlaylists.map { $0.id }, ["playlist-p.F523Lk2MnB"], "library search fails: \(libraryFails)")
             XCTAssertEqual(
                 results.mergedPlaylistsForAllCategory().map { $0.id },
                 ["playlist-p.F523Lk2MnB", "playlist-pl.f523d4e5f6"],
@@ -421,21 +447,26 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
             try AppleMusicFixtures.playlist(
                 id: "p.F524Saved", name: "Late Night Jazz", curator: "Apple Music Jazz",
                 catalogID: "pl.f524catalog", libraryArtwork: true
-            ),
+            )
         ])
         source.catalogSearchItems = AppleMusicSearchItems(playlists: [
-            try AppleMusicFixtures.playlist(id: "pl.f524catalog", name: "Late Night Jazz", curator: "Apple Music Jazz"),
+            try AppleMusicFixtures.playlist(id: "pl.f524catalog", name: "Late Night Jazz", curator: "Apple Music Jazz")
         ])
-        let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache(), aliases: AppleMusicPinAliases(
-            lookUp: { _, _ in [:] }, albums: { _ in [] },
-            searchAlbums: { _ in AppleMusicAlbumSearch(catalog: [], library: []) },
-            songReferences: AppleMusicSongReferenceRegistry()
-        ))
+        let store = PinnedItemsStore(
+            cache: InMemoryPinnedItemsCache(),
+            aliases: AppleMusicPinAliases(
+                lookUp: { _, _ in [:] }, albums: { _ in [] },
+                searchAlbums: { _ in AppleMusicAlbumSearch(catalog: [], library: []) },
+                songReferences: AppleMusicSongReferenceRegistry()
+            ))
         store.bind(userID: AppleMusicBrowsingProvider.libraryUserID)
-        store.pin(.playlist(MusicPlaylistSummary(
-            id: "pl.f524catalog", name: "Late Night Jazz", ownerID: "me", ownerName: "Apple Music Jazz",
-            imageURL: URL(string: "musicKit://artwork/p.F524Saved/600x600"), trackCount: nil, snapshotID: "applemusic"
-        )))
+        store.pin(
+            .playlist(
+                MusicPlaylistSummary(
+                    id: "pl.f524catalog", name: "Late Night Jazz", ownerID: "me", ownerName: "Apple Music Jazz",
+                    imageURL: URL(string: "musicKit://artwork/p.F524Saved/600x600"), trackCount: nil,
+                    snapshotID: "applemusic"
+                )))
 
         let page = try await AppleMusicBrowsingProvider(source: source).search(query: "late night", limit: 10)
         XCTAssertEqual(page.playlists.map(\.id), ["p.F524Saved"], "the catalog copy stays hidden (#519)")
@@ -452,11 +483,12 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testListingKeepsASharedPlaylistsCoverUnderItsCatalogID() async throws {
         let source = MockAppleMusicSource()
         source.playlists = [
-            try AppleMusicFixtures.playlist(id: "46595082274209083", name: "Shared", globalID: "pl.u-477CatalogCover"),
+            try AppleMusicFixtures.playlist(id: "46595082274209083", name: "Shared", globalID: "pl.u-477CatalogCover")
         ]
         _ = try await AppleMusicBrowsingProvider(source: source).currentUserPlaylists(limit: 50)
         XCTAssertEqual(
-            AppleMusicArtworkRegistry.shared.url(forItemKey: "playlist:pl.u-477CatalogCover", size: 600)?.absoluteString,
+            AppleMusicArtworkRegistry.shared.url(forItemKey: "playlist:pl.u-477CatalogCover", size: 600)?
+                .absoluteString,
             "https://example.com/art/46595082274209083/600x600bb.jpg"
         )
     }
@@ -484,13 +516,17 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
 
     func testACountIsDroppedOnceThePlaylistChanged() async throws {
         let source = MockAppleMusicSource()
-        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Road", lastModified: "2026-11-01T10:00:00Z")]
+        source.playlists = [
+            try AppleMusicFixtures.playlist(id: "p.1", name: "Road", lastModified: "2026-11-01T10:00:00Z")
+        ]
         source.trackCountsByPlaylistID = ["p.1": 8]
         let provider = AppleMusicBrowsingProvider(source: source)
         _ = try await provider.currentUserPlaylists(limit: 50)
         _ = await provider.playlistTrackCounts(playlistIDs: ["p.1"])
 
-        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Road", lastModified: "2026-11-07T10:00:00Z")]
+        source.playlists = [
+            try AppleMusicFixtures.playlist(id: "p.1", name: "Road", lastModified: "2026-11-07T10:00:00Z")
+        ]
         let refreshed = try await provider.currentUserPlaylists(limit: 50)
 
         XCTAssertNil(refreshed.first?.trackCount)
@@ -507,7 +543,7 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
 
     private func trackIDs(_ items: [MusicPlaylistTrackItem]) -> [String] {
         items.compactMap { item in
-            if case let .track(track) = item.content { return track.id }
+            if case .track(let track) = item.content { return track.id }
             return nil
         }
     }
@@ -521,7 +557,9 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     /// sidebar showed.
     func testOpeningACountedPlaylistShowsTheCountedSongsWithoutReadingThemAgain() async throws {
         let source = MockAppleMusicSource()
-        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "My music mix", lastModified: "2026-11-01T10:00:00Z")]
+        source.playlists = [
+            try AppleMusicFixtures.playlist(id: "p.1", name: "My music mix", lastModified: "2026-11-01T10:00:00Z")
+        ]
         source.trackCountsByPlaylistID = ["p.1": 796]
         let provider = AppleMusicBrowsingProvider(source: source)
         _ = try await provider.currentUserPlaylists(limit: 50)
@@ -535,7 +573,9 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
 
     func testReopeningAnUnchangedPlaylistReadsItOnce() async throws {
         let source = MockAppleMusicSource()
-        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Italian", lastModified: "2026-11-01T10:00:00Z")]
+        source.playlists = [
+            try AppleMusicFixtures.playlist(id: "p.1", name: "Italian", lastModified: "2026-11-01T10:00:00Z")
+        ]
         source.playlistTracksByID = ["p.1": try songs(0..<328)]
         let provider = AppleMusicBrowsingProvider(source: source)
 
@@ -548,13 +588,17 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
 
     func testAPlaylistChangedSinceItsLastReadIsReadAgain() async throws {
         let source = MockAppleMusicSource()
-        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Italian", lastModified: "2026-11-01T10:00:00Z")]
+        source.playlists = [
+            try AppleMusicFixtures.playlist(id: "p.1", name: "Italian", lastModified: "2026-11-01T10:00:00Z")
+        ]
         source.playlistTracksByID = ["p.1": try songs(0..<3)]
         let provider = AppleMusicBrowsingProvider(source: source)
         _ = try await provider.playlistTracks(playlistID: "p.1", limit: 50, maxPages: 200)
 
         // Edited in Music: the library lists a newer modification date.
-        source.playlists = [try AppleMusicFixtures.playlist(id: "p.1", name: "Italian", lastModified: "2026-11-08T10:00:00Z")]
+        source.playlists = [
+            try AppleMusicFixtures.playlist(id: "p.1", name: "Italian", lastModified: "2026-11-08T10:00:00Z")
+        ]
         source.playlistTracksByID = ["p.1": try songs(0..<4)]
         let rows = try await provider.playlistTracks(playlistID: "p.1", limit: 50, maxPages: 200)
 
@@ -749,7 +793,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let tracksGate = TrackCountGate()
         source.trackCountsGate = countGate
         source.playlistTracksGate = tracksGate
-        let viewModel = PlaylistBrowserViewModel(api: AppleMusicBrowsingProvider(source: source), cache: MockBrowsingCache())
+        let viewModel = PlaylistBrowserViewModel(
+            api: AppleMusicBrowsingProvider(source: source), cache: MockBrowsingCache())
         await viewModel.refreshPlaylists()
 
         let opening = Task { await viewModel.selectSidebar(.playlist("p.1")) }
@@ -761,7 +806,7 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         tracksGate.open()
         await opening.value
 
-        guard case let .playlist(detail)? = viewModel.detailState.currentValue else {
+        guard case .playlist(let detail)? = viewModel.detailState.currentValue else {
             return XCTFail("the playlist is open")
         }
         XCTAssertEqual(detail.playlist.trackCount, 1)
@@ -800,7 +845,7 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         tracksGate.open()
         await opening.value
 
-        guard case let .playlist(detail)? = viewModel.detailState.currentValue else {
+        guard case .playlist(let detail)? = viewModel.detailState.currentValue else {
             return XCTFail("the playlist is open")
         }
         XCTAssertEqual(detail.playlist.trackCount, 6)
@@ -812,9 +857,12 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testSidebarFillsInCountsAfterItIsShownAndKeepsUnknownOnesQuiet() async throws {
         let source = MockAppleMusicSource()
         let total = PlaylistBrowserViewModel.playlistTrackCountBatchSize + 3
-        source.playlists = try (0..<total).map { try AppleMusicFixtures.playlist(id: "p.\($0)", name: "Playlist \($0)") }
+        source.playlists = try (0..<total).map {
+            try AppleMusicFixtures.playlist(id: "p.\($0)", name: "Playlist \($0)")
+        }
         source.trackCountsByPlaylistID = Dictionary(uniqueKeysWithValues: (1..<total).map { ("p.\($0)", $0) })
-        let viewModel = PlaylistBrowserViewModel(api: AppleMusicBrowsingProvider(source: source), cache: MockBrowsingCache())
+        let viewModel = PlaylistBrowserViewModel(
+            api: AppleMusicBrowsingProvider(source: source), cache: MockBrowsingCache())
 
         await viewModel.refreshPlaylists()
         await viewModel.playlistTrackCountTask?.value
@@ -862,7 +910,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         source.trackCountsGate = gate
         await viewModel.refreshPlaylists()
 
-        XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.trackCount), [5, 7], "no row goes blank while counting")
+        XCTAssertEqual(
+            viewModel.playlistState.currentValue?.map(\.trackCount), [5, 7], "no row goes blank while counting")
         gate.open()
         await viewModel.playlistTrackCountTask?.value
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.trackCount), [6, nil])
@@ -889,7 +938,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testLikedSongsAreTheLibrarySongsPagedUntilTheLastShortPage() async throws {
         let source = MockAppleMusicSource()
         source.librarySongCount = 450
-        let result = try await AppleMusicBrowsingProvider(source: source).currentUserSavedTracks(limit: 50, maxPages: nil)
+        let result = try await AppleMusicBrowsingProvider(source: source).currentUserSavedTracks(
+            limit: 50, maxPages: nil)
 
         XCTAssertEqual(result.tracks.count, 450)
         XCTAssertEqual(result.totalAvailable, 450)
@@ -902,15 +952,18 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let source = MockAppleMusicSource()
         source.librarySongCount = 450
         source.playlistOnlySongIDs = Set((150..<450).map { "i.\($0)" })
-        let result = try await AppleMusicBrowsingProvider(source: source).currentUserSavedTracks(limit: 50, maxPages: nil)
+        let result = try await AppleMusicBrowsingProvider(source: source).currentUserSavedTracks(
+            limit: 50, maxPages: nil)
 
         let ids = result.tracks.compactMap { item -> String? in
-            if case let .track(track) = item.content { return track.id }
+            if case .track(let track) = item.content { return track.id }
             return nil
         }
         XCTAssertEqual(ids, (0..<150).map { "i.\($0)" })
         XCTAssertEqual(result.totalAvailable, 150)
-        XCTAssertEqual(source.calls, ["librarySongs(200,0)", "librarySongs(200,200)", "librarySongs(200,400)"], "pages by what MusicKit listed")
+        XCTAssertEqual(
+            source.calls, ["librarySongs(200,0)", "librarySongs(200,200)", "librarySongs(200,400)"],
+            "pages by what MusicKit listed")
     }
 
     func testLikedSongsHonourAPageCap() async throws {
@@ -927,7 +980,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testRecentlyPlayedMapsSongs() async throws {
         let source = MockAppleMusicSource()
         source.recentSongs = [try AppleMusicFixtures.song(id: "1", title: "Recent")]
-        let tracks = try await AppleMusicBrowsingProvider(source: source).recentlyPlayedTracks(limit: 50, cacheMode: .freshOnly)
+        let tracks = try await AppleMusicBrowsingProvider(source: source).recentlyPlayedTracks(
+            limit: 50, cacheMode: .freshOnly)
         XCTAssertEqual(tracks.map(\.name), ["Recent"])
     }
 
@@ -938,7 +992,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
             try AppleMusicFixtures.playlist(id: "pl.mix", name: "Favourites Mix", kind: "personal-mix"),
         ]
         source.playlistTracksByID["pl.mix"] = [.song(try AppleMusicFixtures.song(id: "1", title: "Favourite"))]
-        let tracks = try await AppleMusicBrowsingProvider(source: source).topTracks(limit: 20, timeRange: .shortTerm, cacheMode: .freshOnly)
+        let tracks = try await AppleMusicBrowsingProvider(source: source).topTracks(
+            limit: 20, timeRange: .shortTerm, cacheMode: .freshOnly)
 
         XCTAssertEqual(tracks.map(\.name), ["Favourite"])
         XCTAssertTrue(source.calls.contains("playlistTracks(pl.mix,20)"))
@@ -964,19 +1019,23 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let source = MockAppleMusicSource()
         let album = try AppleMusicFixtures.album(id: "1225219991", title: "Opened 487k", tracks: [("1", "One")])
         source.albumsByID["1225219991"] = album
-        _ = try await AppleMusicBrowsingProvider(source: source).albumTracks(albumID: "1225219991", market: nil, limit: 10)
+        _ = try await AppleMusicBrowsingProvider(source: source).albumTracks(
+            albumID: "1225219991", market: nil, limit: 10)
 
         let registry = AppleMusicPinAliasRegistry.shared
         registry.register(
             albumID: "-2428838143274209991", matchKey: AppleMusicItemMapping.albumPinKey(album),
             query: AppleMusicAlbumQuery(title: "", artist: ""), detail: AppleMusicAlbumDetail(album)
         )
-        XCTAssertNotNil(registry.takeUnsearchedKey(ofPinID: "album:1225219991"), "the opened album shares a key with the saved copy")
+        XCTAssertNotNil(
+            registry.takeUnsearchedKey(ofPinID: "album:1225219991"), "the opened album shares a key with the saved copy"
+        )
     }
 
     func testAlbumTracksCarryTheAlbumAndRespectTheLimit() async throws {
         let source = MockAppleMusicSource()
-        source.albumsByID["a1"] = try AppleMusicFixtures.album(id: "a1", title: "Migration", tracks: [("1", "One"), ("2", "Two")])
+        source.albumsByID["a1"] = try AppleMusicFixtures.album(
+            id: "a1", title: "Migration", tracks: [("1", "One"), ("2", "Two")])
         let provider = AppleMusicBrowsingProvider(source: source)
 
         // `limit` is a page size: the full fetch follows up to six pages, the first page doesn't.
@@ -1012,7 +1071,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         )
         let provider = AppleMusicBrowsingProvider(source: source)
 
-        let albums = try await provider.artistAlbumsCached(id: "-42", includeGroups: [], limit: 10, cacheMode: .allowStale)
+        let albums = try await provider.artistAlbumsCached(
+            id: "-42", includeGroups: [], limit: 10, cacheMode: .allowStale)
         XCTAssertEqual(albums.value.map(\.totalTracks), [1, 11])
         let opened = try await provider.albumTracks(albumID: libraryID, market: nil, limit: 50)
         XCTAssertEqual(opened.count, albums.value[0].totalTracks, "the artist page and the album page agree")
@@ -1036,7 +1096,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         source.albumErrorsByID["-3"] = AppleMusicBrowsingError.notFound
         let provider = AppleMusicBrowsingProvider(source: source)
 
-        let albums = try await provider.artistAlbumsCached(id: "-42", includeGroups: [], limit: 10, cacheMode: .allowStale)
+        let albums = try await provider.artistAlbumsCached(
+            id: "-42", includeGroups: [], limit: 10, cacheMode: .allowStale)
 
         XCTAssertEqual(albums.value.map(\.name), (1...6).map { "Album \($0)" }, "every album, in MusicKit's order")
         XCTAssertEqual(albums.value.map(\.totalTracks), [1, 2, 12, 4, 5, 6])
@@ -1050,15 +1111,22 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let source = MockAppleMusicSource()
         source.artistsByID["159260351"] = try AppleMusicFixtures.artist(id: "159260351", name: "Taylor Swift")
         source.extraAlbumsByArtistID["159260351"] = [
-            try AppleMusicFixtures.album(id: "1524793738", title: "folklore", trackCount: 16, rating: "clean", releaseDate: "2020-07-24"),
-            try AppleMusicFixtures.album(id: "1528112358", title: "folklore (deluxe version)", trackCount: 17, rating: "explicit", releaseDate: "2020-08-18"),
-            try AppleMusicFixtures.album(id: "1524801260", title: "folklore", trackCount: 16, rating: "explicit", releaseDate: "2020-07-24"),
-            try AppleMusicFixtures.album(id: "1540314609", title: "evermore", trackCount: 15, releaseDate: "2020-12-11"),
+            try AppleMusicFixtures.album(
+                id: "1524793738", title: "folklore", trackCount: 16, rating: "clean", releaseDate: "2020-07-24"),
+            try AppleMusicFixtures.album(
+                id: "1528112358", title: "folklore (deluxe version)", trackCount: 17, rating: "explicit",
+                releaseDate: "2020-08-18"),
+            try AppleMusicFixtures.album(
+                id: "1524801260", title: "folklore", trackCount: 16, rating: "explicit", releaseDate: "2020-07-24"),
+            try AppleMusicFixtures.album(
+                id: "1540314609", title: "evermore", trackCount: 15, releaseDate: "2020-12-11"),
         ]
 
         var allowed = AppleMusicBrowsingProvider(source: source)
         allowed.explicitMusicBlocked = { false }
-        let albums = try await allowed.artistAlbumsCached(id: "159260351", includeGroups: [], limit: 50, cacheMode: .allowStale).value
+        let albums = try await allowed.artistAlbumsCached(
+            id: "159260351", includeGroups: [], limit: 50, cacheMode: .allowStale
+        ).value
         // Newest first, as Apple Music lists them (#658).
         XCTAssertEqual(albums.map(\.id), ["1540314609", "1528112358", "1524801260"])
         XCTAssertEqual(albums.map(\.isExplicit), [false, true, true])
@@ -1084,7 +1152,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
             )
         }
         let evermore = MusicArtistAlbum(
-            id: "e", name: "evermore", imageURL: nil, releaseYear: "2020", totalTracks: 15, group: .album, uri: "applemusic:album:e"
+            id: "e", name: "evermore", imageURL: nil, releaseYear: "2020", totalTracks: 15, group: .album,
+            uri: "applemusic:album:e"
         )
         let albums = [
             folklore("c1", explicit: false), evermore, folklore("c2", explicit: false),
@@ -1102,22 +1171,28 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         source.artistsByID["-42"] = try AppleMusicFixtures.artist(id: "-42", name: "Taylor Swift")
         source.extraAlbumsByArtistID["-42"] = [
             try AppleMusicFixtures.album(
-                id: "-6046431734389870001", title: "folklore", trackCount: 16, releaseDate: "2020-07-24", catalogID: "1524793738"
+                id: "-6046431734389870001", title: "folklore", trackCount: 16, releaseDate: "2020-07-24",
+                catalogID: "1524793738"
             ),
             try AppleMusicFixtures.album(
-                id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24", catalogID: "1524801260"
+                id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24",
+                catalogID: "1524801260"
             ),
-            try AppleMusicFixtures.album(id: "-6046431734389870003", title: "evermore", trackCount: 15, releaseDate: "2020-12-11"),
+            try AppleMusicFixtures.album(
+                id: "-6046431734389870003", title: "evermore", trackCount: 15, releaseDate: "2020-12-11"),
         ]
         source.catalogAlbumRatings = ["1524793738": false, "1524801260": true]
 
         var provider = AppleMusicBrowsingProvider(source: source)
         provider.explicitMusicBlocked = { false }
         provider.ratingsDeadline = Self.neverEndingDeadline
-        let albums = try await provider.artistAlbumsCached(id: "-42", includeGroups: [], limit: 50, cacheMode: .allowStale).value
+        let albums = try await provider.artistAlbumsCached(
+            id: "-42", includeGroups: [], limit: 50, cacheMode: .allowStale
+        ).value
         XCTAssertEqual(albums.map(\.id), ["-6046431734389870003", "-6046431734389870002"])
         XCTAssertEqual(albums.map(\.isExplicit), [false, true], "the saved explicit edition carries the label")
-        XCTAssertEqual(source.albumRatingLookups, [["1524793738", "1524801260"]], "one lookup, only for albums naming a release")
+        XCTAssertEqual(
+            source.albumRatingLookups, [["1524793738", "1524801260"]], "one lookup, only for albums naming a release")
     }
 
     /// A catalog that doesn't answer in time doesn't hold the artist page: its saved albums show
@@ -1129,8 +1204,9 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         source.artistsByID["-42"] = try AppleMusicFixtures.artist(id: "-42", name: "Taylor Swift")
         source.extraAlbumsByArtistID["-42"] = [
             try AppleMusicFixtures.album(
-                id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24", catalogID: "1524801260"
-            ),
+                id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24",
+                catalogID: "1524801260"
+            )
         ]
         source.catalogAlbumRatings = ["1524801260": true]
         let (held, release) = AsyncStream<Void>.makeStream()
@@ -1140,13 +1216,17 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         var provider = AppleMusicBrowsingProvider(source: source)
         provider.ratingsDeadline = {}
         provider.lateAlbumRatingsStored = { storedSignal.yield() }
-        let first = try await provider.artistAlbumsCached(id: "-42", includeGroups: [], limit: 50, cacheMode: .allowStale).value
+        let first = try await provider.artistAlbumsCached(
+            id: "-42", includeGroups: [], limit: 50, cacheMode: .allowStale
+        ).value
         XCTAssertEqual(first.map(\.isExplicit), [false], "the page didn't wait for the catalog")
 
         release.finish()
         var signals = stored.makeAsyncIterator()
         _ = await signals.next()
-        let next = try await provider.artistAlbumsCached(id: "-42", includeGroups: [], limit: 50, cacheMode: .allowStale).value
+        let next = try await provider.artistAlbumsCached(
+            id: "-42", includeGroups: [], limit: 50, cacheMode: .allowStale
+        ).value
         XCTAssertEqual(next.map(\.isExplicit), [true], "the late rating labels the kept albums")
         XCTAssertEqual(source.albumRatingLookups.count, 1, "read from the kept albums, not looked up again")
 
@@ -1163,13 +1243,16 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let source = MockAppleMusicSource()
         source.artistsByID["-42"] = try AppleMusicFixtures.artist(id: "-42", name: "Prolific")
         source.extraAlbumsByArtistID["-42"] = try (1...150).map {
-            try AppleMusicFixtures.album(id: "-60464317343898\(70000 + $0)", title: "Album \($0)", catalogID: "\(9_000_000 + $0)")
+            try AppleMusicFixtures.album(
+                id: "-60464317343898\(70000 + $0)", title: "Album \($0)", catalogID: "\(9_000_000 + $0)")
         }
         source.catalogAlbumRatings = ["9000150": true]
 
         var provider = AppleMusicBrowsingProvider(source: source)
         provider.ratingsDeadline = Self.neverEndingDeadline
-        let albums = try await provider.artistAlbumsCached(id: "-42", includeGroups: [], limit: 200, cacheMode: .bypassCache).value
+        let albums = try await provider.artistAlbumsCached(
+            id: "-42", includeGroups: [], limit: 200, cacheMode: .bypassCache
+        ).value
         XCTAssertEqual(source.albumRatingLookups.map(\.count).sorted(), [50, 100])
         XCTAssertEqual(albums.filter(\.isExplicit).map(\.name), ["Album 150"])
     }
@@ -1187,14 +1270,20 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testALateRatingDoesNotShiftThePagesOfAnArtistPage() async throws {
         let source = MockAppleMusicSource()
         source.artistsByID["-42"] = try AppleMusicFixtures.artist(id: "-42", name: "Taylor Swift")
-        source.extraAlbumsByArtistID["-42"] = [
-            try AppleMusicFixtures.album(
-                id: "-6046431734389870001", title: "folklore", trackCount: 16, releaseDate: "2020-07-24", catalogID: "1524793738"
-            ),
-            try AppleMusicFixtures.album(
-                id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24", catalogID: "1524801260"
-            ),
-        ] + (try (3...12).map { try AppleMusicFixtures.album(id: "-60464317343898700\($0 + 10)", title: "Album \($0)") })
+        source.extraAlbumsByArtistID["-42"] =
+            [
+                try AppleMusicFixtures.album(
+                    id: "-6046431734389870001", title: "folklore", trackCount: 16, releaseDate: "2020-07-24",
+                    catalogID: "1524793738"
+                ),
+                try AppleMusicFixtures.album(
+                    id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24",
+                    catalogID: "1524801260"
+                ),
+            ]
+            + (try (3...12).map {
+                try AppleMusicFixtures.album(id: "-60464317343898700\($0 + 10)", title: "Album \($0)")
+            })
         source.catalogAlbumRatings = ["1524793738": false, "1524801260": true]
         let (held, release) = AsyncStream<Void>.makeStream()
         source.ratingLookupHold = { for await _ in held {} }
@@ -1213,7 +1302,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let second = try await provider.artistAlbumsPage(
             id: "-42", includeGroups: [], limit: 10, offset: 10, nextURL: first.next, cacheMode: .bypassCache
         )
-        XCTAssertEqual((first.items + second.items).map(\.name), ["folklore", "folklore"] + (3...12).map { "Album \($0)" })
+        XCTAssertEqual(
+            (first.items + second.items).map(\.name), ["folklore", "folklore"] + (3...12).map { "Album \($0)" })
 
         let reopened = try await provider.artistAlbumsPage(
             id: "-42", includeGroups: [], limit: 50, offset: 0, nextURL: nil, cacheMode: .bypassCache
@@ -1232,20 +1322,27 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let clock = Clock()
         let source = MockAppleMusicSource()
         source.artistsByID["-42"] = try AppleMusicFixtures.artist(id: "-42", name: "Taylor Swift")
-        source.extraAlbumsByArtistID["-42"] = [
-            try AppleMusicFixtures.album(
-                id: "-6046431734389870001", title: "folklore", trackCount: 16, releaseDate: "2020-07-24", catalogID: "1524793738"
-            ),
-            try AppleMusicFixtures.album(
-                id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24", catalogID: "1524801260"
-            ),
-        ] + (try (3...22).map { try AppleMusicFixtures.album(id: "-60464317343898700\($0 + 10)", title: "Album \($0)") })
+        source.extraAlbumsByArtistID["-42"] =
+            [
+                try AppleMusicFixtures.album(
+                    id: "-6046431734389870001", title: "folklore", trackCount: 16, releaseDate: "2020-07-24",
+                    catalogID: "1524793738"
+                ),
+                try AppleMusicFixtures.album(
+                    id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24",
+                    catalogID: "1524801260"
+                ),
+            ]
+            + (try (3...22).map {
+                try AppleMusicFixtures.album(id: "-60464317343898700\($0 + 10)", title: "Album \($0)")
+            })
         source.catalogAlbumRatings = ["1524793738": false, "1524801260": true]
         let (held, release) = AsyncStream<Void>.makeStream()
         source.ratingLookupHold = { for await _ in held {} }
         let (stored, storedSignal) = AsyncStream<Void>.makeStream()
 
-        var provider = AppleMusicBrowsingProvider(source: source, artistAlbumsCache: AppleMusicArtistAlbumsCache(now: { clock.now }))
+        var provider = AppleMusicBrowsingProvider(
+            source: source, artistAlbumsCache: AppleMusicArtistAlbumsCache(now: { clock.now }))
         provider.explicitMusicBlocked = { false }
         provider.ratingsDeadline = {}
         provider.lateAlbumRatingsStored = { storedSignal.yield() }
@@ -1279,16 +1376,20 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         func album(_ number: Int) throws -> Album {
             // Released the same day as folklore, so the page's newest-first order keeps
             // folklore between them (#658).
-            try AppleMusicFixtures.album(id: "-60464317343898\(80000 + number)", title: "Album \(number)", releaseDate: "2020-07-24")
+            try AppleMusicFixtures.album(
+                id: "-60464317343898\(80000 + number)", title: "Album \(number)", releaseDate: "2020-07-24")
         }
-        source.extraAlbumsByArtistID["-42"] = try (1...before).map(album) + [
-            try AppleMusicFixtures.album(
-                id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24", catalogID: "1524801260"
-            ),
-            try AppleMusicFixtures.album(
-                id: "-6046431734389870001", title: "folklore", trackCount: 16, releaseDate: "2020-07-24", catalogID: "1524793738"
-            ),
-        ] + (try (before + 3...total).map(album))
+        source.extraAlbumsByArtistID["-42"] =
+            try (1...before).map(album) + [
+                try AppleMusicFixtures.album(
+                    id: "-6046431734389870002", title: "folklore", trackCount: 16, releaseDate: "2020-07-24",
+                    catalogID: "1524801260"
+                ),
+                try AppleMusicFixtures.album(
+                    id: "-6046431734389870001", title: "folklore", trackCount: 16, releaseDate: "2020-07-24",
+                    catalogID: "1524793738"
+                ),
+            ] + (try (before + 3...total).map(album))
         source.catalogAlbumRatings = ["1524793738": false, "1524801260": true]
         return source
     }
@@ -1304,12 +1405,14 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let (held, release) = AsyncStream<Void>.makeStream()
         source.ratingLookupHold = { for await _ in held {} }
         let (stored, storedSignal) = AsyncStream<Void>.makeStream()
-        var provider = AppleMusicBrowsingProvider(source: source, artistAlbumsCache: AppleMusicArtistAlbumsCache(now: { clock.now }))
+        var provider = AppleMusicBrowsingProvider(
+            source: source, artistAlbumsCache: AppleMusicArtistAlbumsCache(now: { clock.now }))
         provider.explicitMusicBlocked = { false }
         provider.ratingsDeadline = {}
         provider.lateAlbumRatingsStored = { storedSignal.yield() }
 
-        let first = try await provider.artistAlbumsPage(id: "-42", includeGroups: [], limit: 10, offset: 0, nextURL: nil, cacheMode: .bypassCache)
+        let first = try await provider.artistAlbumsPage(
+            id: "-42", includeGroups: [], limit: 10, offset: 0, nextURL: nil, cacheMode: .bypassCache)
         let second = try await provider.artistAlbumsPage(
             id: "-42", includeGroups: [], limit: 10, offset: 10, nextURL: first.next, cacheMode: .bypassCache
         )
@@ -1334,11 +1437,13 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         final class Clock: @unchecked Sendable { var now = Date(timeIntervalSince1970: 0) }
         let clock = Clock()
         let source = try Self.savedFolkloreArtist(before: 19, total: 25)
-        var provider = AppleMusicBrowsingProvider(source: source, artistAlbumsCache: AppleMusicArtistAlbumsCache(now: { clock.now }))
+        var provider = AppleMusicBrowsingProvider(
+            source: source, artistAlbumsCache: AppleMusicArtistAlbumsCache(now: { clock.now }))
         provider.explicitMusicBlocked = { false }
         provider.ratingsDeadline = Self.neverEndingDeadline
 
-        let first = try await provider.artistAlbumsPage(id: "-42", includeGroups: [], limit: 10, offset: 0, nextURL: nil, cacheMode: .bypassCache)
+        let first = try await provider.artistAlbumsPage(
+            id: "-42", includeGroups: [], limit: 10, offset: 0, nextURL: nil, cacheMode: .bypassCache)
         let second = try await provider.artistAlbumsPage(
             id: "-42", includeGroups: [], limit: 10, offset: 10, nextURL: first.next, cacheMode: .bypassCache
         )
@@ -1361,11 +1466,15 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testChangingTheCleanOnlySettingDoesNotShiftThePagesOfAnArtistPage() async throws {
         let source = MockAppleMusicSource()
         source.artistsByID["159260351"] = try AppleMusicFixtures.artist(id: "159260351", name: "Taylor Swift")
-        source.extraAlbumsByArtistID["159260351"] = [
-            try AppleMusicFixtures.album(id: "1524793738", title: "folklore", trackCount: 16, rating: "clean", releaseDate: "2020-07-24"),
-            try AppleMusicFixtures.album(id: "1524793739", title: "folklore", trackCount: 16, rating: "clean", releaseDate: "2020-07-24"),
-            try AppleMusicFixtures.album(id: "1524801260", title: "folklore", trackCount: 16, rating: "explicit", releaseDate: "2020-07-24"),
-        ] + (try (1...14).map { try AppleMusicFixtures.album(id: "\(7_000_000 + $0)", title: "Album \($0)") })
+        source.extraAlbumsByArtistID["159260351"] =
+            [
+                try AppleMusicFixtures.album(
+                    id: "1524793738", title: "folklore", trackCount: 16, rating: "clean", releaseDate: "2020-07-24"),
+                try AppleMusicFixtures.album(
+                    id: "1524793739", title: "folklore", trackCount: 16, rating: "clean", releaseDate: "2020-07-24"),
+                try AppleMusicFixtures.album(
+                    id: "1524801260", title: "folklore", trackCount: 16, rating: "explicit", releaseDate: "2020-07-24"),
+            ] + (try (1...14).map { try AppleMusicFixtures.album(id: "\(7_000_000 + $0)", title: "Album \($0)") })
         let blocked = OSAllocatedUnfairLock(initialState: true)
 
         var provider = AppleMusicBrowsingProvider(source: source)
@@ -1390,23 +1499,30 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
 
     /// A pinned album saved before albums knew their rating still opens, as not explicit.
     func testAnAlbumPinnedBeforeRatingsDecodes() throws {
-        let json = #"{"id":"1524801260","name":"folklore","totalTracks":16,"group":"album","uri":"applemusic:album:1524801260"}"#
+        let json =
+            #"{"id":"1524801260","name":"folklore","totalTracks":16,"group":"album","uri":"applemusic:album:1524801260"}"#
         let album = try JSONDecoder().decode(MusicArtistAlbum.self, from: Data(json.utf8))
         XCTAssertFalse(album.isExplicit)
         let roundTrip = try JSONDecoder().decode(
             MusicArtistAlbum.self,
-            from: JSONEncoder().encode(ArtistAlbumRowViewModel(MusicArtistAlbum(
-                id: "1", name: "folklore", imageURL: nil, releaseYear: "2020", totalTracks: 16, group: .album, uri: "u", isExplicit: true
-            )).spotifyArtistAlbum(group: .album))
+            from: JSONEncoder().encode(
+                ArtistAlbumRowViewModel(
+                    MusicArtistAlbum(
+                        id: "1", name: "folklore", imageURL: nil, releaseYear: "2020", totalTracks: 16, group: .album,
+                        uri: "u", isExplicit: true
+                    )
+                ).spotifyArtistAlbum(group: .album))
         )
         XCTAssertTrue(roundTrip.isExplicit, "a pin keeps the label")
     }
 
     func testArtistDetailAlbumsArePagedAndFilteredByGroup() async throws {
         let source = MockAppleMusicSource()
-        source.artistsByID["5201"] = try AppleMusicFixtures.artist(id: "5201", name: "Bonobo", albums: [
-            (id: "a1", single: false), (id: "a2", single: false), (id: "s1", single: true),
-        ])
+        source.artistsByID["5201"] = try AppleMusicFixtures.artist(
+            id: "5201", name: "Bonobo",
+            albums: [
+                (id: "a1", single: false), (id: "a2", single: false), (id: "s1", single: true),
+            ])
         source.topSongsByArtistID["5201"] = [try AppleMusicFixtures.song(id: "t1", title: "Top")]
         let provider = AppleMusicBrowsingProvider(source: source)
 
@@ -1427,7 +1543,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         XCTAssertEqual(lastPage.items.map(\.id), ["s1"])
         XCTAssertNil(lastPage.next)
 
-        let albumsOnly = try await provider.artistAlbumsCached(id: "5201", includeGroups: [.album], limit: 10, cacheMode: .allowStale)
+        let albumsOnly = try await provider.artistAlbumsCached(
+            id: "5201", includeGroups: [.album], limit: 10, cacheMode: .allowStale)
         XCTAssertEqual(albumsOnly.value.map(\.id), ["a1", "a2"])
 
         let top = try await provider.artistTopTracks(id: "5201", market: nil, cacheMode: .freshOnly)
@@ -1459,10 +1576,12 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let results = try await AppleMusicBrowsingProvider(source: source).search(query: "bonobo", limit: 10)
 
         XCTAssertEqual(results.albums.map(\.id), ["l.a", "b"])
-        XCTAssertEqual(results.albums.map(\.artistRefs), [
-            [MusicArtistRef(id: "5201", name: "Bonobo")],
-            [MusicArtistRef(id: "5201", name: "Bonobo")],
-        ])
+        XCTAssertEqual(
+            results.albums.map(\.artistRefs),
+            [
+                [MusicArtistRef(id: "5201", name: "Bonobo")],
+                [MusicArtistRef(id: "5201", name: "Bonobo")],
+            ])
     }
 
     /// The library shows up to 100 matches and a catalog page 25, so a saved album's catalog copy
@@ -1484,10 +1603,12 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         let results = try await AppleMusicBrowsingProvider(source: source).search(query: "bonobo", limit: 10)
 
         XCTAssertEqual(results.albums.map(\.id), ["l.a", "l.b"])
-        XCTAssertEqual(results.albums.map(\.artistRefs), [
-            [MusicArtistRef(id: "5201", name: "Bonobo")],
-            [MusicArtistRef(id: "r.1", name: "Bonobo")],
-        ], "the catalog copy's artists when it's on the page, else the page's artist of that name")
+        XCTAssertEqual(
+            results.albums.map(\.artistRefs),
+            [
+                [MusicArtistRef(id: "5201", name: "Bonobo")],
+                [MusicArtistRef(id: "r.1", name: "Bonobo")],
+            ], "the catalog copy's artists when it's on the page, else the page's artist of that name")
     }
 
     /// With neither a catalog copy nor an artist of that name on the page, the name stays plain
@@ -1526,7 +1647,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         XCTAssertEqual(results.albums.map(\.id), ["a"])
         XCTAssertEqual(results.artists.map(\.id), ["5201"])
         XCTAssertTrue(source.calls.contains("catalogSearch(bonobo,10,0)"))
-        XCTAssertTrue(source.calls.contains("librarySearch(bonobo,\(AppleMusicBrowsingProvider.maxLibrarySearchMatches))"))
+        XCTAssertTrue(
+            source.calls.contains("librarySearch(bonobo,\(AppleMusicBrowsingProvider.maxLibrarySearchMatches))"))
         let next = try XCTUnwrap(results.tracksPaging?.next)
         XCTAssertEqual(URLComponents(url: next, resolvingAgainstBaseURL: false)?.queryItems?.first?.value, "10")
     }
@@ -1595,7 +1717,7 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testALibraryMatchOnlyHidesTheSameVersion() async throws {
         let source = MockAppleMusicSource()
         source.librarySearchItems = AppleMusicSearchItems(songs: [
-            try AppleMusicFixtures.song(id: "i.1", title: "Song", artist: "A", explicit: false),
+            try AppleMusicFixtures.song(id: "i.1", title: "Song", artist: "A", explicit: false)
         ])
         source.catalogSearchItems = AppleMusicSearchItems(songs: [
             try AppleMusicFixtures.song(id: "1", title: "Song", artist: "A", explicit: false),
@@ -1614,10 +1736,15 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testASavedExplicitAlbumHidesItsOwnCatalogCopyNotTheCleanOne() async throws {
         let source = MockAppleMusicSource()
         source.librarySearchItems = AppleMusicSearchItems(
-            songs: [try AppleMusicFixtures.song(id: "i.night", title: "Night Drive", album: "Night Drive", catalogID: "9100003")],
-            albums: [try AppleMusicFixtures.album(
-                id: "-3141592653589793238", title: "Night Drive", releaseDate: "2024-03-15", catalogID: "9100001"
-            )]
+            songs: [
+                try AppleMusicFixtures.song(
+                    id: "i.night", title: "Night Drive", album: "Night Drive", catalogID: "9100003")
+            ],
+            albums: [
+                try AppleMusicFixtures.album(
+                    id: "-3141592653589793238", title: "Night Drive", releaseDate: "2024-03-15", catalogID: "9100001"
+                )
+            ]
         )
         source.catalogSearchItems = AppleMusicSearchItems(
             songs: [
@@ -1637,7 +1764,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         )
         let results = try await AppleMusicBrowsingProvider(source: source).search(query: "night drive", limit: 10)
 
-        XCTAssertEqual(results.albums.map(\.id), ["-3141592653589793238", "9200001"], "the clean release is another album")
+        XCTAssertEqual(
+            results.albums.map(\.id), ["-3141592653589793238", "9200001"], "the clean release is another album")
         XCTAssertEqual(results.tracks.map(\.id), ["i.night", "9200003"], "the clean recording is another song")
         // The saved album links the artists of its own release, not those of the clean one.
         XCTAssertEqual(results.albums.first?.artistRefs.map(\.id), ["501"])
@@ -1647,17 +1775,21 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     /// saved both releases show.
     func testCleanAndExplicitReleasesStayApartUnlessOneIsSaved() async throws {
         let catalog = AppleMusicSearchItems(albums: [
-            try AppleMusicFixtures.album(id: "9100001", title: "Night Drive", rating: "explicit", releaseDate: "2024-03-15"),
-            try AppleMusicFixtures.album(id: "9200001", title: "Night Drive", rating: "clean", releaseDate: "2024-03-14"),
+            try AppleMusicFixtures.album(
+                id: "9100001", title: "Night Drive", rating: "explicit", releaseDate: "2024-03-15"),
+            try AppleMusicFixtures.album(
+                id: "9200001", title: "Night Drive", rating: "clean", releaseDate: "2024-03-14"),
         ])
         let source = MockAppleMusicSource()
         source.catalogSearchItems = catalog
         let unsaved = try await AppleMusicBrowsingProvider(source: source).search(query: "night drive", limit: 10)
         XCTAssertEqual(unsaved.albums.map(\.id), ["9100001", "9200001"])
 
-        source.librarySearchItems = AppleMusicSearchItems(albums: [try AppleMusicFixtures.album(
-            id: "-2718281828459045235", title: "Night Drive", releaseDate: "2024-03-14", catalogID: "9200001"
-        )])
+        source.librarySearchItems = AppleMusicSearchItems(albums: [
+            try AppleMusicFixtures.album(
+                id: "-2718281828459045235", title: "Night Drive", releaseDate: "2024-03-14", catalogID: "9200001"
+            )
+        ])
         let savedClean = try await AppleMusicBrowsingProvider(source: source).search(query: "night drive", limit: 10)
         XCTAssertEqual(savedClean.albums.map(\.id), ["-2718281828459045235", "9100001"])
 
@@ -1673,7 +1805,9 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testTheFirstSearchPageCarriesEveryLibraryMatch() async throws {
         let source = MockAppleMusicSource()
         source.librarySearchItems = AppleMusicSearchItems(
-            songs: try (0..<12).map { try AppleMusicFixtures.song(id: "i.\($0)", title: "Rehearsal \($0)", artist: "Me") }
+            songs: try (0..<12).map {
+                try AppleMusicFixtures.song(id: "i.\($0)", title: "Rehearsal \($0)", artist: "Me")
+            }
         )
         let results = try await AppleMusicBrowsingProvider(source: source).search(query: "rehearsal", limit: 10)
 
@@ -1685,7 +1819,7 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testALibraryMatchDoesNotHideTheSameTitleFromAnotherAlbum() async throws {
         let source = MockAppleMusicSource()
         source.librarySearchItems = AppleMusicSearchItems(songs: [
-            try AppleMusicFixtures.song(id: "i.1", title: "Intro", artist: "A", album: "First"),
+            try AppleMusicFixtures.song(id: "i.1", title: "Intro", artist: "A", album: "First")
         ])
         source.catalogSearchItems = AppleMusicSearchItems(songs: [
             try AppleMusicFixtures.song(id: "1", title: "Intro", artist: "A", album: "First"),
@@ -1703,14 +1837,17 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         source.artistsByID["5201"] = try AppleMusicFixtures.artist(
             id: "5201", name: "Bonobo", albums: [(id: "a0", single: false)]
         )
-        source.extraAlbumsByArtistID["5201"] = try (1..<40).map { try AppleMusicFixtures.album(id: "a\($0)", title: "Album \($0)") }
+        source.extraAlbumsByArtistID["5201"] = try (1..<40).map {
+            try AppleMusicFixtures.album(id: "a\($0)", title: "Album \($0)")
+        }
         source.albumsByID["a1"] = try AppleMusicFixtures.album(id: "a1", title: "Long", tracks: [("i.0", "Track 0")])
         source.extraTracksByAlbumID["a1"] = try (1..<150).map {
             .song(try AppleMusicFixtures.song(id: "i.\($0)", title: "Track \($0)"))
         }
         let provider = AppleMusicBrowsingProvider(source: source)
 
-        let albums = try await provider.artistAlbumsCached(id: "5201", includeGroups: [], limit: 100, cacheMode: .allowStale)
+        let albums = try await provider.artistAlbumsCached(
+            id: "5201", includeGroups: [], limit: 100, cacheMode: .allowStale)
         XCTAssertEqual(albums.value.count, 40)
         // The browser opens an album with `limit: 50`, Spotify's page size.
         let tracks = try await provider.albumTracks(albumID: "a1", market: nil, limit: 50)
@@ -1720,7 +1857,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testSearchSurvivesOneSideFailingButNotBoth() async throws {
         let source = MockAppleMusicSource()
         source.catalogSearchError = URLError(.notConnectedToInternet)
-        source.librarySearchItems = AppleMusicSearchItems(songs: [try AppleMusicFixtures.song(id: "i.1", title: "Mine")])
+        source.librarySearchItems = AppleMusicSearchItems(songs: [try AppleMusicFixtures.song(id: "i.1", title: "Mine")]
+        )
         let provider = AppleMusicBrowsingProvider(source: source)
 
         // What the library found shows, marked as incomplete: offline, a song that isn't saved
@@ -1759,7 +1897,8 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testAFailedLibrarySearchKeepsTheCatalogResultsMarkedIncomplete() async throws {
         let source = MockAppleMusicSource()
         source.librarySearchError = URLError(.timedOut)
-        source.catalogSearchItems = AppleMusicSearchItems(songs: [try AppleMusicFixtures.song(id: "1", title: "Theirs")])
+        source.catalogSearchItems = AppleMusicSearchItems(songs: [try AppleMusicFixtures.song(id: "1", title: "Theirs")]
+        )
         do {
             _ = try await AppleMusicBrowsingProvider(source: source).search(query: "theirs", limit: 10)
             XCTFail("a failed library search passed as the whole answer")
@@ -1806,7 +1945,7 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testLaterPagesStillHideCatalogCopiesOfLibraryItems() async throws {
         let source = MockAppleMusicSource()
         source.librarySearchItems = AppleMusicSearchItems(songs: [
-            try AppleMusicFixtures.song(id: "i.1", title: "Kerala", artist: "Bonobo"),
+            try AppleMusicFixtures.song(id: "i.1", title: "Kerala", artist: "Bonobo")
         ])
         source.catalogSearchItems = AppleMusicSearchItems(songs: [
             try AppleMusicFixtures.song(id: "12", title: "Kerala", artist: "Bonobo"),
@@ -1828,7 +1967,9 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         )
         for page in 0..<4 {
             source.catalogPagesByOffset[page * 10] = AppleMusicSearchItems(
-                songs: try (page * 10..<page * 10 + 10).map { try AppleMusicFixtures.song(id: "\($0)", title: "Song \($0)", artist: "A") },
+                songs: try (page * 10..<page * 10 + 10).map {
+                    try AppleMusicFixtures.song(id: "\($0)", title: "Song \($0)", artist: "A")
+                },
                 hasMore: page < 3
             )
         }
@@ -1848,7 +1989,9 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
     func testArtistAlbumPagesLoadTheArtistOnce() async throws {
         let source = MockAppleMusicSource()
         source.artistsByID["5201"] = try AppleMusicFixtures.artist(id: "5201", name: "Bonobo")
-        source.extraAlbumsByArtistID["5201"] = try (0..<30).map { try AppleMusicFixtures.album(id: "a\($0)", title: "Album \($0)") }
+        source.extraAlbumsByArtistID["5201"] = try (0..<30).map {
+            try AppleMusicFixtures.album(id: "a\($0)", title: "Album \($0)")
+        }
         let provider = AppleMusicBrowsingProvider(source: source)
 
         let first = try await provider.artistAlbumsPage(
@@ -1873,11 +2016,15 @@ final class AppleMusicBrowsingProviderTests: XCTestCase {
         }
         let oldest = await cache.list(forArtistID: "artist-0", startsPaging: true, explicitBlocked: { false })
         XCTAssertNil(oldest, "the oldest artist is dropped past the bound")
-        let newest = await cache.list(forArtistID: "artist-\(AppleMusicArtistAlbumsCache.maxArtists)", startsPaging: true, explicitBlocked: { false })
+        let newest = await cache.list(
+            forArtistID: "artist-\(AppleMusicArtistAlbumsCache.maxArtists)", startsPaging: true,
+            explicitBlocked: { false })
         XCTAssertNotNil(newest)
 
         clock.now = clock.now.addingTimeInterval(AppleMusicArtistAlbumsCache.maxAge + 1)
-        let expired = await cache.list(forArtistID: "artist-\(AppleMusicArtistAlbumsCache.maxArtists)", startsPaging: true, explicitBlocked: { false })
+        let expired = await cache.list(
+            forArtistID: "artist-\(AppleMusicArtistAlbumsCache.maxArtists)", startsPaging: true,
+            explicitBlocked: { false })
         XCTAssertNil(expired, "entries expire")
     }
 
@@ -1895,13 +2042,17 @@ final class AppleMusicArtworkRegistryTests: XCTestCase {
     func testOnlyNonHTTPArtworkNeedsMusicKit() throws {
         XCTAssertFalse(AppleMusicArtworkRegistry.needsMusicKit(try XCTUnwrap(URL(string: "https://example.com/a.jpg"))))
         XCTAssertFalse(AppleMusicArtworkRegistry.needsMusicKit(try XCTUnwrap(URL(string: "http://127.0.0.1/a.jpg"))))
-        XCTAssertTrue(AppleMusicArtworkRegistry.needsMusicKit(try XCTUnwrap(URL(string: "musicKit://artwork/transient/600x600?id=A"))))
+        XCTAssertTrue(
+            AppleMusicArtworkRegistry.needsMusicKit(
+                try XCTUnwrap(URL(string: "musicKit://artwork/transient/600x600?id=A"))))
     }
 
     func testLibraryAndCatalogArtworkAreRegisteredUnderTheirURLs() throws {
         let registry = AppleMusicArtworkRegistry()
-        let library = try AppleMusicFixtures.decode(Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=A","width":600,"height":600}"#)
-        let catalog = try AppleMusicFixtures.decode(Artwork.self, #"{"url":"https://example.com/{w}x{h}bb.jpg","width":600,"height":600}"#)
+        let library = try AppleMusicFixtures.decode(
+            Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=A","width":600,"height":600}"#)
+        let catalog = try AppleMusicFixtures.decode(
+            Artwork.self, #"{"url":"https://example.com/{w}x{h}bb.jpg","width":600,"height":600}"#)
 
         let libraryURL = try XCTUnwrap(AppleMusicItemMapping.artworkURL(library, size: 120, registry: registry))
         let catalogURL = try XCTUnwrap(AppleMusicItemMapping.artworkURL(catalog, size: 120, registry: registry))
@@ -1917,7 +2068,8 @@ final class AppleMusicArtworkRegistryTests: XCTestCase {
     /// finds this session's cover through its pin ID once the item is mapped again.
     func testAPinFindsThisSessionsCoverByItsID() throws {
         let registry = AppleMusicArtworkRegistry()
-        let artwork = try AppleMusicFixtures.decode(Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=NEW","width":600,"height":600}"#)
+        let artwork = try AppleMusicFixtures.decode(
+            Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=NEW","width":600,"height":600}"#)
         _ = AppleMusicItemMapping.artworkURL(
             artwork, size: 600, pinKind: .playlist, itemID: MusicItemID("p.1"), registry: registry
         )
@@ -1933,7 +2085,8 @@ final class AppleMusicArtworkRegistryTests: XCTestCase {
     /// only the least recently used ones go (#400).
     func testRegistryKeepsDrawnCoversPastItsBound() throws {
         let registry = AppleMusicArtworkRegistry(capacity: 10)
-        let artwork = try AppleMusicFixtures.decode(Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=A","width":1,"height":1}"#)
+        let artwork = try AppleMusicFixtures.decode(
+            Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=A","width":1,"height":1}"#)
         func url(_ n: Int) throws -> URL { try XCTUnwrap(URL(string: "musicKit://artwork/\(n)")) }
         let pinURL = try XCTUnwrap(URL(string: "musicKit://artwork/pin"))
         registry.register(artwork, for: pinURL, itemKey: "playlist:p.1")
@@ -2193,17 +2346,30 @@ final class AppleMusicSelectionAndSessionTests: XCTestCase {
     /// Queue, Sign Out) must follow the Apple Music permission instead, or it stays greyed out.
     @MainActor
     func testMenuBarFollowsTheSelectedServicesSignIn() {
-        XCTAssertTrue(SpotiglassApp.menuIsSignedIn(service: .appleMusic, spotifyState: .signedOut, appleMusicState: .authorized))
-        XCTAssertFalse(SpotiglassApp.menuIsSignedIn(service: .appleMusic, spotifyState: .signedOut, appleMusicState: .needsPermission))
-        XCTAssertFalse(SpotiglassApp.menuIsSignedIn(service: .appleMusic, spotifyState: .signedOut, appleMusicState: .denied))
-        XCTAssertFalse(SpotiglassApp.menuIsSignedIn(service: .spotify, spotifyState: .signedOut, appleMusicState: .authorized))
-        XCTAssertFalse(SpotiglassApp.menuIsSignedIn(service: .spotify, spotifyState: .refreshing(nil), appleMusicState: .authorized))
-        XCTAssertFalse(SpotiglassApp.menuIsSignedIn(service: nil, spotifyState: .signedIn(AuthenticatedSession(accessToken: "t", tokenType: "Bearer", scope: "", expiresAt: .distantFuture)), appleMusicState: .authorized))
+        XCTAssertTrue(
+            SpotiglassApp.menuIsSignedIn(service: .appleMusic, spotifyState: .signedOut, appleMusicState: .authorized))
+        XCTAssertFalse(
+            SpotiglassApp.menuIsSignedIn(
+                service: .appleMusic, spotifyState: .signedOut, appleMusicState: .needsPermission))
+        XCTAssertFalse(
+            SpotiglassApp.menuIsSignedIn(service: .appleMusic, spotifyState: .signedOut, appleMusicState: .denied))
+        XCTAssertFalse(
+            SpotiglassApp.menuIsSignedIn(service: .spotify, spotifyState: .signedOut, appleMusicState: .authorized))
+        XCTAssertFalse(
+            SpotiglassApp.menuIsSignedIn(
+                service: .spotify, spotifyState: .refreshing(nil), appleMusicState: .authorized))
+        XCTAssertFalse(
+            SpotiglassApp.menuIsSignedIn(
+                service: nil,
+                spotifyState: .signedIn(
+                    AuthenticatedSession(accessToken: "t", tokenType: "Bearer", scope: "", expiresAt: .distantFuture)),
+                appleMusicState: .authorized))
     }
 
     @MainActor
     func testSessionAsksOnlyWhenTheUserHasNotAnswered() async {
-        let authorization = MockAppleMusicAuthorization(status: .notDetermined, afterRequest: .authorized, canPlay: false)
+        let authorization = MockAppleMusicAuthorization(
+            status: .notDetermined, afterRequest: .authorized, canPlay: false)
         let session = AppleMusicSession(authorization: authorization)
         XCTAssertEqual(session.state, .checking)
 
@@ -2238,7 +2404,10 @@ final class AppleMusicSelectionAndSessionTests: XCTestCase {
 final class AppleMusicLibraryArrivalTests: XCTestCase {
     /// Runs the next look once it is due, and waits until it is done.
     @MainActor
-    private func nextLook(_ viewModel: PlaylistBrowserViewModel, _ clock: ManualPlaybackClock, file: StaticString = #filePath, line: UInt = #line) async {
+    private func nextLook(
+        _ viewModel: PlaylistBrowserViewModel, _ clock: ManualPlaybackClock, file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
         let armed = await clock.waitForSleepers(1)
         XCTAssertTrue(armed, "a look is due", file: file, line: line)
         let look = viewModel.libraryArrivalTask
@@ -2331,7 +2500,9 @@ final class AppleMusicLibraryArrivalTests: XCTestCase {
         await waitUntil("Liked Songs shows its songs", changes: viewModel.$detailState) {
             PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count == 3
         }
-        func likedSongsReads() -> Int { source.calls.filter { $0.hasPrefix("librarySongs(") && $0.hasSuffix(",0)") }.count }
+        func likedSongsReads() -> Int {
+            source.calls.filter { $0.hasPrefix("librarySongs(") && $0.hasSuffix(",0)") }.count
+        }
         let readsBefore = likedSongsReads()
         var shownStates: [BrowsingLoadState<BrowsingDetailContent>] = []
         let watch = viewModel.$detailState.sink { shownStates.append($0) }
@@ -2366,7 +2537,9 @@ final class AppleMusicLibraryArrivalTests: XCTestCase {
     @MainActor
     func testCoversThatArriveAfterTheSongsFillIn() async throws {
         let source = MockAppleMusicSource()
-        source.savedSongs = try (0..<3).map { try AppleMusicFixtures.song(id: "i.\($0)", title: "Song \($0)", withArtwork: false) }
+        source.savedSongs = try (0..<3).map {
+            try AppleMusicFixtures.song(id: "i.\($0)", title: "Song \($0)", withArtwork: false)
+        }
         source.cloudLibraryParts = [.playlists, .songs]
         let clock = ManualPlaybackClock()
         let viewModel = browser(source, clock: clock)
@@ -2375,7 +2548,9 @@ final class AppleMusicLibraryArrivalTests: XCTestCase {
         await waitUntil("Liked Songs shows its songs", changes: viewModel.$detailState) {
             PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count == 3
         }
-        func covers() -> Int { PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).filter { $0.artworkURL != nil }.count }
+        func covers() -> Int {
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).filter { $0.artworkURL != nil }.count
+        }
         XCTAssertEqual(covers(), 0)
 
         // The playlists come, the covers not yet.
@@ -2531,7 +2706,9 @@ final class AppleMusicLibraryArrivalTests: XCTestCase {
     func testTheCloudLibraryCheckReadsOneItem() throws {
         XCTAssertEqual(MusicKitContentSource.cloudLibraryProbePath(.playlists), "/v1/me/library/playlists?limit=1")
         XCTAssertEqual(MusicKitContentSource.cloudLibraryProbePath(.songs), "/v1/me/library/songs?limit=1")
-        XCTAssertTrue(try MusicKitContentSource.cloudLibraryPageHasItems(Data(#"{"data":[{"id":"p.1","type":"library-playlists"}]}"#.utf8)))
+        XCTAssertTrue(
+            try MusicKitContentSource.cloudLibraryPageHasItems(
+                Data(#"{"data":[{"id":"p.1","type":"library-playlists"}]}"#.utf8)))
         XCTAssertFalse(try MusicKitContentSource.cloudLibraryPageHasItems(Data(#"{"data":[]}"#.utf8)))
     }
 }
@@ -2617,7 +2794,7 @@ private final class TrackCountGate: @unchecked Sendable {
         let resumed = waiters
         waiters = []
         lock.unlock()
-        resumed.forEach { $0.resume() }
+        for waiter in resumed { waiter.resume() }
     }
 }
 
@@ -2825,9 +3002,10 @@ private final class MockAppleMusicSource: AppleMusicContentSource, @unchecked Se
         lock.withLock { recordedRatingLookups.append(catalogIDs) }
         if let ratingLookupHold { await ratingLookupHold() }
         if let catalogRatingsError { throw catalogRatingsError }
-        return Dictionary(uniqueKeysWithValues: catalogIDs.compactMap { id in
-            catalogRatings[id].map { (id, AppleMusicCatalogRelease(isExplicit: $0, artwork: catalogArtwork[id])) }
-        })
+        return Dictionary(
+            uniqueKeysWithValues: catalogIDs.compactMap { id in
+                catalogRatings[id].map { (id, AppleMusicCatalogRelease(isExplicit: $0, artwork: catalogArtwork[id])) }
+            })
     }
 
     /// The catalog's ratings, `true` for explicit, by catalog album ID.
@@ -2868,7 +3046,7 @@ private final class Latch: @unchecked Sendable {
             defer { waiters = [] }
             return waiters
         }
-        waiting.forEach { $0.resume() }
+        for waiter in waiting { waiter.resume() }
     }
 }
 
@@ -2878,7 +3056,6 @@ private final class LockedPages: @unchecked Sendable {
     var reads: [(limit: Int, offset: Int)] { lock.withLock { recorded } }
     func append(limit: Int, offset: Int) { lock.withLock { recorded.append((limit, offset)) } }
 }
-
 
 /// MusicKit on macOS gives songs saved to the library no content rating; each names its catalog
 /// release (`playParams.catalogId`) instead. Read as they came, saved explicit songs had no
@@ -2899,7 +3076,7 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
 
     private static func explicitFlags(_ items: [MusicPlaylistTrackItem]) -> [Bool?] {
         items.map { item -> Bool? in
-            guard case let .track(track) = item.content else { return nil }
+            guard case .track(let track) = item.content else { return nil }
             return track.isExplicit
         }
     }
@@ -2933,7 +3110,8 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
     func testSavedSongsShowTheirCatalogReleasesCoverInsteadOfLibraryArtwork() async throws {
         let source = MockAppleMusicSource()
         source.savedSongs = [
-            try AppleMusicFixtures.song(id: "i.7370001", title: "Nota Loca", libraryArtwork: true, catalogID: "9737001"),
+            try AppleMusicFixtures.song(
+                id: "i.7370001", title: "Nota Loca", libraryArtwork: true, catalogID: "9737001"),
             try AppleMusicFixtures.song(id: "i.7370002", title: "Rojo", libraryArtwork: true, catalogID: "9737002"),
             // Uploaded: no catalog release, so only the library has its cover.
             try AppleMusicFixtures.song(id: "i.7370003", title: "Voice Memo Demo", libraryArtwork: true),
@@ -2947,7 +3125,7 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         let result = try await Self.provider(source).currentUserSavedTracks(limit: 50, maxPages: nil)
 
         let covers = result.tracks.map { item -> URL? in
-            guard case let .track(track) = item.content else { return nil }
+            guard case .track(let track) = item.content else { return nil }
             return track.albumArtworkURL
         }
         XCTAssertEqual(covers.map { $0?.scheme?.lowercased() }, ["https", "https", "musickit"])
@@ -2970,7 +3148,8 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
     /// keeps its library cover.
     func testASavedSongMappedBeforeItsReleaseLookupAnsweredShowsTheCatalogCoverOnceItDoes() async throws {
         let source = MockAppleMusicSource()
-        let saved = try AppleMusicFixtures.song(id: "i.7370011", title: "Nota Loca", libraryArtwork: true, catalogID: "9737011")
+        let saved = try AppleMusicFixtures.song(
+            id: "i.7370011", title: "Nota Loca", libraryArtwork: true, catalogID: "9737011")
         source.savedSongs = [
             saved,
             try AppleMusicFixtures.song(id: "i.7370013", title: "Voice Memo Demo", libraryArtwork: true),
@@ -2984,24 +3163,27 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
 
         let result = try await provider.currentUserSavedTracks(limit: 50, maxPages: nil)
         let covers = result.tracks.compactMap { item -> URL? in
-            guard case let .track(track) = item.content else { return nil }
+            guard case .track(let track) = item.content else { return nil }
             return track.albumArtworkURL
         }
         XCTAssertEqual(covers.count, 2)
         func requested() -> [String] {
             covers.map { ArtworkRequest.url($0, points: TrackRowMetrics.artworkSize, scale: 2).absoluteString }
         }
-        XCTAssertEqual(covers.map { $0.scheme?.lowercased() }, ["musickit", "musickit"], "mapped before the catalog answered")
+        XCTAssertEqual(
+            covers.map { $0.scheme?.lowercased() }, ["musickit", "musickit"], "mapped before the catalog answered")
         XCTAssertEqual(requested(), covers.map(\.absoluteString), "nothing to swap in yet")
 
         // Covers already on screen hear that they can ask again.
-        let arrived = expectation(forNotification: AppleMusicContentRatings.catalogCoversArrived, object: AppleMusicContentRatings.shared)
+        let arrived = expectation(
+            forNotification: AppleMusicContentRatings.catalogCoversArrived, object: AppleMusicContentRatings.shared)
         release.finish()
         // Waits for the lookup still asking instead of asking again.
         await AppleMusicContentRatings.shared.resolve([saved], lookup: source.catalogSongReleases, library: nil)
         await fulfillment(of: [arrived], timeout: 5)
 
-        XCTAssertEqual(requested(), ["https://example.com/art/catalog-9737011/120x120bb.jpg", covers[1].absoluteString])
+        XCTAssertEqual(
+            requested(), ["https://example.com/art/catalog-9737011/120x120bb.jpg", covers[1].absoluteString])
         XCTAssertEqual(source.ratingLookups.count, 1)
     }
 
@@ -3011,23 +3193,34 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
     func testPlaylistAndAlbumRowsListedUnderAPersistentIDShowTheLabel() async throws {
         let source = MockAppleMusicSource()
         source.savedSongs = [
-            try AppleMusicFixtures.song(id: "i.5180011", title: "Paper Lanterns", catalogID: "9518011", persistentID: "5180000000000000011"),
-            try AppleMusicFixtures.song(id: "i.5180013", title: "Harbour", catalogID: "9518012", persistentID: "-5180000000000000013"),
+            try AppleMusicFixtures.song(
+                id: "i.5180011", title: "Paper Lanterns", catalogID: "9518011", persistentID: "5180000000000000011"),
+            try AppleMusicFixtures.song(
+                id: "i.5180013", title: "Harbour", catalogID: "9518012", persistentID: "-5180000000000000013"),
             // Uploaded: in the library, with no release to ask.
             try AppleMusicFixtures.song(id: "i.5180014", title: "Voice Memo Demo", persistentID: "5180000000000000014"),
         ]
         source.playlistTracksByID["p.5180011"] = try [
-            .song(AppleMusicFixtures.song(id: "5180000000000000011", title: "Paper Lanterns", persistentID: "5180000000000000011")),
-            .song(AppleMusicFixtures.song(id: "5180000000000000014", title: "Voice Memo Demo", persistentID: "5180000000000000014")),
+            .song(
+                AppleMusicFixtures.song(
+                    id: "5180000000000000011", title: "Paper Lanterns", persistentID: "5180000000000000011")),
+            .song(
+                AppleMusicFixtures.song(
+                    id: "5180000000000000014", title: "Voice Memo Demo", persistentID: "5180000000000000014")),
             // Not in the library read (gone since): stays as it is.
-            .song(AppleMusicFixtures.song(id: "5180000000000000015", title: "Low Tide", persistentID: "5180000000000000015")),
+            .song(
+                AppleMusicFixtures.song(
+                    id: "5180000000000000015", title: "Low Tide", persistentID: "5180000000000000015")),
         ]
         source.albumsByID["-5180000000000000012"] = try AppleMusicFixtures.album(
             id: "-5180000000000000012", title: "Paper Lanterns", tracks: []
         )
-        source.extraTracksByAlbumID["-5180000000000000012"] = [.song(
-            try AppleMusicFixtures.song(id: "-5180000000000000013", title: "Harbour", persistentID: "-5180000000000000013")
-        )]
+        source.extraTracksByAlbumID["-5180000000000000012"] = [
+            .song(
+                try AppleMusicFixtures.song(
+                    id: "-5180000000000000013", title: "Harbour", persistentID: "-5180000000000000013")
+            )
+        ]
         source.catalogRatings = ["9518011": true, "9518012": true]
         let provider = Self.provider(source)
 
@@ -3051,14 +3244,17 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
             try AppleMusicFixtures.song(
                 id: "i.5180091", title: "Glass Harbour", playable: false,
                 persistentID: "5180000000000000091", identifierSetCatalogID: "9518091"
-            ),
+            )
         ]
         source.playlistTracksByID["p.5180091"] = try [
-            .song(AppleMusicFixtures.song(id: "5180000000000000091", title: "Glass Harbour", persistentID: "5180000000000000091")),
-            .song(AppleMusicFixtures.song(
-                id: "-5180000000000000092", title: "Night Ferry", playable: false,
-                persistentID: "-5180000000000000092", identifierSetCatalogID: "9518092"
-            )),
+            .song(
+                AppleMusicFixtures.song(
+                    id: "5180000000000000091", title: "Glass Harbour", persistentID: "5180000000000000091")),
+            .song(
+                AppleMusicFixtures.song(
+                    id: "-5180000000000000092", title: "Night Ferry", playable: false,
+                    persistentID: "-5180000000000000092", identifierSetCatalogID: "9518092"
+                )),
         ]
         source.catalogRatings = ["9518091": true, "9518092": true]
 
@@ -3120,7 +3316,9 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         let ratings = AppleMusicContentRatings(libraryPageSize: 2, maxLibrarySongs: 4)
         // Newest first, like `librarySongs`; the last two are past the bound.
         let library = try (1...6).map {
-            try AppleMusicFixtures.song(id: "i.51801\($0)", title: "Song \($0)", catalogID: "95181\($0)", persistentID: "51800000000000001\($0)")
+            try AppleMusicFixtures.song(
+                id: "i.51801\($0)", title: "Song \($0)", catalogID: "95181\($0)", persistentID: "51800000000000001\($0)"
+            )
         }
         let pages = LockedPages()
         let read: AppleMusicContentRatings.LibraryPage = { limit, offset in
@@ -3128,9 +3326,12 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
             return Array(library.dropFirst(offset).prefix(limit))
         }
         func row(_ n: Int) throws -> Song {
-            try AppleMusicFixtures.song(id: "51800000000000001\(n)", title: "Song \(n)", persistentID: "51800000000000001\(n)")
+            try AppleMusicFixtures.song(
+                id: "51800000000000001\(n)", title: "Song \(n)", persistentID: "51800000000000001\(n)")
         }
-        let lookup: AppleMusicContentRatings.CatalogLookup = { ids in Dictionary(uniqueKeysWithValues: ids.map { ($0, .init(isExplicit: true)) }) }
+        let lookup: AppleMusicContentRatings.CatalogLookup = { ids in
+            Dictionary(uniqueKeysWithValues: ids.map { ($0, .init(isExplicit: true)) })
+        }
 
         await ratings.resolve([try row(5)], lookup: lookup, library: read)
         XCTAssertEqual(pages.reads.map(\.offset), [0, 2], "the whole bound, once")
@@ -3148,8 +3349,12 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
     /// read the library again.
     func testAListDoesNotReadTheLibraryAgainForRowsAnotherReadMapped() async throws {
         let ratings = AppleMusicContentRatings()
-        let library = [try AppleMusicFixtures.song(id: "i.5180101", title: "Harbour", catalogID: "9518101", persistentID: "5180000000000000101")]
-        let row = try AppleMusicFixtures.song(id: "5180000000000000101", title: "Harbour", persistentID: "5180000000000000101")
+        let library = [
+            try AppleMusicFixtures.song(
+                id: "i.5180101", title: "Harbour", catalogID: "9518101", persistentID: "5180000000000000101")
+        ]
+        let row = try AppleMusicFixtures.song(
+            id: "5180000000000000101", title: "Harbour", persistentID: "5180000000000000101")
         let saved = try AppleMusicFixtures.song(id: "i.5180102", title: "Low Tide", catalogID: "9518102")
         let pages = LockedPages()
         let read: AppleMusicContentRatings.LibraryPage = { limit, offset in
@@ -3183,12 +3388,19 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
     /// read as clean: only a library read concludes that a song has none.
     func testASongReadWithoutItsReleaseFirstDoesNotMakeItsRowsClean() async throws {
         let ratings = AppleMusicContentRatings()
-        let thinner = try AppleMusicFixtures.song(id: "i.5180121", title: "Harbour", persistentID: "5180000000000000121")
+        let thinner = try AppleMusicFixtures.song(
+            id: "i.5180121", title: "Harbour", persistentID: "5180000000000000121")
         XCTAssertNil(ratings.rating(of: thinner), "unknown until a library read looked")
-        let library = [try AppleMusicFixtures.song(id: "i.5180121", title: "Harbour", catalogID: "9518121", persistentID: "5180000000000000121")]
-        let row = try AppleMusicFixtures.song(id: "5180000000000000121", title: "Harbour", persistentID: "5180000000000000121")
+        let library = [
+            try AppleMusicFixtures.song(
+                id: "i.5180121", title: "Harbour", catalogID: "9518121", persistentID: "5180000000000000121")
+        ]
+        let row = try AppleMusicFixtures.song(
+            id: "5180000000000000121", title: "Harbour", persistentID: "5180000000000000121")
 
-        await ratings.resolve([row], lookup: { _ in ["9518121": .init(isExplicit: true)] }, library: { _, offset in offset == 0 ? library : [] })
+        await ratings.resolve(
+            [row], lookup: { _ in ["9518121": .init(isExplicit: true)] },
+            library: { _, offset in offset == 0 ? library : [] })
         XCTAssertEqual(ratings.rating(of: row), true)
         XCTAssertEqual(ratings.rating(of: thinner), true, "the library read named its release")
     }
@@ -3197,9 +3409,13 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
     /// like its rows do, reads as unknown until one looked (clean only once one found it names
     /// none), and its fuller form later counts.
     func testASongReadWithoutItsReleaseIsUnknownUntilTheLibraryIsRead() async throws {
-        let thinner = try AppleMusicFixtures.song(id: "i.5180131", title: "Night Ferry", persistentID: "5180000000000000131")
-        let fuller = try AppleMusicFixtures.song(id: "i.5180131", title: "Night Ferry", catalogID: "9518131", persistentID: "5180000000000000131")
-        let lookup: AppleMusicContentRatings.CatalogLookup = { ids in Dictionary(uniqueKeysWithValues: ids.map { ($0, .init(isExplicit: true)) }) }
+        let thinner = try AppleMusicFixtures.song(
+            id: "i.5180131", title: "Night Ferry", persistentID: "5180000000000000131")
+        let fuller = try AppleMusicFixtures.song(
+            id: "i.5180131", title: "Night Ferry", catalogID: "9518131", persistentID: "5180000000000000131")
+        let lookup: AppleMusicContentRatings.CatalogLookup = { ids in
+            Dictionary(uniqueKeysWithValues: ids.map { ($0, .init(isExplicit: true)) })
+        }
 
         // The fuller form after the thinner one: its release counts.
         let first = AppleMusicContentRatings()
@@ -3218,7 +3434,8 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
         XCTAssertEqual(listed.rating(of: thinner), true)
 
         // An upload: a library read found it names none, so it's clean.
-        let upload = try AppleMusicFixtures.song(id: "i.5180132", title: "Voice Memo Demo", persistentID: "5180000000000000132")
+        let upload = try AppleMusicFixtures.song(
+            id: "i.5180132", title: "Voice Memo Demo", persistentID: "5180000000000000132")
         let uploads = AppleMusicContentRatings()
         await uploads.resolve([upload], lookup: lookup, library: { _, offset in offset == 0 ? [upload] : [] })
         XCTAssertEqual(uploads.rating(of: upload), false)
@@ -3228,13 +3445,20 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
     /// found: the row would otherwise read as clean.
     func testAReadWithoutTheReleaseDoesNotUndoAKnownOne() async throws {
         let ratings = AppleMusicContentRatings()
-        let library = [try AppleMusicFixtures.song(id: "i.5180111", title: "Harbour", catalogID: "9518111", persistentID: "5180000000000000111")]
-        let row = try AppleMusicFixtures.song(id: "5180000000000000111", title: "Harbour", persistentID: "5180000000000000111")
-        await ratings.resolve([row], lookup: { _ in ["9518111": .init(isExplicit: true)] }, library: { _, offset in offset == 0 ? library : [] })
+        let library = [
+            try AppleMusicFixtures.song(
+                id: "i.5180111", title: "Harbour", catalogID: "9518111", persistentID: "5180000000000000111")
+        ]
+        let row = try AppleMusicFixtures.song(
+            id: "5180000000000000111", title: "Harbour", persistentID: "5180000000000000111")
+        await ratings.resolve(
+            [row], lookup: { _ in ["9518111": .init(isExplicit: true)] },
+            library: { _, offset in offset == 0 ? library : [] })
         XCTAssertEqual(ratings.rating(of: row), true)
 
         // The same library song read in a shape that carries its persistent ID but no release.
-        let thinner = try AppleMusicFixtures.song(id: "i.5180112", title: "Harbour", persistentID: "5180000000000000111")
+        let thinner = try AppleMusicFixtures.song(
+            id: "i.5180112", title: "Harbour", persistentID: "5180000000000000111")
         XCTAssertEqual(ratings.rating(of: thinner), true, "itself: the release the library read found")
         XCTAssertEqual(ratings.rating(of: row), true)
     }
@@ -3246,7 +3470,8 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
     func testSearchShowsASavedExplicitSongLabelledNextToItsCleanVersion() async throws {
         let source = MockAppleMusicSource()
         source.librarySearchItems = AppleMusicSearchItems(songs: [
-            try AppleMusicFixtures.song(id: "i.5180021", title: "Glass Harbour", album: "Glass Harbour", catalogID: "9518021"),
+            try AppleMusicFixtures.song(
+                id: "i.5180021", title: "Glass Harbour", album: "Glass Harbour", catalogID: "9518021")
         ])
         source.catalogSearchItems = AppleMusicSearchItems(songs: [
             try AppleMusicFixtures.song(id: "9518021", title: "Glass Harbour", album: "Glass Harbour", explicit: true),
@@ -3282,14 +3507,16 @@ final class AppleMusicSavedSongRatingTests: XCTestCase {
 /// the 120 px image 2.5x and looked soft (#426).
 final class AppleMusicArtworkSizeTests: XCTestCase {
     private func recentlyPlayedSong() throws -> Song {
-        try AppleMusicFixtures.decode(Song.self, #"""
-        {"id":"1440818839","type":"songs","attributes":{"name":"Kerala","artistName":"Bonobo",
-        "albumName":"Migration","durationInMillis":200000,
-        "artwork":{"url":"https://is1-ssl.mzstatic.com/image/thumb/Music/v4/1a/2b/3c/source/{w}x{h}bb.jpg",
-        "width":3000,"height":3000},"playParams":{"id":"1440818839","kind":"song"}},
-        "relationships":{"albums":{"data":[{"id":"1440818588","type":"albums",
-        "attributes":{"name":"Migration","artistName":"Bonobo"}}]}}}
-        """#)
+        try AppleMusicFixtures.decode(
+            Song.self,
+            #"""
+            {"id":"1440818839","type":"songs","attributes":{"name":"Kerala","artistName":"Bonobo",
+            "albumName":"Migration","durationInMillis":200000,
+            "artwork":{"url":"https://is1-ssl.mzstatic.com/image/thumb/Music/v4/1a/2b/3c/source/{w}x{h}bb.jpg",
+            "width":3000,"height":3000},"playParams":{"id":"1440818839","kind":"song"}},
+            "relationships":{"albums":{"data":[{"id":"1440818588","type":"albums",
+            "attributes":{"name":"Migration","artistName":"Bonobo"}}]}}}
+            """#)
     }
 
     private func requestedPixels(_ url: URL) throws -> Int {
@@ -3319,14 +3546,15 @@ final class AppleMusicArtworkSizeTests: XCTestCase {
             ("Home shortcut", SpotiglassDesign.Layout.quickAccessTileHeight),
             ("Home card", HomeMediaCardView.artworkSize),
             ("detail header", SpotiglassDesign.detailHeaderArtworkSize),
-            ("Lyrics cover", SpotiglassDesign.Layout.lyricsArtworkSize)
+            ("Lyrics cover", SpotiglassDesign.Layout.lyricsArtworkSize),
         ]
         for (surface, points) in surfaces {
             let pixels = try requestedPixels(ArtworkRequest.url(mapped, points: points, scale: 2))
             XCTAssertGreaterThanOrEqual(pixels, Int(points * 2), surface)
             XCTAssertLessThan(pixels, Int(points * 2) * 3, "\(surface) downloads far more than it draws")
         }
-        XCTAssertEqual(try requestedPixels(ArtworkRequest.url(mapped, points: TrackRowMetrics.artworkSize, scale: 2)), 120)
+        XCTAssertEqual(
+            try requestedPixels(ArtworkRequest.url(mapped, points: TrackRowMetrics.artworkSize, scale: 2)), 120)
     }
 
     func testURLsThatCantBeResizedComeBackUnchanged() throws {
@@ -3334,14 +3562,16 @@ final class AppleMusicArtworkSizeTests: XCTestCase {
         let spotify = try XCTUnwrap(URL(string: "https://i.scdn.co/image/ab67616d0000b273abc"))
         XCTAssertEqual(ArtworkRequest.url(spotify, points: 150, scale: 2, registry: registry), spotify)
 
-        let library = try AppleMusicFixtures.decode(Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=A","width":600,"height":600}"#)
+        let library = try AppleMusicFixtures.decode(
+            Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=A","width":600,"height":600}"#)
         let libraryURL = try XCTUnwrap(AppleMusicItemMapping.artworkURL(library, size: 120, registry: registry))
         XCTAssertEqual(ArtworkRequest.url(libraryURL, points: 150, scale: 2, registry: registry), libraryURL)
     }
 
     func testAPinsCatalogURLIsNotSwappedForLibraryArtworkUnderTheSameKey() throws {
         let registry = AppleMusicArtworkRegistry()
-        let library = try AppleMusicFixtures.decode(Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=A","width":600,"height":600}"#)
+        let library = try AppleMusicFixtures.decode(
+            Artwork.self, #"{"url":"musicKit://artwork/transient/{w}x{h}?id=A","width":600,"height":600}"#)
         registry.register(library, for: try XCTUnwrap(library.url(width: 600, height: 600)), itemKey: "album:1")
         let saved = try XCTUnwrap(URL(string: "https://example.com/old/600x600bb.jpg"))
 
@@ -3350,7 +3580,8 @@ final class AppleMusicArtworkSizeTests: XCTestCase {
 
     func testRequestsNeverAskForMoreThanTheOriginal() throws {
         let registry = AppleMusicArtworkRegistry()
-        let small = try AppleMusicFixtures.decode(Artwork.self, #"{"url":"https://example.com/{w}x{h}bb.jpg","width":400,"height":400}"#)
+        let small = try AppleMusicFixtures.decode(
+            Artwork.self, #"{"url":"https://example.com/{w}x{h}bb.jpg","width":400,"height":400}"#)
         let url = try XCTUnwrap(AppleMusicItemMapping.artworkURL(small, size: 120, registry: registry))
         XCTAssertEqual(try requestedPixels(ArtworkRequest.url(url, points: 220, scale: 2, registry: registry)), 400)
     }
@@ -3375,7 +3606,10 @@ enum AppleMusicFixtures {
     private static func libraryArtwork(_ id: String) -> [String: Any] {
         let digits = String(id.filter(\.isNumber).suffix(12))
         let token = String(repeating: "0", count: 12 - digits.count) + digits
-        return ["url": "musicKit://artwork/transient/{w}x{h}?id=6AD2B166%2D2B81%2D4AA0%2D83C8%2D\(token)", "width": 0, "height": 0]
+        return [
+            "url": "musicKit://artwork/transient/{w}x{h}?id=6AD2B166%2D2B81%2D4AA0%2D83C8%2D\(token)", "width": 0,
+            "height": 0,
+        ]
     }
 
     /// A catalog release's cover, as `MusicCatalogResourceRequest<Song>` gives it.
@@ -3424,20 +3658,27 @@ enum AppleMusicFixtures {
                 "id": id, "type": "Song", "isLibrary": true, "dataSources": ["localLibrary", "legacyModel"],
                 "catalogID": ["kind": "subscriptionAdamID", "value": identifierSetCatalogID],
             ]
-            if let persistentID { identifiers["deviceLocalID"] = ["databaseID": "785BA2D7E82AE547", "value": persistentID] }
+            if let persistentID {
+                identifiers["deviceLocalID"] = ["databaseID": "785BA2D7E82AE547", "value": persistentID]
+            }
             resource["meta"] = ["musicKit_identifierSet": identifiers]
         }
         var relationships: [String: Any] = [:]
         if !artistRefs.isEmpty {
-            relationships["artists"] = ["data": artistRefs.map {
-                ["id": $0.0, "type": "artists", "attributes": ["name": $0.1]]
-            }]
+            relationships["artists"] = [
+                "data": artistRefs.map {
+                    ["id": $0.0, "type": "artists", "attributes": ["name": $0.1]]
+                }
+            ]
         }
         // A catalog song names the albums it is on (#658).
         if !albumRefs.isEmpty {
-            relationships["albums"] = ["data": albumRefs.map {
-                ["id": $0.0, "type": "albums", "attributes": ["name": $0.1, "artistName": artist ?? ""]] as [String: Any]
-            }]
+            relationships["albums"] = [
+                "data": albumRefs.map {
+                    ["id": $0.0, "type": "albums", "attributes": ["name": $0.1, "artistName": artist ?? ""]]
+                        as [String: Any]
+                }
+            ]
         }
         if !relationships.isEmpty { resource["relationships"] = relationships }
         return try decode(Song.self, try json(resource))
@@ -3469,23 +3710,33 @@ enum AppleMusicFixtures {
         if let catalogID {
             attributes["playParams"] = ["id": id, "kind": "album", "catalogId": catalogID, "isLibrary": true]
         }
-        var resource: [String: Any] = ["id": id, "type": catalogID == nil ? "albums" : "library-albums", "attributes": attributes]
+        var resource: [String: Any] = [
+            "id": id, "type": catalogID == nil ? "albums" : "library-albums", "attributes": attributes,
+        ]
         if !tracks.isEmpty {
             // Album tracks arrive without their own artwork or album reference.
-            resource["relationships"] = ["tracks": ["data": tracks.map {
-                [
-                    "id": $0.id,
-                    "type": "songs",
-                    "attributes": ["name": $0.title, "artistName": "Bonobo", "durationInMillis": 1000,
-                                   "playParams": ["id": $0.id, "kind": "song"]] as [String: Any],
-                ] as [String: Any]
-            }]]
+            resource["relationships"] = [
+                "tracks": [
+                    "data": tracks.map {
+                        [
+                            "id": $0.id,
+                            "type": "songs",
+                            "attributes": [
+                                "name": $0.title, "artistName": "Bonobo", "durationInMillis": 1000,
+                                "playParams": ["id": $0.id, "kind": "song"],
+                            ] as [String: Any],
+                        ] as [String: Any]
+                    }
+                ]
+            ]
         }
         if !artists.isEmpty {
             var relationships = resource["relationships"] as? [String: Any] ?? [:]
-            relationships["artists"] = ["data": artists.map {
-                ["id": $0.id, "type": "artists", "attributes": ["name": $0.name]] as [String: Any]
-            }]
+            relationships["artists"] = [
+                "data": artists.map {
+                    ["id": $0.id, "type": "artists", "attributes": ["name": $0.name]] as [String: Any]
+                }
+            ]
             resource["relationships"] = relationships
         }
         return try decode(Album.self, try json(resource))
@@ -3503,7 +3754,8 @@ enum AppleMusicFixtures {
         libraryArtwork: Bool = false
     ) throws -> Playlist {
         // The local library gives its covers as `musicKit://` URLs only MusicKit can draw.
-        let cover = libraryArtwork
+        let cover =
+            libraryArtwork
             ? ["url": "musicKit://artwork/\(id)/{w}x{h}", "width": 3000, "height": 3000]
             : artwork(id)
         var attributes: [String: Any] = ["name": name, "artwork": cover]
@@ -3518,9 +3770,16 @@ enum AppleMusicFixtures {
         if let kind { attributes["playlistType"] = kind }
         var resource: [String: Any] = ["id": id, "type": "playlists", "attributes": attributes]
         if let trackCount {
-            resource["relationships"] = ["tracks": ["data": (0..<trackCount).map {
-                ["id": "t\($0)", "type": "songs", "attributes": ["name": "Track \($0)", "artistName": "Bonobo"]]
-            }]]
+            resource["relationships"] = [
+                "tracks": [
+                    "data": (0..<trackCount).map {
+                        [
+                            "id": "t\($0)", "type": "songs",
+                            "attributes": ["name": "Track \($0)", "artistName": "Bonobo"],
+                        ]
+                    }
+                ]
+            ]
         }
         return try decode(Playlist.self, try json(resource))
     }
@@ -3537,19 +3796,23 @@ enum AppleMusicFixtures {
             "attributes": ["name": name, "genreNames": genres, "artwork": artwork(id)] as [String: Any],
         ]
         if !albums.isEmpty {
-            resource["relationships"] = ["albums": ["data": albums.map { album in
-                [
-                    "id": album.id,
-                    "type": "albums",
-                    "attributes": [
-                        "name": album.id,
-                        "artistName": name,
-                        "trackCount": 1,
-                        "isSingle": album.single,
-                        "isCompilation": false,
-                    ] as [String: Any],
-                ] as [String: Any]
-            }]]
+            resource["relationships"] = [
+                "albums": [
+                    "data": albums.map { album in
+                        [
+                            "id": album.id,
+                            "type": "albums",
+                            "attributes": [
+                                "name": album.id,
+                                "artistName": name,
+                                "trackCount": 1,
+                                "isSingle": album.single,
+                                "isCompilation": false,
+                            ] as [String: Any],
+                        ] as [String: Any]
+                    }
+                ]
+            ]
         }
         return try decode(Artist.self, try json(resource))
     }
@@ -3595,14 +3858,18 @@ final class AppleMusicCatalogPagesTests: XCTestCase {
     private let nextPath = "/v1/catalog/ch/artists/159260351/albums?offset=100"
 
     private func page(_ range: Range<Int>, next: String?) throws -> Data {
-        var object: [String: Any] = ["data": range.map { index in
-            [
-                "id": "\(1_440_000_000 + index)",
-                "type": "albums",
-                "attributes": ["name": "Album \(index)", "artistName": "Taylor Swift", "trackCount": 13,
-                               "releaseDate": "2019-08-23", "isSingle": false, "isCompilation": false] as [String: Any],
-            ] as [String: Any]
-        }]
+        var object: [String: Any] = [
+            "data": range.map { index in
+                [
+                    "id": "\(1_440_000_000 + index)",
+                    "type": "albums",
+                    "attributes": [
+                        "name": "Album \(index)", "artistName": "Taylor Swift", "trackCount": 13,
+                        "releaseDate": "2019-08-23", "isSingle": false, "isCompilation": false,
+                    ] as [String: Any],
+                ] as [String: Any]
+            }
+        ]
         if let next { object["next"] = next }
         return try JSONSerialization.data(withJSONObject: object)
     }
@@ -3713,7 +3980,8 @@ final class AppleMusicCatalogPagesTests: XCTestCase {
         let first = try page(0..<100, next: nextPath)
         let second = try page(50..<150, next: nil)
         var requests = 0
-        let albums = try await AppleMusicCatalogPages.items(Album.self, from: firstPath, limit: 120, dropsRepeats: true) { _ in
+        let albums = try await AppleMusicCatalogPages.items(Album.self, from: firstPath, limit: 120, dropsRepeats: true)
+        { _ in
             requests += 1
             return requests == 1 ? first : second
         }
@@ -3724,14 +3992,18 @@ final class AppleMusicCatalogPagesTests: XCTestCase {
     /// every entry, also when the second one is on a later page.
     func testAPlaylistKeepsASongItHoldsTwice() async throws {
         func songs(_ ids: [Int], next: String?) throws -> Data {
-            var object: [String: Any] = ["data": ids.map { index in
-                [
-                    "id": "\(1_500_000_000 + index)",
-                    "type": "songs",
-                    "attributes": ["name": "Song \(index)", "artistName": "Taylor Swift",
-                                   "durationInMillis": 200_000] as [String: Any],
-                ] as [String: Any]
-            }]
+            var object: [String: Any] = [
+                "data": ids.map { index in
+                    [
+                        "id": "\(1_500_000_000 + index)",
+                        "type": "songs",
+                        "attributes": [
+                            "name": "Song \(index)", "artistName": "Taylor Swift",
+                            "durationInMillis": 200_000,
+                        ] as [String: Any],
+                    ] as [String: Any]
+                }
+            ]
             if let next { object["next"] = next }
             return try JSONSerialization.data(withJSONObject: object)
         }
@@ -3787,13 +4059,14 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         let source = MockAppleMusicSource()
         let savedArtist = try AppleMusicFixtures.artist(id: Self.savedArtistID, name: "Tainy")
         let savedSongs = try Self.savedSongCatalogIDs.enumerated().map { index, catalogID in
-            Track.song(try AppleMusicFixtures.song(
-                id: "-90000000000000000\(index)",
-                title: "Saved \(index)",
-                artist: "Tainy",
-                album: "DATA",
-                catalogID: catalogID
-            ))
+            Track.song(
+                try AppleMusicFixtures.song(
+                    id: "-90000000000000000\(index)",
+                    title: "Saved \(index)",
+                    artist: "Tainy",
+                    album: "DATA",
+                    catalogID: catalogID
+                ))
         }
         let savedAlbum = try AppleMusicFixtures.album(id: Self.savedAlbumID, title: "DATA", trackCount: 14)
         source.artistsByID[Self.savedArtistID] = savedArtist
@@ -3817,7 +4090,8 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
                 albumRefs: [(Self.catalogAlbumID, "DATA")]
             )
         }
-        source.artistsByID[Self.catalogArtistID] = try AppleMusicFixtures.artist(id: Self.catalogArtistID, name: "Tainy")
+        source.artistsByID[Self.catalogArtistID] = try AppleMusicFixtures.artist(
+            id: Self.catalogArtistID, name: "Tainy")
         source.extraAlbumsByArtistID[Self.catalogArtistID] = [
             try AppleMusicFixtures.album(id: "1400000000", title: "Older", trackCount: 9, releaseDate: "2019-05-01"),
             try AppleMusicFixtures.album(
@@ -3827,7 +4101,8 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
                 tracks: (0..<14).map { ("16500000\(String(format: "%02d", $0))", "Track \($0)") },
                 releaseDate: "2023-06-29"
             ),
-            try AppleMusicFixtures.album(id: "1700000000", title: "Newer", trackCount: 1, isSingle: true, releaseDate: "2024-11-01"),
+            try AppleMusicFixtures.album(
+                id: "1700000000", title: "Newer", trackCount: 1, isSingle: true, releaseDate: "2024-11-01"),
         ]
         for album in source.extraAlbumsByArtistID[Self.catalogArtistID] ?? [] {
             source.albumsByID[album.id.rawValue] = album
@@ -3839,7 +4114,8 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
     }
 
     /// Every song of a saved album is in the library unless `playlistOnly` names it (#401).
-    private func provider(_ source: MockAppleMusicSource, playlistOnly: Set<String> = []) -> AppleMusicBrowsingProvider {
+    private func provider(_ source: MockAppleMusicSource, playlistOnly: Set<String> = []) -> AppleMusicBrowsingProvider
+    {
         let registry = AppleMusicSongReferenceRegistry(addedDate: { song in
             playlistOnly.contains(song.id.rawValue) ? nil : Date(timeIntervalSince1970: 1_700_000_000)
         })
@@ -3857,12 +4133,15 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
     private func dataSavedWithoutCatalogIDs() throws -> MockAppleMusicSource {
         let source = try tainy(savedUnderCatalogIDs: true)
         // The saved album itself does name its catalog album.
-        let savedAlbum = try AppleMusicFixtures.album(id: Self.savedAlbumID, title: "DATA", trackCount: 14, catalogID: Self.catalogAlbumID)
+        let savedAlbum = try AppleMusicFixtures.album(
+            id: Self.savedAlbumID, title: "DATA", trackCount: 14, catalogID: Self.catalogAlbumID)
         source.albumsByID[Self.savedAlbumID] = savedAlbum
         source.libraryAlbumsByID[Self.savedAlbumID] = savedAlbum
         source.libraryAlbumsByID[Self.catalogAlbumID] = savedAlbum
         source.extraAlbumsByArtistID[Self.savedArtistID] = [savedAlbum]
-        source.extraTracksByAlbumID[Self.savedAlbumID] = try [(4, "Track 4", "-7716356195492915039"), (12, "Track 12", "-5458252454165740238")].map {
+        source.extraTracksByAlbumID[Self.savedAlbumID] = try [
+            (4, "Track 4", "-7716356195492915039"), (12, "Track 12", "-5458252454165740238"),
+        ].map {
             Track.song(try AppleMusicFixtures.song(id: $0.2, title: $0.1, artist: "Tainy", album: "DATA"))
         }
         return source
@@ -3990,8 +4269,10 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(onlyOne).libraryTracks.map(\.name), ["Track 4"])
         XCTAssertEqual(try XCTUnwrap(onlyOne).libraryAlbums.map(\.id), [Self.savedAlbumID])
 
-        let none = try await provider(try dataSavedWithoutCatalogIDs(), playlistOnly: ["-7716356195492915039", "-5458252454165740238"])
-            .artistPageExtras(id: Self.savedArtistID)
+        let none = try await provider(
+            try dataSavedWithoutCatalogIDs(), playlistOnly: ["-7716356195492915039", "-5458252454165740238"]
+        )
+        .artistPageExtras(id: Self.savedArtistID)
         XCTAssertTrue(try XCTUnwrap(none).libraryTracks.isEmpty)
         XCTAssertTrue(try XCTUnwrap(none).libraryAlbums.isEmpty)
     }
@@ -4032,7 +4313,11 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
         source.extraAlbumsByArtistID[Self.savedArtistID, default: []].append(upload)
         source.albumsByID[uploadID] = upload
         source.libraryAlbumsByID[uploadID] = upload
-        source.extraTracksByAlbumID[uploadID] = [Track.song(try AppleMusicFixtures.song(id: "-3333333333333333333", title: "Demo 1", artist: "Tainy", album: "Demo"))]
+        source.extraTracksByAlbumID[uploadID] = [
+            Track.song(
+                try AppleMusicFixtures.song(id: "-3333333333333333333", title: "Demo 1", artist: "Tainy", album: "Demo")
+            )
+        ]
         let provider = provider(source)
 
         let read = try await provider.artistPageExtras(id: Self.savedArtistID)
@@ -4130,12 +4415,15 @@ final class AppleMusicCatalogFirstPageTests: XCTestCase {
     }
 
     func testTheArtistPageKeepsTheServiceOrderAndTheLibrarySectionOnlyWithExtras() {
-        let artist = MusicArtistDetail(id: "a", name: "A", imageURL: nil, followersTotal: nil, genres: [], uri: "applemusic:artist:a")
+        let artist = MusicArtistDetail(
+            id: "a", name: "A", imageURL: nil, followersTotal: nil, genres: [], uri: "applemusic:artist:a")
         let albums = ["Zebra", "Apple"].map {
-            MusicArtistAlbum(id: $0, name: $0, imageURL: nil, releaseYear: nil, totalTracks: 1, group: .album, uri: "x:\($0)")
+            MusicArtistAlbum(
+                id: $0, name: $0, imageURL: nil, releaseYear: nil, totalTracks: 1, group: .album, uri: "x:\($0)")
         }
-        let saved = MusicTrack(id: "s", name: "Saved", artists: ["A"], albumArtworkURL: nil, durationMilliseconds: 1,
-                               isExplicit: false, isPlayable: true, linkedFromID: nil, uri: "applemusic:song:s")
+        let saved = MusicTrack(
+            id: "s", name: "Saved", artists: ["A"], albumArtworkURL: nil, durationMilliseconds: 1,
+            isExplicit: false, isPlayable: true, linkedFromID: nil, uri: "applemusic:song:s")
 
         let spotify = ArtistDetailViewModel(artist: artist, tracks: [], albums: albums)
         let appleMusic = ArtistDetailViewModel(

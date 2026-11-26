@@ -6,14 +6,15 @@ extension PlaylistBrowserViewModel {
         // there asks for that page again (#465).
         let shown: BrowsingDetailContent?
         switch detailState {
-        case let .loaded(content), let .staleCache(content, _): shown = content
+        case .loaded(let content), .staleCache(let content, _): shown = content
         default: shown = nil
         }
-        guard case let .artist(detail)? = shown,
-              var paging = currentArtistAlbumsPaging,
-              paging.artistID == detail.artist.id,
-              !paging.isLoading,
-              let nextURL = paging.nextURL else {
+        guard case .artist(let detail)? = shown,
+            var paging = currentArtistAlbumsPaging,
+            paging.artistID == detail.artist.id,
+            !paging.isLoading,
+            let nextURL = paging.nextURL
+        else {
             return
         }
         let session = detailSession
@@ -21,16 +22,17 @@ extension PlaylistBrowserViewModel {
 
         paging.isLoading = true
         currentArtistAlbumsPaging = paging
-        detailState = .loaded(.artist(
-            ArtistDetailViewModel(
-                artist: detail.artist,
-                tracks: paging.tracks,
-                albums: paging.albums,
-                canLoadMoreAlbums: true,
-                isLoadingMoreAlbums: true,
-                extras: detail.extras
-            )
-        ))
+        detailState = .loaded(
+            .artist(
+                ArtistDetailViewModel(
+                    artist: detail.artist,
+                    tracks: paging.tracks,
+                    albums: paging.albums,
+                    canLoadMoreAlbums: true,
+                    isLoadingMoreAlbums: true,
+                    extras: detail.extras
+                )
+            ))
 
         do {
             if paging.seenNextURLs.contains(nextURL.absoluteString) {
@@ -83,11 +85,13 @@ extension PlaylistBrowserViewModel {
             paging.isLoading = false
             currentArtistAlbumsPaging = paging
             guard ownsArtistDetailSurface(session: session, artistID: artistID) else { return }
-            detailState = .staleCache(.artist(detail), Self.reportedError(
-                error,
-                while: "loading more artist albums",
-                context: [.private("artist", artistID)]
-            ))
+            detailState = .staleCache(
+                .artist(detail),
+                Self.reportedError(
+                    error,
+                    while: "loading more artist albums",
+                    context: [.private("artist", artistID)]
+                ))
         }
     }
 
@@ -97,7 +101,8 @@ extension PlaylistBrowserViewModel {
 
     private func ownsArtistDetailSurface(session: Int, artistID: String) -> Bool {
         guard ownsArtistPagination(session: session, artistID: artistID),
-              case let .loaded(.artist(detail)) = detailState else {
+            case .loaded(.artist(let detail)) = detailState
+        else {
             return false
         }
         return detail.artist.id == artistID

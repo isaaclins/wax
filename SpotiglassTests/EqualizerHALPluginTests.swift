@@ -2,6 +2,7 @@ import Combine
 import CoreAudio
 import Foundation
 import XCTest
+
 @testable import Spotiglass
 
 /// Exercises ``EqualizerHALPluginController`` against a temp HAL directory so
@@ -24,14 +25,16 @@ final class EqualizerHALPluginTests: XCTestCase {
         // Build a fake .driver bundle in a sibling temp dir so the controller
         // can locate it via Bundle.bundleURL/Contents/Library/Audio/Plug-Ins/HAL.
         let appDir = makeTempDirectory()
-        let halLibrary = appDir
+        let halLibrary =
+            appDir
             .appendingPathComponent("Contents", isDirectory: true)
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Audio", isDirectory: true)
             .appendingPathComponent("Plug-Ins", isDirectory: true)
             .appendingPathComponent("HAL", isDirectory: true)
         try? FileManager.default.createDirectory(at: halLibrary, withIntermediateDirectories: true)
-        fixtureBundle = halLibrary
+        fixtureBundle =
+            halLibrary
             .appendingPathComponent(EqualizerHALPluginController.driverBundleName, isDirectory: true)
         try? FileManager.default.createDirectory(at: fixtureBundle, withIntermediateDirectories: true)
         try? "fake-driver-payload".write(
@@ -102,8 +105,9 @@ final class EqualizerHALPluginTests: XCTestCase {
         // flip the system's real default output device when a Spotiglass EQ
         // is actually loaded on the host running the tests.
         try controller.install()
-        XCTAssertTrue(controller.isInstalled,
-                      "the .driver should be copied even when coreaudiod hasn't picked it up")
+        XCTAssertTrue(
+            controller.isInstalled,
+            "the .driver should be copied even when coreaudiod hasn't picked it up")
         let marker = controller.installedDriverURL.appendingPathComponent("Marker.txt")
         XCTAssertEqual(
             try String(contentsOf: marker, encoding: .utf8),
@@ -230,7 +234,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         )
 
         XCTAssertThrowsError(try controller.restorePreviousDefaultOutput()) { error in
-            guard case let EqualizerHALPluginError.previousOutputDeviceUnavailable(foundUID) = error else {
+            guard case EqualizerHALPluginError.previousOutputDeviceUnavailable(let foundUID) = error else {
                 return XCTFail("expected previousOutputDeviceUnavailable, got \(error)")
             }
             XCTAssertEqual(foundUID, uid)
@@ -382,10 +386,13 @@ final class EqualizerHALPluginTests: XCTestCase {
         )
 
         XCTAssertThrowsError(try controller.waitForRouterReadiness(targetUID: uid)) { error in
-            guard case let EqualizerHALPluginError.routerTargetOpenFailed(
-                targetUID: foundUID,
-                reasonCode
-            ) = error else {
+            guard
+                case EqualizerHALPluginError.routerTargetOpenFailed(
+                    targetUID: let foundUID,
+                    let
+                        reasonCode
+                ) = error
+            else {
                 return XCTFail("expected routerTargetOpenFailed, got \(error)")
             }
             XCTAssertEqual(foundUID, uid)
@@ -580,8 +587,9 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertTrue(engine.isRemovingDriver, "the button showed no progress straight away")
         await waitForTheRemovalToFinish(on: engine)
 
-        XCTAssertEqual(installer.outputAtRemoval, output.originalID,
-                       "the driver was deleted while the Mac's sound was still on it")
+        XCTAssertEqual(
+            installer.outputAtRemoval, output.originalID,
+            "the driver was deleted while the Mac's sound was still on it")
         XCTAssertEqual(installer.removedPaths, [controller.installedDriverURL.path])
         XCTAssertFalse(controller.isInstalled)
         XCTAssertEqual(output.current, output.originalID)
@@ -669,10 +677,12 @@ final class EqualizerHALPluginTests: XCTestCase {
         engine.removeDriver(settingsStore: settingsStore)
         await waitForTheRemovalToFinish(on: engine)
 
-        XCTAssertEqual(installer.outputAtRemoval, speakersID,
-                       "the driver was deleted while the Mac's sound was still on it")
-        XCTAssertEqual(installer.removedPaths, [controller.installedDriverURL.path],
-                       "removal gave up because the pre-EQ device was gone")
+        XCTAssertEqual(
+            installer.outputAtRemoval, speakersID,
+            "the driver was deleted while the Mac's sound was still on it")
+        XCTAssertEqual(
+            installer.removedPaths, [controller.installedDriverURL.path],
+            "removal gave up because the pre-EQ device was gone")
         XCTAssertEqual(output.current, speakersID)
         XCTAssertTrue(engine.driverWasRemoved)
         XCTAssertFalse(engine.isEngaged)
@@ -688,7 +698,8 @@ final class EqualizerHALPluginTests: XCTestCase {
             XCTAssertEqual(error as? EqualizerDriverInstallError, .invalidRequest)
         }
         XCTAssertThrowsError(
-            try client.removeDriver(destinationURL: URL(fileURLWithPath: "/Library/Audio/Plug-Ins/HAL/../../../Applications"))
+            try client.removeDriver(
+                destinationURL: URL(fileURLWithPath: "/Library/Audio/Plug-Ins/HAL/../../../Applications"))
         ) { error in
             XCTAssertEqual(error as? EqualizerDriverInstallError, .invalidRequest)
         }
@@ -763,11 +774,13 @@ final class EqualizerHALPluginTests: XCTestCase {
         await waitForTheSwitchToGoBackOff(in: settingsStore)
 
         XCTAssertFalse(settingsStore.settings.equalizer.enabled, "the switch stayed on")
-        XCTAssertFalse(SpotiglassSettingsStore(fileURL: settingsStore.fileURL).settings.equalizer.enabled,
-                       "the switch is off in memory but on in the settings file")
+        XCTAssertFalse(
+            SpotiglassSettingsStore(fileURL: settingsStore.fileURL).settings.equalizer.enabled,
+            "the switch is off in memory but on in the settings file")
         XCTAssertEqual(output.current, output.originalID)
-        XCTAssertEqual(engine.lastError?.message, SpotiglassL10n.string("eq.error.driverInstallationFailed"),
-                       "nothing said why the equalizer is off")
+        XCTAssertEqual(
+            engine.lastError?.message, SpotiglassL10n.string("eq.error.driverInstallationFailed"),
+            "nothing said why the equalizer is off")
     }
 
     /// The driver installs but Core Audio never shows its device: same switch-back, same need
@@ -794,11 +807,13 @@ final class EqualizerHALPluginTests: XCTestCase {
         await waitForTheSwitchToGoBackOff(in: settingsStore)
 
         XCTAssertFalse(settingsStore.settings.equalizer.enabled, "the switch stayed on")
-        XCTAssertFalse(SpotiglassSettingsStore(fileURL: settingsStore.fileURL).settings.equalizer.enabled,
-                       "the switch is off in memory but on in the settings file")
+        XCTAssertFalse(
+            SpotiglassSettingsStore(fileURL: settingsStore.fileURL).settings.equalizer.enabled,
+            "the switch is off in memory but on in the settings file")
         XCTAssertEqual(output.current, output.originalID)
-        XCTAssertEqual(engine.lastError?.message, SpotiglassL10n.string("eq.error.driverNotLoadedYet"),
-                       "nothing said why the equalizer is off")
+        XCTAssertEqual(
+            engine.lastError?.message, SpotiglassL10n.string("eq.error.driverNotLoadedYet"),
+            "nothing said why the equalizer is off")
     }
 
     /// Switching the equalizer off when the previous output has gone away can't take the sound
@@ -840,9 +855,11 @@ final class EqualizerHALPluginTests: XCTestCase {
         try settingsStore.mutate { $0.equalizer.enabled = false }
         await waitForTheSwitch(in: settingsStore, toBe: true)
 
-        XCTAssertTrue(settingsStore.settings.equalizer.enabled, "the switch went off with the sound still on the EQ device")
-        XCTAssertTrue(SpotiglassSettingsStore(fileURL: settingsStore.fileURL).settings.equalizer.enabled,
-                      "the switch is on in memory but off in the settings file")
+        XCTAssertTrue(
+            settingsStore.settings.equalizer.enabled, "the switch went off with the sound still on the EQ device")
+        XCTAssertTrue(
+            SpotiglassSettingsStore(fileURL: settingsStore.fileURL).settings.equalizer.enabled,
+            "the switch is on in memory but off in the settings file")
         XCTAssertEqual(output.current, output.virtualID)
         XCTAssertTrue(engine.isEngaged)
         XCTAssertNotNil(engine.lastError?.message, "nothing said why the equalizer is still on")
@@ -990,12 +1007,14 @@ final class EqualizerHALPluginTests: XCTestCase {
             settings.apply(preset: preset)
             let frame = EQCoefficientFrame.build(settings: settings, sampleRateHz: 48_000)
             let fingerprint = frame.bands.map { String(format: "%.4f", $0) }.joined(separator: ",")
-            XCTAssertFalse(seen.contains(fingerprint),
-                           "two presets produced identical coefficients: \(preset.name)")
+            XCTAssertFalse(
+                seen.contains(fingerprint),
+                "two presets produced identical coefficients: \(preset.name)")
             seen.insert(fingerprint)
             if preset.name != EqualizerPreset.flatName {
-                XCTAssertNotEqual(frame.bands, bypass.bands,
-                                  "\(preset.name) should differ from bypass")
+                XCTAssertNotEqual(
+                    frame.bands, bypass.bands,
+                    "\(preset.name) should differ from bypass")
             }
         }
     }
@@ -1194,8 +1213,9 @@ final class EqualizerHALPluginTests: XCTestCase {
 
         try await engine.start()
 
-        XCTAssertEqual(stateWhileInstalling, .starting(targetUID: nil),
-                       "the main thread was blocked until the equalizer had started")
+        XCTAssertEqual(
+            stateWhileInstalling, .starting(targetUID: nil),
+            "the main thread was blocked until the equalizer had started")
         XCTAssertTrue(engine.isRunning)
         XCTAssertEqual(output.current, output.virtualID)
     }
@@ -1258,8 +1278,9 @@ final class EqualizerHALPluginTests: XCTestCase {
 
         engine.removeDriver(settingsStore: settingsStore)
         XCTAssertTrue(engine.isRemovingDriver, "the button showed no progress straight away")
-        XCTAssertEqual(engine.routeState, .starting(targetUID: nil),
-                       "the removal went ahead on the controller while the start was still running")
+        XCTAssertEqual(
+            engine.routeState, .starting(targetUID: nil),
+            "the removal went ahead on the controller while the start was still running")
         installer.letItFinish()
         await waitForTheRemovalToFinish(on: engine)
 
@@ -1285,16 +1306,18 @@ final class EqualizerHALPluginTests: XCTestCase {
         let quitCanGoOn = expectation(description: "the quit went on")
         var routeWhenQuitting: EqualizerRouteState?
         var outputWhenQuitting: AudioObjectID?
-        XCTAssertTrue(engine.releaseOutputForQuitAfterRouteChange {
-            routeWhenQuitting = engine.routeState
-            outputWhenQuitting = output.current
-            quitCanGoOn.fulfill()
-        }, "the quit didn't wait for the running start")
+        XCTAssertTrue(
+            engine.releaseOutputForQuitAfterRouteChange {
+                routeWhenQuitting = engine.routeState
+                outputWhenQuitting = output.current
+                quitCanGoOn.fulfill()
+            }, "the quit didn't wait for the running start")
         installer.letItFinish()
         await fulfillment(of: [quitCanGoOn], timeout: 5)
         await starting.value
 
-        XCTAssertNotEqual(routeWhenQuitting, .starting(targetUID: nil), "the quit went on while the start could still move the sound")
+        XCTAssertNotEqual(
+            routeWhenQuitting, .starting(targetUID: nil), "the quit went on while the start could still move the sound")
         XCTAssertEqual(outputWhenQuitting, output.originalID, "the sound was on the EQ device when Wax quit")
         engine.releaseOutputForQuit()
         XCTAssertEqual(output.current, output.originalID)
@@ -1371,7 +1394,8 @@ final class EqualizerHALPluginTests: XCTestCase {
         } catch {}
 
         XCTAssertFalse(rig.engine.isEngaged)
-        XCTAssertEqual(rig.output.current, rig.selectedID, "the sound went back to the old device instead of the picked one")
+        XCTAssertEqual(
+            rig.output.current, rig.selectedID, "the sound went back to the old device instead of the picked one")
     }
 
     @MainActor
@@ -1387,7 +1411,8 @@ final class EqualizerHALPluginTests: XCTestCase {
         rig.installer.letItFinish()
         await waitForRoute(of: rig.engine) { $0 == .disabled }
 
-        XCTAssertEqual(rig.output.current, rig.selectedID, "the sound went back to the old device instead of the picked one")
+        XCTAssertEqual(
+            rig.output.current, rig.selectedID, "the sound went back to the old device instead of the picked one")
     }
 
     /// The Mac's default output as the rig's controller sets and reads it, from the route's queue

@@ -24,7 +24,8 @@ extension PlaybackSessionViewModel {
             guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
         } catch {
             guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
-            showPlaybackError(error, while: "moving playback to a device", Self.displayError(for: error, service: service))
+            showPlaybackError(
+                error, while: "moving playback to a device", Self.displayError(for: error, service: service))
         }
     }
 
@@ -39,8 +40,9 @@ extension PlaybackSessionViewModel {
         defer {
             controlCommandsInFlight -= 1
             if controlCommandsInFlight == 0,
-               transportSyncDeferredWhileControlCommandInFlight,
-               let deferredGeneration = transportSyncDeferredGeneration {
+                transportSyncDeferredWhileControlCommandInFlight,
+                let deferredGeneration = transportSyncDeferredGeneration
+            {
                 transportSyncDeferredWhileControlCommandInFlight = false
                 transportSyncDeferredGeneration = nil
                 deferredTransportSyncTask?.cancel()
@@ -68,7 +70,8 @@ extension PlaybackSessionViewModel {
             throw CancellationError()
         }
         if let inflight = inflightTransferTask,
-           inflightTransferGeneration == generation {
+            inflightTransferGeneration == generation
+        {
             // Wait for the in-flight transfer; if it satisfied this caller's intent, we're done.
             _ = try? await inflight.value
             guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else {
@@ -135,9 +138,12 @@ extension PlaybackSessionViewModel {
             // Recovery is the user's explicit ask; never short-circuit it on cached state.
             alreadyActive = false
         }
-        SpotiglassLog.info(.playback, "performTransfer deviceID=\(deviceID) play=\(play) origin=\(origin) alreadyActive=\(alreadyActive) snapshotActive=\(latestPlayerSnapshot?.activeDevice?.deviceID ?? "<nil>")")
+        SpotiglassLog.info(
+            .playback,
+            "performTransfer deviceID=\(deviceID) play=\(play) origin=\(origin) alreadyActive=\(alreadyActive) snapshotActive=\(latestPlayerSnapshot?.activeDevice?.deviceID ?? "<nil>")"
+        )
         if alreadyActive {
-            if (origin == .ensureBeforePlay || origin == .autoResume), deviceID == self.deviceID {
+            if origin == .ensureBeforePlay || origin == .autoResume, deviceID == self.deviceID {
                 hasTransferredPlaybackToCurrentDevice = true
             }
             return false
@@ -165,8 +171,9 @@ extension PlaybackSessionViewModel {
             guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else {
                 throw CancellationError()
             }
-            SpotiglassLog.error(.playback, "transferPlayback PUT failed deviceID=\(deviceID) play=\(play) error=\(transferError)")
-            if case let .rateLimited(retryAfter) = MusicPlaybackError.from(transferError)?.reason {
+            SpotiglassLog.error(
+                .playback, "transferPlayback PUT failed deviceID=\(deviceID) play=\(play) error=\(transferError)")
+            if case .rateLimited(let retryAfter) = MusicPlaybackError.from(transferError)?.reason {
                 let cooldown = retryAfter ?? Self.durationSeconds(transferDefaultCooldown)
                 transferRetryCooldownUntil = clock.now.advanced(by: .seconds(cooldown))
             }
@@ -175,7 +182,7 @@ extension PlaybackSessionViewModel {
         guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else {
             throw CancellationError()
         }
-        if (origin == .ensureBeforePlay || origin == .autoResume), deviceID == self.deviceID {
+        if origin == .ensureBeforePlay || origin == .autoResume, deviceID == self.deviceID {
             hasTransferredPlaybackToCurrentDevice = true
         }
         return true
@@ -244,11 +251,13 @@ extension PlaybackSessionViewModel {
         }
         guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
         let devices = connectDevices
-        guard let staleSpotiglass = devices.first(where: { device in
-            device.isActive
-                && SpotifyPlaybackHost.isOwnDevice(named: device.name)
-                && device.deviceID != targetDeviceID
-        }) else {
+        guard
+            let staleSpotiglass = devices.first(where: { device in
+                device.isActive
+                    && SpotifyPlaybackHost.isOwnDevice(named: device.name)
+                    && device.deviceID != targetDeviceID
+            })
+        else {
             return
         }
         let shouldPlay = await preservedPlayState(
@@ -283,8 +292,8 @@ extension PlaybackSessionViewModel {
         guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return false }
 
         guard isTransportStateKnown,
-              let snapshot = latestPlayerSnapshot,
-              snapshot.activeDevice?.deviceID == deviceID
+            let snapshot = latestPlayerSnapshot,
+            snapshot.activeDevice?.deviceID == deviceID
         else {
             // A missing, unreadable, or mismatched player snapshot must never
             // turn a paused session into a playing transfer.

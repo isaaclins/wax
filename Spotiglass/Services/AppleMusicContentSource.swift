@@ -134,7 +134,8 @@ struct MusicKitContentSource: AppleMusicContentSource {
     }
 
     func libraryPlaylistTracks(playlistIDs: [String]) async throws -> [String: [Track]] {
-        try await Self.logged("library playlist tracks read (\(playlistIDs.count) playlists)") { () async throws -> [String: [Track]] in
+        try await Self.logged("library playlist tracks read (\(playlistIDs.count) playlists)") {
+            () async throws -> [String: [Track]] in
             guard !playlistIDs.isEmpty else { return [:] }
             // One local library query for the whole batch: each playlist comes back as a section
             // holding its tracks, which follow MusicKit's batches like every other read here, up to
@@ -144,7 +145,8 @@ struct MusicKitContentSource: AppleMusicContentSource {
             let sections = try await request.response().sections
             var tracks: [String: [Track]] = [:]
             for section in sections where !section.items.isEmpty {
-                tracks[section.id.rawValue] = try await Self.collect(section.items, limit: Self.maxCountedPlaylistTracks)
+                tracks[section.id.rawValue] = try await Self.collect(
+                    section.items, limit: Self.maxCountedPlaylistTracks)
             }
             return tracks
         }
@@ -218,9 +220,14 @@ struct MusicKitContentSource: AppleMusicContentSource {
         request.properties = [.albums, .artists]
         let detailed: MusicItemCollection<Song>
         do {
-            detailed = try await logged("catalog songs with albums (\(songs.count))") { try await request.response().items }
+            detailed = try await logged("catalog songs with albums (\(songs.count))") {
+                try await request.response().items
+            }
         } catch {
-            SpotiglassLog.info(.api, "Apple Music recently played album details failed (\(describe(error))); Home shows those songs without them")
+            SpotiglassLog.info(
+                .api,
+                "Apple Music recently played album details failed (\(describe(error))); Home shows those songs without them"
+            )
             return songs
         }
         let byID = Dictionary(detailed.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -236,9 +243,14 @@ struct MusicKitContentSource: AppleMusicContentSource {
         request.properties = [.artists]
         let detailed: MusicItemCollection<Album>
         do {
-            detailed = try await logged("catalog albums with artists (\(albums.count))") { try await request.response().items }
+            detailed = try await logged("catalog albums with artists (\(albums.count))") {
+                try await request.response().items
+            }
         } catch {
-            SpotiglassLog.info(.api, "Apple Music search album artists failed (\(describe(error))); those albums keep their plain artist name")
+            SpotiglassLog.info(
+                .api,
+                "Apple Music search album artists failed (\(describe(error))); those albums keep their plain artist name"
+            )
             return albums
         }
         let byID = Dictionary(detailed.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -299,7 +311,8 @@ struct MusicKitContentSource: AppleMusicContentSource {
     /// its kind of album allows (see `collectCatalog`).
     func tracks(of album: Album, limit: Int) async throws -> [Track] {
         try await Self.logged("album tracks read") { () async throws -> [Track] in
-            guard Self.needsMore(album.tracks, limit: limit), MusicKitLibraryLookup.isCatalogID(album.id.rawValue) else {
+            guard Self.needsMore(album.tracks, limit: limit), MusicKitLibraryLookup.isCatalogID(album.id.rawValue)
+            else {
                 return try await Self.collect(album.tracks, limit: limit)
             }
             return try await collectCatalog(
@@ -313,7 +326,8 @@ struct MusicKitContentSource: AppleMusicContentSource {
     /// Like album tracks, an artist's albums arrive one batch at a time.
     func albums(of artist: Artist, limit: Int) async throws -> [Album] {
         try await Self.logged("artist albums read") { () async throws -> [Album] in
-            guard Self.needsMore(artist.albums, limit: limit), MusicKitLibraryLookup.isCatalogID(artist.id.rawValue) else {
+            guard Self.needsMore(artist.albums, limit: limit), MusicKitLibraryLookup.isCatalogID(artist.id.rawValue)
+            else {
                 return try await Self.collect(artist.albums, limit: limit)
             }
             return try await collectCatalog(
@@ -358,11 +372,16 @@ struct MusicKitContentSource: AppleMusicContentSource {
 
     /// Also the player's rating lookup, so its failure is logged too.
     static func catalogSongReleases(catalogIDs: [String]) async throws -> [String: AppleMusicCatalogRelease] {
-        try await logged("catalog song ratings read (\(catalogIDs.count) songs)") { () async throws -> [String: AppleMusicCatalogRelease] in
-            let request = MusicCatalogResourceRequest<Song>(matching: \.id, memberOf: catalogIDs.map { MusicItemID($0) })
+        try await logged("catalog song ratings read (\(catalogIDs.count) songs)") {
+            () async throws -> [String: AppleMusicCatalogRelease] in
+            let request = MusicCatalogResourceRequest<Song>(
+                matching: \.id, memberOf: catalogIDs.map { MusicItemID($0) })
             return Dictionary(
                 try await request.response().items.map {
-                    ($0.id.rawValue, AppleMusicCatalogRelease(isExplicit: $0.contentRating == .explicit, artwork: $0.artwork))
+                    (
+                        $0.id.rawValue,
+                        AppleMusicCatalogRelease(isExplicit: $0.contentRating == .explicit, artwork: $0.artwork)
+                    )
                 },
                 uniquingKeysWith: { first, _ in first }
             )
@@ -370,8 +389,10 @@ struct MusicKitContentSource: AppleMusicContentSource {
     }
 
     func catalogAlbumRatings(catalogIDs: [String]) async throws -> [String: Bool] {
-        try await Self.logged("catalog album ratings read (\(catalogIDs.count) albums)") { () async throws -> [String: Bool] in
-            let request = MusicCatalogResourceRequest<Album>(matching: \.id, memberOf: catalogIDs.map { MusicItemID($0) })
+        try await Self.logged("catalog album ratings read (\(catalogIDs.count) albums)") {
+            () async throws -> [String: Bool] in
+            let request = MusicCatalogResourceRequest<Album>(
+                matching: \.id, memberOf: catalogIDs.map { MusicItemID($0) })
             return Dictionary(
                 try await request.response().items.map { ($0.id.rawValue, $0.contentRating == .explicit) },
                 uniquingKeysWith: { first, _ in first }
@@ -511,7 +532,8 @@ enum AppleMusicCatalogPages {
             return Array((firstBatch ?? []).prefix(limit))
         }
         let path = relationship.path(storefront: try await storefront())
-        return try await items(Item.self, from: path, limit: limit, dropsRepeats: relationship.dropsRepeats, fetch: fetch)
+        return try await items(
+            Item.self, from: path, limit: limit, dropsRepeats: relationship.dropsRepeats, fetch: fetch)
     }
 
     /// One API page. Its error stays MusicKit's or the network's, so a failed read shows as
@@ -591,7 +613,8 @@ struct SystemAppleMusicAuthorization: AppleMusicAuthorizing {
             SpotiglassLog.info(.api, "Apple Music sign-in check: \(MusicKitContentSource.describe(error))")
             return Self.signedIn(after: error)
         } catch {
-            SpotiglassLog.info(.api, "Apple Music sign-in check failed, account unknown: \(MusicKitContentSource.describe(error))")
+            SpotiglassLog.info(
+                .api, "Apple Music sign-in check failed, account unknown: \(MusicKitContentSource.describe(error))")
             return nil
         }
     }
@@ -651,14 +674,17 @@ extension MusicKitContentSource {
     /// whether one saved album and one catalog release share a key or several do. The library is
     /// searched by title only: it finds nothing for title and artist together.
     static func albums(matching query: AppleMusicAlbumQuery) async throws -> AppleMusicAlbumSearch {
-        try await logged("album search for a pin (\(SpotiglassLog.personal(query.title)) / \(SpotiglassLog.personal(query.artist)))") { () async throws -> AppleMusicAlbumSearch in
+        try await logged(
+            "album search for a pin (\(SpotiglassLog.personal(query.title)) / \(SpotiglassLog.personal(query.artist)))"
+        ) { () async throws -> AppleMusicAlbumSearch in
             var catalog = MusicCatalogSearchRequest(term: "\(query.title) \(query.artist)", types: [Album.self])
             catalog.limit = pinnedAlbumSearchLimit
             var library = MusicLibrarySearchRequest(term: query.title, types: [Album.self])
             library.limit = pinnedAlbumSearchLimit
             async let catalogAlbums = catalog.response().albums
             async let libraryAlbums = library.response().albums
-            return AppleMusicAlbumSearch(catalog: Array(try await catalogAlbums), library: Array(try await libraryAlbums))
+            return AppleMusicAlbumSearch(
+                catalog: Array(try await catalogAlbums), library: Array(try await libraryAlbums))
         }
     }
 
@@ -675,7 +701,9 @@ extension MusicKitContentSource {
         try await logged("pin aliases read (\(kind), \(itemIDs.count) ids)") { () async throws -> [String: String] in
             let asked = Set(itemIDs)
             let ids = itemIDs.map { MusicItemID($0) }
-            func pairs<Item>(_ items: some Sequence<Item>, id: (Item) -> String, other: (Item) -> String?) -> [String: String] {
+            func pairs<Item>(_ items: some Sequence<Item>, id: (Item) -> String, other: (Item) -> String?) -> [String:
+                String]
+            {
                 var result: [String: String] = [:]
                 for item in items {
                     guard let otherID = other(item) else { continue }
@@ -689,15 +717,20 @@ extension MusicKitContentSource {
             case .playlist:
                 var request = MusicLibraryRequest<Playlist>()
                 request.filter(matching: \.id, memberOf: ids)
-                return pairs(try await request.response().items, id: \.id.rawValue, other: AppleMusicItemMapping.catalogID(of:))
+                return pairs(
+                    try await request.response().items, id: \.id.rawValue, other: AppleMusicItemMapping.catalogID(of:))
             case .track:
                 var request = MusicLibraryRequest<Song>()
                 request.filter(matching: \.id, memberOf: ids)
-                return pairs(try await request.response().items, id: \.id.rawValue) { AppleMusicSongIdentity(encoding: $0).catalogID }
+                return pairs(try await request.response().items, id: \.id.rawValue) {
+                    AppleMusicSongIdentity(encoding: $0).catalogID
+                }
             case .artist:
                 var request = MusicLibraryRequest<Artist>()
                 request.filter(matching: \.id, memberOf: ids)
-                return pairs(try await request.response().items, id: \.id.rawValue) { AppleMusicSongIdentity(encoding: $0).catalogID }
+                return pairs(try await request.response().items, id: \.id.rawValue) {
+                    AppleMusicSongIdentity(encoding: $0).catalogID
+                }
             case .album, .likedSongs:
                 // Albums are matched by their match key (see `pinnedAlbums(ids:)`).
                 return [:]
@@ -710,7 +743,8 @@ extension MusicKitContentSource {
 /// (`top-songs`) and similar artists (`similar-artists`).
 extension MusicKitContentSource: AppleMusicAutoplayCatalog {
     func autoplayArtistMatches(named name: String, limit: Int) async throws -> [AppleMusicAutoplayArtistMatch] {
-        try await Self.logged("autoplay artist search (\(SpotiglassLog.personal(name)))") { () async throws -> [AppleMusicAutoplayArtistMatch] in
+        try await Self.logged("autoplay artist search (\(SpotiglassLog.personal(name)))") {
+            () async throws -> [AppleMusicAutoplayArtistMatch] in
             var request = MusicCatalogSearchRequest(term: name, types: [Artist.self])
             request.limit = limit
             return try await request.response().artists.map {
@@ -720,7 +754,8 @@ extension MusicKitContentSource: AppleMusicAutoplayCatalog {
     }
 
     func autoplayArtists(ids: [String], includeSimilar: Bool) async throws -> [AppleMusicAutoplayCatalogArtist] {
-        try await Self.logged("autoplay artists read (\(ids.count) ids)") { () async throws -> [AppleMusicAutoplayCatalogArtist] in
+        try await Self.logged("autoplay artists read (\(ids.count) ids)") {
+            () async throws -> [AppleMusicAutoplayCatalogArtist] in
             guard !ids.isEmpty else { return [] }
             var request = MusicCatalogResourceRequest<Artist>(matching: \.id, memberOf: ids.map { MusicItemID($0) })
             request.properties = includeSimilar ? [.similarArtists, .topSongs] : [.topSongs]

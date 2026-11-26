@@ -55,11 +55,13 @@ enum UnreadableFileBackup {
         let directory = url.deletingLastPathComponent()
         let prefix = url.deletingPathExtension().lastPathComponent + marker
         guard let names = try? fileManager.contentsOfDirectory(atPath: directory.path) else { return [] }
-        return names
+        return
+            names
             .filter { $0.hasPrefix(prefix) }
             .sorted { lhs, rhs in
                 // Same-second copies carry "-2", "-3": compare the date part, then the counter.
-                let left = sortKey(lhs), right = sortKey(rhs)
+                let left = sortKey(lhs)
+                let right = sortKey(rhs)
                 return left.date != right.date ? left.date < right.date : left.counter < right.counter
             }
             .map { directory.appendingPathComponent($0) }
@@ -82,7 +84,7 @@ enum UnreadableFileBackup {
         }
         let context: DecodingError.Context
         switch decodingError {
-        case let .dataCorrupted(ctx), let .keyNotFound(_, ctx), let .typeMismatch(_, ctx), let .valueNotFound(_, ctx):
+        case .dataCorrupted(let ctx), .keyNotFound(_, let ctx), .typeMismatch(_, let ctx), .valueNotFound(_, let ctx):
             context = ctx
         @unknown default:
             return String(describing: error)

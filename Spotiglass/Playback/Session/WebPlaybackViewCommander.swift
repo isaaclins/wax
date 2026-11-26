@@ -82,7 +82,7 @@ final class WebPlaybackViewCommander: WebPlaybackCommanding {
         generation: PlaybackHostGeneration
     ) async throws {
         guard !Task.isCancelled,
-              loadedHostGeneration == nil || loadedHostGeneration == generation
+            loadedHostGeneration == nil || loadedHostGeneration == generation
         else { return }
         try await send(command, payload: payload)
     }

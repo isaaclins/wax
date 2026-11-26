@@ -1,20 +1,21 @@
 import Darwin
 import XCTest
+
 @testable import Spotiglass
 
 final class LoopbackOAuthCallbackTests: XCTestCase {
-  private static let listenerLock = NSLock()
-  private static let responseCopy = LoopbackOAuthResponseCopy(
-    invalidRequest: "invalid response",
-    success: "localized sign-in complete",
-    failure: "localized sign-in failure"
-  )
+    private static let listenerLock = NSLock()
+    private static let responseCopy = LoopbackOAuthResponseCopy(
+        invalidRequest: "invalid response",
+        success: "localized sign-in complete",
+        failure: "localized sign-in failure"
+    )
 
-  private func withExclusiveListener<T>(_ body: () async throws -> T) async rethrows -> T {
-    Self.listenerLock.lock()
-    defer { Self.listenerLock.unlock() }
-    return try await body()
-  }
+    private func withExclusiveListener<T>(_ body: () async throws -> T) async rethrows -> T {
+        Self.listenerLock.lock()
+        defer { Self.listenerLock.unlock() }
+        return try await body()
+    }
 
     // MARK: - LoopbackOAuthCallbackValidator (pure URL parsing)
 
@@ -285,7 +286,7 @@ final class LoopbackOAuthCallbackTests: XCTestCase {
     func testListenerCloseIsIdempotent() throws {
         let listener = try startListener(state: "S")
         listener.close()
-        listener.close() // second close must be a no-op (guarded by didClose flag)
+        listener.close()  // second close must be a no-op (guarded by didClose flag)
     }
 
 }

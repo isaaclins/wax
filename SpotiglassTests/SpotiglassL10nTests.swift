@@ -1,5 +1,6 @@
-import os
 import XCTest
+import os
+
 @testable import Spotiglass
 
 @MainActor
@@ -40,9 +41,10 @@ final class SpotiglassL10nTests: XCTestCase {
         }
 
         XCTAssertEqual(SpotiglassL10n.localizationBundleSearches.withLock { $0 }, searches)
-        XCTAssertNotEqual(SpotiglassL10n.string("browser.home", locale: german),
-                          SpotiglassL10n.string("browser.home", locale: english),
-                          "each language still gets its own strings")
+        XCTAssertNotEqual(
+            SpotiglassL10n.string("browser.home", locale: german),
+            SpotiglassL10n.string("browser.home", locale: english),
+            "each language still gets its own strings")
     }
 
     func testStringAndFormatResolveKeys() {

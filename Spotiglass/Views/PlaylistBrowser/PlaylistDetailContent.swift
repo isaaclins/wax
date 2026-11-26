@@ -128,8 +128,8 @@ struct PlaylistDetailContent: View {
 
     private var canRenamePlaylist: Bool {
         guard detail.playlist.id != SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
-              let currentUserID = currentUserID,
-              !currentUserID.isEmpty
+            let currentUserID = currentUserID,
+            !currentUserID.isEmpty
         else { return false }
         return detail.playlist.ownerID == currentUserID
     }
@@ -139,8 +139,8 @@ struct PlaylistDetailContent: View {
     private var moveRows: ((IndexSet, Int) -> Void)? {
         let playlistID = detail.playlist.id
         guard !detail.playlist.isAlbumDetail,
-              browserViewModel.reorderingPlaylistID == nil,
-              browserViewModel.canReorderTracks(inPlaylist: playlistID)
+            browserViewModel.reorderingPlaylistID == nil,
+            browserViewModel.canReorderTracks(inPlaylist: playlistID)
         else { return nil }
         let tracks = detail.tracks
         return { [browserViewModel] source, destination in
@@ -164,14 +164,14 @@ struct PlaylistDetailContent: View {
 
     private var isEditingDisplayedPlaylistName: Bool {
         guard isEditingPlaylistName,
-              let editingPlaylistID
+            let editingPlaylistID
         else { return false }
         return editingPlaylistID == detail.playlist.id
     }
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("PlaylistDetailContent")
+            let _ = ViewBodyTally.record("PlaylistDetailContent")
         #endif
         VStack(spacing: 0) {
             headerBlock
@@ -179,7 +179,9 @@ struct PlaylistDetailContent: View {
             Divider()
 
             if detail.tracks.isEmpty {
-                EmptyStateView(title: SpotiglassL10n.string("browser.noTracks.title"), message: SpotiglassL10n.string("browser.noTracks.emptyPlaylist"))
+                EmptyStateView(
+                    title: SpotiglassL10n.string("browser.noTracks.title"),
+                    message: SpotiglassL10n.string("browser.noTracks.emptyPlaylist"))
             } else {
                 let marks = marksCache.marks(in: detail.tracks, from: playback)
                 DetailTrackSelectionReader(selection: browserViewModel.detailTrackSelection) { selection in
@@ -202,23 +204,28 @@ struct PlaylistDetailContent: View {
                                     drawsRowHighlights: false,
                                     isKeyboardFocusable: false,
                                     trackOpsMenuItems: {
-                                        AnyView(TrackOpsMenuItems(
-                                            targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
-                                            browserViewModel: browserViewModel,
-                                            sourcePlaylistID: detail.playlist.isAlbumDetail ? nil : detail.playlist.id,
-                                            onRequestCreatePlaylist: { rows in
-                                                newPlaylistInitialRows = rows
-                                                newPlaylistName = ""
-                                                isPromptingNewPlaylist = true
-                                            },
-                                            onRequestLibraryContinuation: onRequestLibraryContinuation,
-                                            openArtist: { target in
-                                                if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
-                                            },
-                                            addToQueue: addToQueue,
-                                            hasPlaybackDevice: hasPlaybackDevice,
-                                            copyableURI: track.playableURI
-                                        ))
+                                        AnyView(
+                                            TrackOpsMenuItems(
+                                                targets: browserViewModel.effectiveTrackTargets(
+                                                    for: track, selectedRows: selectedRows),
+                                                browserViewModel: browserViewModel,
+                                                sourcePlaylistID: detail.playlist.isAlbumDetail
+                                                    ? nil : detail.playlist.id,
+                                                onRequestCreatePlaylist: { rows in
+                                                    newPlaylistInitialRows = rows
+                                                    newPlaylistName = ""
+                                                    isPromptingNewPlaylist = true
+                                                },
+                                                onRequestLibraryContinuation: onRequestLibraryContinuation,
+                                                openArtist: { target in
+                                                    if let id = target.id {
+                                                        openArtist(MusicArtistRef(id: id, name: target.name))
+                                                    }
+                                                },
+                                                addToQueue: addToQueue,
+                                                hasPlaybackDevice: hasPlaybackDevice,
+                                                copyableURI: track.playableURI
+                                            ))
                                     }
                                 )
                             }
@@ -257,12 +264,14 @@ struct PlaylistDetailContent: View {
             // Two catalog keys with a real plural rule. The old literal passed
             // an English "s" as a format argument, which Spanish rendered as
             // the non-word "canciónes" (#151).
-            Text(newPlaylistInitialRows.isEmpty
-                 ? SpotiglassL10n.format("playlist.detail.newPlaylist.empty", MusicServiceSelection.current.displayName)
-                 : SpotiglassL10n.format(
-                     "playlist.detail.newPlaylist.withTracks",
-                     Int64(newPlaylistInitialRows.count)
-                   ))
+            Text(
+                newPlaylistInitialRows.isEmpty
+                    ? SpotiglassL10n.format(
+                        "playlist.detail.newPlaylist.empty", MusicServiceSelection.current.displayName)
+                    : SpotiglassL10n.format(
+                        "playlist.detail.newPlaylist.withTracks",
+                        Int64(newPlaylistInitialRows.count)
+                    ))
         }
         .onChange(of: detail.playlist.id) { _, _ in
             cancelPlaylistNameEditing()
@@ -283,11 +292,11 @@ struct PlaylistDetailContent: View {
                         size: SpotiglassDesign.detailHeaderArtworkSize,
                         isEmphasized: true
                     )
-                        .overlay(alignment: .topTrailing) {
-                            if isHeaderPinned {
-                                PinnedBadge(scale: .prominent)
-                            }
+                    .overlay(alignment: .topTrailing) {
+                        if isHeaderPinned {
+                            PinnedBadge(scale: .prominent)
                         }
+                    }
                 } else {
                     ArtworkView(url: detail.playlist.artworkURL, size: SpotiglassDesign.detailHeaderArtworkSize)
                         .overlay(alignment: .topTrailing) {
@@ -301,11 +310,13 @@ struct PlaylistDetailContent: View {
             VStack(alignment: .leading, spacing: SpotiglassDesign.spacingS) {
                 playlistTitle
 
-                Text(detail.playlist.ownerTracksLine(
-                    currentUserID: currentUserID,
-                    locale: spotiglassLocale
-                ).nonEmptyLine)
-                    .foregroundStyle(.secondary)
+                Text(
+                    detail.playlist.ownerTracksLine(
+                        currentUserID: currentUserID,
+                        locale: spotiglassLocale
+                    ).nonEmptyLine
+                )
+                .foregroundStyle(.secondary)
 
                 DetailHeaderActions(
                     play: playHeaderAction,
@@ -318,26 +329,28 @@ struct PlaylistDetailContent: View {
             Spacer()
         }
         .padding(SpotiglassDesign.Layout.contentMargin)
-        .modifier(LibraryHeaderPinningModifier(
-            supportsHeaderPinning: supportsHeaderPinning,
-            headerPinnedItem: headerPinnedItem,
-            tracksSurfaceKey: tracksSurfaceKey,
-            isHeaderPinned: isHeaderPinned,
-            pinnedStore: pinnedStore,
-            canRenamePlaylist: canRenamePlaylist,
-            onEditPlaylistName: beginPlaylistNameEditing,
-            deletablePlaylist: deletablePlaylist,
-            onDeletePlaylist: { browserViewModel.requestPlaylistDeletion($0) },
-            albumLibraryState: albumLibraryState,
-            onToggleAlbumLibrary: {
-                Task {
-                    await browserViewModel.toggleAlbumInLibrary(
-                        albumID: detail.playlist.id,
-                        albumName: detail.playlist.title
-                    )
+        .modifier(
+            LibraryHeaderPinningModifier(
+                supportsHeaderPinning: supportsHeaderPinning,
+                headerPinnedItem: headerPinnedItem,
+                tracksSurfaceKey: tracksSurfaceKey,
+                isHeaderPinned: isHeaderPinned,
+                pinnedStore: pinnedStore,
+                canRenamePlaylist: canRenamePlaylist,
+                onEditPlaylistName: beginPlaylistNameEditing,
+                deletablePlaylist: deletablePlaylist,
+                onDeletePlaylist: { browserViewModel.requestPlaylistDeletion($0) },
+                albumLibraryState: albumLibraryState,
+                onToggleAlbumLibrary: {
+                    Task {
+                        await browserViewModel.toggleAlbumInLibrary(
+                            albumID: detail.playlist.id,
+                            albumName: detail.playlist.title
+                        )
+                    }
                 }
-            }
-        ))
+            )
+        )
         .task(id: detail.playlist.id) {
             guard detail.playlist.isAlbumDetail else { return }
             await browserViewModel.loadSavedAlbumState(for: detail.playlist.id)
@@ -360,8 +373,8 @@ struct PlaylistDetailContent: View {
     /// The displayed playlist, when the provider can delete it and the user owns it.
     private var deletablePlaylist: MusicPlaylistSummary? {
         guard !detail.playlist.isAlbumDetail,
-              let summary = browserViewModel.playlistsByID[detail.playlist.id],
-              browserViewModel.canDeletePlaylist(summary)
+            let summary = browserViewModel.playlistsByID[detail.playlist.id],
+            browserViewModel.canDeletePlaylist(summary)
         else { return nil }
         return summary
     }
@@ -369,7 +382,7 @@ struct PlaylistDetailContent: View {
     /// Add or remove the displayed album, for providers that save albums; `nil` hides the item.
     private var albumLibraryState: TrackSelectionLikedState? {
         guard detail.playlist.isAlbumDetail,
-              browserViewModel.supportedLibraryEdits.contains(.saveAlbums)
+            browserViewModel.supportedLibraryEdits.contains(.saveAlbums)
         else { return nil }
         switch browserViewModel.savedAlbumState(for: detail.playlist.id) {
         case .some(true): return .remove
@@ -406,10 +419,10 @@ struct PlaylistDetailContent: View {
 
     private func commitPlaylistName() {
         guard isEditingPlaylistName,
-              let capturedPlaylistID = PlaylistRenameEditingPolicy.commitTarget(
-                  editingPlaylistID: editingPlaylistID,
-                  displayedPlaylistID: detail.playlist.id
-              )
+            let capturedPlaylistID = PlaylistRenameEditingPolicy.commitTarget(
+                editingPlaylistID: editingPlaylistID,
+                displayedPlaylistID: detail.playlist.id
+            )
         else {
             cancelPlaylistNameEditing()
             return
@@ -436,7 +449,7 @@ struct PlaylistDetailContent: View {
 enum PlaylistRenameEditingPolicy {
     static func commitTarget(editingPlaylistID: String?, displayedPlaylistID: String) -> String? {
         guard let editingPlaylistID,
-              editingPlaylistID == displayedPlaylistID
+            editingPlaylistID == displayedPlaylistID
         else { return nil }
         return editingPlaylistID
     }
@@ -446,10 +459,11 @@ enum PlaylistRenameEditingPolicy {
         rowID: String,
         visiblePlaylistIDs: [String]
     ) -> String? {
-        guard let target = commitTarget(
-            editingPlaylistID: editingPlaylistID,
-            displayedPlaylistID: rowID
-        ), visiblePlaylistIDs.contains(target)
+        guard
+            let target = commitTarget(
+                editingPlaylistID: editingPlaylistID,
+                displayedPlaylistID: rowID
+            ), visiblePlaylistIDs.contains(target)
         else { return nil }
         return target
     }
@@ -575,9 +589,11 @@ struct TrackOpsMenuItems: View {
 
     private var artistTargets: [ArtistTapTarget] {
         var seen: Set<String> = []
-        let supplied = artistTargetsOverride ?? targets.flatMap { row in
-            row.artistRefs.map { ArtistTapTarget(id: $0.id, name: $0.name) }
-        }
+        let supplied =
+            artistTargetsOverride
+            ?? targets.flatMap { row in
+                row.artistRefs.map { ArtistTapTarget(id: $0.id, name: $0.name) }
+            }
         return supplied.filter { seen.insert($0.stableID).inserted }
     }
 
@@ -610,7 +626,7 @@ struct TrackOpsMenuItems: View {
         }
         let ids = browserViewModel.catalogTrackIDs(for: likedSongsTargets)
         guard ids.count == likedSongsTargets.count,
-              ids.allSatisfy({ browserViewModel.savedTrackState(for: $0) != nil })
+            ids.allSatisfy({ browserViewModel.savedTrackState(for: $0) != nil })
         else { return .unavailable }
         return PlaylistBrowserView.trackSelectionLikedState(
             for: likedSongsTargets,
@@ -689,7 +705,8 @@ struct TrackOpsMenuItems: View {
         }
 
         if menuActionKinds.contains(.copyURI),
-           let uri = Self.copyableSpotifyURI(copyableURI) {
+            let uri = Self.copyableSpotifyURI(copyableURI)
+        {
             Button(SpotiglassL10n.string("queue.copyURI")) {
                 copySpotifyURI(uri)
             }
@@ -771,7 +788,8 @@ struct TrackOpsMenuItems: View {
         .disabled(likedSongsTargets.isEmpty || likedSongsState == .unavailable)
 
         if let seed = targets.first(where: { $0.spotifyTrackForPinning() != nil }),
-           let onRequestLibraryContinuation {
+            let onRequestLibraryContinuation
+        {
             Divider()
             Button(SpotiglassL10n.string("library.continuation.menu")) {
                 onRequestLibraryContinuation(seed)
@@ -821,9 +839,12 @@ struct LibraryHeaderPinningModifier: ViewModifier {
                         Divider()
                     }
                     if let albumLibraryState {
-                        Button(SpotiglassL10n.string(
-                            albumLibraryState == .remove ? "browser.album.removeFromLibrary" : "browser.album.addToLibrary"
-                        )) {
+                        Button(
+                            SpotiglassL10n.string(
+                                albumLibraryState == .remove
+                                    ? "browser.album.removeFromLibrary" : "browser.album.addToLibrary"
+                            )
+                        ) {
                             onToggleAlbumLibrary()
                         }
                         .disabled(albumLibraryState == .unavailable)

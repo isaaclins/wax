@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// The browser's library edits that only some providers offer (remove from playlist, delete
@@ -8,12 +9,16 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
     private let me = "apple-music-library"
 
     private func playlist(_ id: String, _ name: String, owner: String? = nil) -> MusicPlaylistSummary {
-        MusicPlaylistSummary(id: id, name: name, ownerID: owner ?? me, ownerName: "You", imageURL: nil, trackCount: 2, snapshotID: "applemusic")
+        MusicPlaylistSummary(
+            id: id, name: name, ownerID: owner ?? me, ownerName: "You", imageURL: nil, trackCount: 2,
+            snapshotID: "applemusic")
     }
 
     private func row(_ id: String, position: Int) -> TrackRowViewModel {
         TrackRowViewModel(
-            MusicPlaylistTrackItem(id: "\(position)-\(id)", content: .track(AppleMusicLibraryEditorTests.track(id: id, name: "Song \(id)"))),
+            MusicPlaylistTrackItem(
+                id: "\(position)-\(id)", content: .track(AppleMusicLibraryEditorTests.track(id: id, name: "Song \(id)"))
+            ),
             listPosition: position
         )
     }
@@ -59,11 +64,14 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         XCTAssertTrue(viewModel.canRemoveRows(fromPlaylist: "-1"))
         XCTAssertFalse(viewModel.canRemoveRows(fromPlaylist: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID))
 
-        await viewModel.removeRowsFromPlaylist([row("-30", position: 2)], playlistID: "-1", playlistName: "Spotiglass test")
+        await viewModel.removeRowsFromPlaylist(
+            [row("-30", position: 2)], playlistID: "-1", playlistName: "Spotiglass test")
 
         XCTAssertEqual(api.removals.map(\.uri), ["applemusic:song:-30"])
         XCTAssertEqual(api.removals.map(\.positions), [[1]])
-        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.format("playlist.mutation.removedFromPlaylist", Int64(1), "Spotiglass test"))
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text,
+            SpotiglassL10n.format("playlist.mutation.removedFromPlaylist", Int64(1), "Spotiglass test"))
     }
 
     func testRemoveFromSomeoneElsesPlaylistIsNotOffered() async {
@@ -80,9 +88,11 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         api.error = AppleMusicLibraryEditError.musicControlDenied
         let viewModel = await makeViewModel(api)
 
-        await viewModel.removeRowsFromPlaylist([row("-30", position: 1)], playlistID: "-1", playlistName: "Spotiglass test")
+        await viewModel.removeRowsFromPlaylist(
+            [row("-30", position: 1)], playlistID: "-1", playlistName: "Spotiglass test")
 
-        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.string("appleMusic.edit.error.musicControlDenied"))
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text, SpotiglassL10n.string("appleMusic.edit.error.musicControlDenied"))
     }
 
     // MARK: - Delete playlist
@@ -102,7 +112,9 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         XCTAssertNil(viewModel.playlistPendingDeletion)
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["-2"])
         XCTAssertEqual(viewModel.sidebarSelection, .home)
-        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.format("playlist.mutation.deletedPlaylist", "Spotiglass test"))
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text,
+            SpotiglassL10n.format("playlist.mutation.deletedPlaylist", "Spotiglass test"))
     }
 
     /// A deleted playlist leaves the back history: back names the place
@@ -144,9 +156,12 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         XCTAssertFalse(viewModel.breadcrumbPath.contains { $0.kind == .playlist(id: "-1") })
         await viewModel.navigateBack()
         XCTAssertEqual(viewModel.sidebarSelection, .home)
-        XCTAssertNotEqual(BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection), "Spotiglass test")
+        XCTAssertNotEqual(
+            BrowserToolbarPresentation.windowTitle(
+                for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection), "Spotiglass test")
         XCTAssertEqual(
-            BrowserToolbarPresentation.windowTitle(for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection),
+            BrowserToolbarPresentation.windowTitle(
+                for: viewModel.breadcrumbPath, selection: viewModel.sidebarSelection),
             ViewTestHost.localizedString("browser.home")
         )
     }
@@ -194,7 +209,7 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
 
         await viewModel.unfavoriteRows([song])
         XCTAssertEqual(api.calls, [], "nothing is removed before the confirmation")
-        guard case let .songs(rows) = try XCTUnwrap(viewModel.pendingLibraryRemoval) else {
+        guard case .songs(let rows) = try XCTUnwrap(viewModel.pendingLibraryRemoval) else {
             return XCTFail("expected the songs confirmation")
         }
         XCTAssertEqual(rows.map(\.id), [song.id])
@@ -216,7 +231,11 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         let cache = MemoryBrowsingCache()
         let viewModel = PlaylistBrowserViewModel(api: api, cache: cache)
         await viewModel.load()
-        let kept = [MusicPlaylistTrackItem(id: "1-699902614", content: .track(AppleMusicLibraryEditorTests.track(id: "699902614", name: "Computer Love")))]
+        let kept = [
+            MusicPlaylistTrackItem(
+                id: "1-699902614",
+                content: .track(AppleMusicLibraryEditorTests.track(id: "699902614", name: "Computer Love")))
+        ]
         try cache.saveTracks(kept, playlistID: "pl1", snapshotID: "applemusic", cachedAt: Date())
 
         await viewModel.unfavoriteRows([row("699902614", position: 1)], confirmed: true)
@@ -244,7 +263,7 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         await viewModel.toggleAlbumInLibrary(albumID: "1440", albumName: "Computer World")
         XCTAssertEqual(api.calls, [])
         XCTAssertEqual(viewModel.savedAlbumState(for: "1440"), true, "the menu keeps the state until confirmed")
-        guard case let .album(id, name) = try XCTUnwrap(viewModel.pendingLibraryRemoval) else {
+        guard case .album(let id, let name) = try XCTUnwrap(viewModel.pendingLibraryRemoval) else {
             return XCTFail("expected the album confirmation")
         }
         XCTAssertEqual(id, "1440")
@@ -299,7 +318,8 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
     // MARK: - Track counts (#407)
 
     private func uncounted(_ id: String, _ name: String) -> MusicPlaylistSummary {
-        MusicPlaylistSummary(id: id, name: name, ownerID: me, ownerName: "You", imageURL: nil, trackCount: nil, snapshotID: "applemusic")
+        MusicPlaylistSummary(
+            id: id, name: name, ownerID: me, ownerName: "You", imageURL: nil, trackCount: nil, snapshotID: "applemusic")
     }
 
     /// Music takes a song removed from the library out of every playlist, so the sidebar counts
@@ -314,7 +334,8 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
 
         api.trackCounts = ["-1": 9]
         await viewModel.unfavoriteRows([row("699902614", position: 1)], confirmed: true)
-        XCTAssertEqual(viewModel.playlistState.currentValue?.last?.trackCount, 10, "the row keeps its count while it is counted")
+        XCTAssertEqual(
+            viewModel.playlistState.currentValue?.last?.trackCount, 10, "the row keeps its count while it is counted")
         await viewModel.playlistTrackCountTask?.value
 
         XCTAssertEqual(viewModel.playlistState.currentValue?.last?.trackCount, 9)
@@ -362,7 +383,8 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         api.trackCountsGate = gate
         await viewModel.refreshPlaylists()
         XCTAssertEqual(viewModel.playlistState.currentValue?.last?.trackCount, 10, "the stand-in")
-        await viewModel.addRowsToPlaylist([row("699902614", position: 1), row("1", position: 2)], playlistID: "-1", playlistName: "Road")
+        await viewModel.addRowsToPlaylist(
+            [row("699902614", position: 1), row("1", position: 2)], playlistID: "-1", playlistName: "Road")
         api.trackCounts = ["-1": 13]
         gate.open()
         await viewModel.playlistTrackCountTask?.value
@@ -417,8 +439,11 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         api.trackCounts = ["-1": 6]
         let gate = LibraryEditsGate()
         api.trackCountsGate = gate
-        let saved = MusicPlaylistSummary(id: "-1", name: "Road", ownerID: me, ownerName: "You", imageURL: nil, trackCount: 5, snapshotID: "applemusic")
-        let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache(cachedPlaylists: [saved], playlistListCacheAge: 1))
+        let saved = MusicPlaylistSummary(
+            id: "-1", name: "Road", ownerID: me, ownerName: "You", imageURL: nil, trackCount: 5,
+            snapshotID: "applemusic")
+        let viewModel = PlaylistBrowserViewModel(
+            api: api, cache: MockBrowsingCache(cachedPlaylists: [saved], playlistListCacheAge: 1))
         await viewModel.load()
         XCTAssertEqual(viewModel.playlistState.currentValue?.last?.trackCount, 5, "shown while it is counted")
 
@@ -511,7 +536,8 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         api.playlists = [playlist("-1", "Spotiglass test")]
         let viewModel = await makeViewModel(api)
 
-        await viewModel.removeRowsFromPlaylist([row("-30", position: 2)], playlistID: "-1", playlistName: "Spotiglass test")
+        await viewModel.removeRowsFromPlaylist(
+            [row("-30", position: 2)], playlistID: "-1", playlistName: "Spotiglass test")
 
         XCTAssertEqual(viewModel.playlistsByID["-1"]?.trackCount, 1)
         XCTAssertEqual(viewModel.playlistState.currentValue?.first?.trackCount, 1)
@@ -523,9 +549,11 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         api.playlists = [playlist("-1", "Spotiglass test")]
         let viewModel = await makeViewModel(api)
 
-        await viewModel.addRowsToPlaylist([row("699902614", position: 1)], playlistID: "-1", playlistName: "Spotiglass test")
+        await viewModel.addRowsToPlaylist(
+            [row("699902614", position: 1)], playlistID: "-1", playlistName: "Spotiglass test")
         XCTAssertEqual(viewModel.playlistsByID["-1"]?.trackCount, 3)
-        await viewModel.removeRowsFromPlaylist([row("699902614", position: 3)], playlistID: "-1", playlistName: "Spotiglass test")
+        await viewModel.removeRowsFromPlaylist(
+            [row("699902614", position: 3)], playlistID: "-1", playlistName: "Spotiglass test")
         XCTAssertEqual(viewModel.playlistsByID["-1"]?.trackCount, 2)
     }
 
@@ -537,7 +565,8 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         api.removeError = AppleMusicLibraryEditError.musicControlDenied
         let viewModel = await makeViewModel(api)
 
-        await viewModel.moveRowsBetweenPlaylists([row("-30", position: 1)], from: "-1", to: "-2", destinationName: "Spotiglass test")
+        await viewModel.moveRowsBetweenPlaylists(
+            [row("-30", position: 1)], from: "-1", to: "-2", destinationName: "Spotiglass test")
 
         XCTAssertEqual(viewModel.playlistsByID["-2"]?.trackCount, 3)
         XCTAssertEqual(viewModel.playlistsByID["-1"]?.trackCount, 2, "nothing left the source")
@@ -628,7 +657,9 @@ final class LibraryEditsMockAPI: MusicBrowsingProvider {
     /// Fails only the removal, for a move whose add went through.
     var removeError: Error?
 
-    func removeTracksFromPlaylist(playlistID: String, items: [MusicPlaylistTrackRemoval], snapshotID: String?) async throws {
+    func removeTracksFromPlaylist(playlistID: String, items: [MusicPlaylistTrackRemoval], snapshotID: String?)
+        async throws
+    {
         if let error = error ?? removeError { throw error }
         removals += items
         calls.append("removeTracks(\(playlistID))")
@@ -670,7 +701,9 @@ final class LibraryEditsMockAPI: MusicBrowsingProvider {
 
     var knownStatuses: [String: Bool] = [:]
 
-    func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws -> MusicPlaylistSummary {
+    func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws
+        -> MusicPlaylistSummary
+    {
         if let error { throw error }
         calls.append("createPlaylist(\(name),\(trackURIs.joined(separator: ",")))")
         return MusicPlaylistSummary(
@@ -715,7 +748,9 @@ final class LibraryEditsMockAPI: MusicBrowsingProvider {
     func artist(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistDetail {
         throw AppleMusicBrowsingError.notFound
     }
-    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail> {
+    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<
+        MusicArtistDetail
+    > {
         throw AppleMusicBrowsingError.notFound
     }
     func artistAlbumsCached(
@@ -767,6 +802,6 @@ final class LibraryEditsGate: @unchecked Sendable {
         let resumed = waiters
         waiters = []
         lock.unlock()
-        resumed.forEach { $0.resume() }
+        for waiter in resumed { waiter.resume() }
     }
 }

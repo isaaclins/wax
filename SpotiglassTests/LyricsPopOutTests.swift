@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// The pop-out lyrics window (#439).
@@ -59,10 +60,12 @@ final class LyricsPopOutTests: XCTestCase {
         playback.deviceID = "device-1"
         playback.hasTransferredPlaybackToCurrentDevice = true
         playback.setTransportStateKnown(true)
-        playback.setConnectionState(.playing(PlaybackNowPlaying(
-            name: "Midnight City", artists: [], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 240_000, positionMilliseconds: 1_000, uri: "spotify:track:1"
-        )))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Midnight City", artists: [], albumName: nil, albumID: nil, albumArtURL: nil,
+                    durationMilliseconds: 240_000, positionMilliseconds: 1_000, uri: "spotify:track:1"
+                )))
         return (host, commander)
     }
 
@@ -87,9 +90,11 @@ final class LyricsPopOutTests: XCTestCase {
         XCTAssertEqual(shortcut.modifiers, [.command, .option, .shift])
 
         // Listed only once something can open the window.
-        XCTAssertFalse(manager.viewModel.staticItemsProvider().contains { $0.id == CommandPaletteCommandID.popOutLyrics })
+        XCTAssertFalse(
+            manager.viewModel.staticItemsProvider().contains { $0.id == CommandPaletteCommandID.popOutLyrics })
         manager.popOutLyrics = {}
-        XCTAssertTrue(manager.viewModel.staticItemsProvider().contains { $0.id == CommandPaletteCommandID.popOutLyrics })
+        XCTAssertTrue(
+            manager.viewModel.staticItemsProvider().contains { $0.id == CommandPaletteCommandID.popOutLyrics })
     }
 
     func testThePopOutChordOpensTheWindow() {
@@ -168,7 +173,8 @@ final class LyricsPopOutTests: XCTestCase {
 
         XCTAssertFalse(manager.handleKeyEvent(keyDown(keyCode: 49, characters: " ", window: popOut)))
         // ⌘K would open the palette in the main window, out of sight behind this one.
-        XCTAssertFalse(manager.handleKeyEvent(keyDown(keyCode: 40, characters: "k", modifiers: [.command], window: popOut)))
+        XCTAssertFalse(
+            manager.handleKeyEvent(keyDown(keyCode: 40, characters: "k", modifiers: [.command], window: popOut)))
         XCTAssertEqual(toggled, 0)
         XCTAssertFalse(manager.viewModel.isPresented)
     }
@@ -291,7 +297,8 @@ final class LyricsPopOutTests: XCTestCase {
         registry.activate(scene)
         registry.mainWindowResignedKey()
         XCTAssertTrue(commands.isSidebarItemEnabled(keyWindow: popOut))
-        XCTAssertTrue(LyricsPopOutWindow.bringsMainWindowForward(for: CommandPaletteCommandID.toggleSidebar, keyWindow: popOut))
+        XCTAssertTrue(
+            LyricsPopOutWindow.bringsMainWindowForward(for: CommandPaletteCommandID.toggleSidebar, keyWindow: popOut))
     }
 
     /// Popping out from the main window closes its lyrics view; asking again from the pop-out only
@@ -406,7 +413,10 @@ final class LyricsPopOutTests: XCTestCase {
         states.send(.signedOut)
         let secondStop = try XCTUnwrap(hosts.spotifyStop)
         let secondStopped = AsyncSignal()
-        Task { await secondStop.value; secondStopped.signal() }
+        Task {
+            await secondStop.value
+            secondStopped.signal()
+        }
         // The time limit only bounds how long a broken build takes to fail.
         guard await secondStopped.wait(timeout: .seconds(mustHappenTimeout)) else {
             releaseFirstDisconnect.signal()
@@ -419,7 +429,8 @@ final class LyricsPopOutTests: XCTestCase {
 
         releaseFirstDisconnect.signal()
         await firstStop.value
-        XCTAssertEqual(player.connectionState, .ready(deviceID: "new-session"), "an old sign-out's stop cut off the new session")
+        XCTAssertEqual(
+            player.connectionState, .ready(deviceID: "new-session"), "an old sign-out's stop cut off the new session")
     }
 
     // MARK: The window
@@ -470,11 +481,12 @@ final class LyricsPopOutTests: XCTestCase {
     /// sung. A blank timestamp line is dropped by the parser, so the line before it stays up, the
     /// same as in the lyrics view.
     func testStripShowsTheLineBeingSungAndTheTitleDuringTheIntro() {
-        let lines = LrcLineParser.parseSyncedLines("""
-        [00:20.00]First line
-        [00:25.00]
-        [00:30.00]Third line
-        """)
+        let lines = LrcLineParser.parseSyncedLines(
+            """
+            [00:20.00]First line
+            [00:25.00]
+            [00:30.00]Third line
+            """)
         func text(_ phase: ImmersiveLyricsViewModel.Phase, at ms: Int) -> String {
             // The strip shows the title whenever there is no line to show.
             LyricsPopOutStripText.lyric(phase: phase, trackDurationMs: 60_000, positionMs: ms) ?? "Song"
@@ -494,13 +506,15 @@ final class LyricsPopOutTests: XCTestCase {
     // MARK: The window as it runs
 
     private let lyricsLRC = """
-    [00:00.00]First line
-    [00:30.00]Second line
-    """
+        [00:00.00]First line
+        [00:30.00]Second line
+        """
 
     /// A playing Spotify player with an artist, its mocks, and a lyrics model that answers from
     /// `lyricsLRC` instead of LRCLIB.
-    private func playingWithLyrics() -> (PlaybackSessionViewModel, MockPlaybackAPI, MockWebPlaybackCommander, ImmersiveLyricsViewModel) {
+    private func playingWithLyrics() -> (
+        PlaybackSessionViewModel, MockPlaybackAPI, MockWebPlaybackCommander, ImmersiveLyricsViewModel
+    ) {
         _ = NSApplication.shared
         let api = MockPlaybackAPI()
         let commander = MockWebPlaybackCommander()
@@ -509,10 +523,13 @@ final class LyricsPopOutTests: XCTestCase {
         playback.deviceID = "device-1"
         playback.hasTransferredPlaybackToCurrentDevice = true
         playback.setTransportStateKnown(true)
-        playback.setConnectionState(.playing(PlaybackNowPlaying(
-            name: "Midnight City", artists: ["M83"], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 240_000, positionMilliseconds: 5_000, uri: "spotify:track:popout-\(UUID().uuidString)"
-        )))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Midnight City", artists: ["M83"], albumName: nil, albumID: nil, albumArtURL: nil,
+                    durationMilliseconds: 240_000, positionMilliseconds: 5_000,
+                    uri: "spotify:track:popout-\(UUID().uuidString)"
+                )))
         let lines = LrcLineParser.parseSyncedLines(lyricsLRC)
         let lyrics = ImmersiveLyricsViewModel(fetchLyrics: { _ in .synced(lines) })
         return (playback, api, commander, lyrics)
@@ -537,7 +554,8 @@ final class LyricsPopOutTests: XCTestCase {
     }
 
     /// Runs the main run loop until the lyrics have loaded, however long a busy machine takes.
-    private func waitUntilReady(_ lyrics: ImmersiveLyricsViewModel, file: StaticString = #filePath, line: UInt = #line) {
+    private func waitUntilReady(_ lyrics: ImmersiveLyricsViewModel, file: StaticString = #filePath, line: UInt = #line)
+    {
         let ready = AppKitTestSupport.pumpRunLoop(until: {
             if case .ready = lyrics.phase { return true }
             return false
@@ -561,7 +579,7 @@ final class LyricsPopOutTests: XCTestCase {
                 size: size
             )
             waitUntilReady(lyrics)
-            guard case let .ready(.synced(lines)) = lyrics.phase else {
+            guard case .ready(.synced(let lines)) = lyrics.phase else {
                 return XCTFail("lyrics never loaded at \(size): \(lyrics.phase)")
             }
             XCTAssertEqual(lines.map(\.words), ["First line", "Second line"])
@@ -615,7 +633,8 @@ final class LyricsPopOutTests: XCTestCase {
 
         let signedOut = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(services: [], active: nil))
         let empty = try hostPopOut(
-            LyricsPopOutRoot(playbackHosts: hosts, serviceStore: signedOut, keymapStore: keymap, makeLyricsModel: makeLyrics),
+            LyricsPopOutRoot(
+                playbackHosts: hosts, serviceStore: signedOut, keymapStore: keymap, makeLyricsModel: makeLyrics),
             size: LyricsPopOutWindow.defaultSize
         )
         XCTAssertTrue(LyricsPopOutWindow.isPopOut(empty))
@@ -625,7 +644,8 @@ final class LyricsPopOutTests: XCTestCase {
             storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
         )
         _ = try hostPopOut(
-            LyricsPopOutRoot(playbackHosts: hosts, serviceStore: spotifyOnScreen, keymapStore: keymap, makeLyricsModel: makeLyrics),
+            LyricsPopOutRoot(
+                playbackHosts: hosts, serviceStore: spotifyOnScreen, keymapStore: keymap, makeLyricsModel: makeLyrics),
             size: LyricsPopOutWindow.defaultSize
         )
         let lyrics = try XCTUnwrap(made.first)
@@ -646,7 +666,9 @@ final class LyricsPopOutTests: XCTestCase {
         let (fresh, freshAPI, _, _) = playingWithLyrics()
         XCTAssertTrue(LyricsPopOutTransport.canRun(CommandPaletteCommandID.previousTrack, on: fresh))
         LyricsPopOutTransport.run(CommandPaletteCommandID.previousTrack, on: fresh)
-        await waitUntil("Previous sent", changes: freshAPI.changes) { freshAPI.actions.contains { $0.hasPrefix("previous") } }
+        await waitUntil("Previous sent", changes: freshAPI.changes) {
+            freshAPI.actions.contains { $0.hasPrefix("previous") }
+        }
         XCTAssertTrue(freshAPI.actions.contains { $0.hasPrefix("previous") }, "\(freshAPI.actions)")
         XCTAssertFalse(LyricsPopOutTransport.canRun(CommandPaletteCommandID.openSearch, on: playback))
     }
@@ -681,8 +703,10 @@ final class LyricsPopOutTests: XCTestCase {
             name: "Midnight City", artists: ["M83"], albumName: nil, albumID: nil, albumArtURL: nil,
             durationMilliseconds: 240_000, positionMilliseconds: 42_000, uri: "spotify:track:1"
         )
-        XCTAssertEqual(LyricsPositionReader<EmptyView>.staticPositionMs(anchor: nil, connectionState: .playing(song)), 42_000)
-        XCTAssertEqual(LyricsPositionReader<EmptyView>.staticPositionMs(anchor: nil, connectionState: .paused(song)), 42_000)
+        XCTAssertEqual(
+            LyricsPositionReader<EmptyView>.staticPositionMs(anchor: nil, connectionState: .playing(song)), 42_000)
+        XCTAssertEqual(
+            LyricsPositionReader<EmptyView>.staticPositionMs(anchor: nil, connectionState: .paused(song)), 42_000)
         XCTAssertEqual(LyricsPositionReader<EmptyView>.staticPositionMs(anchor: nil, connectionState: .paused(nil)), 0)
         XCTAssertEqual(LyricsPositionReader<EmptyView>.staticPositionMs(anchor: nil, connectionState: .disconnected), 0)
     }
@@ -710,12 +734,16 @@ final class LyricsPopOutTests: XCTestCase {
     /// a refused pause that ends in an error shows the error, and only an idle player gets the
     /// hint to play something.
     func testWithNoSongTheWindowSaysWhatThePlayerBarSays() {
-        let expired = DisplayError.reported(ErrorMessage(title: "Spotify sign-in expired", message: "Sign in again to keep playing.", action: nil))
+        let expired = DisplayError.reported(
+            ErrorMessage(title: "Spotify sign-in expired", message: "Sign in again to keep playing.", action: nil))
         XCTAssertEqual(
             LyricsPopOutContent.of(.error(expired)),
             .status(title: "Spotify sign-in expired", subtitle: "Sign in again to keep playing.", invitesPlay: false)
         )
-        guard case let .status(title, subtitle, invitesPlay) = LyricsPopOutContent.of(.unavailable("Apple Music needs a subscription."), service: .appleMusic) else {
+        guard
+            case .status(let title, let subtitle, let invitesPlay) = LyricsPopOutContent.of(
+                .unavailable("Apple Music needs a subscription."), service: .appleMusic)
+        else {
             return XCTFail("an unavailable player shows its reason")
         }
         XCTAssertEqual(subtitle, "Apple Music needs a subscription.")
@@ -723,15 +751,16 @@ final class LyricsPopOutTests: XCTestCase {
         XCTAssertFalse(invitesPlay)
 
         for idle: PlaybackConnectionState in [.ready(deviceID: "device-1"), .paused(nil)] {
-            guard case let .status(_, _, invitesPlay) = LyricsPopOutContent.of(idle) else { return XCTFail("\(idle)") }
+            guard case .status(_, _, let invitesPlay) = LyricsPopOutContent.of(idle) else { return XCTFail("\(idle)") }
             XCTAssertTrue(invitesPlay, "\(idle)")
         }
-        guard case let .status(_, _, connectingInvites) = LyricsPopOutContent.of(.connecting) else { return XCTFail() }
+        guard case .status(_, _, let connectingInvites) = LyricsPopOutContent.of(.connecting) else { return XCTFail() }
         XCTAssertFalse(connectingInvites)
         XCTAssertNil(LyricsPopOutContent.of(.disconnected).track)
         // The bar's own lines come from the same place.
         XCTAssertEqual(
-            PlaybackControlsView.statusLines(for: .error(expired), playerPushesState: true, service: .spotify)?.subtitle,
+            PlaybackControlsView.statusLines(for: .error(expired), playerPushesState: true, service: .spotify)?
+                .subtitle,
             "Sign in again to keep playing."
         )
         let song = PlaybackNowPlaying(
@@ -747,9 +776,12 @@ final class LyricsPopOutTests: XCTestCase {
             name: "Midnight City", artists: ["M83"], albumName: nil, albumID: nil, albumArtURL: nil,
             durationMilliseconds: 240_000, positionMilliseconds: 1_000, uri: "spotify:track:1"
         )
-        let refused = DisplayError.reported(ErrorMessage(title: "Couldn't pause", message: "Spotify didn't answer.", action: nil))
-        XCTAssertEqual(LyricsPopOutStripText.subtitle(track: song, lyric: "First line", notice: refused), "Couldn't pause")
-        XCTAssertEqual(LyricsPopOutStripText.subtitle(track: song, lyric: "First line", notice: nil), "Midnight City · M83")
+        let refused = DisplayError.reported(
+            ErrorMessage(title: "Couldn't pause", message: "Spotify didn't answer.", action: nil))
+        XCTAssertEqual(
+            LyricsPopOutStripText.subtitle(track: song, lyric: "First line", notice: refused), "Couldn't pause")
+        XCTAssertEqual(
+            LyricsPopOutStripText.subtitle(track: song, lyric: "First line", notice: nil), "Midnight City · M83")
         XCTAssertEqual(LyricsPopOutStripText.subtitle(track: song, lyric: nil, notice: nil), "M83")
     }
 
@@ -780,10 +812,12 @@ final class LyricsPopOutTests: XCTestCase {
     func testTheWindowLooksUpNoLyricsForAnEpisode() throws {
         let (_, keymap) = makeManager()
         let (playback, _, _, _) = playingWithLyrics()
-        playback.setConnectionState(.playing(PlaybackNowPlaying(
-            name: "The Daily", artists: ["NYT"], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 1_800_000, positionMilliseconds: 60_000, uri: "spotify:episode:1"
-        )))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "The Daily", artists: ["NYT"], albumName: nil, albumID: nil, albumArtURL: nil,
+                    durationMilliseconds: 1_800_000, positionMilliseconds: 60_000, uri: "spotify:episode:1"
+                )))
         var lookups = 0
         let lyrics = ImmersiveLyricsViewModel(fetchLyrics: { _ in
             lookups += 1
@@ -807,10 +841,13 @@ final class LyricsPopOutTests: XCTestCase {
         let (_, keymap) = makeManager()
         let (spotify, _) = playingSpotify()
         // A song of its own: the lyrics cache is app-wide, and other tests already loaded track 1.
-        spotify.playbackViewModel.setConnectionState(.playing(PlaybackNowPlaying(
-            name: "Midnight City", artists: ["M83"], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 240_000, positionMilliseconds: 1_000, uri: "spotify:track:follow-\(UUID().uuidString)"
-        )))
+        spotify.playbackViewModel.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Midnight City", artists: ["M83"], albumName: nil, albumID: nil, albumArtURL: nil,
+                    durationMilliseconds: 240_000, positionMilliseconds: 1_000,
+                    uri: "spotify:track:follow-\(UUID().uuidString)"
+                )))
         let hosts = SpotiglassPlaybackHosts(spotify: spotify) {
             SpotiglassPlaybackHost(provider: AppleMusicPlaybackProvider(player: ScriptedAppleMusicPlayer()))
         }
@@ -919,19 +956,47 @@ final class LyricsPopOutTests: XCTestCase {
     /// The player bar's lines for every state with no song to name, pinned: the bar and the pop-out
     /// share them, and an edit there must not change the bar unnoticed.
     func testThePlayerBarsStatusLinesForEveryState() {
-        func lines(_ state: PlaybackConnectionState, pushes: Bool = true, _ service: MusicService = .spotify) -> [String]? {
-            PlaybackControlsView.statusLines(for: state, playerPushesState: pushes, service: service).map { [$0.title, $0.subtitle] }
+        func lines(_ state: PlaybackConnectionState, pushes: Bool = true, _ service: MusicService = .spotify)
+            -> [String]?
+        {
+            PlaybackControlsView.statusLines(for: state, playerPushesState: pushes, service: service).map {
+                [$0.title, $0.subtitle]
+            }
         }
         func l(_ key: String) -> String { SpotiglassL10n.string(key) }
-        XCTAssertEqual(lines(.disconnected), [l("playback.controls.state.disconnected.title"), l("playback.controls.state.disconnected.subtitle")])
-        XCTAssertEqual(lines(.disconnected, .appleMusic), [l("playback.controls.state.disconnected.title"), l("playback.controls.state.disconnected.subtitle.appleMusic")])
-        XCTAssertEqual(lines(.connecting), [l("playback.controls.state.connecting.title"), l("playback.controls.state.connecting.subtitle")])
-        XCTAssertEqual(lines(.connecting, .appleMusic), [l("playback.controls.state.connecting.title.appleMusic"), l("playback.controls.state.connecting.subtitle.appleMusic")])
-        XCTAssertEqual(lines(.ready(deviceID: "d")), [l("playback.controls.state.ready.title"), l("playback.controls.state.ready.subtitle")])
-        XCTAssertEqual(lines(.ready(deviceID: "d"), pushes: false), [l("playback.controls.state.ready.title"), l("playback.controls.state.ready.subtitle.appleMusic")])
-        XCTAssertEqual(lines(.transferring(deviceID: "d")), [l("playback.controls.state.transferring.title"), l("playback.controls.state.transferring.subtitle")])
-        XCTAssertEqual(lines(.paused(nil)), [l("playback.controls.state.paused.title"), l("playback.controls.state.paused.subtitle")])
-        XCTAssertEqual(lines(.unavailable("No subscription.")), [l("playback.controls.state.unavailable.title"), "No subscription."])
+        XCTAssertEqual(
+            lines(.disconnected),
+            [l("playback.controls.state.disconnected.title"), l("playback.controls.state.disconnected.subtitle")])
+        XCTAssertEqual(
+            lines(.disconnected, .appleMusic),
+            [
+                l("playback.controls.state.disconnected.title"),
+                l("playback.controls.state.disconnected.subtitle.appleMusic"),
+            ])
+        XCTAssertEqual(
+            lines(.connecting),
+            [l("playback.controls.state.connecting.title"), l("playback.controls.state.connecting.subtitle")])
+        XCTAssertEqual(
+            lines(.connecting, .appleMusic),
+            [
+                l("playback.controls.state.connecting.title.appleMusic"),
+                l("playback.controls.state.connecting.subtitle.appleMusic"),
+            ])
+        XCTAssertEqual(
+            lines(.ready(deviceID: "d")),
+            [l("playback.controls.state.ready.title"), l("playback.controls.state.ready.subtitle")])
+        XCTAssertEqual(
+            lines(.ready(deviceID: "d"), pushes: false),
+            [l("playback.controls.state.ready.title"), l("playback.controls.state.ready.subtitle.appleMusic")])
+        XCTAssertEqual(
+            lines(.transferring(deviceID: "d")),
+            [l("playback.controls.state.transferring.title"), l("playback.controls.state.transferring.subtitle")])
+        XCTAssertEqual(
+            lines(.paused(nil)),
+            [l("playback.controls.state.paused.title"), l("playback.controls.state.paused.subtitle")])
+        XCTAssertEqual(
+            lines(.unavailable("No subscription.")),
+            [l("playback.controls.state.unavailable.title"), "No subscription."])
         let error = DisplayError.reported(ErrorMessage(title: "Couldn't play", message: "Try again.", action: nil))
         XCTAssertEqual(lines(.error(error)), ["Couldn't play", "Try again."])
         let song = PlaybackNowPlaying(
@@ -943,11 +1008,15 @@ final class LyricsPopOutTests: XCTestCase {
     }
 }
 
-
 /// Counts calls that may come from any thread.
 private final class LockedCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
     /// Adds one and returns the new count.
-    func increment() -> Int { lock.withLock { count += 1; return count } }
+    func increment() -> Int {
+        lock.withLock {
+            count += 1
+            return count
+        }
+    }
 }

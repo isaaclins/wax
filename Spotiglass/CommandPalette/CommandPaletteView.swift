@@ -162,7 +162,11 @@ struct CommandPaletteView: View {
                     .allowsHitTesting(false)
             }
             .padding(.horizontal, SpotiglassDesign.spacingXL)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { availableHeight = $0 }
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: {
+                availableHeight = $0
+            }
         }
         // The panel stays built between openings; its field takes focus once it is usable again.
         .onChange(of: isEnabled) { _, isEnabled in
@@ -289,7 +293,8 @@ struct CommandPaletteFocusReturn {
     /// land mid-word, so it goes to the end instead.
     func restore() {
         guard let window, let responder, window.makeFirstResponder(responder), let selection,
-              let editor = (responder as? NSTextField)?.currentEditor() else { return }
+            let editor = (responder as? NSTextField)?.currentEditor()
+        else { return }
         let length = (editor.string as NSString).length
         editor.selectedRange = editor.string == text ? selection : NSRange(location: length, length: 0)
     }

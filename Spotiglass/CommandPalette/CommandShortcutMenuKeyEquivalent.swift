@@ -10,7 +10,8 @@ extension CommandPaletteKeymapStore {
     /// Returns `nil` when the command has no binding, or only bindings that must
     /// not become menu key equivalents (see ``CommandShortcut/menuKeyboardShortcut``).
     func menuShortcut(for commandID: String) -> KeyboardShortcut? {
-        let chords = bindings
+        let chords =
+            bindings
             .filter { _, boundCommands in boundCommands.contains { $0.command == commandID } }
             .map(\.key)
         // `bindings` is a dictionary, so sort before picking to keep the menu

@@ -362,9 +362,11 @@ struct ImmersiveLyricsTimedLyricsScrollView: View {
             LazyVStack(alignment: .leading, spacing: lyricsTextSize.timedLineSpacing) {
                 ForEach(renderModel.lines) { line in
                     lyricLine(line, engageAutoCenter: engageAutoCenter)
-                        .modifier(LyricsTimingHighlight(
-                            shiftMs: line.isActive ? renderModel.holdShiftMs : nil
-                        ))
+                        .modifier(
+                            LyricsTimingHighlight(
+                                shiftMs: line.isActive ? renderModel.holdShiftMs : nil
+                            )
+                        )
                         .id(line.id)
                 }
             }
@@ -379,25 +381,25 @@ struct ImmersiveLyricsTimedLyricsScrollView: View {
         _ line: LyricsScrollRenderModel.Line,
         engageAutoCenter: @escaping () -> Void
     ) -> some View {
-                    TappableLyricLine(
-                        isActive: line.isActive,
-                        reduceMotion: reduceMotion,
-                        onTap: onSeek.flatMap { seek in
-                            line.seekPositionMs.map { seekPositionMs in
-                                {
-                                    seek(seekPositionMs)
-                                    engageAutoCenter()
-                                }
-                            }
-                        }
-                    ) {
-                        ImmersiveLyricsLineText(
-                            line.text,
-                            distance: line.distance,
-                            size: lyricsTextSize,
-                            reduceMotion: reduceMotion
-                        )
+        TappableLyricLine(
+            isActive: line.isActive,
+            reduceMotion: reduceMotion,
+            onTap: onSeek.flatMap { seek in
+                line.seekPositionMs.map { seekPositionMs in
+                    {
+                        seek(seekPositionMs)
+                        engageAutoCenter()
                     }
+                }
+            }
+        ) {
+            ImmersiveLyricsLineText(
+                line.text,
+                distance: line.distance,
+                size: lyricsTextSize,
+                reduceMotion: reduceMotion
+            )
+        }
     }
 }
 
@@ -663,11 +665,13 @@ struct LyricsReturnToCurrentLinePill: View {
                     .foregroundStyle(.white)
             }
         }
-        .buttonStyle(SpotiglassPillStyle(
-            variant: .glass,
-            horizontalPadding: ImmersiveLyricsLayout.resumePillHorizontalPadding,
-            verticalPadding: ImmersiveLyricsLayout.resumePillVerticalPadding
-        ))
+        .buttonStyle(
+            SpotiglassPillStyle(
+                variant: .glass,
+                horizontalPadding: ImmersiveLyricsLayout.resumePillHorizontalPadding,
+                verticalPadding: ImmersiveLyricsLayout.resumePillVerticalPadding
+            )
+        )
         .onAppear {
             if LyricsMotion.shouldAnimate(reduceMotion: reduceMotion) {
                 iconPulse.toggle()

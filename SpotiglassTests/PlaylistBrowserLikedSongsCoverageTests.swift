@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -17,7 +18,9 @@ final class PlaylistBrowserLikedSongsCoverageTests: XCTestCase {
         )
         let cache = MockBrowsingCache(
             cachedTracks: [
-                SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID: [PlaylistBrowsingTestFixtures.track(id: "liked-cached")]
+                SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID: [
+                    PlaylistBrowsingTestFixtures.track(id: "liked-cached")
+                ]
             ]
         )
         let viewModel = PlaylistBrowserViewModel(api: api, cache: cache)
@@ -54,7 +57,9 @@ final class PlaylistBrowserLikedSongsCoverageTests: XCTestCase {
         )
         let cache = MockBrowsingCache(
             cachedTracks: [
-                SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID: [PlaylistBrowsingTestFixtures.track(id: "liked-stale")]
+                SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID: [
+                    PlaylistBrowsingTestFixtures.track(id: "liked-stale")
+                ]
             ],
             expiredTrackIDs: [SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID]
         )
@@ -254,7 +259,10 @@ final class PlaylistBrowserLikedSongsCoverageTests: XCTestCase {
         guard case .staleCache = viewModel.detailState else {
             return XCTFail("Expected stale cache after revalidation failure, got \(viewModel.detailState)")
         }
-        XCTAssertTrue(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).contains { $0.title.contains("cached-liked") })
+        XCTAssertTrue(
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).contains {
+                $0.title.contains("cached-liked")
+            })
     }
 
     func testLikedSongsUsesProfileDisplayNameWhenPresent() async {
@@ -267,7 +275,7 @@ final class PlaylistBrowserLikedSongsCoverageTests: XCTestCase {
         let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await viewModel.load()
         await viewModel.selectSidebar(.likedSongs)
-        guard case let .loaded(.playlist(detail)) = viewModel.detailState else {
+        guard case .loaded(.playlist(let detail)) = viewModel.detailState else {
             return XCTFail("Expected loaded playlist detail")
         }
         XCTAssertEqual(detail.playlist.owner, "Taylor")
@@ -277,15 +285,16 @@ final class PlaylistBrowserLikedSongsCoverageTests: XCTestCase {
         let artwork = URL(string: "https://cdn.example/episode.jpg")!
         let episodeItem = MusicPlaylistTrackItem(
             id: "ep-1",
-            content: .episode(MusicEpisode(
-                id: "ep-1",
-                name: "Episode",
-                showName: "Show",
-                artworkURL: artwork,
-                durationMilliseconds: 60_000,
-                isPlayable: true,
-                uri: "spotify:episode:ep-1"
-            ))
+            content: .episode(
+                MusicEpisode(
+                    id: "ep-1",
+                    name: "Episode",
+                    showName: "Show",
+                    artworkURL: artwork,
+                    durationMilliseconds: 60_000,
+                    isPlayable: true,
+                    uri: "spotify:episode:ep-1"
+                ))
         )
         let api = MockBrowsingAPI(
             playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])],
@@ -295,7 +304,7 @@ final class PlaylistBrowserLikedSongsCoverageTests: XCTestCase {
         let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await viewModel.load()
         await viewModel.selectSidebar(.likedSongs)
-        guard case let .loaded(.playlist(detail)) = viewModel.detailState else {
+        guard case .loaded(.playlist(let detail)) = viewModel.detailState else {
             return XCTFail("Expected loaded detail")
         }
         XCTAssertEqual(detail.playlist.artworkURL, artwork)
@@ -311,7 +320,7 @@ private actor ProfileLookupGate {
             waiter = continuation
             let waiters = blockedWaiters
             blockedWaiters.removeAll()
-            waiters.forEach { $0.resume() }
+            for waiter in waiters { waiter.resume() }
         }
     }
 
@@ -378,17 +387,24 @@ private final class ProfileAwareMockBrowsingAPI: MusicBrowsingProvider {
     func artist(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistDetail {
         MusicArtistDetail(id: id, name: id, imageURL: nil, followersTotal: nil, genres: [], uri: "spotify:artist:\(id)")
     }
-    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail> {
+    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<
+        MusicArtistDetail
+    > {
         MusicCachedResponse(value: try await artist(id: id, cacheMode: cacheMode), isStale: false)
     }
     func search(query: String, limit: Int) async throws -> MusicSearchResults {
         MusicSearchResults(tracks: [], artists: [], albums: [], playlists: [])
     }
     func albumTracks(albumID: String, market: String?, limit: Int) async throws -> [MusicTrack] { [] }
-    func artistAlbumsCached(id: String, includeGroups: [MusicArtistAlbumGroup], limit: Int, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<[MusicArtistAlbum]> {
+    func artistAlbumsCached(
+        id: String, includeGroups: [MusicArtistAlbumGroup], limit: Int, cacheMode: MusicRequestCacheMode
+    ) async throws -> MusicCachedResponse<[MusicArtistAlbum]> {
         MusicCachedResponse(value: [], isStale: false)
     }
-    func artistAlbumsPage(id: String, includeGroups: [MusicArtistAlbumGroup], limit: Int, offset: Int, nextURL: URL?, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistAlbumsPage {
+    func artistAlbumsPage(
+        id: String, includeGroups: [MusicArtistAlbumGroup], limit: Int, offset: Int, nextURL: URL?,
+        cacheMode: MusicRequestCacheMode
+    ) async throws -> MusicArtistAlbumsPage {
         MusicArtistAlbumsPage(items: [], next: nil)
     }
 }

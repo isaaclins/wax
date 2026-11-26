@@ -1,6 +1,7 @@
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -24,7 +25,7 @@ final class PlaylistBrowserPrefetchAllTracksTests: XCTestCase {
             cachedPlaylists: [p1, p2, p3],
             cachedTracks: [
                 "p1": [PlaylistBrowsingTestFixtures.track(id: "p1-cached")],
-                "p3": [PlaylistBrowsingTestFixtures.track(id: "p3-stale")]
+                "p3": [PlaylistBrowsingTestFixtures.track(id: "p3-stale")],
             ],
             playlistListCacheAge: 5,
             expiredTrackIDs: ["p3"]
@@ -62,9 +63,9 @@ final class PlaylistBrowserPrefetchAllTracksTests: XCTestCase {
         // Progress finalizes with the right tallies.
         let progress = try XCTUnwrap(vm.prefetchAllPlaylistsProgress)
         XCTAssertEqual(progress.phase, .finished)
-        XCTAssertEqual(progress.total, 4) // 3 playlists + liked songs
-        XCTAssertEqual(progress.completed, 3) // p2, p3, liked
-        XCTAssertEqual(progress.skipped, 1)   // p1
+        XCTAssertEqual(progress.total, 4)  // 3 playlists + liked songs
+        XCTAssertEqual(progress.completed, 3)  // p2, p3, liked
+        XCTAssertEqual(progress.skipped, 1)  // p1
         XCTAssertEqual(progress.failed, 0)
     }
 
@@ -89,10 +90,12 @@ final class PlaylistBrowserPrefetchAllTracksTests: XCTestCase {
         await run.value
 
         let peak = await counter.peak
-        XCTAssertLessThanOrEqual(peak, PlaylistBrowserViewModel.prefetchAllPlaylistsConcurrency,
-                                 "Peak concurrency must not exceed the bound")
-        XCTAssertGreaterThanOrEqual(peak, 2,
-                                    "With 8 items + Liked Songs and concurrency=3, peak should reach at least 2")
+        XCTAssertLessThanOrEqual(
+            peak, PlaylistBrowserViewModel.prefetchAllPlaylistsConcurrency,
+            "Peak concurrency must not exceed the bound")
+        XCTAssertGreaterThanOrEqual(
+            peak, 2,
+            "With 8 items + Liked Songs and concurrency=3, peak should reach at least 2")
     }
 
     // MARK: - Rate-limit retry
@@ -110,7 +113,7 @@ final class PlaylistBrowserPrefetchAllTracksTests: XCTestCase {
             trackResults: [
                 "p1": [
                     .failure(SpotifyAPIError.rateLimited(retryAfter: 0.2)),
-                    .success([PlaylistBrowsingTestFixtures.track(id: "p1-fetched")])
+                    .success([PlaylistBrowsingTestFixtures.track(id: "p1-fetched")]),
                 ]
             ],
             savedTracksResult: .success(MusicSavedTracksResult(tracks: [], totalAvailable: 0))
@@ -236,8 +239,9 @@ final class PlaylistBrowserPrefetchAllTracksTests: XCTestCase {
         vm.lastTracksRevalidationByID["p1"] = (snapshotID: "snap-1", at: Date())
         await vm.runBulkPlaylistTrackPrefetch()
 
-        XCTAssertEqual(api.playlistTracksInvocationCountByID["p1"] ?? 0, 0,
-                       "Recently revalidated playlist must be skipped by prefetch")
+        XCTAssertEqual(
+            api.playlistTracksInvocationCountByID["p1"] ?? 0, 0,
+            "Recently revalidated playlist must be skipped by prefetch")
         let progress = try XCTUnwrap(vm.prefetchAllPlaylistsProgress)
         XCTAssertEqual(progress.skipped, 1)
     }
@@ -319,13 +323,20 @@ private final class ConcurrencyTrackingBrowsingAPI: MusicBrowsingProvider, @unch
     func artist(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistDetail {
         MusicArtistDetail(id: id, name: id, imageURL: nil, followersTotal: nil, genres: [], uri: "spotify:artist:\(id)")
     }
-    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail> {
+    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<
+        MusicArtistDetail
+    > {
         MusicCachedResponse(value: try await artist(id: id, cacheMode: cacheMode), isStale: false)
     }
-    func artistAlbumsCached(id: String, includeGroups: [MusicArtistAlbumGroup], limit: Int, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<[MusicArtistAlbum]> {
+    func artistAlbumsCached(
+        id: String, includeGroups: [MusicArtistAlbumGroup], limit: Int, cacheMode: MusicRequestCacheMode
+    ) async throws -> MusicCachedResponse<[MusicArtistAlbum]> {
         MusicCachedResponse(value: [], isStale: false)
     }
-    func artistAlbumsPage(id: String, includeGroups: [MusicArtistAlbumGroup], limit: Int, offset: Int, nextURL: URL?, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistAlbumsPage {
+    func artistAlbumsPage(
+        id: String, includeGroups: [MusicArtistAlbumGroup], limit: Int, offset: Int, nextURL: URL?,
+        cacheMode: MusicRequestCacheMode
+    ) async throws -> MusicArtistAlbumsPage {
         MusicArtistAlbumsPage(items: [], next: nil)
     }
     func search(query: String, limit: Int) async throws -> MusicSearchResults {

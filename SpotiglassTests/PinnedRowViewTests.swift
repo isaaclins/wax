@@ -3,6 +3,7 @@ import MusicKit
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -67,12 +68,13 @@ final class PinnedRowViewTests: XCTestCase {
         // With an image URL the row renders CachedCircularArtwork instead of the
         // person glyph, which is the branch the other cases never reach.
         let artistWithArtwork = PinnedRowView(
-            item: .artist(MusicArtist(
-                id: "a2",
-                name: "Air",
-                imageURL: URL(string: "https://example.com/artist.jpg"),
-                uri: "spotify:artist:a2"
-            )),
+            item: .artist(
+                MusicArtist(
+                    id: "a2",
+                    name: "Air",
+                    imageURL: URL(string: "https://example.com/artist.jpg"),
+                    uri: "spotify:artist:a2"
+                )),
             onUnpin: {}
         )
         ViewTestHost.host(artistWithArtwork)
@@ -81,26 +83,28 @@ final class PinnedRowViewTests: XCTestCase {
 
     func testAlbumAndTrackPins() throws {
         let album = PinnedRowView(
-            item: .album(MusicAlbum(
-                id: "al1", name: "Hurry Up", artists: ["M83"], imageURL: nil, uri: "spotify:album:al1"
-            )),
+            item: .album(
+                MusicAlbum(
+                    id: "al1", name: "Hurry Up", artists: ["M83"], imageURL: nil, uri: "spotify:album:al1"
+                )),
             onUnpin: {}
         )
         ViewTestHost.host(album)
         XCTAssertNoThrow(try album.inspect().find(text: "Hurry Up"))
 
         let track = PinnedRowView(
-            item: .track(MusicTrack(
-                id: "t1",
-                name: "Midnight",
-                artists: ["M83"],
-                albumArtworkURL: URL(string: "https://example.com/a.jpg"),
-                durationMilliseconds: 240_000,
-                isExplicit: false,
-                isPlayable: true,
-                linkedFromID: nil,
-                uri: "spotify:track:t1"
-            )),
+            item: .track(
+                MusicTrack(
+                    id: "t1",
+                    name: "Midnight",
+                    artists: ["M83"],
+                    albumArtworkURL: URL(string: "https://example.com/a.jpg"),
+                    durationMilliseconds: 240_000,
+                    isExplicit: false,
+                    isPlayable: true,
+                    linkedFromID: nil,
+                    uri: "spotify:track:t1"
+                )),
             onUnpin: {}
         )
         ViewTestHost.host(track)
@@ -199,7 +203,9 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
             } else {
                 Image(nsImage: cover).resizable().scaledToFit().frame(width: side, height: side).background(marker)
             }
-            if dim { Image(nsImage: Self.tile(NSColor(white: 0, alpha: 0.5))).resizable().frame(width: side, height: side) }
+            if dim {
+                Image(nsImage: Self.tile(NSColor(white: 0, alpha: 0.5))).resizable().frame(width: side, height: side)
+            }
         }
         .frame(width: side, height: side)
         .clipShape(RoundedRectangle(cornerRadius: round ? 20 : 4))
@@ -243,19 +249,22 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
         let renderer = ImageRenderer(content: PinnedItemDragPill(item: item))
         renderer.scale = 1
         let cg = try XCTUnwrap(renderer.cgImage)
-        let width = cg.width, height = cg.height
+        let width = cg.width
+        let height = cg.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        let context = try XCTUnwrap(CGContext(
-            data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ))
+        let context = try XCTUnwrap(
+            CGContext(
+                data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ))
         context.draw(cg, in: CGRect(x: 0, y: 0, width: width, height: height))
         // Row 0 of the buffer is the top of the image.
-        let rows: Range<Int> = switch half {
-        case .top: 0..<height / 2
-        case .bottom: (height + 1) / 2..<height
-        case nil: 0..<height
-        }
+        let rows: Range<Int> =
+            switch half {
+            case .top: 0..<height / 2
+            case .bottom: (height + 1) / 2..<height
+            case nil: 0..<height
+            }
         return rows.flatMap { row in (0..<width).map { (row * width + $0) * 4 } }
             .filter { matches(pixels[$0], pixels[$0 + 1], pixels[$0 + 2]) }.count
     }
@@ -284,9 +293,10 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
         let pin = libraryPlaylistPin(artwork: "musicKit://artwork/transient/40x40?id=OLD449")
         try showCoverOnScreen(url: "musicKit://artwork/transient/40x40?id=NEW449", itemKey: pin.id)
 
-        XCTAssertNotNil(DragPreviewArtwork.initialImage(
-            artworkURL: pin.artworkURL, requestURL: pin.artworkURL, artworkKey: pin.id
-        ))
+        XCTAssertNotNil(
+            DragPreviewArtwork.initialImage(
+                artworkURL: pin.artworkURL, requestURL: pin.artworkURL, artworkKey: pin.id
+            ))
         XCTAssertGreaterThan(try coverPixelCount(in: pin), 0)
     }
 
@@ -369,7 +379,8 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
         let url = "musicKit://artwork/transient/40x40?id=TWICE449"
         try showCoverOnScreen(url: url, itemKey: nil, side: 20)
         try showCoverOnScreen(url: url, itemKey: nil, side: 60)
-        let image = try XCTUnwrap(DragPreviewArtwork.initialImage(artworkURL: URL(string: url), requestURL: nil, artworkKey: nil))
+        let image = try XCTUnwrap(
+            DragPreviewArtwork.initialImage(artworkURL: URL(string: url), requestURL: nil, artworkKey: nil))
         XCTAssertEqual(image.size.width, 60)
     }
 
@@ -391,7 +402,8 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
         )
 
         XCTAssertGreaterThan(try coverPixelCount(in: pin), 0, "the cover's motif")
-        XCTAssertGreaterThan(try pixelCount(in: pin) { r, g, b in r > 245 && g > 245 && b > 245 }, mostOfTheCoverSquare / 2)
+        XCTAssertGreaterThan(
+            try pixelCount(in: pin) { r, g, b in r > 245 && g > 245 && b > 245 }, mostOfTheCoverSquare / 2)
     }
 
     /// The cover keeps its orientation in the preview.
@@ -420,7 +432,9 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
     /// Library artists get the same: their round cover shows in the artist pill.
     func testLibraryArtistDragPreviewShowsTheCoverOnScreen() throws {
         let url = "musicKit://artwork/transient/40x40?id=ARTIST449"
-        let pin = PinnedItem.artist(MusicArtist(id: "r.artist449", name: "M83", imageURL: URL(string: url), uri: "applemusic:artist:r.artist449"))
+        let pin = PinnedItem.artist(
+            MusicArtist(
+                id: "r.artist449", name: "M83", imageURL: URL(string: url), uri: "applemusic:artist:r.artist449"))
         try showCoverOnScreen(url: url, itemKey: nil, round: true)
 
         XCTAssertGreaterThan(try coverPixelCount(in: pin), mostOfTheCoverSquare / 2)
@@ -435,9 +449,10 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
             #"{"url":"musicKit://artwork/transient/{w}x{h}?id=OFFSCREENARTIST449","width":600,"height":600}"#
         )
         let url = try XCTUnwrap(AppleMusicItemMapping.artworkURL(artwork, size: 40))
-        let pin = PinnedItem.artist(MusicArtist(
-            id: "r.offscreen449", name: "M83", imageURL: url, uri: "applemusic:artist:r.offscreen449"
-        ))
+        let pin = PinnedItem.artist(
+            MusicArtist(
+                id: "r.offscreen449", name: "M83", imageURL: url, uri: "applemusic:artist:r.offscreen449"
+            ))
 
         let yellow = try pixelCount(in: pin) { r, g, b in r > 200 && g > 200 && b < 80 }
         XCTAssertEqual(yellow, 0, "SwiftUI's can't-draw box")
@@ -456,18 +471,20 @@ final class PinnedItemDragPillLibraryCoverTests: XCTestCase {
 
     func testLibraryCoverNotOnScreenKeepsThePlaceholder() throws {
         let pin = libraryPlaylistPin(artwork: "musicKit://artwork/transient/40x40?id=NOWHERE449")
-        XCTAssertNil(DragPreviewArtwork.initialImage(
-            artworkURL: pin.artworkURL, requestURL: pin.artworkURL, artworkKey: pin.id
-        ))
+        XCTAssertNil(
+            DragPreviewArtwork.initialImage(
+                artworkURL: pin.artworkURL, requestURL: pin.artworkURL, artworkKey: pin.id
+            ))
     }
 
     /// Catalog and Spotify covers still come from the image cache, never from the screen.
     func testDownloadedCoverIsNotTakenFromTheScreen() throws {
         let url = "https://example.com/catalog449.jpg"
         try showCoverOnScreen(url: url, itemKey: nil)
-        XCTAssertNil(DragPreviewArtwork.initialImage(
-            artworkURL: URL(string: url), requestURL: URL(string: url), artworkKey: nil
-        ))
+        XCTAssertNil(
+            DragPreviewArtwork.initialImage(
+                artworkURL: URL(string: url), requestURL: URL(string: url), artworkKey: nil
+            ))
     }
 }
 

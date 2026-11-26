@@ -1,6 +1,6 @@
-import SwiftUI
 import AppKit
 import Sparkle
+import SwiftUI
 
 struct AccountSettingsView: View {
     @ObservedObject var viewModel: AuthViewModel
@@ -42,47 +42,48 @@ struct AccountSettingsView: View {
 
     @ViewBuilder
     private var spotifySections: some View {
-            Section {
-                LabeledContent(SpotiglassL10n.string("settings.account.status")) {
-                    Text(viewModel.state.title)
-                }
-                if let reconnectFailure = viewModel.reconnectFailure {
-                    // The reconnect didn't finish, but nothing was lost: say so calmly (#593).
-                    ErrorBanner(error: reconnectFailure.with { message in
+        Section {
+            LabeledContent(SpotiglassL10n.string("settings.account.status")) {
+                Text(viewModel.state.title)
+            }
+            if let reconnectFailure = viewModel.reconnectFailure {
+                // The reconnect didn't finish, but nothing was lost: say so calmly (#593).
+                ErrorBanner(
+                    error: reconnectFailure.with { message in
                         message.messageText = LocalizedText(
                             SpotiglassL10n.format("settings.account.reconnectFailed", reconnectFailure.message)
                         )
                     })
-                }
-                // When signed in, Status already says so. The token expiry that
-                // used to sit here told the user nothing they could act on and
-                // made a silent refresh look like an expiry; it lives in
-                // Diagnostics now (#163).
-                if activeSession == nil {
-                    LabeledContent(SpotiglassL10n.string("settings.account.details")) {
-                        Text(viewModel.state.message)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
-                }
-            } header: {
-                Text(MusicService.spotify.displayName)
             }
+            // When signed in, Status already says so. The token expiry that
+            // used to sit here told the user nothing they could act on and
+            // made a silent refresh look like an expiry; it lives in
+            // Diagnostics now (#163).
+            if activeSession == nil {
+                LabeledContent(SpotiglassL10n.string("settings.account.details")) {
+                    Text(viewModel.state.message)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+        } header: {
+            Text(MusicService.spotify.displayName)
+        }
 
-            Section {
-                if let serviceStore {
-                    SpotifyRemovableActions(store: serviceStore) { removesService in
-                        spotifyActions(disconnectRemovesService: removesService)
-                    }
-                } else {
-                    spotifyActions(disconnectRemovesService: false)
+        Section {
+            if let serviceStore {
+                SpotifyRemovableActions(store: serviceStore) { removesService in
+                    spotifyActions(disconnectRemovesService: removesService)
                 }
-            } header: {
-                Text(SpotiglassL10n.string("settings.account.developerApp"))
-            } footer: {
-                Text(SpotiglassL10n.string("settings.account.developerApp.hint"))
-                    .foregroundStyle(.secondary)
+            } else {
+                spotifyActions(disconnectRemovesService: false)
             }
+        } header: {
+            Text(SpotiglassL10n.string("settings.account.developerApp"))
+        } footer: {
+            Text(SpotiglassL10n.string("settings.account.developerApp.hint"))
+                .foregroundStyle(.secondary)
+        }
     }
 
     private func spotifyActions(disconnectRemovesService: Bool) -> SpotifyClientIDAndActionsView {
@@ -108,57 +109,60 @@ struct AccountSettingsView: View {
     }
 
     private var diagnosticsSection: some View {
-            Section {
-                if let session = activeSession {
-                    LabeledContent(SpotiglassL10n.string("settings.account.accessToken")) {
-                        Text(Self.validUntilText(session.expiresAt))
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
+        Section {
+            if let session = activeSession {
+                LabeledContent(SpotiglassL10n.string("settings.account.accessToken")) {
+                    Text(Self.validUntilText(session.expiresAt))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
                 }
-                LabeledContent(SpotiglassL10n.string("settings.account.diagnostics.logFileLabel")) {
-                    if let url = SpotiglassLog.logFileURL {
-                        HStack(spacing: SpotiglassDesign.spacingS) {
-                            // Truncate the front, not the middle, so the file name stays
-                            // readable; the full path is available via tooltip and Copy.
-                            Text(url.path)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.head)
-                                .textSelection(.enabled)
-                                .help(url.path)
-                            Button(SpotiglassL10n.string("settings.account.diagnostics.copyPath")) {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(url.path, forType: .string)
-                            }
-                            Button(SpotiglassL10n.string("settings.account.diagnostics.revealInFinder")) {
-                                // The earlier part of this launch and the previous launch's log too:
-                                // a report is often sent after a relaunch.
-                                let folder = url.deletingLastPathComponent()
-                                let others = [FileLogSink.earlierFileName, FileLogSink.previousFileName, FileLogSink.previousEarlierFileName]
-                                    .map { folder.appendingPathComponent($0) }
-                                    .filter { FileManager.default.fileExists(atPath: $0.path) }
-                                NSWorkspace.shared.activateFileViewerSelecting([url] + others)
-                            }
-                        }
-                    } else {
-                        Text(SpotiglassL10n.string("settings.account.diagnostics.logFileUnavailable"))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                if let url = SpotiglassLog.logFileURL {
-                    LabeledContent(SpotiglassL10n.string("settings.account.diagnostics.reportLabel")) {
-                        Button(SpotiglassL10n.string("settings.account.diagnostics.saveForReport")) {
-                            Self.saveCopyForBugReport(logFolder: url.deletingLastPathComponent())
-                        }
-                    }
-                }
-            } header: {
-                Text(SpotiglassL10n.string("settings.account.diagnostics.header"))
-            } footer: {
-                Text(SpotiglassL10n.string("settings.account.diagnostics.footer"))
-                    .foregroundStyle(.secondary)
             }
+            LabeledContent(SpotiglassL10n.string("settings.account.diagnostics.logFileLabel")) {
+                if let url = SpotiglassLog.logFileURL {
+                    HStack(spacing: SpotiglassDesign.spacingS) {
+                        // Truncate the front, not the middle, so the file name stays
+                        // readable; the full path is available via tooltip and Copy.
+                        Text(url.path)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                            .textSelection(.enabled)
+                            .help(url.path)
+                        Button(SpotiglassL10n.string("settings.account.diagnostics.copyPath")) {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(url.path, forType: .string)
+                        }
+                        Button(SpotiglassL10n.string("settings.account.diagnostics.revealInFinder")) {
+                            // The earlier part of this launch and the previous launch's log too:
+                            // a report is often sent after a relaunch.
+                            let folder = url.deletingLastPathComponent()
+                            let others = [
+                                FileLogSink.earlierFileName, FileLogSink.previousFileName,
+                                FileLogSink.previousEarlierFileName,
+                            ]
+                            .map { folder.appendingPathComponent($0) }
+                            .filter { FileManager.default.fileExists(atPath: $0.path) }
+                            NSWorkspace.shared.activateFileViewerSelecting([url] + others)
+                        }
+                    }
+                } else {
+                    Text(SpotiglassL10n.string("settings.account.diagnostics.logFileUnavailable"))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if let url = SpotiglassLog.logFileURL {
+                LabeledContent(SpotiglassL10n.string("settings.account.diagnostics.reportLabel")) {
+                    Button(SpotiglassL10n.string("settings.account.diagnostics.saveForReport")) {
+                        Self.saveCopyForBugReport(logFolder: url.deletingLastPathComponent())
+                    }
+                }
+            }
+        } header: {
+            Text(SpotiglassL10n.string("settings.account.diagnostics.header"))
+        } footer: {
+            Text(SpotiglassL10n.string("settings.account.diagnostics.footer"))
+                .foregroundStyle(.secondary)
+        }
     }
 
     /// Asks where to put the bug-report copy of the log (#603) and writes it there off the main
@@ -176,7 +180,8 @@ struct AccountSettingsView: View {
                 SpotiglassLog.info(.settings, "Saved the log copy for a bug report")
                 await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([destination]) }
             } catch {
-                SpotiglassLog.error(.settings, "Saving the log copy for a bug report failed: \(SpotiglassLog.describe(error))")
+                SpotiglassLog.error(
+                    .settings, "Saving the log copy for a bug report failed: \(SpotiglassLog.describe(error))")
                 await MainActor.run {
                     let alert = NSAlert(error: error)
                     alert.messageText = SpotiglassL10n.string("settings.account.diagnostics.saveFailed")
@@ -188,9 +193,9 @@ struct AccountSettingsView: View {
 
     private var activeSession: AuthenticatedSession? {
         switch viewModel.state {
-        case let .signedIn(session):
+        case .signedIn(let session):
             session
-        case let .refreshing(.some(session)):
+        case .refreshing(.some(let session)):
             session
         // Paused shows its "offline" / "Spotify is busy" line under Status.
         case .signedOut, .signingIn, .failed, .refreshing(.none), .paused:

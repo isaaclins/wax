@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Changing the language sent the main window back to Home (#548): the window's content was
@@ -70,16 +71,20 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
             linkedFromID: nil,
             uri: "spotify:track:t"
         )
-        let trackRow = TrackRowViewModel(MusicPlaylistTrackItem(id: "t", content: .track(explicitTrack)), listPosition: 1)
-        let unavailableRow = TrackRowViewModel(MusicPlaylistTrackItem(id: "u", content: .unavailable(reason: .track)), listPosition: 2)
-        let albumRow = ArtistAlbumRowViewModel(MusicArtistAlbum(
-            id: "alb", name: "Awake", imageURL: nil, releaseYear: "2014",
-            totalTracks: 10, group: .album, uri: "spotify:album:alb"
-        ))
-        let namelessAlbumRow = ArtistAlbumRowViewModel(MusicArtistAlbum(
-            id: "nameless", name: "", imageURL: nil, releaseYear: nil,
-            totalTracks: 10, group: .album, uri: "spotify:album:nameless"
-        ))
+        let trackRow = TrackRowViewModel(
+            MusicPlaylistTrackItem(id: "t", content: .track(explicitTrack)), listPosition: 1)
+        let unavailableRow = TrackRowViewModel(
+            MusicPlaylistTrackItem(id: "u", content: .unavailable(reason: .track)), listPosition: 2)
+        let albumRow = ArtistAlbumRowViewModel(
+            MusicArtistAlbum(
+                id: "alb", name: "Awake", imageURL: nil, releaseYear: "2014",
+                totalTracks: 10, group: .album, uri: "spotify:album:alb"
+            ))
+        let namelessAlbumRow = ArtistAlbumRowViewModel(
+            MusicArtistAlbum(
+                id: "nameless", name: "", imageURL: nil, releaseYear: nil,
+                totalTracks: 10, group: .album, uri: "spotify:album:nameless"
+            ))
         let emptyState = BrowsingLoadState<BrowsingDetailContent>.empty(
             LocalizedText(SpotiglassL10n.string("browser.empty.signInToBrowse"))
         )
@@ -88,7 +93,8 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
             id: "n", name: "", artists: [""], albumArtworkURL: nil, durationMilliseconds: 60_000,
             isExplicit: false, isPlayable: true, linkedFromID: nil, uri: "spotify:track:n"
         )
-        let namelessRow = TrackRowViewModel(MusicPlaylistTrackItem(id: "n", content: .track(namelessTrack)), listPosition: 3)
+        let namelessRow = TrackRowViewModel(
+            MusicPlaylistTrackItem(id: "n", content: .track(namelessTrack)), listPosition: 3)
         // A failed request keeps its sentence as text, resolved in the language of the moment.
         let networkError = PlaylistBrowserViewModel.displayError(
             for: SpotifyAPIError.network(SpotiglassL10n.string("error.spotify.unexpectedShape"))
@@ -105,9 +111,12 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
 
         XCTAssertEqual(trackRow.badgeText, "Explizit")
         XCTAssertEqual(trackRow.title, "Song", "A song's own name is never translated")
-        XCTAssertEqual(unavailableRow.title, SpotiglassL10n.string("browser.trackBadge.unavailableItem", locale: german))
-        XCTAssertEqual(unavailableRow.badgeText, SpotiglassL10n.string("browser.trackBadge.unavailable", locale: german))
-        XCTAssertEqual(unavailableRow.subtitle, SpotiglassL10n.string("browser.unavailableReason.track", locale: german))
+        XCTAssertEqual(
+            unavailableRow.title, SpotiglassL10n.string("browser.trackBadge.unavailableItem", locale: german))
+        XCTAssertEqual(
+            unavailableRow.badgeText, SpotiglassL10n.string("browser.trackBadge.unavailable", locale: german))
+        XCTAssertEqual(
+            unavailableRow.subtitle, SpotiglassL10n.string("browser.unavailableReason.track", locale: german))
         XCTAssertEqual(albumRow.trackCountText, "10 Titel")
         XCTAssertEqual(albumRow.title, "Awake")
         XCTAssertEqual(namelessAlbumRow.title, UnnamedMusicItem.album.placeholder(locale: german))
@@ -123,7 +132,7 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
             ),
             "The retry clause stayed in the old language"
         )
-        guard case let .empty(message) = emptyState else { return XCTFail("Expected an empty state") }
+        guard case .empty(let message) = emptyState else { return XCTFail("Expected an empty state") }
         XCTAssertEqual(message.string, SpotiglassL10n.string("browser.empty.signInToBrowse", locale: german))
         XCTAssertEqual(error.title, SpotiglassL10n.string("error.browsing.signInAgain.title", locale: german))
         XCTAssertEqual(error.message, SpotiglassL10n.string("error.browsing.signInAgain.message", locale: german))
@@ -213,7 +222,7 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
                     iconSystemName: "forward",
                     section: .commands,
                     keywords: []
-                ) {}
+                ) {},
             ]
         }
         viewModel.show()
@@ -244,11 +253,12 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
         SpotiglassL10n.settingsStore = store
         try store.mutate { $0.appearance.language = .english }
         let lyrics = ImmersiveLyricsViewModel { _ in .instrumental }
-        await lyrics.load(track: PlaybackNowPlaying(
-            name: "Pod", artists: ["Host"], albumName: nil, albumID: nil, albumArtURL: nil,
-            durationMilliseconds: 60_000, positionMilliseconds: 0, uri: "spotify:episode:abc"
-        ))
-        guard case let .failed(message) = lyrics.phase else { return XCTFail("Expected failed lyrics") }
+        await lyrics.load(
+            track: PlaybackNowPlaying(
+                name: "Pod", artists: ["Host"], albumName: nil, albumID: nil, albumArtURL: nil,
+                durationMilliseconds: 60_000, positionMilliseconds: 0, uri: "spotify:episode:abc"
+            ))
+        guard case .failed(let message) = lyrics.phase else { return XCTFail("Expected failed lyrics") }
 
         try store.mutate { $0.appearance.language = .german }
         XCTAssertEqual(
@@ -267,12 +277,13 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
             for: SpotifyAPIError.server(statusCode: 503, message: nil, details: nil),
             while: "test"
         )
-        guard case let .failed(message) = failedRequest else { return XCTFail("Expected a failed section") }
+        guard case .failed(let message) = failedRequest else { return XCTFail("Expected a failed section") }
         let english = message.message
 
         try store.mutate { $0.appearance.language = .german }
         XCTAssertNotEqual(message.message, english, "The Home section's error stayed in the old language")
-        XCTAssertEqual(message.message, SpotiglassL10n.string("error.spotify.serverProblem", locale: Locale(identifier: "de")))
+        XCTAssertEqual(
+            message.message, SpotiglassL10n.string("error.spotify.serverProblem", locale: Locale(identifier: "de")))
     }
 
     /// A queued song whose artist has no name shows the stand-in, copied into the queue in
@@ -321,11 +332,14 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
 
         // A refresh that finds a long list unchanged compares every row: no string lookups.
         let items = (0..<2_000).map { index in
-            MusicPlaylistTrackItem(id: "t\(index)", content: .track(MusicTrack(
-                id: "t\(index)", name: "Song \(index)", artists: ["A", "B"], albumArtworkURL: nil,
-                durationMilliseconds: 60_000, isExplicit: index.isMultiple(of: 2), isPlayable: index % 7 != 0,
-                linkedFromID: nil, uri: "spotify:track:t\(index)"
-            )))
+            MusicPlaylistTrackItem(
+                id: "t\(index)",
+                content: .track(
+                    MusicTrack(
+                        id: "t\(index)", name: "Song \(index)", artists: ["A", "B"], albumArtworkURL: nil,
+                        durationMilliseconds: 60_000, isExplicit: index.isMultiple(of: 2), isPlayable: index % 7 != 0,
+                        linkedFromID: nil, uri: "spotify:track:t\(index)"
+                    )))
         }
         let shown = TrackRowViewModel.numberedPlaylistRows(items)
         let reloaded = TrackRowViewModel.numberedPlaylistRows(items)
@@ -424,7 +438,7 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
         let german = Locale(identifier: "de")
         XCTAssertEqual(card.title, UnnamedMusicItem.album.placeholder(locale: german))
         XCTAssertEqual(card.subtitle, UnnamedMusicItem.artist.placeholder(locale: german))
-        guard case let .album(_, title, _, _) = card.destination else { return XCTFail("Expected an album card") }
+        guard case .album(_, let title, _, _) = card.destination else { return XCTFail("Expected an album card") }
         XCTAssertEqual(title, UnnamedMusicItem.album.placeholder(locale: german), "The album opened under the old name")
     }
 
@@ -440,10 +454,11 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
             linkedFromID: nil, uri: "spotify:track:t"
         )
         let queuedTrack = QueueItem.from(track: track)
-        let queuedEpisode = QueueItem.from(episode: MusicEpisode(
-            id: "e", name: "Episode", showName: nil, artworkURL: nil, durationMilliseconds: 60_000,
-            isPlayable: true, uri: "spotify:episode:e"
-        ))
+        let queuedEpisode = QueueItem.from(
+            episode: MusicEpisode(
+                id: "e", name: "Episode", showName: nil, artworkURL: nil, durationMilliseconds: 60_000,
+                isPlayable: true, uri: "spotify:episode:e"
+            ))
 
         try store.mutate { $0.appearance.language = .spanish }
         let spanish = Locale(identifier: "es")
@@ -456,16 +471,18 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
             SpotiglassL10n.string("playback.queue.episodeFallback", locale: spanish)
         )
         // A show that is really called "Podcast" keeps its name.
-        let realShow = QueueItem.from(episode: MusicEpisode(
-            id: "s", name: "Episode", showName: "Podcast", artworkURL: nil, durationMilliseconds: 60_000,
-            isPlayable: true, uri: "spotify:episode:s"
-        ))
+        let realShow = QueueItem.from(
+            episode: MusicEpisode(
+                id: "s", name: "Episode", showName: "Podcast", artworkURL: nil, durationMilliseconds: 60_000,
+                isPlayable: true, uri: "spotify:episode:s"
+            ))
         XCTAssertEqual(realShow.subtitleInAppLanguage, "Podcast")
         // An episode's subtitle is its show's name, even one that reads like an artist stand-in.
-        let oddShow = QueueItem.from(episode: MusicEpisode(
-            id: "o", name: "Episode", showName: "Unknown artist", artworkURL: nil, durationMilliseconds: 60_000,
-            isPlayable: true, uri: "spotify:episode:o"
-        ))
+        let oddShow = QueueItem.from(
+            episode: MusicEpisode(
+                id: "o", name: "Episode", showName: "Unknown artist", artworkURL: nil, durationMilliseconds: 60_000,
+                isPlayable: true, uri: "spotify:episode:o"
+            ))
         XCTAssertEqual(oddShow.subtitleInAppLanguage, "Unknown artist")
     }
 
@@ -479,10 +496,14 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
             LocalizedText(key, comparedBy: key)
         )
         func row(showName: String?) -> TrackRowViewModel {
-            TrackRowViewModel(MusicPlaylistTrackItem(id: "e", content: .episode(MusicEpisode(
-                id: "e", name: "Episode", showName: showName, artworkURL: nil, durationMilliseconds: 60_000,
-                isPlayable: true, uri: "spotify:episode:e"
-            ))), listPosition: 1)
+            TrackRowViewModel(
+                MusicPlaylistTrackItem(
+                    id: "e",
+                    content: .episode(
+                        MusicEpisode(
+                            id: "e", name: "Episode", showName: showName, artworkURL: nil, durationMilliseconds: 60_000,
+                            isPlayable: true, uri: "spotify:episode:e"
+                        ))), listPosition: 1)
         }
         XCTAssertNotEqual(row(showName: nil), row(showName: key))
     }
@@ -505,7 +526,8 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
 
         try store.mutate { $0.appearance.language = .german }
         let german = Locale(identifier: "de")
-        XCTAssertEqual(playlist.ownerNameInAppLanguage, SpotiglassL10n.string("appleMusic.library.owner", locale: german))
+        XCTAssertEqual(
+            playlist.ownerNameInAppLanguage, SpotiglassL10n.string("appleMusic.library.owner", locale: german))
         XCTAssertEqual(header.localizedOwner(), UnnamedMusicItem.artist.placeholder(locale: german))
     }
 
@@ -523,12 +545,14 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
             id: UUID(), label: SpotiglassL10n.string("browser.breadcrumb.artistFallback"),
             systemImage: "person", kind: .artist(id: "r"), fallbackKey: "browser.breadcrumb.artistFallback"
         )
-        let named = BrowserBreadcrumb(id: UUID(), label: "Awake", systemImage: "opticaldisc",
+        let named = BrowserBreadcrumb(
+            id: UUID(), label: "Awake", systemImage: "opticaldisc",
             kind: .album(id: "b", title: "Awake", subtitle: "", artworkURL: nil))
 
         try store.mutate { $0.appearance.language = .german }
         let german = Locale(identifier: "de")
-        XCTAssertEqual(BrowserToolbarPresentation.localizedLabel(for: album), UnnamedMusicItem.album.placeholder(locale: german))
+        XCTAssertEqual(
+            BrowserToolbarPresentation.localizedLabel(for: album), UnnamedMusicItem.album.placeholder(locale: german))
         XCTAssertEqual(
             BrowserToolbarPresentation.localizedLabel(for: artist),
             SpotiglassL10n.string("browser.breadcrumb.artistFallback", locale: german)
@@ -538,7 +562,8 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
         // A real playlist called "Playlist" and a real artist called "Künstler" keep their
         // names: only the app's own fallback reads in the current language.
         try store.mutate { $0.appearance.language = .spanish }
-        let realPlaylist = BrowserBreadcrumb(id: UUID(), label: "Playlist", systemImage: "music.note.list", kind: .playlist(id: "p"))
+        let realPlaylist = BrowserBreadcrumb(
+            id: UUID(), label: "Playlist", systemImage: "music.note.list", kind: .playlist(id: "p"))
         XCTAssertEqual(BrowserToolbarPresentation.localizedLabel(for: realPlaylist), "Playlist")
         try store.mutate { $0.appearance.language = .english }
         let realArtist = BrowserBreadcrumb(id: UUID(), label: "Künstler", systemImage: "person", kind: .artist(id: "k"))

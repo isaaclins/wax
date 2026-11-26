@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class SpotiglassLogTests: XCTestCase {
@@ -10,7 +11,7 @@ final class SpotiglassLogTests: XCTestCase {
     }
 
     override func tearDownWithError() throws {
-        try? FileManager.default.removeItem(at: directory) // The folder may never have been created.
+        try? FileManager.default.removeItem(at: directory)  // The folder may never have been created.
     }
 
     func testInfoAndErrorOnAllCategories() {
@@ -66,13 +67,16 @@ final class SpotiglassLogTests: XCTestCase {
         }
         sink.flush()
 
-        let current = try String(contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
-        let earlier = try String(contentsOf: directory.appendingPathComponent(FileLogSink.earlierFileName), encoding: .utf8)
+        let current = try String(
+            contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
+        let earlier = try String(
+            contentsOf: directory.appendingPathComponent(FileLogSink.earlierFileName), encoding: .utf8)
         XCTAssertTrue(current.contains("line 39"), "The newest line must be in the current file.")
         XCTAssertTrue(current.contains("earlier lines in \(FileLogSink.earlierFileName)"))
         for file in [FileLogSink.currentFileName, FileLogSink.earlierFileName] {
             let size = try XCTUnwrap(
-                FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent(file).path)[.size] as? UInt64
+                FileManager.default.attributesOfItem(atPath: directory.appendingPathComponent(file).path)[.size]
+                    as? UInt64
             )
             XCTAssertLessThanOrEqual(size, 400, "\(file) grew past the cap")
         }
@@ -94,7 +98,8 @@ final class SpotiglassLogTests: XCTestCase {
         second.boot()
         second.flush()
 
-        let previous = try String(contentsOf: directory.appendingPathComponent(FileLogSink.previousFileName), encoding: .utf8)
+        let previous = try String(
+            contentsOf: directory.appendingPathComponent(FileLogSink.previousFileName), encoding: .utf8)
         let previousEarlier = try String(
             contentsOf: directory.appendingPathComponent(FileLogSink.previousEarlierFileName), encoding: .utf8
         )
@@ -117,9 +122,11 @@ final class SpotiglassLogTests: XCTestCase {
         second.boot()
         second.flush()
 
-        let previous = try String(contentsOf: directory.appendingPathComponent(FileLogSink.previousFileName), encoding: .utf8)
+        let previous = try String(
+            contentsOf: directory.appendingPathComponent(FileLogSink.previousFileName), encoding: .utf8)
         XCTAssertTrue(previous.contains("first session line"))
-        let current = try String(contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
+        let current = try String(
+            contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
         XCTAssertFalse(current.contains("first session line"))
     }
 
@@ -136,7 +143,8 @@ final class SpotiglassLogTests: XCTestCase {
         second.write(level: "INFO", category: "api", message: "new session line")
         second.flush()
 
-        let current = try String(contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
+        let current = try String(
+            contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
         XCTAssertTrue(current.contains("evidence from the crashed session"))
         XCTAssertTrue(current.contains("Could not move the previous session's log aside"))
         XCTAssertTrue(current.contains("new session line"))
@@ -150,14 +158,16 @@ final class SpotiglassLogTests: XCTestCase {
         first.write(level: "ERROR", category: "auth", message: "evidence from the crashed session", synchronously: true)
 
         struct MoveRefused: Error {}
-        let second = FileLogSink(directory: { self.directory }, maxBytes: 600, moveItem: { _, _ in throw MoveRefused() })
+        let second = FileLogSink(
+            directory: { self.directory }, maxBytes: 600, moveItem: { _, _ in throw MoveRefused() })
         second.boot()
         for index in 0..<40 {
             second.write(level: "INFO", category: "api", message: "line \(index)")
         }
         second.flush()
 
-        let current = try String(contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
+        let current = try String(
+            contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
         XCTAssertTrue(current.contains("evidence from the crashed session"))
         XCTAssertTrue(current.contains("the rest of this session is in Console only"))
         XCTAssertFalse(current.contains("line 39"), "The file must stop growing once it is full")
@@ -177,7 +187,8 @@ final class SpotiglassLogTests: XCTestCase {
         let sink = FileLogSink(directory: { self.directory })
         sink.boot()
         sink.write(level: "ERROR", category: "playback", message: "last words", synchronously: true)
-        let current = try String(contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
+        let current = try String(
+            contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
         XCTAssertTrue(current.contains("last words"))
     }
 
@@ -193,14 +204,29 @@ final class SpotiglassLogTests: XCTestCase {
         let deviceID = "8e1b2a6f0c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f"
         let lines: [(String, String, String)] = [
             ("INFO", "api", "palette search \(SpotiglassLog.personal("tame impala let it happen")) provider 412ms"),
-            ("INFO", "playback", "playFromPlaylist entry clickedURI=applemusic:song:4651336237147474264 playlistID=-1718416633700638354 playableCount=440 currentURI=<nil> hasTransferred=false"),
+            (
+                "INFO", "playback",
+                "playFromPlaylist entry clickedURI=applemusic:song:4651336237147474264 playlistID=-1718416633700638354 playableCount=440 currentURI=<nil> hasTransferred=false"
+            ),
             ("INFO", "playback", "send setQueue entries=440 startingAt=entry 69022FF1-C55C-4807-9D44-AB5C2C770DCD"),
-            ("INFO", "playback", "player current entry -> b7aXaLAhy::5GlvfRUeI \(AppleMusicPlayerStateObserver.songName(title: "Eventually", artist: "Tame Impala")) (position 9 of 440): after play (0.28 s after the last command)"),
+            (
+                "INFO", "playback",
+                "player current entry -> b7aXaLAhy::5GlvfRUeI \(AppleMusicPlayerStateObserver.songName(title: "Eventually", artist: "Tame Impala")) (position 9 of 440): after play (0.28 s after the last command)"
+            ),
             ("INFO", "playback", "performTransfer deviceID=\(deviceID) play=true origin=palette"),
             ("INFO", "playback", "play(uri:) entry uri=spotify:track:6rqhFgbbKwnb9MLmUQDhG6 deviceID=\(deviceID)"),
-            ("ERROR", "api", "Spotify API failure: GET https://api.spotify.com/v1/search?q=tame%20impala&type=track HTTP 401, headers and body: \(SpotiglassLog.personal("Response body:\n{\"error\":{\"status\":401,\"message\":\"The access token expired\"}}"))"),
-            ("ERROR", "api", "Spotify GET /v1/users/isaac.lins/playlists failed: NSURLErrorDomain -1009: The Internet connection appears to be offline."),
-            ("INFO", "interaction", "#12 click in window “Wax” row 3 of 40 on cell “Let It Happen” in row; first frame after 6.1 ms"),
+            (
+                "ERROR", "api",
+                "Spotify API failure: GET https://api.spotify.com/v1/search?q=tame%20impala&type=track HTTP 401, headers and body: \(SpotiglassLog.personal("Response body:\n{\"error\":{\"status\":401,\"message\":\"The access token expired\"}}"))"
+            ),
+            (
+                "ERROR", "api",
+                "Spotify GET /v1/users/isaac.lins/playlists failed: NSURLErrorDomain -1009: The Internet connection appears to be offline."
+            ),
+            (
+                "INFO", "interaction",
+                "#12 click in window “Wax” row 3 of 40 on cell “Let It Happen” in row; first frame after 6.1 ms"
+            ),
             ("INFO", "interaction", "#13 key T in window “Wax” on focus NSTextView; first frame after 4.0 ms"),
             ("INFO", "interaction", "#15 key ⇧Q in window “Wax” on focus NSTextView; first frame after 3.9 ms"),
             ("INFO", "interaction", "#16 key SS in window “Wax” on focus NSTextView; first frame after 3.7 ms"),
@@ -212,17 +238,27 @@ final class SpotiglassLogTests: XCTestCase {
             ("INFO", "interaction", "#22 key key 53 in window “Wax”; first frame after 2.5 ms"),
             ("INFO", "interaction", "#14 shortcut ⌘K in window “Wax” on button “Next”; first frame after 3.2 ms"),
             ("INFO", "persistence", "Cache folder /Users/isaac/Library/Caches/Spotiglass unreadable"),
-            ("INFO", "calls", "→ #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg"),
-            ("INFO", "calls", "← #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg done after 78.3 ms: status 200, 114795 bytes"),
+            (
+                "INFO", "calls",
+                "→ #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg"
+            ),
+            (
+                "INFO", "calls",
+                "← #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg done after 78.3 ms: status 200, 114795 bytes"
+            ),
             ("ERROR", "auth", "Sign-in failed: access_denied\n2026-11-25T16:00:00.000Z [INFO] [auth] Signed in"),
-            ("INFO", "calls", "→ #7 MusicKit album search for a pin (\(SpotiglassLog.personal("Currents")) / \(SpotiglassLog.personal("Tame Impala")))"),
+            (
+                "INFO", "calls",
+                "→ #7 MusicKit album search for a pin (\(SpotiglassLog.personal("Currents")) / \(SpotiglassLog.personal("Tame Impala")))"
+            ),
             ("INFO", "calls", "→ #8 MusicKit autoplay artist search (\(SpotiglassLog.personal("Pond")))"),
             ("INFO", "calls", "← #9 MusicKit catalog artist 909253 top songs done after 120.4 ms"),
         ]
         for (level, category, message) in lines {
             sink.write(level: level, category: category, message: message, synchronously: true)
         }
-        let full = try String(contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
+        let full = try String(
+            contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
         // The log on the Mac keeps everything (#734).
         XCTAssertTrue(full.contains("tame impala let it happen"))
         XCTAssertTrue(full.contains("4651336237147474264"))
@@ -239,7 +275,8 @@ final class SpotiglassLogTests: XCTestCase {
         for personal in [
             "tame impala", "tame%20impala", "Let It Happen", "isaac.lins", "/Users/isaac/",
             "4651336237147474264", "1718416633700638354", "69022FF1-C55C-4807-9D44-AB5C2C770DCD",
-            "b7aXaLAhy::5GlvfRUeI", deviceID, "6rqhFgbbKwnb9MLmUQDhG6", "The access token expired", "key T", "key ⇧Q", "key SS",
+            "b7aXaLAhy::5GlvfRUeI", deviceID, "6rqhFgbbKwnb9MLmUQDhG6", "The access token expired", "key T", "key ⇧Q",
+            "key SS",
             "20UMGIM03371", "Currents", "Tame Impala", "Pond", "909253", "Eventually",
         ] {
             XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
@@ -248,8 +285,10 @@ final class SpotiglassLogTests: XCTestCase {
             "[ERROR] [api]", "HTTP 401", "NSURLErrorDomain -1009", "provider 412ms", "playableCount=440",
             "position 9 of 440", "first frame after 6.1 ms", "row 3 of 40", "button “Next”", "window “Wax”",
             "shortcut ⌘K", "/v1/search?<query>", "applemusic:song:#", "spotify:track:#", "currentURI=<nil>",
-            "/Users/<user>/Library/Caches", "access_denied", "https://is1-ssl.mzstatic.com/#", "status 200, 114795 bytes",
-            "album search for a pin (“#", "key ⇧·", "key ↓", "key Return", "key in a password field", "key ⇧Tab", "key ⇧↓", "key key 53", "catalog artist #", "top songs done after 120.4 ms", "” by “#",
+            "/Users/<user>/Library/Caches", "access_denied", "https://is1-ssl.mzstatic.com/#",
+            "status 200, 114795 bytes",
+            "album search for a pin (“#", "key ⇧·", "key ↓", "key Return", "key in a password field", "key ⇧Tab",
+            "key ⇧↓", "key key 53", "catalog artist #", "top songs done after 120.4 ms", "” by “#",
         ] {
             XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
         }
@@ -282,18 +321,22 @@ final class SpotiglassLogTests: XCTestCase {
             "2026-11-25T15:17:09.000Z [INFO] [playback] player status paused -> playing at 0:00.0",
             "2026-11-25T15:17:10.000Z [ERROR] [browsing] Looking up \"Mystery Playlist\" to open it failed: NSURLErrorDomain -1009",
         ]
-        try Data((older.joined(separator: "\n") + "\n").utf8).write(to: directory.appendingPathComponent(FileLogSink.previousFileName))
+        try Data((older.joined(separator: "\n") + "\n").utf8).write(
+            to: directory.appendingPathComponent(FileLogSink.previousFileName))
         let destination = directory.appendingPathComponent("report.txt")
         try BugReportLogCopy.write(from: directory, to: destination, keeping: ["Pin"])
         let copy = try String(contentsOf: destination, encoding: .utf8)
         for personal in [
-            "bad bunny", "Let It Happen", "Tame Impala", "Currents", "Pond", "Khruangbin", "Lonerism", "Innerspeaker", "Melody's Echo Chamber", "Mystery Playlist",
+            "bad bunny", "Let It Happen", "Tame Impala", "Currents", "Pond", "Khruangbin", "Lonerism", "Innerspeaker",
+            "Melody's Echo Chamber", "Mystery Playlist",
         ] {
             XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
         }
         for kept in [
-            "provider 412ms", "answered in part", "(position 9 of 440): after play", "button “Pin”", "done after 120.4 ms",
-            "(#10, 1.9 s); MusicKit autoplay artist search (“#", "(#9, 2.0 s)", "player status paused -> playing", "to open it failed: NSURLErrorDomain -1009",
+            "provider 412ms", "answered in part", "(position 9 of 440): after play", "button “Pin”",
+            "done after 120.4 ms",
+            "(#10, 1.9 s); MusicKit autoplay artist search (“#", "(#9, 2.0 s)", "player status paused -> playing",
+            "to open it failed: NSURLErrorDomain -1009",
         ] {
             XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
         }
@@ -311,7 +354,9 @@ final class SpotiglassLogTests: XCTestCase {
         let destination = directory.appendingPathComponent("report.txt")
         try BugReportLogCopy.write(from: directory, to: destination, keeping: [])
         let copy = try String(contentsOf: destination, encoding: .utf8)
-        let order = ["previous session, first part", "previous session\n", "this session"].map { copy.range(of: $0)?.lowerBound }
+        let order = ["previous session, first part", "previous session\n", "this session"].map {
+            copy.range(of: $0)?.lowerBound
+        }
         XCTAssertFalse(order.contains(nil), copy)
         XCTAssertEqual(order.compactMap { $0 }, order.compactMap { $0 }.sorted())
     }

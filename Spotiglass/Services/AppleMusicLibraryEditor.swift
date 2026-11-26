@@ -405,9 +405,9 @@ struct AppleMusicLibraryEditor: Sendable {
         let id: String
         let route = try Self.route(for: references)
         switch route {
-        case let .cloud(songs):
+        case .cloud(let songs):
             id = try await cloud.createPlaylist(name: name, songs: songs)
-        case let .musicApp(tracks):
+        case .musicApp(let tracks):
             let persistentID = try await musicApp.createPlaylist(name: name, tracks: tracks)
             guard let value = UInt64(persistentID, radix: 16) else { throw AppleMusicLibraryEditError.requestFailed }
             id = String(Int64(bitPattern: value))
@@ -439,10 +439,10 @@ struct AppleMusicLibraryEditor: Sendable {
         guard !references.isEmpty else { throw AppleMusicLibraryEditError.notEditable }
         let route = try Self.route(for: references)
         switch route {
-        case let .cloud(songs):
+        case .cloud(let songs):
             let cloudID = try await cloudPlaylistID(for: playlistID)
             try await cloud.addToPlaylist(cloudPlaylistID: cloudID, songs: songs)
-        case let .musicApp(tracks):
+        case .musicApp(let tracks):
             try await musicApp.addToPlaylist(try await musicAppPlaylist(for: playlistID), tracks: tracks)
         }
         // Adding to a playlist puts the song back into the library.
@@ -467,7 +467,8 @@ struct AppleMusicLibraryEditor: Sendable {
         }
         // The Music app adds what its library has, or what the playlist it was listed in has.
         let tracks = references.compactMap { reference -> MusicAppTrackMatch? in
-            if let persistentID = reference.musicAppPersistentID, let playlistID = reference.sourcePlaylistPersistentID {
+            if let persistentID = reference.musicAppPersistentID, let playlistID = reference.sourcePlaylistPersistentID
+            {
                 return .playlistEntry(persistentID: persistentID, playlistPersistentID: playlistID)
             }
             return reference.isInLibrary ? reference.musicAppMatch : nil
@@ -494,7 +495,9 @@ struct AppleMusicLibraryEditor: Sendable {
         // A song MusicKit lists only under a persistent ID has no catalog track; the row it was
         // listed as stands in for it.
         let added = references.compactMap { reference in
-            (reference.catalogID.flatMap { tracksByCatalogID[$0] } ?? reference.shownTrack).map { (track: $0, reference: reference) }
+            (reference.catalogID.flatMap { tracksByCatalogID[$0] } ?? reference.shownTrack).map {
+                (track: $0, reference: reference)
+            }
         }
         let editRoute: AppleMusicPendingLibraryEdits.EditRoute
         switch route {
@@ -527,12 +530,15 @@ struct AppleMusicLibraryEditor: Sendable {
             picked.formUnion(rows)
             // The rows picked, where they sit in the Music app's own playlist: the browser's
             // positions count copies on their way from the cloud, which it doesn't have yet.
-            let positions = rows.isEmpty ? nil : pending.musicAppPositions(rows.sorted(), playlistID: playlistID, shown: shownTracks)
+            let positions =
+                rows.isEmpty
+                ? nil : pending.musicAppPositions(rows.sorted(), playlistID: playlistID, shown: shownTracks)
             // Where the Music app has it can't be known yet: it would fall back to another copy.
             if let positions, positions.contains(nil) {
                 throw AppleMusicLibraryEditError.notInMusicYet
             }
-            scripted.append(MusicAppPlaylistRemoval(track: match, positions: positions?.compactMap { $0 } ?? removal.positions))
+            scripted.append(
+                MusicAppPlaylistRemoval(track: match, positions: positions?.compactMap { $0 } ?? removal.positions))
         }
         guard !scripted.isEmpty else { return }
         // The Music app would take another copy of the song than the one picked.
@@ -546,7 +552,9 @@ struct AppleMusicLibraryEditor: Sendable {
 
     /// The rows of `shown` that removing a song at `positions` takes: each position that lists
     /// the song, and for the rest (the list moved since) the song's last copies not yet taken.
-    static func rows(_ positions: [Int], of shown: [MusicTrack], where isSong: (MusicTrack) -> Bool, besides taken: Set<Int>) -> [Int] {
+    static func rows(
+        _ positions: [Int], of shown: [MusicTrack], where isSong: (MusicTrack) -> Bool, besides taken: Set<Int>
+    ) -> [Int] {
         var rows = positions.filter { shown.indices.contains($0) && isSong(shown[$0]) && !taken.contains($0) }
         let others = shown.indices.reversed().filter { isSong(shown[$0]) && !taken.contains($0) && !rows.contains($0) }
         rows += others.prefix(max(0, Set(positions).count - Set(rows).count))
@@ -640,7 +648,7 @@ struct AppleMusicLibraryEditor: Sendable {
     /// knows its title, artist and album, which is how the Music app finds it.
     private func withPendingDetails(_ reference: AppleMusicSongReference) -> AppleMusicSongReference {
         guard reference.musicAppPersistentID == nil, reference.title == nil,
-              let saved = pending.savedSong(matching: reference.matchKeys), let track = saved.track
+            let saved = pending.savedSong(matching: reference.matchKeys), let track = saved.track
         else { return reference }
         var detailed = reference
         detailed.title = track.name
@@ -691,7 +699,8 @@ struct AppleMusicLibraryEditor: Sendable {
         // Renamed moments ago and the cloud list still shows the old name: the new name may
         // belong to another playlist there, so wait instead of guessing.
         if let renamed, !Self.isSamePlaylistName(renamed, listedName),
-           editable.contains(where: { Self.isSamePlaylistName($0.name, listedName) }) {
+            editable.contains(where: { Self.isSamePlaylistName($0.name, listedName) })
+        {
             throw AppleMusicLibraryEditError.notInMusicYet
         }
         let matches = editable.filter { Self.isSamePlaylistName($0.name, renamed ?? listedName) }
@@ -712,12 +721,14 @@ struct AppleMusicLibraryEditor: Sendable {
         if let playlist = try await lookup.playlist(id: playlistID), let persistentID = playlist.musicAppPersistentID {
             return .persistentID(persistentID)
         }
-        guard let name = pending.renamedName(for: playlistID) ?? pending.createdPlaylist(id: playlistID)?.nameAsSent else {
+        guard let name = pending.renamedName(for: playlistID) ?? pending.createdPlaylist(id: playlistID)?.nameAsSent
+        else {
             throw AppleMusicLibraryEditError.notEditable
         }
         // Music finds this playlist only by name. If another playlist has the name, the one Music
         // finds may be that one, so the edit stops instead.
-        let namesakeAtCreate = pending.createdPlaylist(id: playlistID).map { Self.isSamePlaylistName($0.nameAsSent, name) } == true
+        let namesakeAtCreate =
+            pending.createdPlaylist(id: playlistID).map { Self.isSamePlaylistName($0.nameAsSent, name) } == true
             && !pending.existingIDsWithSameName(asCreated: playlistID).isEmpty
         let namesakeInCloud = try await cloud.editablePlaylists().contains {
             Self.isSamePlaylistName($0.name, name) && $0.id != playlistID

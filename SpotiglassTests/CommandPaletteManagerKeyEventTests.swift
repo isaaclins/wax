@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -36,10 +37,17 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
         let manager = CommandPaletteManager()
         manager.viewModel.show()
         manager.viewModel.testingReplaceSections([
-            (.commands, [
-                CommandPaletteItem(id: "a", title: "A", subtitle: nil, iconSystemName: "command", section: .commands, keywords: [], action: {}),
-                CommandPaletteItem(id: "b", title: "B", subtitle: nil, iconSystemName: "command", section: .commands, keywords: [], action: {}),
-            ]),
+            (
+                .commands,
+                [
+                    CommandPaletteItem(
+                        id: "a", title: "A", subtitle: nil, iconSystemName: "command", section: .commands, keywords: [],
+                        action: {}),
+                    CommandPaletteItem(
+                        id: "b", title: "B", subtitle: nil, iconSystemName: "command", section: .commands, keywords: [],
+                        action: {}),
+                ]
+            )
         ])
         let start = manager.viewModel.selectedIndex
         XCTAssertTrue(manager.handleKeyEvent(keyDown(keyCode: 125)))
@@ -89,7 +97,8 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
             store: LyricsTimingStore(defaults: UserDefaults(suiteName: "CommandPaletteManagerKeyEventTests-hold")!),
             haptics: SilentLyricsHaptics()
         ) {
-            LyricsTimingHoldInput.Context(songID: "song", lines: [line], savedOffsetMs: 0, rawPositionMs: { 0 }, linePitch: 40)
+            LyricsTimingHoldInput.Context(
+                songID: "song", lines: [line], savedOffsetMs: 0, rawPositionMs: { 0 }, linePitch: 40)
         }
         XCTAssertTrue(input.handle(.rightDown(.zero, inside: true)))
         XCTAssertTrue(LyricsTimingHoldInput.isHoldInProgress)
@@ -288,7 +297,10 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
         var switched: [MusicService] = []
         let switchesRan = expectation(description: "both switches ran")
         switchesRan.expectedFulfillmentCount = 2
-        manager.switchService = { switched.append($0); switchesRan.fulfill() }
+        manager.switchService = {
+            switched.append($0)
+            switchesRan.fulfill()
+        }
 
         let controlTwo = keyDown(keyCode: 19, characters: "2", modifiers: [.control], windowNumber: window.windowNumber)
         let controlOne = keyDown(keyCode: 18, characters: "1", modifiers: [.control], windowNumber: window.windowNumber)
@@ -386,12 +398,13 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
         playback.setConnectionState(.paused(nil))
         XCTAssertTrue(next(), "a podcast paused on another device still skips")
 
-        playback.setConnectionState(.playing(
-            PlaybackNowPlaying(
-                name: "Song", artists: ["Artist"], albumName: nil, albumID: nil, albumArtURL: nil,
-                durationMilliseconds: 100, positionMilliseconds: 0, uri: "spotify:track:1"
-            )
-        ))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Song", artists: ["Artist"], albumName: nil, albumID: nil, albumArtURL: nil,
+                    durationMilliseconds: 100, positionMilliseconds: 0, uri: "spotify:track:1"
+                )
+            ))
         XCTAssertTrue(next())
         XCTAssertTrue(previous())
 
@@ -422,18 +435,19 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
         XCTAssertFalse(manager.handleKeyEvent(keyDown(keyCode: 37, characters: "l", modifiers: [.command])))
         XCTAssertEqual(toggled, 0)
 
-        playback.setConnectionState(.playing(
-            PlaybackNowPlaying(
-                name: "Song",
-                artists: ["Artist"],
-                albumName: nil,
-                albumID: nil,
-                albumArtURL: nil,
-                durationMilliseconds: 100,
-                positionMilliseconds: 0,
-                uri: "spotify:track:1"
-            )
-        ))
+        playback.setConnectionState(
+            .playing(
+                PlaybackNowPlaying(
+                    name: "Song",
+                    artists: ["Artist"],
+                    albumName: nil,
+                    albumID: nil,
+                    albumArtURL: nil,
+                    durationMilliseconds: 100,
+                    positionMilliseconds: 0,
+                    uri: "spotify:track:1"
+                )
+            ))
         XCTAssertTrue(manager.handleKeyEvent(keyDown(keyCode: 37, characters: "l", modifiers: [.command])))
         XCTAssertEqual(toggled, 1)
     }
@@ -469,7 +483,9 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
         XCTAssertFalse(paletteOffersLyrics())
 
         presented = true
-        XCTAssertTrue(manager.handleKeyEvent(keyDown(keyCode: 37, characters: "l", modifiers: [.command])), "the shortcut doesn't hide the lyrics")
+        XCTAssertTrue(
+            manager.handleKeyEvent(keyDown(keyCode: 37, characters: "l", modifiers: [.command])),
+            "the shortcut doesn't hide the lyrics")
         XCTAssertEqual(toggled, 1)
         manager.execute(commandID: CommandPaletteCommandID.toggleLyrics)
         XCTAssertEqual(toggled, 2, "the command doesn't hide the lyrics")
@@ -497,17 +513,20 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
         let manager = CommandPaletteManager()
         manager.viewModel.show()
         manager.viewModel.testingReplaceSections([
-            (.commands, [
-                CommandPaletteItem(
-                    id: "run",
-                    title: "Run",
-                    subtitle: nil,
-                    iconSystemName: "command",
-                    section: .commands,
-                    keywords: [],
-                    action: {}
-                ),
-            ]),
+            (
+                .commands,
+                [
+                    CommandPaletteItem(
+                        id: "run",
+                        title: "Run",
+                        subtitle: nil,
+                        iconSystemName: "command",
+                        section: .commands,
+                        keywords: [],
+                        action: {}
+                    )
+                ]
+            )
         ])
         XCTAssertTrue(manager.handleKeyEvent(keyDown(keyCode: 36)))
     }
@@ -633,17 +652,20 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
         manager.viewModel.show()
         let executed = expectation(description: "executed")
         manager.viewModel.testingReplaceSections([
-            (.commands, [
-                CommandPaletteItem(
-                    id: "run",
-                    title: "Run",
-                    subtitle: nil,
-                    iconSystemName: "command",
-                    section: .commands,
-                    keywords: [],
-                    action: { executed.fulfill() }
-                ),
-            ]),
+            (
+                .commands,
+                [
+                    CommandPaletteItem(
+                        id: "run",
+                        title: "Run",
+                        subtitle: nil,
+                        iconSystemName: "command",
+                        section: .commands,
+                        keywords: [],
+                        action: { executed.fulfill() }
+                    )
+                ]
+            )
         ])
         XCTAssertTrue(manager.handleKeyEvent(keyDown(keyCode: 36)))
         await fulfillment(of: [executed], timeout: mustHappenTimeout)

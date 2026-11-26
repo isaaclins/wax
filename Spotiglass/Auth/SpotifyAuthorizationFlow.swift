@@ -47,7 +47,9 @@ struct SpotifyAuthorizationFlow: SpotifyAuthorizationFlowing {
         self.loopbackPort = loopbackPort
     }
 
-    func requestAuthorizationCode(clientID: String, timeout: TimeInterval = 120) async throws -> SpotifyAuthorizationCode {
+    func requestAuthorizationCode(clientID: String, timeout: TimeInterval = 120) async throws
+        -> SpotifyAuthorizationCode
+    {
         let state = try PKCE.makeCodeVerifier(byteCount: 32)
         let codeVerifier = try PKCE.makeCodeVerifier()
         let codeChallenge = PKCE.makeCodeChallenge(for: codeVerifier)

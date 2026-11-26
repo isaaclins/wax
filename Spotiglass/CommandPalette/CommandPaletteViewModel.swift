@@ -51,7 +51,7 @@ final class CommandPaletteViewModel: ObservableObject {
         CommandPaletteCommandID.nextTrack,
         CommandPaletteCommandID.toggleQueue,
         CommandPaletteCommandID.toggleLyrics,
-        CommandPaletteCommandID.openSettings
+        CommandPaletteCommandID.openSettings,
     ]
     /// Network-backed Spotify catalog search. Always invoked for the full multi-type
     /// result set (the category is a display-time filter, not a fetch parameter).
@@ -101,7 +101,8 @@ final class CommandPaletteViewModel: ObservableObject {
 
     /// Test hook for `@testable import`; replaces visible search rows without running a query (tests only; not indexed by Periphery scan).
     // periphery:ignore
-    internal func testingReplaceSections(_ newSections: [(section: CommandPaletteSection, items: [CommandPaletteItem])]) {
+    internal func testingReplaceSections(_ newSections: [(section: CommandPaletteSection, items: [CommandPaletteItem])])
+    {
         sections = newSections
         if visibleItems.isEmpty {
             selectedIndex = 0
@@ -121,7 +122,9 @@ final class CommandPaletteViewModel: ObservableObject {
     }
 
     /// Call from the host when the browser opens/closes a playlist detail so the footer and active filter stay valid.
-    func setAvailableSearchCategories(_ categories: [CommandPaletteSearchCategory], refreshIfFilterInvalidated: Bool = true) {
+    func setAvailableSearchCategories(
+        _ categories: [CommandPaletteSearchCategory], refreshIfFilterInvalidated: Bool = true
+    ) {
         // Set on every page change (#675): an unchanged list must not re-render the window.
         if availableSearchCategories != categories { availableSearchCategories = categories }
         if !categories.contains(searchCategoryFilter) {
@@ -203,7 +206,8 @@ final class CommandPaletteViewModel: ObservableObject {
     /// because Play/Pause or Lyrics availability changed keeps it on the same row when that row
     /// is still listed, so it never moves under the user.
     private func showIdleSections(prefix: String, keepingSelection: Bool = false) {
-        let previous = keepingSelection && visibleItems.indices.contains(selectedIndex)
+        let previous =
+            keepingSelection && visibleItems.indices.contains(selectedIndex)
             ? visibleItems[selectedIndex].id : nil
         sections = idleSections(prefix: prefix)
         error = nil
@@ -240,7 +244,8 @@ final class CommandPaletteViewModel: ObservableObject {
         guard isPresented else { return }
         if showsSuggestions {
             searchTask?.cancel()
-            showIdleSections(prefix: strippedQuery.trimmingCharacters(in: .whitespacesAndNewlines), keepingSelection: true)
+            showIdleSections(
+                prefix: strippedQuery.trimmingCharacters(in: .whitespacesAndNewlines), keepingSelection: true)
         } else if currentScope == .commands {
             // `>` lists the commands too: the highlight stays on its row there as well (#500).
             searchTask?.cancel()
@@ -253,14 +258,16 @@ final class CommandPaletteViewModel: ObservableObject {
 
     /// The `>` list: every static command, or those matching `query` by score.
     private func showCommands(matching query: String, keepingSelection: Bool = false) {
-        let previous = keepingSelection && visibleItems.indices.contains(selectedIndex)
+        let previous =
+            keepingSelection && visibleItems.indices.contains(selectedIndex)
             ? visibleItems[selectedIndex].id : nil
         let staticItems = staticItemsProvider()
         let filtered: [CommandPaletteItem]
         if query.isEmpty {
             filtered = staticItems
         } else {
-            filtered = staticItems
+            filtered =
+                staticItems
                 .map { (item: $0, score: $0.score(for: query)) }
                 .filter { $0.score < 100 }
                 .sorted { lhs, rhs in
@@ -279,7 +286,8 @@ final class CommandPaletteViewModel: ObservableObject {
     /// holds less than ``minimumPaletteSearchQueryCharacters``.
     var showsSuggestions: Bool {
         currentScope == .songs
-            && strippedQuery.trimmingCharacters(in: .whitespacesAndNewlines).count < Self.minimumPaletteSearchQueryCharacters
+            && strippedQuery.trimmingCharacters(in: .whitespacesAndNewlines).count
+                < Self.minimumPaletteSearchQueryCharacters
     }
 
     func clearRecentSearches() {
@@ -349,8 +357,9 @@ final class CommandPaletteViewModel: ObservableObject {
         let trimmed = parsed.query.trimmingCharacters(in: .whitespacesAndNewlines)
         searchTask?.cancel()
         if parsed.scope == .songs,
-           !trimmed.isEmpty,
-           trimmed.count >= Self.minimumPaletteSearchQueryCharacters {
+            !trimmed.isEmpty,
+            trimmed.count >= Self.minimumPaletteSearchQueryCharacters
+        {
             // Local-first: paint in-memory matches immediately so the list never goes
             // blank while the debounced catalog fetch is in flight.
             renderInstantLocalResults(trimmed: trimmed)
@@ -381,10 +390,11 @@ final class CommandPaletteViewModel: ObservableObject {
         searchCategoryFilter = category
         let trimmed = strippedQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty,
-           trimmed.count >= Self.minimumPaletteSearchQueryCharacters,
-           cachedResultsQuery == trimmed,
-           !cachedResultsArePartial,
-           cachedResults != nil {
+            trimmed.count >= Self.minimumPaletteSearchQueryCharacters,
+            cachedResultsQuery == trimmed,
+            !cachedResultsArePartial,
+            cachedResults != nil
+        {
             renderSectionsFromCache(trimmed: trimmed)
         } else {
             refresh()
@@ -543,7 +553,10 @@ final class CommandPaletteViewModel: ObservableObject {
             // Always fetch the full multi-type result set; the category is a display filter.
             let providerStart = Date()
             let searchResults = try await searchProvider(query, .all)
-            SpotiglassLog.info(.api, "palette search \(SpotiglassLog.personal(query)) provider \(Int(Date().timeIntervalSince(providerStart) * 1000))ms")
+            SpotiglassLog.info(
+                .api,
+                "palette search \(SpotiglassLog.personal(query)) provider \(Int(Date().timeIntervalSince(providerStart) * 1000))ms"
+            )
             try Task.checkCancellation()
             cachedResults = searchResults
             cachedResultsArePartial = false
@@ -558,7 +571,9 @@ final class CommandPaletteViewModel: ObservableObject {
         } catch let partial as CommandPalettePartialSearchFailure {
             // A newer search replaced this one: its answer must not overwrite the newer rows.
             guard !Task.isCancelled else {
-                SpotiglassLog.debug(.api, "palette search \(SpotiglassLog.personal(query)) answered in part after a newer search started")
+                SpotiglassLog.debug(
+                    .api,
+                    "palette search \(SpotiglassLog.personal(query)) answered in part after a newer search started")
                 return
             }
             // What did load shows, with a line for what didn't. Not marked as a finished search,
@@ -579,7 +594,7 @@ final class CommandPaletteViewModel: ObservableObject {
             )
         } catch let error as SpotifyAPIError {
             switch error {
-            case let .rateLimited(retryAfter):
+            case .rateLimited(let retryAfter):
                 let seconds = retryAfter ?? 5
                 rateLimitCooldownUntil = Date().addingTimeInterval(seconds)
                 lastSuccessfulSongSearchQuery = nil

@@ -1,4 +1,5 @@
 import Foundation
+
 @testable import Spotiglass
 
 final class LimitCapturingBrowsingAPI: MusicBrowsingProvider {
@@ -20,10 +21,13 @@ final class LimitCapturingBrowsingAPI: MusicBrowsingProvider {
     }
 
     func artist(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistDetail {
-        MusicArtistDetail(id: id, name: "Artist \(id)", imageURL: nil, followersTotal: nil, genres: [], uri: "spotify:artist:\(id)")
+        MusicArtistDetail(
+            id: id, name: "Artist \(id)", imageURL: nil, followersTotal: nil, genres: [], uri: "spotify:artist:\(id)")
     }
 
-    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail> {
+    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<
+        MusicArtistDetail
+    > {
         MusicCachedResponse(
             value: try await artist(id: id, cacheMode: cacheMode),
             isStale: false
@@ -312,10 +316,14 @@ final class MockBrowsingAPI: MusicBrowsingProvider {
     }
 
     func artist(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistDetail {
-        MusicArtistDetail(id: id, name: "Artist \(id)", imageURL: nil, followersTotal: 1_000, genres: ["pop"], uri: "spotify:artist:\(id)")
+        MusicArtistDetail(
+            id: id, name: "Artist \(id)", imageURL: nil, followersTotal: 1_000, genres: ["pop"],
+            uri: "spotify:artist:\(id)")
     }
 
-    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail> {
+    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<
+        MusicArtistDetail
+    > {
         MusicCachedResponse(
             value: try await artist(id: id, cacheMode: cacheMode),
             isStale: false
@@ -363,7 +371,8 @@ final class MockBrowsingAPI: MusicBrowsingProvider {
     ) async throws -> MusicArtistAlbumsPage {
         locked { $0.artistAlbumsPageCallCount += 1 }
         if let artistAlbumsPageHandler {
-            return try await artistAlbumsPageHandler(id, SpotifyAPIClient.includeGroupsQueryValue(includeGroups), limit, offset, nextURL)
+            return try await artistAlbumsPageHandler(
+                id, SpotifyAPIClient.includeGroupsQueryValue(includeGroups), limit, offset, nextURL)
         }
         let items: [MusicArtistAlbum]
         if let artistAlbumsHandler {
@@ -548,7 +557,9 @@ final class MockBrowsingCache: MusicBrowsingCache {
         cachedPlaylists = playlists
     }
 
-    func loadTracks(playlistID: String, snapshotID: String, now: Date, maxAge: TimeInterval) throws -> [MusicPlaylistTrackItem]? {
+    func loadTracks(playlistID: String, snapshotID: String, now: Date, maxAge: TimeInterval) throws
+        -> [MusicPlaylistTrackItem]?
+    {
         if expiredTrackIDs.contains(playlistID) {
             return nil
         }

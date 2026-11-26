@@ -57,8 +57,8 @@ struct CatalogSearchResults: Equatable {
     }
 }
 
-private extension MusicSearchResults {
-    func paging(for category: CatalogSearchCategory) -> MusicSearchPaging? {
+extension MusicSearchResults {
+    fileprivate func paging(for category: CatalogSearchCategory) -> MusicSearchPaging? {
         switch category {
         case .all: nil
         case .tracks: tracksPaging
@@ -68,7 +68,7 @@ private extension MusicSearchResults {
         }
     }
 
-    func itemCount(for category: CatalogSearchCategory) -> Int {
+    fileprivate func itemCount(for category: CatalogSearchCategory) -> Int {
         switch category {
         case .all: tracks.count + artists.count + albums.count + playlists.count
         case .tracks: tracks.count
@@ -148,10 +148,11 @@ final class CatalogSearchViewModel: ObservableObject {
     /// True when the focused category has another Spotify page available.
     var canLoadMore: Bool {
         guard category != .all,
-              !isLoadingMore,
-              cachedQuery == trimmedQuery,
-              cachedResults != nil,
-              cachedPageCount >= pageCount(for: category) else {
+            !isLoadingMore,
+            cachedQuery == trimmedQuery,
+            cachedResults != nil,
+            cachedPageCount >= pageCount(for: category)
+        else {
             return false
         }
         return cachedHasMore[category] == true
@@ -170,13 +171,15 @@ final class CatalogSearchViewModel: ObservableObject {
         // A focused pill wants deeper paging than the `all` preview, so only
         // refetch when the cache cannot already satisfy the new page depth.
         if cachedQuery == trimmedQuery,
-           cachedPartial == nil,
-           let cachedResults,
-           cachedPageCount >= pageCount(for: newCategory) {
+            cachedPartial == nil,
+            let cachedResults,
+            cachedPageCount >= pageCount(for: newCategory)
+        {
             searchGeneration += 1
             isLoadingMore = false
             let query = trimmedQuery
-            state = cachedResults.isEmpty
+            state =
+                cachedResults.isEmpty
                 ? .empty(LocalizedText(SpotiglassL10n.format("search.empty.noResults", query)))
                 : .loaded(cachedResults)
             return
@@ -206,9 +209,10 @@ final class CatalogSearchViewModel: ObservableObject {
     /// the current result set. Ordinary paging keeps the fresh-cache policy.
     func loadMore() async {
         guard canLoadMore,
-              let queryToLoad = cachedQuery,
-              let existingResults = cachedResults,
-              let offset = cachedNextOffsets[category] else {
+            let queryToLoad = cachedQuery,
+            let existingResults = cachedResults,
+            let offset = cachedNextOffsets[category]
+        else {
             return
         }
 
@@ -226,8 +230,9 @@ final class CatalogSearchViewModel: ObservableObject {
             let page = try await searchProvider(queryToLoad, offset, .freshOnly)
             try Task.checkCancellation()
             guard generation == searchGeneration,
-                  category == categoryBeingLoaded,
-                  self.cachedQuery == queryToLoad else {
+                category == categoryBeingLoaded,
+                self.cachedQuery == queryToLoad
+            else {
                 return
             }
 
@@ -246,14 +251,17 @@ final class CatalogSearchViewModel: ObservableObject {
             cachedResults = merged
             if let cachedPartial {
                 // The half that didn't answer is still missing: the note stays.
-                state = .staleCache(merged, ErrorReporting.report(
-                    cachedPartial.underlying,
-                    while: "searching the \(cachedPartial.missing) (cached)",
-                    in: .browsing,
-                    showing: .partialSearch(cachedPartial)
-                ))
+                state = .staleCache(
+                    merged,
+                    ErrorReporting.report(
+                        cachedPartial.underlying,
+                        while: "searching the \(cachedPartial.missing) (cached)",
+                        in: .browsing,
+                        showing: .partialSearch(cachedPartial)
+                    ))
             } else {
-                state = merged.isEmpty
+                state =
+                    merged.isEmpty
                     ? .empty(LocalizedText(SpotiglassL10n.format("search.empty.noResults", queryToLoad)))
                     : .loaded(merged)
             }
@@ -261,11 +269,13 @@ final class CatalogSearchViewModel: ObservableObject {
             return
         } catch {
             guard generation == searchGeneration, !Task.isCancelled else { return }
-            state = .staleCache(existingResults, PlaylistBrowserViewModel.reportedError(
-                error,
-                while: "loading more search results",
-                context: [.public("offset", offset)]
-            ))
+            state = .staleCache(
+                existingResults,
+                PlaylistBrowserViewModel.reportedError(
+                    error,
+                    while: "loading more search results",
+                    context: [.public("offset", offset)]
+                ))
         }
     }
 
@@ -295,8 +305,11 @@ final class CatalogSearchViewModel: ObservableObject {
         }
         if forceRefresh {
             resetCache()
-        } else if cachedQuery == trimmed, cachedPartial == nil, let cachedResults, cachedPageCount >= pageCount(for: category) {
-            state = cachedResults.isEmpty
+        } else if cachedQuery == trimmed, cachedPartial == nil, let cachedResults,
+            cachedPageCount >= pageCount(for: category)
+        {
+            state =
+                cachedResults.isEmpty
                 ? .empty(LocalizedText(SpotiglassL10n.format("search.empty.noResults", trimmed)))
                 : .loaded(cachedResults)
             return
@@ -338,7 +351,7 @@ final class CatalogSearchViewModel: ObservableObject {
             var pagesFetched = 0
             var partialFailure: MusicSearchPartialFailure?
 
-            for pageIndex in 0 ..< max(1, pages) {
+            for pageIndex in 0..<max(1, pages) {
                 let offset = pageIndex * Self.pageSize
                 let results: MusicSearchResults
                 do {
@@ -362,7 +375,8 @@ final class CatalogSearchViewModel: ObservableObject {
                     nextOffsets: &nextOffsets
                 )
 
-                let pageIsEmpty = results.tracks.isEmpty
+                let pageIsEmpty =
+                    results.tracks.isEmpty
                     && results.artists.isEmpty
                     && results.albums.isEmpty
                     && results.playlists.isEmpty
@@ -384,15 +398,18 @@ final class CatalogSearchViewModel: ObservableObject {
                 // Half the search answered (#595): its rows show under a note with Retry, and
                 // Load More still pages the half that answered. Marked partial, so a pill
                 // switch or the same query asks the service again.
-                state = .staleCache(merged, ErrorReporting.report(
-                    partialFailure.underlying,
-                    while: "searching the \(partialFailure.missing)",
-                    in: .browsing,
-                    showing: .partialSearch(partialFailure)
-                ))
+                state = .staleCache(
+                    merged,
+                    ErrorReporting.report(
+                        partialFailure.underlying,
+                        while: "searching the \(partialFailure.missing)",
+                        in: .browsing,
+                        showing: .partialSearch(partialFailure)
+                    ))
                 return
             }
-            state = merged.isEmpty
+            state =
+                merged.isEmpty
                 ? .empty(LocalizedText(SpotiglassL10n.format("search.empty.noResults", trimmed)))
                 : .loaded(merged)
         } catch is CancellationError {
@@ -468,8 +485,9 @@ final class CatalogSearchViewModel: ObservableObject {
             return fallback
         }
         guard let value = queryItems.first(where: { $0.name == "offset" })?.value,
-              let parsedOffset = Int(value),
-              parsedOffset > offset else {
+            let parsedOffset = Int(value),
+            parsedOffset > offset
+        else {
             return fallback
         }
         return parsedOffset

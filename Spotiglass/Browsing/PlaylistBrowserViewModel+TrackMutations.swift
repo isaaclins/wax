@@ -55,7 +55,7 @@ extension PlaylistBrowserViewModel {
     var selectedRowsForMenus: [TrackRowViewModel] {
         let selection = selectedDetailTrackIDs
         guard selection.count > 1, var tracks = selectableDetailTracks else { return [] }
-        if case let .artist(detail)? = detailState.currentValue { tracks += detail.libraryTracks }
+        if case .artist(let detail)? = detailState.currentValue { tracks += detail.libraryTracks }
         return tracks.filter { selection.contains($0.id) }
     }
 
@@ -67,8 +67,9 @@ extension PlaylistBrowserViewModel {
     var selectedTrackRows: [TrackRowViewModel] {
         let selection = selectedDetailTrackIDs
         guard !selection.isEmpty,
-              let tracks = selectableDetailTracks,
-              !tracks.isEmpty else { return [] }
+            let tracks = selectableDetailTracks,
+            !tracks.isEmpty
+        else { return [] }
         return tracks.filter { selection.contains($0.id) }
     }
 
@@ -83,7 +84,9 @@ extension PlaylistBrowserViewModel {
     func catalogTrackIDs(for rows: [TrackRowViewModel]) -> [String] {
         var seen: Set<String> = []
         return rows.compactMap { row in
-            guard let id = LibraryEditableTrackURI.trackID(row.playableURI), seen.insert(id).inserted else { return nil }
+            guard let id = LibraryEditableTrackURI.trackID(row.playableURI), seen.insert(id).inserted else {
+                return nil
+            }
             return id
         }
     }
@@ -156,8 +159,9 @@ extension PlaylistBrowserViewModel {
         var positionsByURI: [String: [Int]] = [:]
         for row in rows {
             guard let uri = row.playableURI,
-                  LibraryEditableTrackURI.isEditable(uri),
-                  row.listPosition > 0 else { continue }
+                LibraryEditableTrackURI.isEditable(uri),
+                row.listPosition > 0
+            else { continue }
             if positionsByURI[uri] == nil {
                 order.append(uri)
             }
@@ -200,11 +204,13 @@ extension PlaylistBrowserViewModel {
             invalidateTracksCache(playlistID: playlistID)
             adjustSidebarTrackCountAfterEdit(playlistID: playlistID, by: uris.count)
             let name = shownPlaylistName(playlistID: playlistID, given: playlistName)
-            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
-                "playlist.mutation.addedToPlaylist",
-                Int64(uris.count),
-                name.string
-            )))
+            trackMutationToast = .done(
+                LocalizedText(
+                    SpotiglassL10n.format(
+                        "playlist.mutation.addedToPlaylist",
+                        Int64(uris.count),
+                        name.string
+                    )))
         } catch let partial as MusicLibraryPartialEditError {
             // The songs that went in stay in; the playlist shows them now (#596).
             logPartialEdit(partial, playlistID: playlistID)
@@ -213,12 +219,14 @@ extension PlaylistBrowserViewModel {
             await refreshCurrentPlaylistMutationDetail(for: [playlistID])
             let name = shownPlaylistName(playlistID: playlistID, given: playlistName)
             // No "try again": sending the same songs again would add the first ones twice.
-            trackMutationToast = Self.failureToast(partial, while: "adding songs to a playlist", SpotiglassL10n.format(
-                "playlist.mutation.partialAddToPlaylist",
-                Int64(partial.completed),
-                Int64(partial.total),
-                name.string
-            ))
+            trackMutationToast = Self.failureToast(
+                partial, while: "adding songs to a playlist",
+                SpotiglassL10n.format(
+                    "playlist.mutation.partialAddToPlaylist",
+                    Int64(partial.completed),
+                    Int64(partial.total),
+                    name.string
+                ))
         } catch {
             trackMutationToast = Self.failureToast(error, operation: .addToPlaylist)
         }
@@ -234,7 +242,8 @@ extension PlaylistBrowserViewModel {
         let removals = playlistTrackRemovals(for: rows)
         let sourceIsLikedSongs = sourcePlaylistID == SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID
         guard !uris.isEmpty,
-              sourceIsLikedSongs || !removals.isEmpty else {
+            sourceIsLikedSongs || !removals.isEmpty
+        else {
             trackMutationToast = .done(LocalizedText(SpotiglassL10n.string("playlist.mutation.noEligibleTracks")))
             return
         }
@@ -246,7 +255,8 @@ extension PlaylistBrowserViewModel {
             // The songs are in the destination now, even if taking them out of the source fails.
             adjustSidebarTrackCountAfterEdit(playlistID: destinationPlaylistID, by: uris.count)
             if !sourcePlaylistID.isEmpty, !sourceIsLikedSongs {
-                let snapshotID = playlistsByID[sourcePlaylistID]?.snapshotID
+                let snapshotID =
+                    playlistsByID[sourcePlaylistID]?.snapshotID
                     ?? knownPlaylistSummariesByID[sourcePlaylistID]?.snapshotID
                 do {
                     try await api.removeTracksFromPlaylist(
@@ -262,12 +272,14 @@ extension PlaylistBrowserViewModel {
                     )
                     let service = MusicServiceSelection.current
                     let name = shownPlaylistName(playlistID: destinationPlaylistID, given: destinationName)
-                    trackMutationToast = Self.failureToast(error, while: "moving songs between playlists (removing from the source)", Self.isScopeFailure(error)
-                        ? Self.describeFailure(error, operation: .moveBetweenPlaylists, service: service)
-                        : SpotiglassL10n.format(
-                            "playlist.mutation.partialMove",
-                            name.string
-                        ))
+                    trackMutationToast = Self.failureToast(
+                        error, while: "moving songs between playlists (removing from the source)",
+                        Self.isScopeFailure(error)
+                            ? Self.describeFailure(error, operation: .moveBetweenPlaylists, service: service)
+                            : SpotiglassL10n.format(
+                                "playlist.mutation.partialMove",
+                                name.string
+                            ))
                     return
                 }
                 invalidateTracksCache(playlistID: sourcePlaylistID)
@@ -281,11 +293,13 @@ extension PlaylistBrowserViewModel {
                 for: [sourcePlaylistID, destinationPlaylistID]
             )
             let name = shownPlaylistName(playlistID: destinationPlaylistID, given: destinationName)
-            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
-                "playlist.mutation.movedToPlaylist",
-                Int64(uris.count),
-                name.string
-            )))
+            trackMutationToast = .done(
+                LocalizedText(
+                    SpotiglassL10n.format(
+                        "playlist.mutation.movedToPlaylist",
+                        Int64(uris.count),
+                        name.string
+                    )))
         } catch let partial as MusicLibraryPartialEditError {
             // Some songs reached the destination; none left the source, so both show what they
             // have now (#596).
@@ -295,12 +309,14 @@ extension PlaylistBrowserViewModel {
             await refreshCurrentPlaylistMutationDetail(for: [sourcePlaylistID, destinationPlaylistID])
             let name = shownPlaylistName(playlistID: destinationPlaylistID, given: destinationName)
             // A move out of Liked Songs never removes anything, so it reads like an add.
-            trackMutationToast = Self.failureToast(partial, while: "adding songs to a playlist", SpotiglassL10n.format(
-                sourceIsLikedSongs ? "playlist.mutation.partialAddToPlaylist" : "playlist.mutation.partialMoveAdd",
-                Int64(partial.completed),
-                Int64(partial.total),
-                name.string
-            ))
+            trackMutationToast = Self.failureToast(
+                partial, while: "adding songs to a playlist",
+                SpotiglassL10n.format(
+                    sourceIsLikedSongs ? "playlist.mutation.partialAddToPlaylist" : "playlist.mutation.partialMoveAdd",
+                    Int64(partial.completed),
+                    Int64(partial.total),
+                    name.string
+                ))
         } catch {
             trackMutationToast = Self.failureToast(error, operation: .moveBetweenPlaylists)
         }
@@ -323,10 +339,12 @@ extension PlaylistBrowserViewModel {
             savedAlbumStates = [:]
             invalidateLikedSongsCache()
             await refreshLikedSongsDetailAfterMutation()
-            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
-                "playlist.mutation.addedToLikedSongs",
-                Int64(ids.count)
-            )))
+            trackMutationToast = .done(
+                LocalizedText(
+                    SpotiglassL10n.format(
+                        "playlist.mutation.addedToLikedSongs",
+                        Int64(ids.count)
+                    )))
         } catch let partial as MusicLibraryPartialEditError {
             logPartialEdit(partial, playlistID: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID)
             await showPartialLikedSongsEdit(partial, ids: ids, isSaved: true)
@@ -359,10 +377,12 @@ extension PlaylistBrowserViewModel {
             invalidateLikedSongsCache()
             recountPlaylistTracksAfterLibraryRemoval()
             await refreshLikedSongsDetailAfterMutation()
-            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
-                "playlist.mutation.removedFromLikedSongs",
-                Int64(ids.count)
-            )))
+            trackMutationToast = .done(
+                LocalizedText(
+                    SpotiglassL10n.format(
+                        "playlist.mutation.removedFromLikedSongs",
+                        Int64(ids.count)
+                    )))
         } catch let partial as MusicLibraryPartialEditError {
             logPartialEdit(partial, playlistID: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID)
             recountPlaylistTracksAfterLibraryRemoval()
@@ -382,7 +402,8 @@ extension PlaylistBrowserViewModel {
     /// A like or unlike that stopped part way: the songs sent before the failure changed, the
     /// rest are asked again, and Liked Songs reloads (#596). Batches go in the order of `ids`
     /// with repeats left out, so the first `completed` of those are the ones that changed.
-    private func showPartialLikedSongsEdit(_ partial: MusicLibraryPartialEditError, ids: [String], isSaved: Bool) async {
+    private func showPartialLikedSongsEdit(_ partial: MusicLibraryPartialEditError, ids: [String], isSaved: Bool) async
+    {
         var seen: Set<String> = []
         let unique = ids.filter { seen.insert($0).inserted }
         dropSavedTrackStatesTheProviderNowAnswers()
@@ -396,12 +417,14 @@ extension PlaylistBrowserViewModel {
         invalidateLikedSongsCache()
         await refreshLikedSongsDetailAfterMutation()
         let operation: PlaylistMutationOperation = isSaved ? .addToLikedSongs : .removeFromLikedSongs
-        trackMutationToast = Self.failureToast(partial, while: "changing Liked Songs", SpotiglassL10n.format(
-            isSaved ? "playlist.mutation.partialAddToLikedSongs" : "playlist.mutation.partialRemoveFromLikedSongs",
-            Int64(partial.completed),
-            Int64(partial.total),
-            Self.describeFailure(partial.underlying, operation: operation)
-        ))
+        trackMutationToast = Self.failureToast(
+            partial, while: "changing Liked Songs",
+            SpotiglassL10n.format(
+                isSaved ? "playlist.mutation.partialAddToLikedSongs" : "playlist.mutation.partialRemoveFromLikedSongs",
+                Int64(partial.completed),
+                Int64(partial.total),
+                Self.describeFailure(partial.underlying, operation: operation)
+            ))
     }
 
     /// Creates a new playlist under the signed-in user's account and adds
@@ -410,7 +433,9 @@ extension PlaylistBrowserViewModel {
     func createPlaylistWithRows(name: String, rows: [TrackRowViewModel]) async {
         guard let userID = currentUserID, !userID.isEmpty else {
             let service = MusicServiceSelection.current
-            trackMutationToast = Self.failureToast(nil, while: "creating a playlist while signed out", level: .info, SpotiglassL10n.format("playlist.mutation.signInToCreate", service.displayName))
+            trackMutationToast = Self.failureToast(
+                nil, while: "creating a playlist while signed out", level: .info,
+                SpotiglassL10n.format("playlist.mutation.signInToCreate", service.displayName))
             return
         }
         guard await ensureEditAllowed(.createPlaylist) else { return }
@@ -418,13 +443,15 @@ extension PlaylistBrowserViewModel {
             let uris = playableURIs(for: rows)
             let created = try await api.createPlaylist(userID: userID, name: name, isPublic: false, trackURIs: uris)
             insertSidebarPlaylist(created, refreshedTrackCount: uris.count)
-            trackMutationToast = .done(LocalizedText(uris.isEmpty
-                ? SpotiglassL10n.format("playlist.mutation.createdPlaylist", created.name)
-                : SpotiglassL10n.format(
-                    "playlist.mutation.createdPlaylistWithTracks",
-                    created.name,
-                    Int64(uris.count)
-                )))
+            trackMutationToast = .done(
+                LocalizedText(
+                    uris.isEmpty
+                        ? SpotiglassL10n.format("playlist.mutation.createdPlaylist", created.name)
+                        : SpotiglassL10n.format(
+                            "playlist.mutation.createdPlaylistWithTracks",
+                            created.name,
+                            Int64(uris.count)
+                        )))
         } catch let created as MusicPlaylistCreatedWithMissingTracksError {
             // The playlist exists, so it shows like any new one, with the songs it got (#596).
             insertSidebarPlaylist(created.playlist, refreshedTrackCount: created.added)
@@ -434,13 +461,13 @@ extension PlaylistBrowserViewModel {
                 while: "adding songs to a new playlist (\(created.added) of \(created.total) added)",
                 context: [.private("playlist", created.playlist.id)],
                 created.added == 0
-                ? SpotiglassL10n.format("playlist.mutation.createdPlaylistWithoutTracks", created.playlist.name)
-                : SpotiglassL10n.format(
-                    "playlist.mutation.createdPlaylistWithMissingTracks",
-                    created.playlist.name,
-                    Int64(created.added),
-                    Int64(created.total)
-                ))
+                    ? SpotiglassL10n.format("playlist.mutation.createdPlaylistWithoutTracks", created.playlist.name)
+                    : SpotiglassL10n.format(
+                        "playlist.mutation.createdPlaylistWithMissingTracks",
+                        created.playlist.name,
+                        Int64(created.added),
+                        Int64(created.total)
+                    ))
         } catch {
             trackMutationToast = Self.failureToast(error, operation: .createPlaylist)
         }
@@ -451,8 +478,8 @@ extension PlaylistBrowserViewModel {
     func renamePlaylist(id: String, name: String) async {
         guard let previous = playlistsByID[id] else { return }
         guard let currentUserID = currentUserID,
-              !currentUserID.isEmpty,
-              previous.ownerID == currentUserID
+            !currentUserID.isEmpty,
+            previous.ownerID == currentUserID
         else { return }
 
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -542,14 +569,15 @@ extension PlaylistBrowserViewModel {
         level: ErrorReporting.Level = .error,
         _ text: @autoclosure @escaping () -> String
     ) -> ToastMessage {
-        .failed(ErrorReporting.report(
-            error,
-            while: operation,
-            in: .browsing,
-            context: context,
-            level: level,
-            showing: ErrorMessage(message: text())
-        ))
+        .failed(
+            ErrorReporting.report(
+                error,
+                while: operation,
+                in: .browsing,
+                context: context,
+                level: level,
+                showing: ErrorMessage(message: text())
+            ))
     }
 
     static func describeFailure(
@@ -567,7 +595,7 @@ extension PlaylistBrowserViewModel {
                 case .addToLikedSongs, .removeFromLikedSongs:
                     return SpotiglassL10n.string("playlist.mutation.likedSongsRequiresReconnect")
                 case .addToPlaylist, .moveBetweenPlaylists, .createPlaylist, .renamePlaylist,
-                     .removeFromPlaylist, .deletePlaylist, .saveAlbum, .reorderPlaylist:
+                    .removeFromPlaylist, .deletePlaylist, .saveAlbum, .reorderPlaylist:
                     return SpotiglassL10n.string("playlist.mutation.playlistRequiresReconnect")
                 case .generic:
                     break
@@ -617,14 +645,15 @@ extension PlaylistBrowserViewModel {
                 playlistState = .loaded(renamedRows)
             case .refreshing:
                 playlistState = .refreshing(renamedRows)
-            case let .staleCache(_, displayError):
+            case .staleCache(_, let displayError):
                 playlistState = .staleCache(renamedRows, displayError)
             }
         }
 
         if let content = detailState.currentValue,
-           case let .playlist(detail) = content,
-           detail.playlist.id == playlist.id {
+            case .playlist(let detail) = content,
+            detail.playlist.id == playlist.id
+        {
             let renamedDetail = PlaylistDetailViewModel(
                 playlist: PlaylistRowViewModel(playlist),
                 tracks: detail.tracks
@@ -636,7 +665,7 @@ extension PlaylistBrowserViewModel {
                 detailState = .loaded(.playlist(renamedDetail))
             case .refreshing:
                 detailState = .refreshing(.playlist(renamedDetail))
-            case let .staleCache(_, displayError):
+            case .staleCache(_, let displayError):
                 detailState = .staleCache(.playlist(renamedDetail), displayError)
             }
         }
@@ -668,10 +697,10 @@ extension PlaylistBrowserViewModel {
     }
 
     func refreshCurrentPlaylistMutationDetail(for playlistIDs: [String]) async {
-        guard case let .playlist(currentPlaylistID) = sidebarSelection,
-              playlistIDs.contains(currentPlaylistID),
-              currentPlaylistID != SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
-              playlistsByID[currentPlaylistID] != nil || knownPlaylistSummariesByID[currentPlaylistID] != nil
+        guard case .playlist(let currentPlaylistID) = sidebarSelection,
+            playlistIDs.contains(currentPlaylistID),
+            currentPlaylistID != SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
+            playlistsByID[currentPlaylistID] != nil || knownPlaylistSummariesByID[currentPlaylistID] != nil
         else { return }
         await loadTracks(for: currentPlaylistID, refreshCachedData: true, session: detailSession)
     }
@@ -689,7 +718,7 @@ extension PlaylistBrowserViewModel {
                 playlistState = .loaded(rows)
             case .refreshing:
                 playlistState = .refreshing(rows)
-            case let .staleCache(_, displayError):
+            case .staleCache(_, let displayError):
                 playlistState = .staleCache(rows, displayError)
             }
         }

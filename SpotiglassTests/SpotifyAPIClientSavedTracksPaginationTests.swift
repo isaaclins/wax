@@ -1,48 +1,52 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class SpotifyAPIClientSavedTracksPaginationTests: XCTestCase {
     func testCurrentUserSavedTracksDecodesMeTracksPage() async throws {
         let httpClient = QueueHTTPClient([
-            .json("""
-            {
-              "href": "https://api.spotify.com/v1/me/tracks",
-              "limit": 50,
-              "offset": 0,
-              "next": null,
-              "previous": null,
-              "total": 1,
-              "items": [
+            .json(
+                """
                 {
-                  "added_at": "2020-01-01T00:00:00Z",
-                  "track": {
-                    "type": "track",
-                    "id": "saved-1",
-                    "name": "Liked Name",
-                    "artists": [{ "id": "artist-1", "name": "Artist" }],
-                    "album": { "name": "Album", "images": [] },
-                    "duration_ms": 180000,
-                    "explicit": false,
-                    "uri": "spotify:track:saved-1",
-                    "is_local": false
-                  }
+                  "href": "https://api.spotify.com/v1/me/tracks",
+                  "limit": 50,
+                  "offset": 0,
+                  "next": null,
+                  "previous": null,
+                  "total": 1,
+                  "items": [
+                    {
+                      "added_at": "2020-01-01T00:00:00Z",
+                      "track": {
+                        "type": "track",
+                        "id": "saved-1",
+                        "name": "Liked Name",
+                        "artists": [{ "id": "artist-1", "name": "Artist" }],
+                        "album": { "name": "Album", "images": [] },
+                        "duration_ms": 180000,
+                        "explicit": false,
+                        "uri": "spotify:track:saved-1",
+                        "is_local": false
+                      }
+                    }
+                  ]
                 }
-              ]
-            }
-            """)
+                """)
         ])
-        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+        let client = SpotifyAPIClient(
+            tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
 
         let result = try await client.currentUserSavedTracks(limit: 50, maxPages: 20)
 
         XCTAssertEqual(result.totalAvailable, 1)
         XCTAssertEqual(result.tracks.count, 1)
-        guard case let .track(track) = result.tracks[0].content else {
+        guard case .track(let track) = result.tracks[0].content else {
             return XCTFail("Expected track")
         }
         XCTAssertEqual(track.id, "saved-1")
         XCTAssertEqual(track.name, "Liked Name")
-        XCTAssertEqual(httpClient.requests.first?.url?.absoluteString, "https://api.spotify.com/v1/me/tracks?limit=50&offset=0")
+        XCTAssertEqual(
+            httpClient.requests.first?.url?.absoluteString, "https://api.spotify.com/v1/me/tracks?limit=50&offset=0")
     }
 
     func testCurrentUserSavedTracksFollowsAllContinuationPagesByDefault() async throws {
@@ -54,35 +58,37 @@ final class SpotifyAPIClientSavedTracksPaginationTests: XCTestCase {
             } else {
                 next = "null"
             }
-            return QueueHTTPClient.Response.json("""
-            {
-              "href": "https://api.spotify.com/v1/me/tracks",
-              "limit": 50,
-              "offset": \(pageIndex * 50),
-              "next": \(next),
-              "previous": null,
-              "total": 21,
-              "items": [
+            return QueueHTTPClient.Response.json(
+                """
                 {
-                  "added_at": "2020-01-01T00:00:00Z",
-                  "track": {
-                    "type": "track",
-                    "id": "\(trackID)",
-                    "name": "Page \(pageIndex)",
-                    "artists": [{ "id": "artist-1", "name": "Artist" }],
-                    "album": { "name": "Album", "images": [] },
-                    "duration_ms": 180000,
-                    "explicit": false,
-                    "uri": "spotify:track:\(trackID)",
-                    "is_local": false
-                  }
+                  "href": "https://api.spotify.com/v1/me/tracks",
+                  "limit": 50,
+                  "offset": \(pageIndex * 50),
+                  "next": \(next),
+                  "previous": null,
+                  "total": 21,
+                  "items": [
+                    {
+                      "added_at": "2020-01-01T00:00:00Z",
+                      "track": {
+                        "type": "track",
+                        "id": "\(trackID)",
+                        "name": "Page \(pageIndex)",
+                        "artists": [{ "id": "artist-1", "name": "Artist" }],
+                        "album": { "name": "Album", "images": [] },
+                        "duration_ms": 180000,
+                        "explicit": false,
+                        "uri": "spotify:track:\(trackID)",
+                        "is_local": false
+                      }
+                    }
+                  ]
                 }
-              ]
-            }
-            """)
+                """)
         }
         let httpClient = QueueHTTPClient(pages)
-        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+        let client = SpotifyAPIClient(
+            tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
 
         let result = try await client.currentUserSavedTracks()
 
@@ -137,9 +143,10 @@ final class SpotifyAPIClientSavedTracksPaginationTests: XCTestCase {
             """
         let httpClient = QueueHTTPClient([
             .json(loopingPage),
-            .json(loopingPage)
+            .json(loopingPage),
         ])
-        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+        let client = SpotifyAPIClient(
+            tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
 
         // The list read so far is incomplete: it fails instead of passing as all of Liked Songs (#595).
         do {
@@ -148,6 +155,7 @@ final class SpotifyAPIClientSavedTracksPaginationTests: XCTestCase {
         } catch let error as SpotifyAPIError {
             guard case .decoding = error else { return XCTFail("unexpected error \(error)") }
         }
-        XCTAssertEqual(httpClient.requests.count, 1, "A repeated next offset should break pagination before re-fetching page 1.")
+        XCTAssertEqual(
+            httpClient.requests.count, 1, "A repeated next offset should break pagination before re-fetching page 1.")
     }
 }

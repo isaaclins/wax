@@ -9,14 +9,16 @@ enum PlaylistBrowserPlaybackHelpers {
     ) -> String? {
         guard let content = detailContent else { return detailLastVisibleTrackID }
         switch content {
-        case let .playlist(detail):
+        case .playlist(let detail):
             if let uri = currentPlaybackURI,
-               let row = detail.tracks.first(where: { $0.playableURI == uri }) {
+                let row = detail.tracks.first(where: { $0.playableURI == uri })
+            {
                 return row.id
             }
-        case let .artist(detail):
+        case .artist(let detail):
             if let uri = currentPlaybackURI,
-               let row = detail.tracks.first(where: { $0.playableURI == uri }) {
+                let row = detail.tracks.first(where: { $0.playableURI == uri })
+            {
                 return row.id
             }
         case .home, .search:
@@ -27,7 +29,7 @@ enum PlaylistBrowserPlaybackHelpers {
 
     static func lyricsPrefetchTrack(connectionState: PlaybackConnectionState) -> PlaybackNowPlaying? {
         switch connectionState {
-        case let .playing(np):
+        case .playing(let np):
             return np
         case .paused, .disconnected, .connecting, .ready, .transferring, .unavailable, .error:
             return nil
@@ -39,8 +41,8 @@ enum PlaylistBrowserPlaybackHelpers {
         nextQueueURI: String?
     ) -> String? {
         guard let np = prefetchTrack,
-              np.durationMilliseconds > 0,
-              np.lyricsTrackKey != nil
+            np.durationMilliseconds > 0,
+            np.lyricsTrackKey != nil
         else { return nil }
         let nextURI = nextQueueURI ?? ""
         return "\(np.uri ?? "")|\(np.durationMilliseconds)|\(nextURI)"
@@ -52,19 +54,19 @@ enum PlaylistBrowserPlaybackHelpers {
             "disconnected"
         case .connecting:
             "connecting"
-        case let .ready(deviceID):
+        case .ready(let deviceID):
             "ready:\(deviceID)"
-        case let .transferring(deviceID):
+        case .transferring(let deviceID):
             "transferring:\(deviceID)"
-        case let .playing(item):
+        case .playing(let item):
             "playing:\(item.uri ?? "")"
-        case let .paused(.some(item)):
+        case .paused(.some(let item)):
             "paused:\(item.uri ?? "")"
         case .paused(.none):
             "paused-empty"
-        case let .unavailable(message):
+        case .unavailable(let message):
             "unavailable:\(message.string)"
-        case let .error(error):
+        case .error(let error):
             "error:\(error.title)"
         }
     }
@@ -77,8 +79,8 @@ enum PlaylistBrowserPlaybackHelpers {
     ) -> String? {
         let uri = currentPlaybackURI(connectionState: connectionState)
         switch detailContent {
-        case let .playlist(detail)?: return rowURI(markedAs: uri, connectionState: connectionState, rows: detail.tracks)
-        case let .artist(detail)?: return rowURI(markedAs: uri, connectionState: connectionState, rows: detail.tracks)
+        case .playlist(let detail)?: return rowURI(markedAs: uri, connectionState: connectionState, rows: detail.tracks)
+        case .artist(let detail)?: return rowURI(markedAs: uri, connectionState: connectionState, rows: detail.tracks)
         case .home?, .search?, nil: return uri
         }
     }
@@ -95,10 +97,10 @@ enum PlaylistBrowserPlaybackHelpers {
         rows: [TrackRowViewModel]
     ) -> String? {
         guard let uri, uri.hasPrefix(AppleMusicItemMapping.uriScheme + ":"),
-              let nowPlaying = nowPlaying(connectionState: connectionState)
+            let nowPlaying = nowPlaying(connectionState: connectionState)
         else { return uri }
         guard !rows.contains(where: { $0.playableURI == uri }),
-              let row = rows.first(where: { isSameSong($0, as: nowPlaying) })
+            let row = rows.first(where: { isSameSong($0, as: nowPlaying) })
         else { return uri }
         return row.playableURI
     }
@@ -109,7 +111,7 @@ enum PlaylistBrowserPlaybackHelpers {
         // The length first: this runs for every row of the open list on each refresh of the bar,
         // and most rows differ in length, so the text compares rarely run.
         guard row.playableURI != nil,
-              abs(row.durationMilliseconds - nowPlaying.durationMilliseconds) <= 2_000
+            abs(row.durationMilliseconds - nowPlaying.durationMilliseconds) <= 2_000
         else { return false }
         return row.title.localizedCaseInsensitiveCompare(nowPlaying.name) == .orderedSame
             && row.subtitle.localizedCaseInsensitiveCompare(nowPlaying.artists.joined(separator: ", ")) == .orderedSame
@@ -117,17 +119,17 @@ enum PlaylistBrowserPlaybackHelpers {
 
     private static func nowPlaying(connectionState: PlaybackConnectionState) -> PlaybackNowPlaying? {
         switch connectionState {
-        case let .playing(nowPlaying): nowPlaying
-        case let .paused(nowPlaying): nowPlaying
+        case .playing(let nowPlaying): nowPlaying
+        case .paused(let nowPlaying): nowPlaying
         case .disconnected, .connecting, .ready, .transferring, .unavailable, .error: nil
         }
     }
 
     static func currentPlaybackURI(connectionState: PlaybackConnectionState) -> String? {
         switch connectionState {
-        case let .playing(nowPlaying):
+        case .playing(let nowPlaying):
             nowPlaying.uri
-        case let .paused(nowPlaying):
+        case .paused(let nowPlaying):
             nowPlaying?.uri
         case .disconnected, .connecting, .ready, .transferring, .unavailable, .error:
             nil

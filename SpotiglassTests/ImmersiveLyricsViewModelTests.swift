@@ -49,7 +49,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
             uri: "spotify:episode:abc"
         )
         await vm.load(track: episode)
-        guard case let .failed(message) = vm.phase else {
+        guard case .failed(let message) = vm.phase else {
             XCTFail("expected .failed, got \(vm.phase)")
             return
         }
@@ -66,7 +66,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         await vm.preload(track: track)
         await vm.load(track: track)
         XCTAssertEqual(fetchCount, 1)
-        guard case let .ready(lyrics) = vm.phase else {
+        guard case .ready(let lyrics) = vm.phase else {
             XCTFail("expected .ready, got \(vm.phase)")
             return
         }
@@ -78,13 +78,14 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
             .appendingPathComponent("SpotiglassLyricsCancellationTests-\(UUID().uuidString)")
         let disk = try LyricsDiskCache(directory: directory)
         let gate = TrackLyricsFetchGate()
-        let vm = ImmersiveLyricsViewModel(fetchLyrics: { track in
-            guard let trackID = track.lyricsTrackKey else {
-                return .instrumental
-            }
-            await gate.fetchStarted(trackID)
-            return try await gate.waitForResult(trackID)
-        }, diskCache: disk)
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { track in
+                guard let trackID = track.lyricsTrackKey else {
+                    return .instrumental
+                }
+                await gate.fetchStarted(trackID)
+                return try await gate.waitForResult(trackID)
+            }, diskCache: disk)
         let trackA = sampleTrack(spotifyID: "cancelled-A")
         let trackB = sampleTrack(spotifyID: "current-B")
 
@@ -100,7 +101,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         await gate.release("cancelled-A", result: .success(.unsyncedPlain(["Track A"])))
         await loadA.value
 
-        guard case let .failed(message) = vm.phase else {
+        guard case .failed(let message) = vm.phase else {
             return XCTFail("expected current track failure, got \(vm.phase)")
         }
         XCTAssertTrue(message.message.contains("No lyrics"))
@@ -118,13 +119,14 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
             .appendingPathComponent("SpotiglassLyricsCancellationFailureTests-\(UUID().uuidString)")
         let disk = try LyricsDiskCache(directory: directory)
         let gate = TrackLyricsFetchGate()
-        let vm = ImmersiveLyricsViewModel(fetchLyrics: { track in
-            guard let trackID = track.lyricsTrackKey else {
-                return .instrumental
-            }
-            await gate.fetchStarted(trackID)
-            return try await gate.waitForResult(trackID)
-        }, diskCache: disk)
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { track in
+                guard let trackID = track.lyricsTrackKey else {
+                    return .instrumental
+                }
+                await gate.fetchStarted(trackID)
+                return try await gate.waitForResult(trackID)
+            }, diskCache: disk)
         let trackA = sampleTrack(spotifyID: "failed-A")
         let trackB = sampleTrack(spotifyID: "ready-B")
 
@@ -162,20 +164,22 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
 
     func testLoadUsesDiskCacheWithoutCallingFetch() async throws {
         let trackID = "diskHit-\(UUID().uuidString)"
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("SpotiglassLyricsDiskTests-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "SpotiglassLyricsDiskTests-\(UUID().uuidString)")
         let disk = try LyricsDiskCache(directory: dir)
         try disk.save(trackKey: trackID, lyrics: .instrumental)
 
         var fetchCount = 0
-        let vm = ImmersiveLyricsViewModel(fetchLyrics: { _ in
-            fetchCount += 1
-            return .unsyncedPlain(["unexpected"])
-        }, diskCache: disk)
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                return .unsyncedPlain(["unexpected"])
+            }, diskCache: disk)
 
         await vm.load(track: sampleTrack(spotifyID: trackID))
 
         XCTAssertEqual(fetchCount, 0)
-        guard case let .ready(lyrics) = vm.phase else {
+        guard case .ready(let lyrics) = vm.phase else {
             return XCTFail("expected .ready, got \(vm.phase)")
         }
         XCTAssertEqual(lyrics, .instrumental)
@@ -212,7 +216,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         await vm.preload(track: track)
 
         XCTAssertEqual(fetchCount, 1, "No-lyrics cooldown should suppress immediate repeated lookups.")
-        guard case let .failed(message) = vm.phase else {
+        guard case .failed(let message) = vm.phase else {
             return XCTFail("expected .failed, got \(vm.phase)")
         }
         XCTAssertTrue(message.message.contains("No lyrics"))
@@ -268,23 +272,26 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
     }
 
     func testNoLyricsCooldownPersistsToDiskAndSuppressesRefetch() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("SpotiglassLyricsMissTests-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "SpotiglassLyricsMissTests-\(UUID().uuidString)")
         let disk = try LyricsDiskCache(directory: dir)
         var fetchCount = 0
-        let vm = ImmersiveLyricsViewModel(fetchLyrics: { _ in
-            fetchCount += 1
-            throw LrcLibClient.Failure.noLyrics
-        }, diskCache: disk)
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                throw LrcLibClient.Failure.noLyrics
+            }, diskCache: disk)
         let trackID = "noLyricsDiskCooldown"
         let track = sampleTrack(spotifyID: trackID)
 
         await vm.load(track: track)
         ImmersiveLyricsViewModel.resetSharedStateForTesting()
 
-        let vmAfterRestart = ImmersiveLyricsViewModel(fetchLyrics: { _ in
-            fetchCount += 1
-            throw LrcLibClient.Failure.noLyrics
-        }, diskCache: disk)
+        let vmAfterRestart = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                throw LrcLibClient.Failure.noLyrics
+            }, diskCache: disk)
         await vmAfterRestart.load(track: track)
 
         XCTAssertEqual(fetchCount, 1, "Persisted miss cooldown should prevent immediate refetch after state reset.")
@@ -292,7 +299,8 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
     }
 
     func testLyricsDiskCacheMissCooldownRoundTrip() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("SpotiglassLyricsMissRoundTrip-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "SpotiglassLyricsMissRoundTrip-\(UUID().uuidString)")
         let disk = try LyricsDiskCache(directory: dir)
         let now = Date()
         let expiry = now.addingTimeInterval(120)
@@ -320,37 +328,42 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         await vm.preload(track: track)
 
         XCTAssertEqual(fetchCount, 1, "Rate-limited cooldown should suppress immediate repeated lookups.")
-        guard case let .failed(message) = vm.phase else {
+        guard case .failed(let message) = vm.phase else {
             return XCTFail("expected .failed, got \(vm.phase)")
         }
         XCTAssertTrue(message.message.contains("rate limited"))
     }
 
     func testTrackBackoffMetadataPersistsToDisk() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("SpotiglassLyricsBackoffTests-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "SpotiglassLyricsBackoffTests-\(UUID().uuidString)")
         let disk = try LyricsDiskCache(directory: dir)
         var fetchCount = 0
-        let vm = ImmersiveLyricsViewModel(fetchLyrics: { _ in
-            fetchCount += 1
-            throw LrcLibClient.Failure.decoding
-        }, diskCache: disk)
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                throw LrcLibClient.Failure.decoding
+            }, diskCache: disk)
         let track = sampleTrack(spotifyID: "decodingPersistedBackoff")
 
         await vm.load(track: track)
         ImmersiveLyricsViewModel.resetSharedStateForTesting()
 
-        let vmAfterRestart = ImmersiveLyricsViewModel(fetchLyrics: { _ in
-            fetchCount += 1
-            throw LrcLibClient.Failure.decoding
-        }, diskCache: disk)
+        let vmAfterRestart = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                throw LrcLibClient.Failure.decoding
+            }, diskCache: disk)
         await vmAfterRestart.load(track: track)
 
-        XCTAssertEqual(fetchCount, 1, "Persisted per-track backoff should suppress immediate refetch after state reset.")
+        XCTAssertEqual(
+            fetchCount, 1, "Persisted per-track backoff should suppress immediate refetch after state reset.")
         try? FileManager.default.removeItem(at: dir)
     }
 
     func testLyricsDiskCacheTrackBackoffMetadataRoundTrip() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("SpotiglassLyricsBackoffRoundTrip-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "SpotiglassLyricsBackoffRoundTrip-\(UUID().uuidString)")
         let disk = try LyricsDiskCache(directory: dir)
         let nextEligible = Date().addingTimeInterval(90)
         let metadata = LyricsDiskCache.TrackBackoffMetadata(
@@ -364,7 +377,9 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         let loaded = disk.loadTrackBackoffMetadata(trackKey: "track-backoff")
         XCTAssertEqual(loaded?.failureClass, .transient)
         XCTAssertEqual(loaded?.failureCount, 3)
-        XCTAssertEqual(loaded?.nextEligibleFetchAt.timeIntervalSince1970 ?? 0, metadata.nextEligibleFetchAt.timeIntervalSince1970, accuracy: 0.5)
+        XCTAssertEqual(
+            loaded?.nextEligibleFetchAt.timeIntervalSince1970 ?? 0, metadata.nextEligibleFetchAt.timeIntervalSince1970,
+            accuracy: 0.5)
         try disk.clearTrackBackoffMetadata(trackKey: "track-backoff")
         XCTAssertNil(disk.loadTrackBackoffMetadata(trackKey: "track-backoff"))
         try? FileManager.default.removeItem(at: dir)
@@ -377,12 +392,13 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
     }
 
     func testLyricsDiskCacheShrinksPastItsByteBoundLeastRecentlyUsedFirst() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("SpotiglassLyricsBound-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "SpotiglassLyricsBound-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }
         let disk = try LyricsDiskCache(directory: dir)
         let now = Date()
-        let lines = (0 ..< 40).map { "A line of lyrics number \($0)" }
-        for index in 0 ..< 30 {
+        let lines = (0..<40).map { "A line of lyrics number \($0)" }
+        for index in 0..<30 {
             let key = String(format: "track-%02d", index)
             try disk.save(trackKey: key, lyrics: .unsyncedPlain(lines))
             try FileManager.default.setAttributes(
@@ -397,7 +413,8 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         )
         // The oldest song was just played again, so it counts as recently used.
         XCTAssertEqual(disk.load(trackKey: "track-00"), .unsyncedPlain(lines))
-        let oneFile = try XCTUnwrap(try dir.appendingPathComponent("track-01.json").resourceValues(forKeys: [.fileSizeKey]).fileSize)
+        let oneFile = try XCTUnwrap(
+            try dir.appendingPathComponent("track-01.json").resourceValues(forKeys: [.fileSizeKey]).fileSize)
         let maxBytes = Int64(oneFile * 10)
 
         disk.prune(now: now, maxBytes: maxBytes)
@@ -415,7 +432,8 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
     }
 
     func testLyricsDiskCacheDeletesLyricsUnusedPastMaxAge() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("SpotiglassLyricsAge-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "SpotiglassLyricsAge-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }
         let disk = try LyricsDiskCache(directory: dir)
         let now = Date()
@@ -433,12 +451,13 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
     }
 
     func testLyricsShownFromMemoryCountAsUsedOnDisk() async throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("SpotiglassLyricsUse-\(UUID().uuidString)")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "SpotiglassLyricsUse-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: dir) }
         let disk = try LyricsDiskCache(directory: dir)
-        let lines = (0 ..< 40).map { "A line of lyrics number \($0)" }
+        let lines = (0..<40).map { "A line of lyrics number \($0)" }
         let vm = ImmersiveLyricsViewModel(fetchLyrics: { _ in .unsyncedPlain(lines) }, diskCache: disk)
-        let tracks = (0 ..< 10).map { sampleTrack(spotifyID: String(format: "usedSong%02d", $0)) }
+        let tracks = (0..<10).map { sampleTrack(spotifyID: String(format: "usedSong%02d", $0)) }
         func fileURL(_ track: PlaybackNowPlaying) throws -> URL {
             let key = try XCTUnwrap(track.lyricsTrackKey)
             return dir.appendingPathComponent("\(key.filter { $0.isLetter || $0.isNumber || $0 == "-" }).json")
@@ -472,7 +491,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
             return .instrumental
         }
         let count = ImmersiveLyricsViewModel.maxMemoryEntries + 20
-        for index in 0 ..< count {
+        for index in 0..<count {
             await vm.load(track: sampleTrack(spotifyID: "memoryBound\(index)"))
         }
         XCTAssertEqual(fetched.count, count)
@@ -489,8 +508,10 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
 
     // MARK: - A dropped connection (#599)
 
-    private func failedMessage(_ vm: ImmersiveLyricsViewModel, file: StaticString = #filePath, line: UInt = #line) -> String? {
-        guard case let .failed(message) = vm.phase else {
+    private func failedMessage(_ vm: ImmersiveLyricsViewModel, file: StaticString = #filePath, line: UInt = #line)
+        -> String?
+    {
+        guard case .failed(let message) = vm.phase else {
             XCTFail("expected .failed, got \(vm.phase)", file: file, line: line)
             return nil
         }
@@ -503,7 +524,9 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         return (try LyricsDiskCache(directory: dir), dir)
     }
 
-    private static let syncedLyrics = FetchedLyrics.synced([SyncedLyricLine(id: 0, startTimeMs: 0, words: "Back online")])
+    private static let syncedLyrics = FetchedLyrics.synced([
+        SyncedLyricLine(id: 0, startTimeMs: 0, words: "Back online")
+    ])
 
     /// The issue's replay: offline once, then the song's lyrics are there. Try again fetches
     /// them, nothing about the drop is saved, and a relaunch does not wait either.
@@ -535,16 +558,18 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         let (disk, dir) = try temporaryDiskCache()
         defer { try? FileManager.default.removeItem(at: dir) }
         var fetchCount = 0
-        let vm = ImmersiveLyricsViewModel(fetchLyrics: { _ in
-            fetchCount += 1
-            if fetchCount == 1 { throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPERM)) }
-            return Self.syncedLyrics
-        }, diskCache: disk)
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                if fetchCount == 1 { throw NSError(domain: NSPOSIXErrorDomain, code: Int(EPERM)) }
+                return Self.syncedLyrics
+            }, diskCache: disk)
         let track = sampleTrack(spotifyID: "blockedByFirewall")
 
         await vm.load(track: track)
         XCTAssertEqual(failedMessage(vm), SpotiglassL10n.string("lyrics.error.network"))
-        XCTAssertNil(disk.loadTrackBackoffMetadata(trackKey: "blockedByFirewall"), "A refused connection must not be saved.")
+        XCTAssertNil(
+            disk.loadTrackBackoffMetadata(trackKey: "blockedByFirewall"), "A refused connection must not be saved.")
         XCTAssertFalse(ImmersiveLyricsViewModel.isConnectionFailure(URLError(.cancelled)))
         XCTAssertFalse(ImmersiveLyricsViewModel.isConnectionFailure(CancellationError()))
 
@@ -571,18 +596,20 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         let (disk, dir) = try temporaryDiskCache()
         defer { try? FileManager.default.removeItem(at: dir) }
         var fetchCount = 0
-        let vm = ImmersiveLyricsViewModel(fetchLyrics: { _ in
-            fetchCount += 1
-            throw URLError(.networkConnectionLost)
-        }, diskCache: disk)
+        let vm = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                throw URLError(.networkConnectionLost)
+            }, diskCache: disk)
         let track = sampleTrack(spotifyID: "offlineRelaunch")
         await vm.load(track: track)
 
         ImmersiveLyricsViewModel.resetSharedStateForTesting()
-        let relaunched = ImmersiveLyricsViewModel(fetchLyrics: { _ in
-            fetchCount += 1
-            return Self.syncedLyrics
-        }, diskCache: disk)
+        let relaunched = ImmersiveLyricsViewModel(
+            fetchLyrics: { _ in
+                fetchCount += 1
+                return Self.syncedLyrics
+            }, diskCache: disk)
         await relaunched.load(track: track)
 
         XCTAssertEqual(fetchCount, 2)

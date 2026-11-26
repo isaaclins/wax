@@ -83,18 +83,19 @@ struct QueuePanelColumn: View {
             playbackViewModel: playbackViewModel,
             openArtist: openArtist,
             trackOpsMenuItems: { items in
-                AnyView(TrackOpsMenuItems(
-                    targets: items.map { TrackRowViewModel(queueItem: $0) },
-                    browserViewModel: browserViewModel,
-                    sourcePlaylistID: nil,
-                    onRequestCreatePlaylist: onRequestCreatePlaylist,
-                    onRequestLibraryContinuation: onRequestLibraryContinuation,
-                    openArtist: openArtist,
-                    artistTargetsOverride: items.flatMap(\.artistTapTargets),
-                    // Remove from Queue is the queue panel's own item (#628); Add to Queue is
-                    // meaningless for a row already in it.
-                    copyableURI: items.first?.uri
-                ))
+                AnyView(
+                    TrackOpsMenuItems(
+                        targets: items.map { TrackRowViewModel(queueItem: $0) },
+                        browserViewModel: browserViewModel,
+                        sourcePlaylistID: nil,
+                        onRequestCreatePlaylist: onRequestCreatePlaylist,
+                        onRequestLibraryContinuation: onRequestLibraryContinuation,
+                        openArtist: openArtist,
+                        artistTargetsOverride: items.flatMap(\.artistTapTargets),
+                        // Remove from Queue is the queue panel's own item (#628); Add to Queue is
+                        // meaningless for a row already in it.
+                        copyableURI: items.first?.uri
+                    ))
             }
         )
         .background(.background)
@@ -148,14 +149,14 @@ struct PlaylistBrowserMainDetailColumn: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("PlaylistBrowserMainDetailColumn")
+            let _ = ViewBodyTally.record("PlaylistBrowserMainDetailColumn")
         #endif
         VStack(spacing: 0) {
             switch viewModel.detailState {
             case .loading:
                 ProgressView(SpotiglassL10n.string("browser.loadingDetail"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case let .loaded(content), let .refreshing(content), let .staleCache(content, _):
+            case .loaded(let content), .refreshing(let content), .staleCache(let content, _):
                 Group {
                     if lyricsOverlay.isPresented {
                         Color.clear
@@ -182,18 +183,22 @@ struct PlaylistBrowserMainDetailColumn: View {
                                 onRequestCreatePlaylist: onRequestCreatePlaylist,
                                 onRequestLibraryContinuation: onRequestLibraryContinuation
                             )
-                        case let .playlist(detail):
+                        case .playlist(let detail):
                             playlistDetailView(detail)
-                        case let .artist(detail):
+                        case .artist(let detail):
                             artistDetailView(detail)
                         }
                     }
                 }
                 .overlay(alignment: .bottom) {
-                    if case let .staleCache(_, error) = viewModel.detailState {
-                        ErrorBanner(error: error, style: .floating, retry: error?.canRetry == false ? nil : {
-                            Task { await viewModel.retryFailedDetail() }
-                        })
+                    if case .staleCache(_, let error) = viewModel.detailState {
+                        ErrorBanner(
+                            error: error, style: .floating,
+                            retry: error?.canRetry == false
+                                ? nil
+                                : {
+                                    Task { await viewModel.retryFailedDetail() }
+                                })
                     } else if case .refreshing = viewModel.detailState {
                         ProgressView(SpotiglassL10n.string("browser.refreshingDetail"))
                             .controlSize(.small)
@@ -202,18 +207,21 @@ struct PlaylistBrowserMainDetailColumn: View {
                             .padding(SpotiglassDesign.spacingM)
                     }
                 }
-            case let .empty(text):
+            case .empty(let text):
                 let message = text.string
                 EmptyStateView(title: SpotiglassL10n.string("browser.noTracks.title"), message: message)
-            case let .error(error):
+            case .error(let error):
                 if let locked = error.lockedPlaylist {
                     FollowedPlaylistLockedView(error: error, info: locked, playbackViewModel: playbackViewModel)
                 } else {
                     // The page that failed is asked again from here (#465), when asking
                     // again can help: not for "Sign in again" or "Access denied".
-                    ErrorPage(error: error, retry: error.canRetry ? {
-                        Task { await viewModel.retryFailedDetail() }
-                    } : nil)
+                    ErrorPage(
+                        error: error,
+                        retry: error.canRetry
+                            ? {
+                                Task { await viewModel.retryFailedDetail() }
+                            } : nil)
                 }
             }
         }
@@ -231,10 +239,12 @@ struct PlaylistBrowserMainDetailColumn: View {
             onTrackEnteredViewportApproximation: { detailLastVisibleTrackID = $0 },
             playURI: { uri in
                 Task {
-                    guard let playing = await viewModel.detailForPlayback(
-                        detail,
-                        playbackCommands: { playbackViewModel.playbackCommandCount }
-                    ) else { return }
+                    guard
+                        let playing = await viewModel.detailForPlayback(
+                            detail,
+                            playbackCommands: { playbackViewModel.playbackCommandCount }
+                        )
+                    else { return }
                     await playbackViewModel.playFromPlaylist(
                         clickedURI: uri,
                         playableURIs: playing.tracks.compactMap(\.playableURI),
@@ -255,20 +265,24 @@ struct PlaylistBrowserMainDetailColumn: View {
             },
             onRequestLibraryContinuation: onRequestLibraryContinuation,
             playHeaderAction: {
-                guard let playing = await viewModel.detailForPlayback(
-                    detail,
-                    playbackCommands: { playbackViewModel.playbackCommandCount }
-                ) else { return }
+                guard
+                    let playing = await viewModel.detailForPlayback(
+                        detail,
+                        playbackCommands: { playbackViewModel.playbackCommandCount }
+                    )
+                else { return }
                 await DetailHeaderPlayback.play(
                     target: DetailHeaderPlayback.target(for: playing),
                     using: playbackViewModel
                 )
             },
             shuffleHeaderAction: {
-                guard let playing = await viewModel.detailForPlayback(
-                    detail,
-                    playbackCommands: { playbackViewModel.playbackCommandCount }
-                ) else { return }
+                guard
+                    let playing = await viewModel.detailForPlayback(
+                        detail,
+                        playbackCommands: { playbackViewModel.playbackCommandCount }
+                    )
+                else { return }
                 await DetailHeaderPlayback.shuffleAndPlay(
                     target: DetailHeaderPlayback.target(for: playing),
                     using: playbackViewModel

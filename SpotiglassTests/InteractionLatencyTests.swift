@@ -85,7 +85,9 @@ final class InteractionLatencyTests: XCTestCase {
         let report = InteractionLatency.Report(
             appVersion: "0.8.62", configuration: "Release", frameMilliseconds: 16.7,
             measurements: [
-                Measurement(id: "playback.toggle.key", title: "Space pauses or resumes", milliseconds: [39, 40, 39], timedOut: 0),
+                Measurement(
+                    id: "playback.toggle.key", title: "Space pauses or resumes", milliseconds: [39, 40, 39], timedOut: 0
+                ),
                 Measurement(
                     id: "palette.open", title: "⌘K opens the command palette", milliseconds: [83, 87, 129], timedOut: 1,
                     problems: ["not shown after 3 s (palette closed)"]
@@ -113,14 +115,18 @@ final class InteractionLatencyTests: XCTestCase {
         let keys: [InteractionLatencyProbe.Key] = [.s, .r, .k, .m, .q, .l, .f, .comma]
         for key in keys {
             let code = InteractionLatencyProbe.keyCode(for: key)
-            guard let down = InteractionLatencyProbe.keyEvent(code: code, [.command, .option], arrow: false, keyDown: true),
-                let up = InteractionLatencyProbe.keyEvent(code: code, [.command, .option], arrow: false, keyDown: false)
+            guard
+                let down = InteractionLatencyProbe.keyEvent(
+                    code: code, [.command, .option], arrow: false, keyDown: true),
+                let up = InteractionLatencyProbe.keyEvent(
+                    code: code, [.command, .option], arrow: false, keyDown: false)
             else { return XCTFail("no key event for \(key)") }
             XCTAssertNotNil(down.cgEvent)
             XCTAssertEqual(down.type, .keyDown)
             XCTAssertEqual(up.type, .keyUp)
             XCTAssertEqual(down.charactersIgnoringModifiers, key.characters, "\(key) is on another key on this layout")
-            XCTAssertEqual(down.modifierFlags.intersection([.command, .option, .shift, .control]), [.command, .option])
+            XCTAssertEqual(
+                down.modifierFlags.intersection([.command, .option, .shift, .control]), [.command, .option])
         }
 
         let right = InteractionLatencyProbe.keyEvent(
@@ -139,7 +145,8 @@ final class InteractionLatencyTests: XCTestCase {
                 return XCTFail("no key types \(character)")
             }
             XCTAssertEqual(
-                InteractionLatencyProbe.keyEvent(code: code, [], arrow: false, keyDown: true)?.charactersIgnoringModifiers,
+                InteractionLatencyProbe.keyEvent(code: code, [], arrow: false, keyDown: true)?
+                    .charactersIgnoringModifiers,
                 character
             )
         }

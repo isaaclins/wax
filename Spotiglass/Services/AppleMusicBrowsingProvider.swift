@@ -132,7 +132,10 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     let catalogMatches: AppleMusicCatalogMatches
     /// How long a list waits for its songs' ratings before it shows without them (#518). The
     /// lookups carry on, so the next read of the list has them. Tests replace it.
-    var ratingsDeadline: @Sendable () async -> Void = { try? await Task.sleep(for: AppleMusicBrowsingProvider.ratingsWait) }
+    var ratingsDeadline: @Sendable () async -> Void = {
+        // try?: a cancelled wait only ends the wait early.
+        try? await Task.sleep(for: AppleMusicBrowsingProvider.ratingsWait)
+    }
     static let ratingsWait: Duration = .seconds(2)
     /// Called once album ratings that came after their artist page was shown are kept for its
     /// next read. Tests replace it.
@@ -176,19 +179,21 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     func libraryPlaylists(limit: Int) async throws -> [MusicPlaylistSummary] {
         let playlists = try await readLibraryPlaylists(pageSize: max(1, limit))
         let counts = await trackCountCache.counts(
-            forVersions: Dictionary(playlists.map { ($0.id.rawValue, $0.lastModifiedDate) }, uniquingKeysWith: { first, _ in first })
+            forVersions: Dictionary(
+                playlists.map { ($0.id.rawValue, $0.lastModifiedDate) }, uniquingKeysWith: { first, _ in first })
         )
-        return editor.pending.applied(toPlaylists: playlists.map {
-            // A playlist edited from Spotiglass is counted again (`playlistTrackCounts`) with
-            // the edits the library doesn't show yet.
-            let id = $0.id.rawValue
-            let cached = editor.pending.hasPendingTracks(playlistID: id) ? nil : counts[id]
-            return AppleMusicItemMapping.playlistSummary(
-                $0,
-                fallbackOwnerName: libraryOwnerName,
-                cachedTrackCount: cached
-            )
-        })
+        return editor.pending.applied(
+            toPlaylists: playlists.map {
+                // A playlist edited from Spotiglass is counted again (`playlistTrackCounts`) with
+                // the edits the library doesn't show yet.
+                let id = $0.id.rawValue
+                let cached = editor.pending.hasPendingTracks(playlistID: id) ? nil : counts[id]
+                return AppleMusicItemMapping.playlistSummary(
+                    $0,
+                    fallbackOwnerName: libraryOwnerName,
+                    cachedTrackCount: cached
+                )
+            })
     }
 
     private func readLibraryPlaylists(pageSize: Int) async throws -> [Playlist] {
@@ -270,7 +275,8 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
             }
             // Created through the Music app moments ago: it exists, MusicKit just doesn't list it yet.
             if editor.pending.createdPlaylist(id: playlistID) != nil {
-                return AppleMusicItemMapping.playlistItems(applyingPendingEdits(toPlaylistTracks: [], playlistID: playlistID))
+                return AppleMusicItemMapping.playlistItems(
+                    applyingPendingEdits(toPlaylistTracks: [], playlistID: playlistID))
             }
             throw AppleMusicBrowsingError.notFound
         }
@@ -288,7 +294,9 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
             return try await source.playlistTracks(playlistID: playlistID, limit: limit)
         }
         let version = (try? await source.libraryPlaylist(id: playlistID))?.lastModifiedDate
-        if let version, let kept = await trackCountCache.tracks(playlistID: playlistID, version: version), kept.count <= limit {
+        if let version, let kept = await trackCountCache.tracks(playlistID: playlistID, version: version),
+            kept.count <= limit
+        {
             return kept
         }
         let start = await trackCountCache.startLookup([playlistID])
@@ -305,10 +313,13 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     /// shows these at once and replaces them with `playlistTracks` when that differs. Ratings
     /// are only the ones already looked up, so this stays instant; `playlistTracks` adds the rest.
     func lastReadPlaylistTracks(playlistID: String) async -> [MusicPlaylistTrackItem]? {
-        guard let tracks = await trackCountCache.lastReadTracks(playlistID: playlistID), !tracks.isEmpty else { return nil }
+        guard let tracks = await trackCountCache.lastReadTracks(playlistID: playlistID), !tracks.isEmpty else {
+            return nil
+        }
         // Counting stops at its bound, so a list that long may go on past its last row (#570).
         let isComplete = tracks.count < MusicKitContentSource.maxCountedPlaylistTracks
-        return AppleMusicItemMapping.playlistItems(applyingPendingEdits(toPlaylistTracks: tracks, playlistID: playlistID, isComplete: isComplete))
+        return AppleMusicItemMapping.playlistItems(
+            applyingPendingEdits(toPlaylistTracks: tracks, playlistID: playlistID, isComplete: isComplete))
     }
 
     func currentUserSavedTracks(limit: Int, maxPages: Int?) async throws -> MusicSavedTracksResult {
@@ -345,7 +356,9 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
                 // More pages follow: hand over what is read so far.
                 await lookUpRatings(songs)
                 let shown = applyingPendingEdits(toLibrarySongs: songs, isComplete: false)
-                await firstPage(MusicSavedTracksResult(tracks: AppleMusicItemMapping.playlistItems(shown), totalAvailable: shown.count))
+                await firstPage(
+                    MusicSavedTracksResult(
+                        tracks: AppleMusicItemMapping.playlistItems(shown), totalAvailable: shown.count))
             }
         }
         await lookUpRatings(songs)
@@ -370,10 +383,11 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     }
 
     func lookUpRatings(_ tracks: some Sequence<Track>) async {
-        await lookUpRatings(tracks.compactMap { track -> Song? in
-            if case let .song(song) = track { return song }
-            return nil
-        })
+        await lookUpRatings(
+            tracks.compactMap { track -> Song? in
+                if case .song(let song) = track { return song }
+                return nil
+            })
     }
 
     // MARK: - Home
@@ -384,10 +398,12 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         return songs.map(AppleMusicItemMapping.track)
     }
 
-    func topTracks(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws -> [MusicTrack] {
+    func topTracks(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws
+        -> [MusicTrack]
+    {
         let playlists = try await source.recommendedPlaylists()
         guard let mix = playlists.first(where: { $0.kind == .personalMix }) ?? playlists.first,
-              let tracks = try await source.playlistTracks(playlistID: mix.id.rawValue, limit: limit)
+            let tracks = try await source.playlistTracks(playlistID: mix.id.rawValue, limit: limit)
         else { return [] }
         await lookUpRatings(tracks)
         return tracks.map { AppleMusicItemMapping.track($0) }
@@ -417,7 +433,8 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         // song's other details (#395).
         editor.songReferences.remember(tracks)
         // A page that shows the saved copy itself (an upload) lists only saved songs.
-        let savedSongIDs = MusicKitLibraryLookup.isCatalogID(album.id.rawValue)
+        let savedSongIDs =
+            MusicKitLibraryLookup.isCatalogID(album.id.rawValue)
             ? savedCatalogSongIDs(Array(tracks), saved: try await savedRead)
             : Self.savedSongIDs(Array(tracks), registry: editor.songReferences)
         await lookUpRatings(tracks.prefix(cap))
@@ -434,7 +451,9 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         AppleMusicItemMapping.artistDetail(try await loadArtist(id: id), pageID: id)
     }
 
-    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail> {
+    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<
+        MusicArtistDetail
+    > {
         MusicCachedResponse(value: try await artist(id: id, cacheMode: cacheMode), isStale: false)
     }
 
@@ -458,7 +477,8 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         nextURL: URL?,
         cacheMode: MusicRequestCacheMode
     ) async throws -> MusicArtistAlbumsPage {
-        let albums = try await artistAlbums(id: id, includeGroups: includeGroups, startsPaging: offset == 0 && nextURL == nil)
+        let albums = try await artistAlbums(
+            id: id, includeGroups: includeGroups, startsPaging: offset == 0 && nextURL == nil)
         var start = min(max(0, offset), albums.count)
         // The list may have been loaded again since the page before (it expired or another
         // artist took its place in the cache) and pair editions differently, so offsets no longer
@@ -468,13 +488,16 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         let previous = Self.continuationAlbum(nextURL)
         if let previous {
             if let index = albums.firstIndex(where: { $0.id == previous.id })
-                ?? albums.firstIndex(where: { AppleMusicAlbumEditions.key($0) == previous.edition }) {
+                ?? albums.firstIndex(where: { AppleMusicAlbumEditions.key($0) == previous.edition })
+            {
                 start = index + 1
             }
         }
         let end = min(start + max(1, limit), albums.count)
-        let next = end < albums.count
-            ? Self.continuationURL(offset: end, after: albums[end - 1].id, edition: AppleMusicAlbumEditions.key(albums[end - 1]))
+        let next =
+            end < albums.count
+            ? Self.continuationURL(
+                offset: end, after: albums[end - 1].id, edition: AppleMusicAlbumEditions.key(albums[end - 1]))
             : nil
         let items = albums[start..<end].filter { album in
             previous.map { AppleMusicAlbumEditions.key(album) != $0.edition } ?? true
@@ -541,7 +564,7 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         source: any AppleMusicContentSource
     ) async throws -> MusicArtistAlbum {
         guard !MusicKitLibraryLookup.isCatalogID(album.id),
-              let detailed = try await source.album(id: album.id)
+            let detailed = try await source.album(id: album.id)
         else { return album }
         // The library never has more of an album than the album has.
         let cap = album.totalTracks > 0 ? album.totalTracks : Self.maxLibraryAlbumTracks
@@ -579,10 +602,13 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
             let artist = try await loadArtist(id: id)
             let albums = try await source.albums(of: artist, limit: Self.maxArtistAlbums)
             let ratings = await savedAlbumRatings(albums)
-            all = Self.newestFirst(try await Self.libraryCounted(
-                albums.map { AppleMusicItemMapping.artistAlbum($0, catalogExplicit: ratings.known[$0.id.rawValue]) },
-                source: source
-            ), dates: albums)
+            all = Self.newestFirst(
+                try await Self.libraryCounted(
+                    albums.map {
+                        AppleMusicItemMapping.artistAlbum($0, catalogExplicit: ratings.known[$0.id.rawValue])
+                    },
+                    source: source
+                ), dates: albums)
             explicitBlocked = explicitMusicBlocked()
             await artistAlbumsCache.store(all, forArtistID: id, explicitBlocked: explicitBlocked)
             if let late = ratings.late {
@@ -614,7 +640,7 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         var releases: [String: String] = [:]
         for album in albums where album.contentRating == nil && !MusicKitLibraryLookup.isCatalogID(album.id.rawValue) {
             guard let catalogID = AppleMusicSongIdentity(encoding: album).catalogID,
-                  catalogID != album.id.rawValue, MusicKitLibraryLookup.isCatalogID(catalogID)
+                catalogID != album.id.rawValue, MusicKitLibraryLookup.isCatalogID(catalogID)
             else { continue }
             releases[album.id.rawValue] = catalogID
         }
@@ -635,11 +661,14 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         }
         await AppleMusicContentRatings.first(of: lookup, or: ratingsDeadline)
         let (ratings, done) = found.withLock { ($0.ratings, $0.done) }
-        let late: Task<[String: Bool], Never>? = done ? nil : Task {
-            await lookup.value
-            let ratings = found.withLock { $0.ratings }
-            return releases.compactMapValues { ratings[$0] }
-        }
+        let late: Task<[String: Bool], Never>? =
+            done
+            ? nil
+            : Task {
+                await lookup.value
+                let ratings = found.withLock { $0.ratings }
+                return releases.compactMapValues { ratings[$0] }
+            }
         return (releases.compactMapValues { ratings[$0] }, late)
     }
 
@@ -649,7 +678,9 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         try await search(query: query, limit: limit, offset: 0, cacheMode: .freshOnly)
     }
 
-    func search(query: String, limit: Int, offset: Int, cacheMode: MusicRequestCacheMode) async throws -> MusicSearchResults {
+    func search(query: String, limit: Int, offset: Int, cacheMode: MusicRequestCacheMode) async throws
+        -> MusicSearchResults
+    {
         let term = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty else {
             return MusicSearchResults(tracks: [], artists: [], albums: [], playlists: [])
@@ -712,8 +743,8 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         library: Result<AppleMusicSearchItems, Error>
     ) -> (part: MusicSearchPartialFailure.MissingPart, error: Error)? {
         switch (catalog, library) {
-        case let (.failure(error), .success): (.catalog, error)
-        case let (.success, .failure(error)): (.library, error)
+        case (.failure(let error), .success): (.catalog, error)
+        case (.success, .failure(let error)): (.library, error)
         default: nil
         }
     }
@@ -728,7 +759,7 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     ) throws -> MusicSearchResults {
         // Past the first page only the catalog answers, so its failure is the page's failure:
         // reporting an empty page would end the results instead of letting the user retry.
-        if case let .failure(error) = catalog {
+        if case .failure(let error) = catalog {
             if offset > 0 { throw error }
             if case .failure = library { throw error }
         }
@@ -745,18 +776,25 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         }
         // Songs and albums match by the catalog ID a saved item carries, else by content
         // (``AppleMusicItemMapping/searchMatchKeys(_:isSaved:content:)``).
-        let tracks = Self.merged(libraryItems.songs, catalogItems.songs, limit: limit, showsLibrary: showsLibrary, id: { $0.id.rawValue }) {
-            AppleMusicItemMapping.searchMatchKeys($0, isSaved: $1, content: AppleMusicItemMapping.songContentKey)
-        }
+        let tracks = Self.merged(
+            libraryItems.songs, catalogItems.songs, limit: limit, showsLibrary: showsLibrary, id: { $0.id.rawValue },
+            match: {
+                AppleMusicItemMapping.searchMatchKeys($0, isSaved: $1, content: AppleMusicItemMapping.songContentKey)
+            }
+        )
         // Artists match by name on purpose: the same artist in the library and in the catalog
         // is far more common than two different artists with one name, one of them saved.
-        let artists = Self.merged(libraryItems.artists, catalogItems.artists, limit: limit, showsLibrary: showsLibrary, id: { $0.id.rawValue }) { artist, _ in
-            [artist.name.lowercased()]
-        }
+        let artists = Self.merged(
+            libraryItems.artists, catalogItems.artists, limit: limit, showsLibrary: showsLibrary,
+            id: { $0.id.rawValue },
+            match: { artist, _ in [artist.name.lowercased()] }
+        )
         let albumMatch: (Album, Bool) -> [String] = {
             AppleMusicItemMapping.searchMatchKeys($0, isSaved: $1, content: AppleMusicItemMapping.albumContentKey)
         }
-        let albums = Self.merged(libraryItems.albums, catalogItems.albums, limit: limit, showsLibrary: showsLibrary, id: { $0.id.rawValue }, match: albumMatch)
+        let albums = Self.merged(
+            libraryItems.albums, catalogItems.albums, limit: limit, showsLibrary: showsLibrary, id: { $0.id.rawValue },
+            match: albumMatch)
         // Saved albums come without their artists, and the IDs a saved album's own artists
         // relationship gives don't open an artist page. So a saved album links the artists of
         // its catalog copy when that is on this page, else the artist of the same name among
@@ -769,18 +807,24 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
             }
         }
         let pageArtistsByName = Dictionary(
-            (libraryItems.artists + catalogItems.artists).map { ($0.name.lowercased(), MusicArtistRef(id: $0.id.rawValue, name: $0.name)) },
+            (libraryItems.artists + catalogItems.artists).map {
+                ($0.name.lowercased(), MusicArtistRef(id: $0.id.rawValue, name: $0.name))
+            },
             uniquingKeysWith: { first, _ in first }
         )
         func linkedArtists(of album: Album) -> [MusicArtistRef]? {
-            if let refs = albumMatch(album, true).lazy.compactMap({ catalogAlbumArtists[$0] }).first, !refs.isEmpty { return refs }
+            if let refs = albumMatch(album, true).lazy.compactMap({ catalogAlbumArtists[$0] }).first, !refs.isEmpty {
+                return refs
+            }
             return pageArtistsByName[album.artistName.lowercased()].map { [$0] }
         }
         // A saved catalog playlist is listed under a library ID and names its catalog copy in
         // its play parameters, the pairing pins use too (#519).
-        let playlists = Self.merged(libraryItems.playlists, catalogItems.playlists, limit: limit, showsLibrary: showsLibrary, id: { $0.id.rawValue }) { playlist, _ in
-            [AppleMusicItemMapping.playlistMatchID(playlist)]
-        }
+        let playlists = Self.merged(
+            libraryItems.playlists, catalogItems.playlists, limit: limit, showsLibrary: showsLibrary,
+            id: { $0.id.rawValue },
+            match: { playlist, _ in [AppleMusicItemMapping.playlistMatchID(playlist)] }
+        )
         // The saved copy's cover is a `musicKit://` one, which draws only while the playlist is
         // in the library. It shows the cover of the catalog copy it hid, which loads on its own,
         // so a pin of the playlist keeps a cover after the playlist leaves the library (#524).
@@ -798,7 +842,8 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
             },
             playlists: playlists.map {
                 AppleMusicItemMapping.playlistSummary(
-                    $0, fallbackOwnerName: libraryOwnerName, catalogCopy: catalogPlaylists[AppleMusicItemMapping.playlistMatchID($0)]
+                    $0, fallbackOwnerName: libraryOwnerName,
+                    catalogCopy: catalogPlaylists[AppleMusicItemMapping.playlistMatchID($0)]
                 )
             },
             tracksPaging: paging(tracks.count, more: catalogItems.moreSongs),
@@ -818,7 +863,8 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         var components = URLComponents()
         components.scheme = AppleMusicItemMapping.uriScheme
         components.host = "page"
-        components.queryItems = [URLQueryItem(name: "offset", value: String(offset))]
+        components.queryItems =
+            [URLQueryItem(name: "offset", value: String(offset))]
             + (itemID.map { [URLQueryItem(name: "after", value: $0)] } ?? [])
             + (edition.map { [URLQueryItem(name: "edition", value: $0)] } ?? [])
         return components.url
@@ -827,9 +873,9 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     /// The album the page before ended with, from ``continuationURL(offset:after:edition:)``.
     static func continuationAlbum(_ url: URL?) -> (id: String, edition: String)? {
         guard let url, url.scheme == AppleMusicItemMapping.uriScheme, url.host == "page",
-              let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
-              let id = items.first(where: { $0.name == "after" })?.value,
-              let edition = items.first(where: { $0.name == "edition" })?.value
+            let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+            let id = items.first(where: { $0.name == "after" })?.value,
+            let edition = items.first(where: { $0.name == "edition" })?.value
         else { return nil }
         return (id, edition)
     }
@@ -883,7 +929,8 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
 enum AppleMusicAlbumEditions {
     /// What a tile shows: two editions alike in all of it look like the same album twice.
     static func key(_ album: MusicArtistAlbum) -> String {
-        [album.name, album.releaseYear ?? "", String(album.totalTracks), album.group.rawValue].joined(separator: "\u{1F}")
+        [album.name, album.releaseYear ?? "", String(album.totalTracks), album.group.rawValue].joined(
+            separator: "\u{1F}")
     }
 
     /// The albums in their order, the clean and explicit editions of an album as one: in the
@@ -964,7 +1011,8 @@ actor AppleMusicArtistAlbumsCache {
     func store(_ albums: [MusicArtistAlbum], forArtistID id: String, explicitBlocked: Bool? = nil) {
         entries[id] = Entry(albums: albums, storedAt: now(), explicitBlocked: explicitBlocked)
         while entries.count > Self.maxArtists,
-              let oldest = entries.min(by: { $0.value.storedAt < $1.value.storedAt })?.key {
+            let oldest = entries.min(by: { $0.value.storedAt < $1.value.storedAt })?.key
+        {
             entries[oldest] = nil
         }
     }
@@ -1035,7 +1083,8 @@ actor AppleMusicPlaylistTrackCountCache {
     private let now: @Sendable () -> Date
     private let maxTracks: Int
 
-    init(now: @escaping @Sendable () -> Date = Date.init, maxTracks: Int = AppleMusicPlaylistTrackCountCache.maxTracks) {
+    init(now: @escaping @Sendable () -> Date = Date.init, maxTracks: Int = AppleMusicPlaylistTrackCountCache.maxTracks)
+    {
         self.now = now
         self.maxTracks = maxTracks
     }
@@ -1094,7 +1143,8 @@ actor AppleMusicPlaylistTrackCountCache {
         trackLists[id] = TrackList(tracks: tracks, version: version, usedAt: current, storedAt: current)
         var total = trackLists.values.reduce(0) { $0 + $1.tracks.count }
         while total > maxTracks, trackLists.count > 1,
-              let oldest = trackLists.filter({ $0.key != id }).min(by: { $0.value.usedAt < $1.value.usedAt }) {
+            let oldest = trackLists.filter({ $0.key != id }).min(by: { $0.value.usedAt < $1.value.usedAt })
+        {
             total -= oldest.value.tracks.count
             trackLists[oldest.key] = nil
         }
@@ -1127,7 +1177,8 @@ actor AppleMusicPlaylistTrackCountCache {
 
     func startLookup(_ playlistIDs: [String]) -> LookupStart {
         LookupStart(
-            versions: Dictionary(playlistIDs.map { ($0, versions[$0] ?? nil) }, uniquingKeysWith: { first, _ in first }),
+            versions: Dictionary(
+                playlistIDs.map { ($0, versions[$0] ?? nil) }, uniquingKeysWith: { first, _ in first }),
             edits: Dictionary(playlistIDs.map { ($0, edits[$0] ?? 0) }, uniquingKeysWith: { first, _ in first }),
             libraryRemovals: libraryRemovals
         )
@@ -1141,29 +1192,32 @@ actor AppleMusicPlaylistTrackCountCache {
         let storedAt = now()
         for (id, count) in counts {
             guard let version = start.versions[id],
-                  (versions[id] ?? nil) == version,
-                  (edits[id] ?? 0) == start.edits[id] else { continue }
+                (versions[id] ?? nil) == version,
+                (edits[id] ?? 0) == start.edits[id]
+            else { continue }
             entries[id] = Entry(count: count, version: version, storedAt: storedAt)
         }
         for (id, list) in tracks {
             guard let version = start.versions[id],
-                  (versions[id] ?? nil) == version,
-                  (edits[id] ?? 0) == start.edits[id] else { continue }
+                (versions[id] ?? nil) == version,
+                (edits[id] ?? 0) == start.edits[id]
+            else { continue }
             keep(list, playlistID: id, version: version)
         }
         while entries.count > Self.maxPlaylists,
-              let oldest = entries.min(by: { $0.value.storedAt < $1.value.storedAt })?.key {
+            let oldest = entries.min(by: { $0.value.storedAt < $1.value.storedAt })?.key
+        {
             entries[oldest] = nil
         }
     }
 }
 
-private extension MusicSearchResults {
-    var isEmptyPage: Bool {
+extension MusicSearchResults {
+    fileprivate var isEmptyPage: Bool {
         tracks.isEmpty && artists.isEmpty && albums.isEmpty && playlists.isEmpty
     }
 
-    var hasNextPage: Bool {
+    fileprivate var hasNextPage: Bool {
         [tracksPaging, artistsPaging, albumsPaging, playlistsPaging].contains { $0?.next != nil }
     }
 }

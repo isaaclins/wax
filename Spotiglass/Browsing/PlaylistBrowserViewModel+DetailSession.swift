@@ -30,7 +30,7 @@ extension PlaylistBrowserViewModel {
             detailState = .loaded(.search)
         case .likedSongs:
             await loadLikedSongsTracks(refreshCachedData: refreshCachedData, session: session)
-        case let .playlist(playlistID):
+        case .playlist(let playlistID):
             await loadTracks(for: playlistID, refreshCachedData: refreshCachedData, session: session)
         case .pinnedItem:
             guard session == detailSession else { return }

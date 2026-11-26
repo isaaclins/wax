@@ -51,9 +51,9 @@ enum AppConnectionState: Equatable {
             SpotiglassL10n.string("app.connection.signedIn.message")
         case .refreshing:
             SpotiglassL10n.string("app.connection.refreshing.message")
-        case let .failed(error):
+        case .failed(let error):
             error.message
-        case let .paused(pause):
+        case .paused(let pause):
             pause.message
         }
     }

@@ -86,7 +86,7 @@ enum LibrarySidebarRow: Equatable, Identifiable {
         switch self {
         case .home:
             return LibrarySidebarOrder.homeToken
-        case let .pinned(item):
+        case .pinned(let item):
             return LibrarySidebarOrder.pinnedToken(for: item.id)
         }
     }
@@ -95,7 +95,7 @@ enum LibrarySidebarRow: Equatable, Identifiable {
         switch self {
         case .home:
             return .home
-        case let .pinned(item):
+        case .pinned(let item):
             return .pinnedItem(item.id)
         }
     }

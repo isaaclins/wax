@@ -50,12 +50,13 @@ enum PlaylistBrowserTapTargetNavigation {
         showFailure: @MainActor (DisplayError) -> Void
     ) async {
         guard !(error is CancellationError), !Task.isCancelled else { return }
-        await showFailure(ErrorReporting.report(
-            error,
-            while: "looking up a name to open it",
-            in: .browsing,
-            context: [.private("name", name)],
-            showing: ErrorMessage(message: SpotiglassL10n.format("browser.tapTarget.openFailed", name))
-        ))
+        await showFailure(
+            ErrorReporting.report(
+                error,
+                while: "looking up a name to open it",
+                in: .browsing,
+                context: [.private("name", name)],
+                showing: ErrorMessage(message: SpotiglassL10n.format("browser.tapTarget.openFailed", name))
+            ))
     }
 }

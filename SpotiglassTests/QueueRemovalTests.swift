@@ -3,6 +3,7 @@ import Combine
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 /// Taking songs out of the queue and putting them back (#628), on the Apple Music provider with
@@ -120,7 +121,7 @@ final class QueueRemovalTests: XCTestCase {
     func testARemovalAfterTheQueueMovedOnStillTakesThePickedSong() async throws {
         let h = try await playing(songs)
         let picked = ids(h, [songs[3]])
-        try await next(h) // song 2 plays now; the panel hasn't read the queue again
+        try await next(h)  // song 2 plays now; the panel hasn't read the queue again
 
         _ = await h.queue.removeItems(withIDs: picked)
 
@@ -134,7 +135,7 @@ final class QueueRemovalTests: XCTestCase {
         let h = try await playing([songs[0], a, songs[1], a, songs[2]])
         let firstA = try XCTUnwrap(h.queue.upcomingItems.first)
         XCTAssertEqual(firstA.uri, a)
-        try await next(h) // the first A plays now; the panel hasn't read the queue again
+        try await next(h)  // the first A plays now; the panel hasn't read the queue again
 
         _ = await h.queue.removeItems(withIDs: [firstA.id])
 
@@ -229,7 +230,8 @@ final class QueueRemovalTests: XCTestCase {
 
         XCTAssertEqual(h.player.upcomingURIs, [])
         XCTAssertEqual(h.player.readState().current?.uri, songs[0], "the playing song keeps playing")
-        XCTAssertNoThrow(try view.inspect().find(text: SpotiglassL10n.format("queue.removed.count", Int64(songs.count - 1))))
+        XCTAssertNoThrow(
+            try view.inspect().find(text: SpotiglassL10n.format("queue.removed.count", Int64(songs.count - 1))))
 
         try view.inspect().find(button: SpotiglassL10n.string("queue.undo")).tap()
         await fulfillment(of: [restored], timeout: 5)
@@ -243,9 +245,15 @@ final class QueueRemovalTests: XCTestCase {
     func testSpotifyPanelOffersNoClear() async throws {
         let api = MockPlaybackAPI()
         let provider = SpotifyPlaybackProvider(playbackAPI: api)
-        let session = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
-        let queue = QueueViewModel(provider: provider, playbackSession: session, pollIntervalNanoseconds: 60_000_000_000)
-        queue.upcomingItems = [QueueItem(id: "queue:rest:occurrence:0", name: "Song", subtitle: "Artist", albumArtURL: nil, durationMilliseconds: 1, uri: "spotify:track:1")]
+        let session = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let queue = QueueViewModel(
+            provider: provider, playbackSession: session, pollIntervalNanoseconds: 60_000_000_000)
+        queue.upcomingItems = [
+            QueueItem(
+                id: "queue:rest:occurrence:0", name: "Song", subtitle: "Artist", albumArtURL: nil,
+                durationMilliseconds: 1, uri: "spotify:track:1")
+        ]
         let view = QueuePanelView(queueViewModel: queue, playbackViewModel: session, openArtist: { _ in })
         ViewTestHost.host(view, size: CGSize(width: 420, height: 640))
 
@@ -343,7 +351,11 @@ final class QueueRemovalTests: XCTestCase {
     func testSpotifyOffersNoRemoval() async {
         let provider = SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI())
         let queue = QueueViewModel(provider: provider, playbackSession: PlaybackSessionViewModel(provider: provider))
-        queue.upcomingItems = [QueueItem(id: "queue:rest:occurrence:0", name: "Song", subtitle: "Artist", albumArtURL: nil, durationMilliseconds: 1, uri: "spotify:track:1")]
+        queue.upcomingItems = [
+            QueueItem(
+                id: "queue:rest:occurrence:0", name: "Song", subtitle: "Artist", albumArtURL: nil,
+                durationMilliseconds: 1, uri: "spotify:track:1")
+        ]
 
         XCTAssertNil(provider.queueEditing)
         XCTAssertFalse(queue.canEditQueue)
@@ -518,11 +530,15 @@ final class TrackStackSelectionTests: XCTestCase {
     @MainActor
     func testTheMenuNamesTheSelectionCount() {
         XCTAssertNil(TrackOpsMenuItems.selectionLabel(count: 1))
-        XCTAssertEqual(TrackOpsMenuItems.selectionLabel(count: 4), SpotiglassL10n.format("playlist.mutation.trackLabel", Int64(4)))
+        XCTAssertEqual(
+            TrackOpsMenuItems.selectionLabel(count: 4), SpotiglassL10n.format("playlist.mutation.trackLabel", Int64(4)))
     }
 
     private static func row(_ id: String) -> TrackRowViewModel {
-        TrackRowViewModel(queueItem: QueueItem(id: id, name: id, subtitle: "", albumArtURL: nil, durationMilliseconds: 1, uri: "applemusic:song:\(id)"))
+        TrackRowViewModel(
+            queueItem: QueueItem(
+                id: id, name: id, subtitle: "", albumArtURL: nil, durationMilliseconds: 1, uri: "applemusic:song:\(id)")
+        )
     }
 }
 
@@ -541,6 +557,9 @@ private final class QueueRestoreWatch {
 
     func saw(_ uris: [String?]) {
         if !uris.contains(removed) { wasRemoved = true }
-        if wasRemoved, uris == full { onRestored?(); onRestored = nil }
+        if wasRemoved, uris == full {
+            onRestored?()
+            onRestored = nil
+        }
     }
 }

@@ -492,10 +492,13 @@ class ScrubberTrackCanvasView: NSView {
             }
         }
         // Up to a tenth of a tick late is invisible and lets macOS group wakeups.
-        let interval = 1 / Double(ScrubberTimelineSchedule.ticksPerSecond(
-            durationMilliseconds: drawing?.progress.durationMilliseconds ?? 0,
-            trackWidth: trackWidth
-        ))
+        let interval =
+            1
+            / Double(
+                ScrubberTimelineSchedule.ticksPerSecond(
+                    durationMilliseconds: drawing?.progress.durationMilliseconds ?? 0,
+                    trackWidth: trackWidth
+                ))
         timer.tolerance = interval / 10
         RunLoop.main.add(timer, forMode: .common)
         tickTimer = timer
@@ -613,7 +616,8 @@ struct ScrubberTimelineSchedule: TimelineSchedule {
         let endDate = anchor.anchorDate.addingTimeInterval(Double(duration - base) / 1_000)
         guard startDate < endDate else { return Self.single(startDate) }
 
-        let ticks = mode == .lowFrequency
+        let ticks =
+            mode == .lowFrequency
             ? 1
             : Self.ticksPerSecond(durationMilliseconds: duration, trackWidth: trackWidth)
         let interval = 1 / Double(ticks)

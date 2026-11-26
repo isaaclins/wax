@@ -34,7 +34,9 @@ struct MusicLibraryEdits: OptionSet {
     /// Dragging rows to a new spot in a playlist the user may edit (#543).
     static let reorderPlaylistTracks = MusicLibraryEdits(rawValue: 1 << 4)
 
-    static let all: MusicLibraryEdits = [.removeFromPlaylist, .deletePlaylist, .saveAlbums, .confirmLibraryRemoval, .reorderPlaylistTracks]
+    static let all: MusicLibraryEdits = [
+        .removeFromPlaylist, .deletePlaylist, .saveAlbums, .confirmLibraryRemoval, .reorderPlaylistTracks,
+    ]
 }
 
 /// Whether the signed-in account may make a library edit, asked before the request goes out.
@@ -100,7 +102,9 @@ protocol MusicBrowsingProvider {
     ) async throws -> MusicSavedTracksResult
     func currentUserProfile() async throws -> MusicUserProfile
     func artist(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicArtistDetail
-    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<MusicArtistDetail>
+    func artistCached(id: String, cacheMode: MusicRequestCacheMode) async throws -> MusicCachedResponse<
+        MusicArtistDetail
+    >
     func artistAlbumsCached(
         id: String,
         includeGroups: [MusicArtistAlbumGroup],
@@ -117,14 +121,17 @@ protocol MusicBrowsingProvider {
     ) async throws -> MusicArtistAlbumsPage
     func search(query: String, limit: Int) async throws -> MusicSearchResults
     /// Paged catalog search for the full Search view; `offset` pages past the first results.
-    func search(query: String, limit: Int, offset: Int, cacheMode: MusicRequestCacheMode) async throws -> MusicSearchResults
+    func search(query: String, limit: Int, offset: Int, cacheMode: MusicRequestCacheMode) async throws
+        -> MusicSearchResults
     /// Home feed: recently played tracks.
     func recentlyPlayedTracks(limit: Int, cacheMode: MusicRequestCacheMode) async throws -> [MusicTrack]
     /// Home feed: the user's top tracks.
-    func topTracks(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws -> [MusicTrack]
+    func topTracks(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws
+        -> [MusicTrack]
     /// The user's top artists, used as a ranking signal
     /// for tracks already present in the library.
-    func topArtists(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws -> [MusicArtist]
+    func topArtists(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws
+        -> [MusicArtist]
     /// Artists followed by the current user.
     func followedArtists(limit: Int, maxPages: Int?) async throws -> [MusicArtist]
     /// Artist top tracks are optional breadth data. The continuation collector
@@ -158,7 +165,8 @@ protocol MusicBrowsingProvider {
     func createPlaylist(userID: String, name: String, isPublic: Bool) async throws -> MusicPlaylistSummary
     /// Creates a playlist with these tracks. The default creates it, then adds them; a provider
     /// that can do both in one step overrides it, so a failed add leaves no empty playlist.
-    func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws -> MusicPlaylistSummary
+    func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws
+        -> MusicPlaylistSummary
     func saveTracks(ids: [String]) async throws
     /// `shown`: the rows the songs were listed as. A provider whose library shows a save only
     /// later lists these meanwhile, when it can't read the songs' own details (#596).
@@ -178,7 +186,9 @@ protocol MusicBrowsingProvider {
 
 extension MusicBrowsingProvider {
     /// Providers without paged search serve the first page only.
-    func search(query: String, limit: Int, offset: Int, cacheMode: MusicRequestCacheMode) async throws -> MusicSearchResults {
+    func search(query: String, limit: Int, offset: Int, cacheMode: MusicRequestCacheMode) async throws
+        -> MusicSearchResults
+    {
         guard offset == 0 else {
             return MusicSearchResults(tracks: [], artists: [], albums: [], playlists: [])
         }
@@ -195,10 +205,16 @@ extension MusicBrowsingProvider {
     // exercise the home surface compile without overrides. Real providers
     // override what their service offers.
     func recentlyPlayedTracks(limit: Int, cacheMode: MusicRequestCacheMode) async throws -> [MusicTrack] { [] }
-    func topTracks(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws -> [MusicTrack] { [] }
-    func topArtists(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws -> [MusicArtist] { [] }
+    func topTracks(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws
+        -> [MusicTrack]
+    { [] }
+    func topArtists(limit: Int, timeRange: MusicTopItemsTimeRange, cacheMode: MusicRequestCacheMode) async throws
+        -> [MusicArtist]
+    { [] }
     func followedArtists(limit: Int, maxPages: Int?) async throws -> [MusicArtist] { [] }
-    func artistTopTracks(id: String, market: String?, cacheMode: MusicRequestCacheMode) async throws -> [MusicTrack] { [] }
+    func artistTopTracks(id: String, market: String?, cacheMode: MusicRequestCacheMode) async throws -> [MusicTrack] {
+        []
+    }
 
     // Default implementations for library mutations. Mocks/previews that never
     // exercise the menu can ignore these; a provider that supports library edits
@@ -227,7 +243,9 @@ extension MusicBrowsingProvider {
     func createPlaylist(userID: String, name: String, isPublic: Bool) async throws -> MusicPlaylistSummary {
         throw MusicBrowsingError(unsupportedOperation: "Playlist creation")
     }
-    func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws -> MusicPlaylistSummary {
+    func createPlaylist(userID: String, name: String, isPublic: Bool, trackURIs: [String]) async throws
+        -> MusicPlaylistSummary
+    {
         let created = try await createPlaylist(userID: userID, name: name, isPublic: isPublic)
         if !trackURIs.isEmpty {
             do {

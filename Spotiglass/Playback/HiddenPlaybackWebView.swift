@@ -176,8 +176,8 @@ final class SpotiglassPlaybackHosts: ObservableObject {
     func servicesChanged(to services: [MusicService]) {
         defer { addedServices = services }
         guard let previous = addedServices,
-              previous.contains(.appleMusic), !services.contains(.appleMusic),
-              let appleMusic = appleMusicIfCreated?.playbackViewModel
+            previous.contains(.appleMusic), !services.contains(.appleMusic),
+            let appleMusic = appleMusicIfCreated?.playbackViewModel
         else { return }
         appleMusicStop = Self.stop(appleMusic)
     }
@@ -215,7 +215,7 @@ final class SpotiglassPlaybackHosts: ObservableObject {
             .map { state, lastHeard in
                 switch state {
                 case .playing: true
-                case let .paused(song): song != nil && lastHeard == otherService
+                case .paused(let song): song != nil && lastHeard == otherService
                 default: false
                 }
             }
@@ -232,17 +232,19 @@ final class SpotiglassPlaybackHosts: ObservableObject {
             .store(in: &cancellables)
         // From the published values, not `other.isTransportMutationReady`: a sink runs before
         // the property changes.
-        Publishers.CombineLatest4(other.$isTransportStateKnown, other.connectionStatePublisher, other.$deviceID, other.$activePlaybackDeviceID)
-            .map { known, state, deviceID, activeDeviceID in
-                PlaybackSessionViewModel.isTransportMutationReady(
-                    isTransportStateKnown: known,
-                    connectionState: state,
-                    commandDeviceID: activeDeviceID ?? deviceID
-                )
-            }
-            .removeDuplicates()
-            .sink { [weak starting] in starting?.isOtherServiceTransportMutationReady = $0 }
-            .store(in: &cancellables)
+        Publishers.CombineLatest4(
+            other.$isTransportStateKnown, other.connectionStatePublisher, other.$deviceID, other.$activePlaybackDeviceID
+        )
+        .map { known, state, deviceID, activeDeviceID in
+            PlaybackSessionViewModel.isTransportMutationReady(
+                isTransportStateKnown: known,
+                connectionState: state,
+                commandDeviceID: activeDeviceID ?? deviceID
+            )
+        }
+        .removeDuplicates()
+        .sink { [weak starting] in starting?.isOtherServiceTransportMutationReady = $0 }
+        .store(in: &cancellables)
     }
 }
 

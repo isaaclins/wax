@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 /// Edits sent as several requests, or followed by a read, that fail part way (#596). Each test
@@ -14,7 +15,9 @@ final class PartialLibraryEditTests: XCTestCase {
         http.route = { request in
             if request.httpMethod == "POST" {
                 posts += 1
-                return posts == 1 ? .data(Data(), statusCode: 201) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+                return posts == 1
+                    ? .data(Data(), statusCode: 201)
+                    : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
             }
             return Self.listing(request, ids: ["already-there"] + (0..<100).map { "t\($0)" })
         }
@@ -25,13 +28,19 @@ final class PartialLibraryEditTests: XCTestCase {
         viewModel.playlistState = .loaded([PlaylistRowViewModel(playlist)])
         viewModel.sidebarSelection = .playlist(playlist.id)
         viewModel.detailSession = 1
-        let rows = TrackRowViewModel.numberedPlaylistRows((0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+        let rows = TrackRowViewModel.numberedPlaylistRows(
+            (0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
 
         await viewModel.addRowsToPlaylist(rows, playlistID: playlist.id, playlistName: playlist.name)
 
         XCTAssertEqual(posts, 2)
-        XCTAssertEqual(viewModel.trackMutationToast?.text, "Added 100 of 101 tracks to Road Trip. Add only the missing ones again.", "no \"try again\": that would add the first 100 twice")
-        XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 101, "the open playlist was read again")
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text,
+            "Added 100 of 101 tracks to Road Trip. Add only the missing ones again.",
+            "no \"try again\": that would add the first 100 twice")
+        XCTAssertEqual(
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 101,
+            "the open playlist was read again")
     }
 
     /// A move whose add stops after the first batch: the destination has 100 new songs, the
@@ -55,14 +64,21 @@ final class PartialLibraryEditTests: XCTestCase {
         viewModel.playlistsByID = [source.id: source, destination.id: destination]
         viewModel.sidebarSelection = .playlist(source.id)
         viewModel.detailSession = 1
-        let rows = TrackRowViewModel.numberedPlaylistRows((0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+        let rows = TrackRowViewModel.numberedPlaylistRows(
+            (0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
 
-        await viewModel.moveRowsBetweenPlaylists(rows, from: source.id, to: destination.id, destinationName: destination.name)
+        await viewModel.moveRowsBetweenPlaylists(
+            rows, from: source.id, to: destination.id, destinationName: destination.name)
 
-        XCTAssertFalse(methods.contains("DELETE"), "nothing leaves the source when not every song reached the destination")
-        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Added 100 of 101 tracks to Destination and removed none from this playlist."), true,
-                       viewModel.trackMutationToast?.text ?? "no note")
-        XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 101, "the open source was read again")
+        XCTAssertFalse(
+            methods.contains("DELETE"), "nothing leaves the source when not every song reached the destination")
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text.hasPrefix(
+                "Added 100 of 101 tracks to Destination and removed none from this playlist."), true,
+            viewModel.trackMutationToast?.text ?? "no note")
+        XCTAssertEqual(
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 101,
+            "the open source was read again")
     }
 
     /// A move out of Liked Songs never removes anything, so its partial note reads like an add.
@@ -72,7 +88,9 @@ final class PartialLibraryEditTests: XCTestCase {
         http.route = { request in
             if request.httpMethod == "POST" {
                 posts += 1
-                return posts == 1 ? .data(Data(), statusCode: 201) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+                return posts == 1
+                    ? .data(Data(), statusCode: 201)
+                    : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
             }
             return .json("[]")
         }
@@ -80,13 +98,17 @@ final class PartialLibraryEditTests: XCTestCase {
         let destination = PlaylistBrowsingTestFixtures.playlist(id: "destination", name: "Destination")
         let viewModel = PlaylistBrowserViewModel(api: client, cache: DisabledBrowsingCache())
         viewModel.playlistsByID = [destination.id: destination]
-        let rows = TrackRowViewModel.numberedPlaylistRows((0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+        let rows = TrackRowViewModel.numberedPlaylistRows(
+            (0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
 
         await viewModel.moveRowsBetweenPlaylists(
-            rows, from: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID, to: destination.id, destinationName: destination.name
+            rows, from: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID, to: destination.id,
+            destinationName: destination.name
         )
 
-        XCTAssertEqual(viewModel.trackMutationToast?.text, "Added 100 of 101 tracks to Destination. Add only the missing ones again.")
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text,
+            "Added 100 of 101 tracks to Destination. Add only the missing ones again.")
     }
 
     /// `DELETE /v1/playlists/X/items` answers 200, then 503: 100 of 101 songs left the playlist.
@@ -96,7 +118,9 @@ final class PartialLibraryEditTests: XCTestCase {
         http.route = { request in
             if request.httpMethod == "DELETE" {
                 deletes += 1
-                return deletes == 1 ? .json(#"{"snapshot_id": "s2"}"#) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+                return deletes == 1
+                    ? .json(#"{"snapshot_id": "s2"}"#)
+                    : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
             }
             return Self.listing(request, ids: ["t100"])
         }
@@ -107,13 +131,18 @@ final class PartialLibraryEditTests: XCTestCase {
         viewModel.playlistState = .loaded([PlaylistRowViewModel(playlist)])
         viewModel.sidebarSelection = .playlist(playlist.id)
         viewModel.detailSession = 1
-        let rows = TrackRowViewModel.numberedPlaylistRows((0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+        let rows = TrackRowViewModel.numberedPlaylistRows(
+            (0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
 
         await viewModel.removeRowsFromPlaylist(rows, playlistID: playlist.id, playlistName: playlist.name)
 
         XCTAssertEqual(deletes, 2)
-        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Removed 100 of 101 tracks from Road Trip."), true, viewModel.trackMutationToast?.text ?? "no note")
-        XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 1, "the open playlist was read again")
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text.hasPrefix("Removed 100 of 101 tracks from Road Trip."), true,
+            viewModel.trackMutationToast?.text ?? "no note")
+        XCTAssertEqual(
+            PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 1,
+            "the open playlist was read again")
     }
 
     /// `PUT /v1/me/tracks` in batches of 50: the first goes in, the second fails.
@@ -123,17 +152,22 @@ final class PartialLibraryEditTests: XCTestCase {
         http.route = { request in
             if request.httpMethod == "PUT" {
                 puts += 1
-                return puts == 1 ? .data(Data(), statusCode: 200) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+                return puts == 1
+                    ? .data(Data(), statusCode: 200)
+                    : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
             }
             return .json("[]")
         }
         let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: http)
         let viewModel = PlaylistBrowserViewModel(api: client, cache: DisabledBrowsingCache())
-        let rows = TrackRowViewModel.numberedPlaylistRows((0..<51).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+        let rows = TrackRowViewModel.numberedPlaylistRows(
+            (0..<51).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
 
         await viewModel.favoriteRows(rows)
 
-        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Added 50 of 51 tracks to Liked Songs."), true, viewModel.trackMutationToast?.text ?? "no note")
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text.hasPrefix("Added 50 of 51 tracks to Liked Songs."), true,
+            viewModel.trackMutationToast?.text ?? "no note")
         XCTAssertEqual(viewModel.savedTrackStates["t0"], true)
         XCTAssertEqual(viewModel.savedTrackStates["t49"], true)
         XCTAssertNil(viewModel.savedTrackStates["t50"], "the song whose request failed is asked again")
@@ -146,19 +180,24 @@ final class PartialLibraryEditTests: XCTestCase {
         http.route = { request in
             if request.httpMethod == "DELETE" {
                 deletes += 1
-                return deletes == 1 ? .data(Data(), statusCode: 200) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+                return deletes == 1
+                    ? .data(Data(), statusCode: 200)
+                    : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
             }
             return .json("[]")
         }
         let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: http)
         let viewModel = PlaylistBrowserViewModel(api: client, cache: DisabledBrowsingCache())
-        let rows = TrackRowViewModel.numberedPlaylistRows((0..<51).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+        let rows = TrackRowViewModel.numberedPlaylistRows(
+            (0..<51).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
         for index in 0..<51 { viewModel.savedTrackStates["t\(index)"] = true }
 
         await viewModel.unfavoriteRows(rows)
 
         XCTAssertEqual(deletes, 2)
-        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Removed 50 of 51 tracks from Liked Songs."), true, viewModel.trackMutationToast?.text ?? "no note")
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text.hasPrefix("Removed 50 of 51 tracks from Liked Songs."), true,
+            viewModel.trackMutationToast?.text ?? "no note")
         XCTAssertEqual(viewModel.savedTrackStates["t0"], false)
         XCTAssertEqual(viewModel.savedTrackStates["t49"], false)
         XCTAssertNil(viewModel.savedTrackStates["t50"], "the song whose request failed is asked again")
@@ -171,13 +210,16 @@ final class PartialLibraryEditTests: XCTestCase {
         http.route = { request in
             switch request.url?.path {
             case "/v1/me/playlists" where request.httpMethod == "POST":
-                return .json("""
-                {"id": "P", "name": "New Mix", "owner": {"id": "user-1", "display_name": "User"},
-                 "images": [], "items": {"total": 0}, "snapshot_id": "s1"}
-                """, statusCode: 201)
+                return .json(
+                    """
+                    {"id": "P", "name": "New Mix", "owner": {"id": "user-1", "display_name": "User"},
+                     "images": [], "items": {"total": 0}, "snapshot_id": "s1"}
+                    """, statusCode: 201)
             case "/v1/playlists/P/items" where request.httpMethod == "POST":
                 itemPosts += 1
-                return itemPosts == 1 ? .data(Data(), statusCode: 201) : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
+                return itemPosts == 1
+                    ? .data(Data(), statusCode: 201)
+                    : .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
             default:
                 return .json(#"{"error":{"status":404,"message":"Not found"}}"#, statusCode: 404)
             }
@@ -186,15 +228,17 @@ final class PartialLibraryEditTests: XCTestCase {
         let viewModel = PlaylistBrowserViewModel(api: client, cache: DisabledBrowsingCache())
         viewModel.currentUserID = "user-1"
         viewModel.playlistState = .loaded([])
-        let rows = TrackRowViewModel.numberedPlaylistRows((0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
+        let rows = TrackRowViewModel.numberedPlaylistRows(
+            (0..<101).map { PlaylistBrowsingTestFixtures.track(id: "t\($0)") })
 
         await viewModel.createPlaylistWithRows(name: "New Mix", rows: rows)
 
         XCTAssertEqual(itemPosts, 2)
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["P"])
         XCTAssertEqual(viewModel.playlistsByID["P"]?.trackCount, 100)
-        XCTAssertEqual(viewModel.trackMutationToast?.text, "Created New Mix, but only 100 of 101 tracks could be added.",
-                       viewModel.trackMutationToast?.text ?? "no note")
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text, "Created New Mix, but only 100 of 101 tracks could be added.",
+            viewModel.trackMutationToast?.text ?? "no note")
     }
 
     /// `POST /v1/me/playlists` creates P, then `POST /v1/playlists/P/items` answers 503.
@@ -203,10 +247,11 @@ final class PartialLibraryEditTests: XCTestCase {
         http.route = { request in
             switch request.url?.path {
             case "/v1/me/playlists" where request.httpMethod == "POST":
-                return .json("""
-                {"id": "P", "name": "New Mix", "owner": {"id": "user-1", "display_name": "User"},
-                 "images": [], "items": {"total": 0}, "snapshot_id": "s1"}
-                """, statusCode: 201)
+                return .json(
+                    """
+                    {"id": "P", "name": "New Mix", "owner": {"id": "user-1", "display_name": "User"},
+                     "images": [], "items": {"total": 0}, "snapshot_id": "s1"}
+                    """, statusCode: 201)
             default:
                 return .json(#"{"error":{"status":503,"message":"Service unavailable"}}"#, statusCode: 503)
             }
@@ -221,8 +266,10 @@ final class PartialLibraryEditTests: XCTestCase {
 
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["P"])
         XCTAssertEqual(viewModel.playlistsByID["P"]?.trackCount, 0)
-        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Created New Mix, but its tracks couldn't be added. Add them to it again."), true,
-                       viewModel.trackMutationToast?.text ?? "no note")
+        XCTAssertEqual(
+            viewModel.trackMutationToast?.text.hasPrefix(
+                "Created New Mix, but its tracks couldn't be added. Add them to it again."), true,
+            viewModel.trackMutationToast?.text ?? "no note")
     }
 
     /// One failed batch out of one changed nothing: it fails like before, with no count.
@@ -291,11 +338,14 @@ final class PartialLibraryEditTests: XCTestCase {
         lookup.catalogTracksError = URLError(.timedOut)
         let provider = AppleMusicBrowsingProvider(source: EditTestContentSource(), editor: editor)
         let row = TrackRowViewModel(
-            MusicPlaylistTrackItem(id: "699902614", content: .track(MusicTrack(
-                id: "699902614", name: "Computer Love", artists: ["Kraftwerk"], albumArtworkURL: nil,
-                durationMilliseconds: 1000, isExplicit: false, isPlayable: true, linkedFromID: nil,
-                uri: "applemusic:song:699902614"
-            ))),
+            MusicPlaylistTrackItem(
+                id: "699902614",
+                content: .track(
+                    MusicTrack(
+                        id: "699902614", name: "Computer Love", artists: ["Kraftwerk"], albumArtworkURL: nil,
+                        durationMilliseconds: 1000, isExplicit: false, isPlayable: true, linkedFromID: nil,
+                        uri: "applemusic:song:699902614"
+                    ))),
             listPosition: 1
         )
 
@@ -312,7 +362,9 @@ final class PartialLibraryEditTests: XCTestCase {
     /// A Spotify playlist items page with these track IDs, or the playlist itself.
     private static func listing(_ request: URLRequest, ids: [String]) -> QueueHTTPClient.Response {
         guard request.url?.path.hasSuffix("/items") == true else {
-            return .json(#"{"id": "X", "name": "Road Trip", "owner": {"id": "user-1"}, "images": [], "items": {"total": \#(ids.count)}, "snapshot_id": "s2"}"#)
+            return .json(
+                #"{"id": "X", "name": "Road Trip", "owner": {"id": "user-1"}, "images": [], "items": {"total": \#(ids.count)}, "snapshot_id": "s2"}"#
+            )
         }
         let items = ids.map { id in
             """
@@ -321,7 +373,9 @@ final class PartialLibraryEditTests: XCTestCase {
              "uri": "spotify:track:\(id)"}}
             """
         }
-        return .json(#"{"limit": 100, "next": null, "offset": 0, "total": \#(ids.count), "items": [\#(items.joined(separator: ","))]}"#)
+        return .json(
+            #"{"limit": 100, "next": null, "offset": 0, "total": \#(ids.count), "items": [\#(items.joined(separator: ","))]}"#
+        )
     }
 }
 

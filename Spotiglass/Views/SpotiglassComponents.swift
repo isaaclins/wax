@@ -146,7 +146,7 @@ private func pillFill(variant: SpotiglassPillStyle.Variant, isHovering: Bool) ->
                     LinearGradient(
                         colors: [
                             .white.opacity(isHovering ? 0.18 : 0.10),
-                            .white.opacity(isHovering ? 0.06 : 0.02)
+                            .white.opacity(isHovering ? 0.06 : 0.02),
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -204,11 +204,12 @@ extension View {
         horizontalPadding: CGFloat = SpotiglassDesign.spacingS,
         verticalPadding: CGFloat = SpotiglassDesign.spacingXS
     ) -> some View {
-        modifier(SpotiglassPillBackgroundModifier(
-            variant: variant,
-            horizontalPadding: horizontalPadding,
-            verticalPadding: verticalPadding
-        ))
+        modifier(
+            SpotiglassPillBackgroundModifier(
+                variant: variant,
+                horizontalPadding: horizontalPadding,
+                verticalPadding: verticalPadding
+            ))
     }
 }
 
@@ -259,12 +260,13 @@ extension View {
         stroke: some ShapeStyle = AnyShapeStyle(HierarchicalShapeStyle.quaternary),
         strokeWidth: CGFloat = 0.5
     ) -> some View {
-        modifier(SpotiglassSurfaceModifier(
-            corner: corner,
-            fill: AnyShapeStyle(fill),
-            strokeStyle: AnyShapeStyle(stroke),
-            strokeWidth: strokeWidth
-        ))
+        modifier(
+            SpotiglassSurfaceModifier(
+                corner: corner,
+                fill: AnyShapeStyle(fill),
+                strokeStyle: AnyShapeStyle(stroke),
+                strokeWidth: strokeWidth
+            ))
     }
 }
 

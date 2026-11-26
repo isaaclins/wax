@@ -117,9 +117,12 @@ struct MusicServiceSwitcher: View {
         }
         items.append(.separator)
         let next = store.addableServices.first
-        items.append(.add(isEnabled: next != nil, action: {
-            if let next { add(next) }
-        }))
+        items.append(
+            .add(
+                isEnabled: next != nil,
+                action: {
+                    if let next { add(next) }
+                }))
         return items
     }
 }
@@ -138,7 +141,7 @@ enum MusicServiceMenuItem {
 
     var title: String? {
         switch self {
-        case let .service(service, _, _, _, _): service.displayName
+        case .service(let service, _, _, _, _): service.displayName
         case .separator: nil
         case .add: SpotiglassL10n.string("switcher.addService")
         }
@@ -167,7 +170,7 @@ final class MusicServiceMenuAnchor: NSObject {
         menu.autoenablesItems = false
         for item in items {
             switch item {
-            case let .service(service, isActive, keyEquivalent, modifiers, action):
+            case .service(let service, let isActive, let keyEquivalent, let modifiers, let action):
                 let menuItem = NSMenuItem(
                     title: service.displayName,
                     action: #selector(run(_:)),
@@ -182,7 +185,7 @@ final class MusicServiceMenuAnchor: NSObject {
                 menu.addItem(menuItem)
             case .separator:
                 menu.addItem(.separator())
-            case let .add(isEnabled, action):
+            case .add(let isEnabled, let action):
                 let menuItem = NSMenuItem(
                     title: item.title ?? "",
                     action: #selector(run(_:)),

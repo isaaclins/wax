@@ -1,12 +1,13 @@
-import Foundation
 import Darwin
+import Foundation
 
 /// Sparkle deliberately retains the installed filename. Rename only our historical filename,
 /// on the same volume, without ever replacing another installation or copying user data.
 enum AppBundleMigration {
     static func moveLegacyBundle(at source: URL) throws -> URL? {
         guard source.lastPathComponent == "Spotiglass.app",
-              !source.pathComponents.contains("AppTranslocation") else { return nil }
+            !source.pathComponents.contains("AppTranslocation")
+        else { return nil }
         let destination = source.deletingLastPathComponent().appendingPathComponent("Wax.app")
         // RENAME_EXCL closes the check-then-move race and preserves local file identity.
         // Pre-update login aliases are repaired by the launch adapter. No elevated helper, deletion

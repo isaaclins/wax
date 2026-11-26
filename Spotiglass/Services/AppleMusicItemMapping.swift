@@ -62,7 +62,8 @@ enum AppleMusicItemMapping {
         registry: AppleMusicArtworkRegistry = .shared
     ) -> URL? {
         let catalogCover = ratings.catalogArtwork(of: song)
-        let url = artworkURL(catalogCover ?? song.artwork, size: ArtworkSize.row, pinKind: .track, itemID: song.id, registry: registry)
+        let url = artworkURL(
+            catalogCover ?? song.artwork, size: ArtworkSize.row, pinKind: .track, itemID: song.id, registry: registry)
         if catalogCover == nil, let url {
             registry.registerLaterCover(for: url) { ratings.catalogArtwork(of: song) }
         }
@@ -93,11 +94,11 @@ enum AppleMusicItemMapping {
 
     static func track(_ track: Track, album: Album? = nil) -> MusicTrack {
         switch track {
-        case let .song(song):
+        case .song(let song):
             let mapped = Self.track(song)
             guard let album else { return mapped }
             return mapped.withAlbum(album)
-        case let .musicVideo(video):
+        case .musicVideo(let video):
             return MusicTrack(
                 id: video.id.rawValue,
                 name: video.title,
@@ -159,7 +160,8 @@ enum AppleMusicItemMapping {
         // carry that ID, so the cover is also kept under it: such a pin draws it after a relaunch,
         // and one saved without a cover gets it from the library listing (#477).
         if let imageURL, let artwork = cover, let catalogID = catalogID(of: playlist),
-           catalogID != playlist.id.rawValue {
+            catalogID != playlist.id.rawValue
+        {
             AppleMusicArtworkRegistry.shared.register(
                 artwork, for: imageURL, itemKey: PinnedItem.id(forKind: .playlist, spotifyID: catalogID)
             )
@@ -184,8 +186,8 @@ enum AppleMusicItemMapping {
     /// the local library, `globalId` from the API).
     static func catalogID(of playlist: Playlist) -> String? {
         guard let parameters = playlist.playParameters,
-              let data = try? JSONEncoder().encode(parameters),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let data = try? JSONEncoder().encode(parameters),
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else { return nil }
         return (object["catalogId"] ?? object["globalId"]) as? String
     }
@@ -288,7 +290,8 @@ enum AppleMusicItemMapping {
     /// A song's content for ``searchMatchKeys(_:isSaved:content:)``: title, artist, album and
     /// rating (the same title and artist on another album is another recording).
     static func songContentKey(_ song: Song) -> String {
-        "\(song.title)|\(song.artistName)|\(song.albumTitle ?? "")|\(AppleMusicContentRatings.shared.isExplicit(song))".lowercased()
+        "\(song.title)|\(song.artistName)|\(song.albumTitle ?? "")|\(AppleMusicContentRatings.shared.isExplicit(song))"
+            .lowercased()
     }
 
     /// What pins say "same album" by: title and artist. It leaves the rating out, since MusicKit
@@ -331,9 +334,9 @@ enum AppleMusicItemMapping {
     }
 }
 
-private extension MusicTrack {
+extension MusicTrack {
     /// Album tracks often come without their own artwork or album reference; the album has both.
-    func withAlbum(_ album: Album) -> MusicTrack {
+    fileprivate func withAlbum(_ album: Album) -> MusicTrack {
         MusicTrack(
             id: id,
             name: name,

@@ -311,7 +311,7 @@ extension PinnedItem {
     /// through unchanged.
     func migratedLegacyTrackPin() -> PinnedItem {
         guard kind == .track,
-              let canonicalID = PinnedItem.canonicalTrackID(fromSpotifyURI: spotifyURI)
+            let canonicalID = PinnedItem.canonicalTrackID(fromSpotifyURI: spotifyURI)
                 ?? legacyTrackID
         else { return self }
         let canonicalPinID = PinnedItem.id(forKind: .track, spotifyID: canonicalID)

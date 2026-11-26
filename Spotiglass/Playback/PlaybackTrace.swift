@@ -99,7 +99,8 @@ final class PlaybackTrace {
         var run = 1
         // A send after a new request starts a new run.
         if let last = lastSent[command], last.at.duration(to: at) < Self.repeatWindow,
-           lastRequest.map({ $0.at <= last.at }) ?? true {
+            lastRequest.map({ $0.at <= last.at }) ?? true
+        {
             run = last.run + 1
         }
         lastSent[command] = (at, run)
@@ -157,7 +158,9 @@ final class PlaybackTrace {
     func barShowsStarting() {
         let start = lastRequest?.at
         afterDrawing { [self] in
-            write("bar updated to starting" + (start.map { " \(Self.milliseconds($0.duration(to: now()))) after the press" } ?? ""))
+            write(
+                "bar updated to starting"
+                    + (start.map { " \(Self.milliseconds($0.duration(to: now()))) after the press" } ?? ""))
         }
     }
 
@@ -257,13 +260,15 @@ struct PlaybackPositionWatch {
                 + "\(PlaybackTrace.seconds(stuck.since.duration(to: instant))) stuck at \(Self.time(stuck.positionMilliseconds))"
         }
         if let previous, previous.at.duration(to: instant) >= Self.stuckAfter,
-           abs(positionMilliseconds - previous.positionMilliseconds) <= Self.stillWithin {
+            abs(positionMilliseconds - previous.positionMilliseconds) <= Self.stillWithin
+        {
             stuck = (positionMilliseconds, previous.at)
             return "position stuck at \(Self.time(positionMilliseconds)) while playing"
         }
         if let previous, let durationMilliseconds,
-           previous.positionMilliseconds >= durationMilliseconds - Self.loopMargin,
-           positionMilliseconds <= Self.loopMargin {
+            previous.positionMilliseconds >= durationMilliseconds - Self.loopMargin,
+            positionMilliseconds <= Self.loopMargin
+        {
             restart(positionMilliseconds, at: instant, item: item)
             return nil
         }
@@ -275,8 +280,11 @@ struct PlaybackPositionWatch {
         guard abs(off) > Int(Self.tolerance / .milliseconds(1)) else { return nil }
         restart(positionMilliseconds, at: instant, item: item)
         let direction = off > 0 ? "ahead" : "back"
-        let speed = elapsedMilliseconds > 0
-            ? String(format: "%.2fx", Double(positionMilliseconds - anchor.positionMilliseconds) / Double(elapsedMilliseconds))
+        let speed =
+            elapsedMilliseconds > 0
+            ? String(
+                format: "%.2fx",
+                Double(positionMilliseconds - anchor.positionMilliseconds) / Double(elapsedMilliseconds))
             : "?"
         return "position \(direction) by \(Self.time(abs(off))): expected \(Self.time(expected)), "
             + "player says \(Self.time(positionMilliseconds)), "

@@ -195,8 +195,8 @@ enum ToastMessage: Equatable {
 
     var text: String {
         switch self {
-        case let .done(text): text.string
-        case let .failed(error): error.message
+        case .done(let text): text.string
+        case .failed(let error): error.message
         }
     }
 
@@ -244,7 +244,8 @@ extension View {
                     .task(id: shown) {
                         // VoiceOver says it: it is gone before anyone could move to it.
                         AccessibilityNotification.Announcement(shown.text).post()
-                        try? await Task.sleep(for: ErrorToast.displayDuration) // try?: a cancelled wait means a newer toast replaced this one
+                        // try?: a cancelled wait means a newer toast replaced this one.
+                        try? await Task.sleep(for: ErrorToast.displayDuration)
                         if message.wrappedValue == shown {
                             message.wrappedValue = nil
                         }

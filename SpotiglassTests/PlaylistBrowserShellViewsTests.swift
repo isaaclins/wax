@@ -1,6 +1,7 @@
 import SwiftUI
 import ViewInspector
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -132,7 +133,8 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         browserVM.detailState = .loading
         let playbackVM = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
-        let queueVM = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playbackVM)
+        let queueVM = QueueViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playbackVM)
         let column = PlaylistBrowserMainDetailColumn(
             viewModel: browserVM,
             playbackViewModel: playbackVM,
@@ -170,7 +172,8 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         .environmentObject(LyricsOverlayController())
         let controller = ViewTestHost.host(view, size: CGSize(width: 960, height: 640))
         ViewTestHost.assertFindText("Focus", in: view)
-        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { palette.isSignedIn }), "the palette never learned it's signed in")
+        XCTAssertTrue(
+            AppKitTestSupport.pumpRunLoop(until: { palette.isSignedIn }), "the palette never learned it's signed in")
 
         controller.view.frame = CGRect(x: 0, y: 0, width: 400, height: 640)
         controller.view.layoutSubtreeIfNeeded()
@@ -263,7 +266,7 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
             playlistSummaryFromRow: { row in
                 MusicPlaylistSummary(
                     id: row.id, name: row.title,
-                ownerID: "test-owner", ownerName: row.owner,
+                    ownerID: "test-owner", ownerName: row.owner,
                     imageURL: row.artworkURL, trackCount: 0, snapshotID: row.snapshotID
                 )
             },
@@ -290,7 +293,8 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
 
         let playbackVM = PlaybackSessionViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()))
-        let queueVM = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playbackVM)
+        let queueVM = QueueViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI()), playbackSession: playbackVM)
         let column = PlaylistBrowserMainDetailColumn(
             viewModel: browserVM,
             playbackViewModel: playbackVM,
@@ -304,7 +308,6 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         await AppKitTestSupport.settle()
         XCTAssertNoThrow(try column.inspect())
     }
-
 
     /// The real browser, hosted, on a playlist page with the lyrics open over it.
     private func hostBrowserWithLyricsOpen() async throws -> (
@@ -325,9 +328,10 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         // A stand-in player: a real one reads Spotify with this fake token, gets a 401 and drops
         // the song, and the lyrics close with it, whenever Spotify answers before the test's
         // checks (#754, the same as the player bar test above).
-        let playbackHost = SpotiglassPlaybackHost(provider: SpotifyPlaybackProvider(
-            playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()
-        ))
+        let playbackHost = SpotiglassPlaybackHost(
+            provider: SpotifyPlaybackProvider(
+                playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()
+            ))
         let view = PlaylistBrowserView(
             viewModel: browserVM,
             playbackHost: playbackHost,
@@ -364,7 +368,7 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         // are the final ones, however late a busy machine got here.
         let shown = AppKitTestSupport.pumpRunLoop(until: {
             guard let surface = Self.firstView(in: root, where: Self.isLyricsSurface),
-                  let content = surface.subviews.first
+                let content = surface.subviews.first
             else { return false }
             return Self.allViews(in: content).dropFirst().contains { !$0.isHidden && $0.bounds.height > 0 }
         })
@@ -511,9 +515,10 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         let tokens = ShellTestTokenProvider()
         // A stand-in player: a real one reads Spotify with this fake token, gets a 401 and the
         // bar rightly turns into "Sign in again", taking the controls this test measures with it.
-        let playbackHost = SpotiglassPlaybackHost(provider: SpotifyPlaybackProvider(
-            playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()
-        ))
+        let playbackHost = SpotiglassPlaybackHost(
+            provider: SpotifyPlaybackProvider(
+                playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()
+            ))
         let view = PlaylistBrowserView(
             viewModel: browserVM,
             playbackHost: playbackHost,
@@ -627,7 +632,8 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         XCTAssertTrue(LyricsCoveredPage(browser).isAnotherPage(than: onPlaylist))
         browser.sidebarSelection = .pinnedItem("pin-album")
         browser.breadcrumbPath = [Self.albumCrumb(artwork: nil)]
-        XCTAssertTrue(LyricsCoveredPage(browser).isAnotherPage(than: onPlaylist), "a pinned album opened under the lyrics")
+        XCTAssertTrue(
+            LyricsCoveredPage(browser).isAnotherPage(than: onPlaylist), "a pinned album opened under the lyrics")
     }
 
     private static func albumCrumb(id: String = "a1", artwork: URL?) -> BrowserBreadcrumb {

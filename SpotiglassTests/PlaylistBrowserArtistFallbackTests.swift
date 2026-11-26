@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -35,7 +36,7 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
         await viewModel.load()
         await viewModel.selectArtist(id: "artist-xyz")
 
-        guard case let .loaded(.artist(detail)) = viewModel.detailState else {
+        guard case .loaded(.artist(let detail)) = viewModel.detailState else {
             return XCTFail("Expected loaded artist detail")
         }
         XCTAssertEqual(detail.tracks.count, 1)
@@ -50,15 +51,17 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
                 throw CancellationError()
             },
             artistAlbumsHandler: { _, _, _ in
-                [MusicArtistAlbum(
-                    id: "album-1",
-                    name: "Album",
-                    imageURL: nil,
-                    releaseYear: "2024",
-                    totalTracks: 1,
-                    group: .album,
-                    uri: "spotify:album:album-1"
-                )]
+                [
+                    MusicArtistAlbum(
+                        id: "album-1",
+                        name: "Album",
+                        imageURL: nil,
+                        releaseYear: "2024",
+                        totalTracks: 1,
+                        group: .album,
+                        uri: "spotify:album:album-1"
+                    )
+                ]
             },
             albumTracksHandler: { _, _, _ in
                 []
@@ -84,17 +87,23 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
             },
             artistAlbumsHandler: { _, _, _ in
                 [
-                    MusicArtistAlbum(id: "album-new", name: "New", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album, uri: "spotify:album:album-new"),
-                    MusicArtistAlbum(id: "album-old", name: "Old", imageURL: nil, releaseYear: "2023", totalTracks: 1, group: .album, uri: "spotify:album:album-old")
+                    MusicArtistAlbum(
+                        id: "album-new", name: "New", imageURL: nil, releaseYear: "2024", totalTracks: 1, group: .album,
+                        uri: "spotify:album:album-new"),
+                    MusicArtistAlbum(
+                        id: "album-old", name: "Old", imageURL: nil, releaseYear: "2023", totalTracks: 1, group: .album,
+                        uri: "spotify:album:album-old"),
                 ]
             },
             albumTracksHandler: { albumID, _, limit in
                 XCTAssertEqual(limit, 10)
-                return [PlaylistBrowsingTestFixtures.fallbackTrack(
-                    id: "track-\(albumID)",
-                    name: "Dup",
-                    artistId: "artist-xyz"
-                )]
+                return [
+                    PlaylistBrowsingTestFixtures.fallbackTrack(
+                        id: "track-\(albumID)",
+                        name: "Dup",
+                        artistId: "artist-xyz"
+                    )
+                ]
             }
         )
         let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
@@ -102,7 +111,7 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
         await viewModel.load()
         await viewModel.selectArtist(id: "artist-xyz")
 
-        guard case let .loaded(.artist(detail)) = viewModel.detailState else {
+        guard case .loaded(.artist(let detail)) = viewModel.detailState else {
             return XCTFail("Expected loaded artist detail")
         }
         XCTAssertEqual(detail.tracks.map(\.id), ["track-album-new", "track-album-old"])
@@ -116,7 +125,7 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
             name: "Dup",
             artistId: "artist-xyz"
         )
-        let distinctTracks = (1 ... 10).map { index in
+        let distinctTracks = (1...10).map { index in
             PlaylistBrowsingTestFixtures.fallbackTrack(
                 id: "distinct-\(index)",
                 name: "Dup",
@@ -130,15 +139,17 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
                 MusicSearchResults(tracks: [], artists: [], albums: [], playlists: [])
             },
             artistAlbumsHandler: { _, _, _ in
-                [MusicArtistAlbum(
-                    id: "album-one",
-                    name: "Album",
-                    imageURL: nil,
-                    releaseYear: "2024",
-                    totalTracks: 12,
-                    group: .album,
-                    uri: "spotify:album:album-one"
-                )]
+                [
+                    MusicArtistAlbum(
+                        id: "album-one",
+                        name: "Album",
+                        imageURL: nil,
+                        releaseYear: "2024",
+                        totalTracks: 12,
+                        group: .album,
+                        uri: "spotify:album:album-one"
+                    )
+                ]
             },
             albumTracksHandler: { _, _, _ in
                 [duplicate, duplicate] + distinctTracks
@@ -149,11 +160,11 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
         await viewModel.load()
         await viewModel.selectArtist(id: "artist-xyz")
 
-        guard case let .loaded(.artist(detail)) = viewModel.detailState else {
+        guard case .loaded(.artist(let detail)) = viewModel.detailState else {
             return XCTFail("Expected loaded artist detail")
         }
         XCTAssertEqual(detail.tracks.count, 10)
-        XCTAssertEqual(detail.tracks.map(\.id), ["same-track"] + (1 ... 9).map { "distinct-\($0)" })
+        XCTAssertEqual(detail.tracks.map(\.id), ["same-track"] + (1...9).map { "distinct-\($0)" })
     }
 
     func testArtistDetailSurfacesAlbumTrackFailureInsteadOfShowingValidEmptyTracks() async {
@@ -164,15 +175,17 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
                 MusicSearchResults(tracks: [], artists: [], albums: [], playlists: [])
             },
             artistAlbumsHandler: { _, _, _ in
-                [MusicArtistAlbum(
-                    id: "album-1",
-                    name: "Album",
-                    imageURL: nil,
-                    releaseYear: "2024",
-                    totalTracks: 1,
-                    group: .album,
-                    uri: "spotify:album:album-1"
-                )]
+                [
+                    MusicArtistAlbum(
+                        id: "album-1",
+                        name: "Album",
+                        imageURL: nil,
+                        releaseYear: "2024",
+                        totalTracks: 1,
+                        group: .album,
+                        uri: "spotify:album:album-1"
+                    )
+                ]
             },
             albumTracksHandler: { _, _, _ in
                 throw SpotifyAPIError.network("Album tracks unavailable")
@@ -183,7 +196,7 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
         await viewModel.load()
         await viewModel.selectArtist(id: "artist-xyz")
 
-        guard case let .error(error) = viewModel.detailState else {
+        guard case .error(let error) = viewModel.detailState else {
             return XCTFail("Expected album track failure to be visible")
         }
         XCTAssertEqual(error.message, "Album tracks unavailable")
@@ -191,12 +204,12 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
 
     func testSelectArtistSurfacesBadRequestWithCopyableDetails() async {
         let diagnosticDump = """
-        GET https://api.spotify.com/v1/artists/x/albums?limit=50
-        HTTP 400
+            GET https://api.spotify.com/v1/artists/x/albums?limit=50
+            HTTP 400
 
-        Response body:
-        {"error":{"status":400,"message":"Invalid limit"}}
-        """
+            Response body:
+            {"error":{"status":400,"message":"Invalid limit"}}
+            """
         let api = MockBrowsingAPI(
             playlistResults: [.success([PlaylistBrowsingTestFixtures.playlist(id: "one", name: "One")])],
             trackResults: ["one": [.success([PlaylistBrowsingTestFixtures.track(id: "track-one")])]],
@@ -209,7 +222,7 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
         await viewModel.load()
         await viewModel.selectArtist(id: "artist-x")
 
-        guard case let .error(error) = viewModel.detailState else {
+        guard case .error(let error) = viewModel.detailState else {
             return XCTFail("Expected error detail state")
         }
         XCTAssertEqual(error.title, "Spotify rejected the request")
@@ -225,7 +238,7 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
         let ownArtwork = URL(string: "https://example.com/track.jpg")!
         let source = [
             Self.fallbackTrack(id: "no-art", name: "No Art", albumArtworkURL: nil),
-            Self.fallbackTrack(id: "own-art", name: "Own Art", albumArtworkURL: ownArtwork)
+            Self.fallbackTrack(id: "own-art", name: "Own Art", albumArtworkURL: ownArtwork),
         ]
         var collected: [MusicTrack] = []
         var seen: Set<String> = []
@@ -269,7 +282,7 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
             Self.fallbackAlbum(id: "c", name: "Charlie", year: "2020", totalTracks: 12),
             Self.fallbackAlbum(id: "a", name: "Alpha", year: "2020", totalTracks: 12),
             Self.fallbackAlbum(id: "s", name: "Short", year: "2020", totalTracks: 3),
-            Self.fallbackAlbum(id: "new", name: "Newer", year: "2021", totalTracks: 20)
+            Self.fallbackAlbum(id: "new", name: "Newer", year: "2021", totalTracks: 20),
         ]
 
         let ordered = PlaylistBrowserViewModel.albumsForTrackFallback(from: albums, maxCount: 6)
@@ -344,7 +357,7 @@ final class PlaylistBrowserArtistFallbackTests: XCTestCase {
         await viewModel.load()
         await viewModel.selectArtist(id: "artist-xyz")
 
-        guard case let .loaded(.artist(detail)) = viewModel.detailState else {
+        guard case .loaded(.artist(let detail)) = viewModel.detailState else {
             return XCTFail("Expected loaded artist detail, got \(viewModel.detailState)")
         }
         XCTAssertEqual(detail.tracks.map(\.title), ["Search Hit"])

@@ -15,9 +15,9 @@ extension PlaylistBrowserView {
             ) {
             case .none:
                 break
-            case let .activatePinned(item):
+            case .activatePinned(let item):
                 await activatePinnedItem(item, previousSelection: oldValue)
-            case let .selectSidebar(selection):
+            case .selectSidebar(let selection):
                 lastNonPinnedSelection = PlaylistBrowserSidebarSelectionHandling.lastNonPinnedSelection(
                     afterSelecting: selection
                 )

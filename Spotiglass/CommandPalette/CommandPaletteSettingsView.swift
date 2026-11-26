@@ -43,7 +43,9 @@ struct CommandPaletteSettingsView: View {
                     content
                 }
                 .padding(SpotiglassDesign.spacingL)
-                .frame(minWidth: SpotiglassDesign.Layout.standaloneSettingsMinWidth, minHeight: SpotiglassDesign.Layout.standaloneSettingsMinHeight, alignment: .topLeading)
+                .frame(
+                    minWidth: SpotiglassDesign.Layout.standaloneSettingsMinWidth,
+                    minHeight: SpotiglassDesign.Layout.standaloneSettingsMinHeight, alignment: .topLeading)
             case .settingsTabs:
                 // Grouped Form to match the other settings panes. It also supplies
                 // this pane's scrolling: the settings shell deliberately has no
@@ -82,10 +84,13 @@ struct CommandPaletteSettingsView: View {
 
             let visible = Self.commands(matching: searchText)
             if visible.isEmpty {
-                Text(SpotiglassL10n.format("palette.settings.search.noResults", searchText.trimmingCharacters(in: .whitespacesAndNewlines)))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, SpotiglassDesign.spacingL)
+                Text(
+                    SpotiglassL10n.format(
+                        "palette.settings.search.noResults", searchText.trimmingCharacters(in: .whitespacesAndNewlines))
+                )
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, SpotiglassDesign.spacingL)
             }
 
             VStack(alignment: .leading, spacing: SpotiglassDesign.spacingXS) {
@@ -165,8 +170,8 @@ struct CommandPaletteSettingsView: View {
                             displayTitle(for: pending.otherCommandID)
                         )
                     )
-                        .font(.caption)
-                        .foregroundStyle(.orange)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
                     Button(SpotiglassL10n.string("palette.settings.replace")) {
                         do {
                             try keymapStore.setBinding(
@@ -201,11 +206,11 @@ struct CommandPaletteSettingsView: View {
                     usageNote(for: usage),
                     systemImage: "info.circle"
                 )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, SpotiglassDesign.Layout.iconButtonSize + SpotiglassDesign.spacingM)
-                    .transition(.opacity)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, SpotiglassDesign.Layout.iconButtonSize + SpotiglassDesign.spacingM)
+                .transition(.opacity)
             }
         }
         .padding(.vertical, SpotiglassDesign.spacingXXS)
@@ -293,7 +298,9 @@ struct CommandPaletteSettingsView: View {
                 .font(.system(.body, design: .monospaced))
                 .frame(minHeight: SpotiglassDesign.Layout.textEditorMinHeight)
                 .padding(SpotiglassDesign.spacingXS)
-                .background(.background, in: RoundedRectangle(cornerRadius: SpotiglassDesign.cornerS, style: .continuous))
+                .background(
+                    .background, in: RoundedRectangle(cornerRadius: SpotiglassDesign.cornerS, style: .continuous)
+                )
                 .overlay {
                     RoundedRectangle(cornerRadius: SpotiglassDesign.cornerS, style: .continuous)
                         .strokeBorder(.quaternary, lineWidth: 1)

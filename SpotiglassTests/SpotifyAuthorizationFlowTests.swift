@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 final class SpotifyAuthorizationFlowTests: XCTestCase {
@@ -38,10 +39,10 @@ final class SpotifyAuthorizationFlowTests: XCTestCase {
             return XCTFail("the flow never opened its authorization URL")
         }
         guard let authURL = presenter.openedURL,
-              let components = URLComponents(url: authURL, resolvingAgainstBaseURL: false),
-              let redirectURI = components.queryItems?.first(where: { $0.name == "redirect_uri" })?.value,
-              let redirectURL = URL(string: redirectURI),
-              let state = components.queryItems?.first(where: { $0.name == "state" })?.value
+            let components = URLComponents(url: authURL, resolvingAgainstBaseURL: false),
+            let redirectURI = components.queryItems?.first(where: { $0.name == "redirect_uri" })?.value,
+            let redirectURL = URL(string: redirectURI),
+            let state = components.queryItems?.first(where: { $0.name == "state" })?.value
         else {
             return XCTFail("authorization URL missing redirect_uri or state")
         }
@@ -85,7 +86,8 @@ final class SpotifyAuthorizationFlowTests: XCTestCase {
 
 private struct ImmediateAuthorizationFlow: SpotifyAuthorizationFlowing {
     func requestAuthorizationCode(clientID: String, timeout: TimeInterval) async throws -> SpotifyAuthorizationCode {
-        SpotifyAuthorizationCode(code: "stub", codeVerifier: "verifier", redirectURI: URL(string: "http://127.0.0.1:1/callback")!)
+        SpotifyAuthorizationCode(
+            code: "stub", codeVerifier: "verifier", redirectURI: URL(string: "http://127.0.0.1:1/callback")!)
     }
 }
 

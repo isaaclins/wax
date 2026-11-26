@@ -42,7 +42,7 @@ extension SpotifyAPIClient {
                     path: "/v1/me/tracks",
                     queryItems: [
                         URLQueryItem(name: "limit", value: String(pageLimit)),
-                        URLQueryItem(name: "offset", value: String(offset))
+                        URLQueryItem(name: "offset", value: String(offset)),
                     ]
                 )
             }
@@ -50,9 +50,10 @@ extension SpotifyAPIClient {
                 totalAvailable = page.total
             }
             let startIndex = results.count
-            results.append(contentsOf: page.items.enumerated().map { index, item in
-                item.domainModel(position: startIndex + index)
-            })
+            results.append(
+                contentsOf: page.items.enumerated().map { index, item in
+                    item.domainModel(position: startIndex + index)
+                })
             nextURL = page.next
             if let nextURL {
                 if let nextOffset = Self.offset(from: nextURL) {
@@ -92,7 +93,7 @@ extension SpotifyAPIClient {
             try Task.checkCancellation()
             var queryItems = [
                 URLQueryItem(name: "type", value: "artist"),
-                URLQueryItem(name: "limit", value: String(pageLimit))
+                URLQueryItem(name: "limit", value: String(pageLimit)),
             ]
             if let after {
                 queryItems.append(URLQueryItem(name: "after", value: after))
@@ -116,14 +117,15 @@ extension SpotifyAPIClient {
     }
 }
 
-private extension SpotifyAPIClient {
-    static func after(from url: URL) -> String? {
+extension SpotifyAPIClient {
+    fileprivate static func after(from url: URL) -> String? {
         URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "after" }?.value
     }
 
-    static func offset(from url: URL) -> Int? {
+    fileprivate static func offset(from url: URL) -> Int? {
         guard let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
-              let offsetValue = queryItems.first(where: { $0.name == "offset" })?.value else {
+            let offsetValue = queryItems.first(where: { $0.name == "offset" })?.value
+        else {
             return nil
         }
         return Int(offsetValue)

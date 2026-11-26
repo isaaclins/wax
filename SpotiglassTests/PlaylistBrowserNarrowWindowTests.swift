@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// Resizes a real browser window across the sidebar's collapse width and checks the columns the
@@ -30,10 +31,12 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
         likeTheAppsWindow: Bool = false
     ) async throws -> (NSHostingController<AnyView>, NSWindow, BrowserWidthSampler) {
         let api = MockBrowsingAPI(
-            playlistResults: [.success([
-                PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Night Drive"),
-                PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Deep Focus"),
-            ])],
+            playlistResults: [
+                .success([
+                    PlaylistBrowsingTestFixtures.playlist(id: "p1", name: "Night Drive"),
+                    PlaylistBrowsingTestFixtures.playlist(id: "p2", name: "Deep Focus"),
+                ])
+            ],
             trackResults: [:]
         )
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
@@ -41,17 +44,19 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         store.bind(userID: "u1")
         let settings = try ViewTestHost.makeSettingsStore()
-        let services = MusicServiceStore(storage: InMemoryMusicServiceSelectionStorage(
-            services: [.spotify, .appleMusic], active: service
-        ))
+        let services = MusicServiceStore(
+            storage: InMemoryMusicServiceSelectionStorage(
+                services: [.spotify, .appleMusic], active: service
+            ))
         let palette = CommandPaletteManager()
         let tokens = NarrowWindowTokenProvider()
         let playbackHost = SpotiglassPlaybackHost(tokenProvider: tokens)
         // The same browser both services show; Apple Music's is set up as AppleMusicBrowserRoot
         // sets it up (no Disconnect, its own player bar state).
-        let header = AnyView(MusicServiceSwitcher(
-            store: services, keymapStore: palette.keymapStore, switchTo: { _ in }, add: { _ in }
-        ))
+        let header = AnyView(
+            MusicServiceSwitcher(
+                store: services, keymapStore: palette.keymapStore, switchTo: { _ in }, add: { _ in }
+            ))
         let sampler = BrowserWidthSampler()
         let view = PlaylistBrowserView(
             viewModel: browserVM,
@@ -141,7 +146,9 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
         window.setContentSize(CGSize(width: 800, height: 600))
         controller.view.layoutSubtreeIfNeeded()
         XCTAssertTrue(
-            AppKitTestSupport.pumpRunLoop(until: { abs(sampler.latestWidth - 800) < 0.5 && sampler.trailingCommit != nil }),
+            AppKitTestSupport.pumpRunLoop(until: {
+                abs(sampler.latestWidth - 800) < 0.5 && sampler.trailingCommit != nil
+            }),
             "the 800 pt frame never waited for a trailing commit"
         )
         XCTAssertEqual(sampler.committedWidth, 850, accuracy: 0.5, "the 800 pt frame committed inside the throttle")
@@ -208,7 +215,8 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
             let sidebarFrame = sidebar.convert(sidebar.bounds, to: controller.view)
             let bounds = controller.view.bounds
             XCTAssertGreaterThanOrEqual(
-                sidebarFrame.minX, bounds.minX - 0.5, "the sidebar runs past the window at \(width) pt (\(sidebarFrame))"
+                sidebarFrame.minX, bounds.minX - 0.5,
+                "the sidebar runs past the window at \(width) pt (\(sidebarFrame))"
             )
             XCTAssertLessThanOrEqual(
                 sidebarFrame.maxX + SpotiglassDesign.detailColumnMinWidth, bounds.maxX + 0.5,
@@ -229,7 +237,9 @@ final class PlaylistBrowserNarrowWindowTests: XCTestCase {
         let committed = AppKitTestSupport.pumpRunLoop(until: {
             abs(sampler.latestWidth - width) < 0.5 && sampler.trailingCommit == nil
         })
-        XCTAssertTrue(committed, "the browser never committed \(width) pt (latest \(sampler.latestWidth))", file: file, line: line)
+        XCTAssertTrue(
+            committed, "the browser never committed \(width) pt (latest \(sampler.latestWidth))", file: file, line: line
+        )
     }
 
     /// Waits until the split view shows what the browser decided for the committed width:

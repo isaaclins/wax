@@ -21,7 +21,8 @@ struct TrackStackSelection: Equatable {
     mutating func click(_ id: String, in order: [String], modifiers: NSEvent.ModifierFlags) {
         listenerChanges &+= 1
         if modifiers.contains(.shift), let anchor,
-           let from = order.firstIndex(of: anchor), let to = order.firstIndex(of: id) {
+            let from = order.firstIndex(of: anchor), let to = order.firstIndex(of: id)
+        {
             let range = order[min(from, to)...max(from, to)]
             ids = modifiers.contains(.command) ? ids.union(range) : Set(range)
             cursor = id
@@ -123,7 +124,8 @@ private struct TrackStackKeyboard: ViewModifier {
                     if !selection.ids.isEmpty { isFocused = true }
                 }
                 .onKeyPress(keys: [.upArrow, .downArrow]) { press in
-                    selection.move(press.key == .upArrow ? -1 : 1, in: order, extending: press.modifiers.contains(.shift))
+                    selection.move(
+                        press.key == .upArrow ? -1 : 1, in: order, extending: press.modifiers.contains(.shift))
                     if let cursor = selection.cursor { proxy.scrollTo(cursor) }
                     return .handled
                 }

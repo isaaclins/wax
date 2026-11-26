@@ -67,7 +67,7 @@ struct PlaylistRowViewModel: Equatable, Identifiable {
         // the moment (#571).
         if isAlbumDetail { return AlbumLine.shown(owner, locale: locale) }
         guard id == SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID,
-              owner.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            owner.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return AppleMusicItemMapping.localizedOwnerName(owner, ownerID: ownerID, locale: locale) }
         return SpotiglassL10n.string("browser.likedSongs.owner.you", locale: locale)
     }

@@ -80,12 +80,14 @@ extension AppleMusicBrowsingProvider {
             throw AppleMusicBrowsingError.notFound
         }
         if let known = catalogMatches.catalogID(for: id),
-           let catalog = try await catalogItem({ try await source.artist(id: known) }) ?? nil {
+            let catalog = try await catalogItem({ try await source.artist(id: known) }) ?? nil
+        {
             return catalog
         }
         guard let saved = try await source.artist(id: id) else { throw AppleMusicBrowsingError.notFound }
         if let catalogID = try await catalogArtistID(of: saved, pageID: id),
-           let catalog = try await catalogItem({ try await source.artist(id: catalogID) }) ?? nil {
+            let catalog = try await catalogItem({ try await source.artist(id: catalogID) }) ?? nil
+        {
             return catalog
         }
         return saved
@@ -111,22 +113,31 @@ extension AppleMusicBrowsingProvider {
         var songIDs: [String] = []
         // Saved albums only, and one that can't be read is skipped: finding the match must never
         // cost the page more than the saved copy would.
-        for album in albums where songIDs.count < Self.catalogMatchSongs && !MusicKitLibraryLookup.isCatalogID(album.id.rawValue) {
+        for album in albums
+        where songIDs.count < Self.catalogMatchSongs && !MusicKitLibraryLookup.isCatalogID(album.id.rawValue) {
             // A saved album names its catalog album, whose songs are catalog songs; a saved
             // album's own songs, read through the album, name no catalog ID.
             if let catalogAlbumID = Self.catalogID(of: album),
-               let catalogAlbum = try await catalogItem({ try await source.album(id: catalogAlbumID) }) ?? nil,
-               let tracks = try await catalogItem({ try await source.tracks(of: catalogAlbum, limit: Self.catalogMatchSongs) }) {
+                let catalogAlbum = try await catalogItem({ try await source.album(id: catalogAlbumID) }) ?? nil,
+                let tracks = try await catalogItem({
+                    try await source.tracks(of: catalogAlbum, limit: Self.catalogMatchSongs)
+                })
+            {
                 songIDs += Self.songCatalogIDs(tracks).filter { !songIDs.contains($0) }
                 continue
             }
             guard let detailed = try await catalogItem({ try await source.album(id: album.id.rawValue) }) ?? nil,
-                  let tracks = try await catalogItem({ try await source.tracks(of: detailed, limit: Self.catalogMatchSongs) })
+                let tracks = try await catalogItem({
+                    try await source.tracks(of: detailed, limit: Self.catalogMatchSongs)
+                })
             else { continue }
             songIDs += Self.songCatalogIDs(tracks).filter { !songIDs.contains($0) }
         }
         if !songIDs.isEmpty {
-            let songs = try await catalogItem({ try await source.catalogSongs(ids: Array(songIDs.prefix(Self.catalogMatchSongs))) }) ?? []
+            let songs =
+                try await catalogItem({
+                    try await source.catalogSongs(ids: Array(songIDs.prefix(Self.catalogMatchSongs)))
+                }) ?? []
             for song in songs {
                 if let artist = song.artists?.first(where: { Self.sameName($0.name, saved.name) }) {
                     return artist.id.rawValue
@@ -165,7 +176,7 @@ extension AppleMusicBrowsingProvider {
         // A page that shows the saved artist itself (Apple Music has no copy) already lists what
         // was saved; the section would only repeat it.
         guard try await catalogArtistID(forPageID: id) != nil,
-              let saved = try await savedArtist(forPageID: id)
+            let saved = try await savedArtist(forPageID: id)
         else { return ([], []) }
         let albums = try await source.albums(of: saved, limit: Self.maxLibrarySectionAlbums)
         // The saved albums' songs, read a few albums at a time and kept in the albums' order.
@@ -178,8 +189,12 @@ extension AppleMusicBrowsingProvider {
                 next += 1
                 group.addTask {
                     // One saved album that can't be read is left out, not the whole section.
-                    guard let detailed = try await catalogItem({ try await source.album(id: albums[index].id.rawValue) }) ?? nil,
-                          let tracks = try await catalogItem({ try await source.tracks(of: detailed, limit: Self.maxLibraryAlbumTracks) })
+                    guard
+                        let detailed = try await catalogItem({ try await source.album(id: albums[index].id.rawValue) })
+                            ?? nil,
+                        let tracks = try await catalogItem({
+                            try await source.tracks(of: detailed, limit: Self.maxLibraryAlbumTracks)
+                        })
                     else { return nil }
                     editor.songReferences.remember(tracks)
                     return (index, detailed, tracks)
@@ -196,11 +211,13 @@ extension AppleMusicBrowsingProvider {
         var shown: [(track: Track, album: Album)] = []
         var seen: Set<String> = []
         var savedAlbumIDs: Set<String> = []
-        for case let (album, albumTracks)? in songsByAlbum {
+        for case (let album, let albumTracks)? in songsByAlbum {
             let saved = Self.savedSongIDs(albumTracks, registry: editor.songReferences)
             if !saved.isEmpty { savedAlbumIDs.insert(album.id.rawValue) }
-            for track in albumTracks where saved.contains(track.id.rawValue)
-                && shown.count < Self.maxLibrarySectionTracks && seen.insert(track.id.rawValue).inserted {
+            for track in albumTracks
+            where saved.contains(track.id.rawValue)
+                && shown.count < Self.maxLibrarySectionTracks && seen.insert(track.id.rawValue).inserted
+            {
                 shown.append((track, album))
             }
         }
@@ -222,7 +239,7 @@ extension AppleMusicBrowsingProvider {
     private func savedArtist(forPageID id: String) async throws -> Artist? {
         if let saved = try await source.libraryArtist(id: id) { return saved }
         guard MusicKitLibraryLookup.isCatalogID(id),
-              let catalog = try await catalogItem({ try await source.artist(id: id) }) ?? nil
+            let catalog = try await catalogItem({ try await source.artist(id: id) }) ?? nil
         else { return nil }
         let found = try await source.librarySearch(term: catalog.name, limit: 10)
         guard let match = found.artists.first(where: { Self.sameName($0.name, catalog.name) }) else { return nil }
@@ -270,7 +287,7 @@ extension AppleMusicBrowsingProvider {
     func savedCatalogSongIDs(_ catalogTracks: [Track], saved savedTracks: [Track]) -> Set<String> {
         editor.songReferences.remember(savedTracks)
         var ids: Set<String> = []
-        for case let .song(savedSong) in savedTracks {
+        for case .song(let savedSong) in savedTracks {
             guard let match = Self.catalogTrack(matching: savedSong, in: catalogTracks) else { continue }
             let reference = editor.songReferences.reference(for: savedSong.id.rawValue)
             if let reference { editor.songReferences.remember(reference.listed(as: match.id.rawValue)) }
@@ -290,7 +307,8 @@ extension AppleMusicBrowsingProvider {
     /// several songs of that title.
     static func catalogTrack(matching saved: Song, in catalogTracks: [Track]) -> Track? {
         if let catalogID = songCatalogIDs([.song(saved)]).first,
-           let match = catalogTracks.first(where: { $0.id.rawValue == catalogID }) {
+            let match = catalogTracks.first(where: { $0.id.rawValue == catalogID })
+        {
             return match
         }
         let sameTitle = catalogTracks.filter { sameName($0.title, saved.title) }
@@ -314,7 +332,9 @@ extension AppleMusicBrowsingProvider {
                 }
             }
         }
-        let found = try await catalogItem({ try await source.catalogSearch(term: "\(saved.title) \(saved.artistName)", limit: 10, offset: 0) })
+        let found = try await catalogItem({
+            try await source.catalogSearch(term: "\(saved.title) \(saved.artistName)", limit: 10, offset: 0)
+        })
         return found?.albums.first(where: {
             Self.sameName($0.title, saved.title) && Self.sameName($0.artistName, saved.artistName)
         })?.id.rawValue
@@ -330,7 +350,10 @@ extension AppleMusicBrowsingProvider {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            SpotiglassLog.info(.api, "Apple Music read for a page's catalog copy failed (\(MusicKitContentSource.describe(error))); the page shows the saved copy")
+            SpotiglassLog.info(
+                .api,
+                "Apple Music read for a page's catalog copy failed (\(MusicKitContentSource.describe(error))); the page shows the saved copy"
+            )
             return nil
         }
     }
@@ -338,7 +361,7 @@ extension AppleMusicBrowsingProvider {
     /// The catalog ID a saved item names, when MusicKit gives one.
     static func catalogID<Item: MusicItem & Encodable>(of item: Item) -> String? {
         guard let catalogID = AppleMusicSongIdentity(encoding: item).catalogID,
-              catalogID != item.id.rawValue, MusicKitLibraryLookup.isCatalogID(catalogID)
+            catalogID != item.id.rawValue, MusicKitLibraryLookup.isCatalogID(catalogID)
         else { return nil }
         return catalogID
     }
@@ -346,7 +369,7 @@ extension AppleMusicBrowsingProvider {
     /// The catalog IDs saved songs name.
     static func songCatalogIDs(_ tracks: [Track]) -> [String] {
         tracks.compactMap { track -> String? in
-            guard case let .song(song) = track else { return nil }
+            guard case .song(let song) = track else { return nil }
             if MusicKitLibraryLookup.isCatalogID(song.id.rawValue) { return song.id.rawValue }
             return catalogID(of: song)
         }
@@ -358,7 +381,8 @@ extension AppleMusicBrowsingProvider {
 
     /// Releases newest first, as Apple Music lists them; the same day keeps the service's order.
     static func newestFirst(_ mapped: [MusicArtistAlbum], dates albums: [Album]) -> [MusicArtistAlbum] {
-        let dates = Dictionary(albums.map { ($0.id.rawValue, $0.releaseDate ?? .distantPast) }, uniquingKeysWith: { first, _ in first })
+        let dates = Dictionary(
+            albums.map { ($0.id.rawValue, $0.releaseDate ?? .distantPast) }, uniquingKeysWith: { first, _ in first })
         return mapped.enumerated().sorted { lhs, rhs in
             let left = dates[lhs.element.id] ?? .distantPast
             let right = dates[rhs.element.id] ?? .distantPast
@@ -367,8 +391,8 @@ extension AppleMusicBrowsingProvider {
     }
 }
 
-private extension Optional {
-    func asyncFlatMap<T>(_ transform: (Wrapped) async throws -> T?) async rethrows -> T? {
+extension Optional {
+    fileprivate func asyncFlatMap<T>(_ transform: (Wrapped) async throws -> T?) async rethrows -> T? {
         guard let self else { return nil }
         return try await transform(self)
     }

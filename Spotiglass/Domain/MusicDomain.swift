@@ -679,7 +679,8 @@ extension LocalizedText {
         guard shown.contains(where: { UnnamedMusicItem.isStandIn($0, kind: kind) }) else {
             return LocalizedText(verbatim: joined)
         }
-        return LocalizedText(UnnamedMusicItem.displayNames(shown, kind: kind).joined(separator: ", "), comparedBy: joined)
+        return LocalizedText(
+            UnnamedMusicItem.displayNames(shown, kind: kind).joined(separator: ", "), comparedBy: joined)
     }
 }
 
@@ -765,7 +766,7 @@ enum UnnamedMusicItem: CaseIterable {
             // Spanish. The English one, "Untitled Playlist", is also Music's own name for a new
             // playlist, so it stays a name.
             "Unbenannte Playlist": .playlist,
-            "Lista sin título": .playlist
+            "Lista sin título": .playlist,
         ]
         for kind in [UnnamedMusicItem.track, .episode, .artist, .album] {
             for language in AppLanguage.allCases {

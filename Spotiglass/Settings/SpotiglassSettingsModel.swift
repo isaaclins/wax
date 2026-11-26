@@ -96,7 +96,10 @@ extension KeyedDecodingContainer {
                 values.append(try type.init(from: itemDecoder))
             } catch {
                 // The row is skipped and named in the log; its siblings stay.
-                tracker?.noteRepair(at: codingPath + [key, SettingsRowKey(index)], "row \(index) skipped, \(UnreadableFileBackup.describe(error))")
+                SpotiglassLog.debug(.settings, "Skipped settings row \(index): \(SpotiglassLog.describe(error))")
+                tracker?.noteRepair(
+                    at: codingPath + [key, SettingsRowKey(index)],
+                    "row \(index) skipped, \(UnreadableFileBackup.describe(error))")
             }
         }
         return values
@@ -130,7 +133,8 @@ enum AppLanguage: String, Codable, CaseIterable, Equatable {
 
     /// macOS preferred language when it is en/es/de; otherwise English.
     static func resolvedDefault() -> AppLanguage {
-        let code = Locale.preferredLanguages.first?
+        let code =
+            Locale.preferredLanguages.first?
             .split(separator: "-")
             .first
             .map(String.init) ?? "en"
@@ -331,7 +335,9 @@ struct AppearanceSettings: Codable, Equatable {
         )
         lyricsTextScale = Self.clampedLyricsTextScale(rawScale)
         if rawScale != lyricsTextScale {
-            tracker?.noteRepair(at: container.codingPath + [CodingKeys.lyricsTextScale], "\(rawScale) is out of range, set to \(lyricsTextScale)")
+            tracker?.noteRepair(
+                at: container.codingPath + [CodingKeys.lyricsTextScale],
+                "\(rawScale) is out of range, set to \(lyricsTextScale)")
         }
     }
 
@@ -437,7 +443,8 @@ struct SpotiglassSettingsFile: Codable, Equatable {
         // an empty tracked list: their rows cannot tell us which old defaults the
         // user deliberately removed. An explicit empty array, however, is valid
         // current-schema metadata and intentionally means nothing was seeded yet.
-        let hasSeededMetadata = container.contains(.seededKeybindCommands)
+        let hasSeededMetadata =
+            container.contains(.seededKeybindCommands)
             && (try? container.decodeNil(forKey: .seededKeybindCommands)) != true
         seededKeybindCommands = container.decodeRepairingArray(
             String.self,
@@ -544,7 +551,8 @@ struct EqualizerSettings: Codable, Equatable {
         )
         preamp = EqualizerSettings.clampPreamp(rawPreamp)
         if rawPreamp != preamp {
-            tracker?.noteRepair(at: container.codingPath + [CodingKeys.preamp], "\(rawPreamp) is out of range, set to \(preamp)")
+            tracker?.noteRepair(
+                at: container.codingPath + [CodingKeys.preamp], "\(rawPreamp) is out of range, set to \(preamp)")
         }
         let defaultBands = Array(repeating: 0.0, count: EqualizerSettings.bandCount)
         let raw = container.decodeRepairingArray(
@@ -555,7 +563,8 @@ struct EqualizerSettings: Codable, Equatable {
         )
         bands = EqualizerSettings.normalizedBands(raw)
         if raw != bands {
-            tracker?.noteRepair(at: container.codingPath + [CodingKeys.bands], "\(raw.count) values out of shape or range, normalized")
+            tracker?.noteRepair(
+                at: container.codingPath + [CodingKeys.bands], "\(raw.count) values out of shape or range, normalized")
         }
         activePresetName = container.decodeRepairingOptional(
             String.self,
@@ -641,7 +650,8 @@ struct EqualizerPreset: Codable, Equatable, Identifiable, Hashable {
         )
         bands = EqualizerSettings.normalizedBands(raw)
         if raw != bands {
-            tracker?.noteRepair(at: container.codingPath + [CodingKeys.bands], "\(raw.count) values out of shape or range, normalized")
+            tracker?.noteRepair(
+                at: container.codingPath + [CodingKeys.bands], "\(raw.count) values out of shape or range, normalized")
         }
     }
 

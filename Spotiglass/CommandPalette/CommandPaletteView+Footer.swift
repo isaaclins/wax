@@ -70,7 +70,8 @@ struct CommandPaletteCommandsHintChipView: View {
         case .commands:
             (Text(SpotiglassL10n.string("palette.footer.searchHintPrefix"))
                 + Text(SpotiglassL10n.string("palette.footer.searchPrefix")).foregroundStyle(.primary)
-                + Text(SpotiglassL10n.format("palette.footer.searchHintSuffix", MusicServiceSelection.current.displayName)))
+                + Text(
+                    SpotiglassL10n.format("palette.footer.searchHintSuffix", MusicServiceSelection.current.displayName)))
                 .truncationMode(.head)
         }
     }

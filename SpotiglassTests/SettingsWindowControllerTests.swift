@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 import XCTest
+
 @testable import Spotiglass
 
 /// ⌘, took 100-130 ms because every open built the Settings window and all its views again
@@ -145,7 +146,8 @@ final class SettingsWindowControllerTests: XCTestCase {
         window.performClose(nil)
         controller.show { Text(verbatim: "Settings") }
 
-        XCTAssertEqual(shownWithMoveToActiveSpace, [true, false, true], "closed: on the Space in use; open: stays where it is")
+        XCTAssertEqual(
+            shownWithMoveToActiveSpace, [true, false, true], "closed: on the Space in use; open: stays where it is")
     }
 
     /// The player bar's Reconnect and the palette's Open Settings reach Settings through the
@@ -155,9 +157,11 @@ final class SettingsWindowControllerTests: XCTestCase {
         let controller = makeController()
         ViewTestHost.host(
             OpensSettingsOnAppear()
-                .environment(\.openWaxSettings, OpenWaxSettingsAction {
-                    controller.show { Text(verbatim: "Settings") }
-                })
+                .environment(
+                    \.openWaxSettings,
+                    OpenWaxSettingsAction {
+                        controller.show { Text(verbatim: "Settings") }
+                    })
         )
 
         let shown = await AppKitTestSupport.settle(until: { controller.window?.isVisible == true })

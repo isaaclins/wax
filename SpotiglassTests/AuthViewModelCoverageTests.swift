@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
@@ -20,17 +21,17 @@ final class AuthViewModelCoverageTests: XCTestCase {
         )
         let now = Date()
         let grantJSON = """
-        {
-          "access_token": "live-token",
-          "token_type": "Bearer",
-          "expires_in": 3600,
-          "refresh_token": "refresh-token",
-          "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
-        }
-        """
+            {
+              "access_token": "live-token",
+              "token_type": "Bearer",
+              "expires_in": 3600,
+              "refresh_token": "refresh-token",
+              "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
+            }
+            """
         let httpClient = QueueHTTPClient([
             .json(grantJSON),
-            .json(grantJSON)
+            .json(grantJSON),
         ])
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -75,7 +76,7 @@ final class AuthViewModelCoverageTests: XCTestCase {
         let tokenHTTP = QueueHTTPClient([
             .json(grant("token-1")),
             .json(grant("token-2")),
-            .json(grant("token-3"))
+            .json(grant("token-3")),
         ])
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -108,14 +109,14 @@ final class AuthViewModelCoverageTests: XCTestCase {
         )
         let httpClient = AuthCoverageHTTPClient(
             data: """
-            {
-              "access_token": "access-token",
-              "token_type": "Bearer",
-              "expires_in": 3600,
-              "refresh_token": "refresh-token",
-              "scope": "streaming"
-            }
-            """.data(using: .utf8)!,
+                {
+                  "access_token": "access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 3600,
+                  "refresh_token": "refresh-token",
+                  "scope": "streaming"
+                }
+                """.data(using: .utf8)!,
             statusCode: 200
         )
         let viewModel = AuthViewModel(
@@ -127,7 +128,7 @@ final class AuthViewModelCoverageTests: XCTestCase {
 
         await viewModel.signIn()
 
-        guard case let .failed(error) = viewModel.state else {
+        guard case .failed(let error) = viewModel.state else {
             return XCTFail("Expected failed state for missing browsing scopes")
         }
         XCTAssertTrue(error.message.contains("playlist") || error.message.contains("permissions"))
@@ -141,12 +142,12 @@ final class AuthViewModelCoverageTests: XCTestCase {
         let now = Date()
         let httpClient = AuthCoverageHTTPClient(
             data: """
-            {
-              "access_token": "new-access-token",
-              "token_type": "Bearer",
-              "expires_in": 1800
-            }
-            """.data(using: .utf8)!,
+                {
+                  "access_token": "new-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 1800
+                }
+                """.data(using: .utf8)!,
             statusCode: 200
         )
         let viewModel = AuthViewModel(
@@ -157,7 +158,7 @@ final class AuthViewModelCoverageTests: XCTestCase {
 
         await viewModel.restoreSessionIfAvailable()
 
-        guard case let .signedIn(session) = viewModel.state else {
+        guard case .signedIn(let session) = viewModel.state else {
             return XCTFail("Expected signed-in after refresh, got \(viewModel.state)")
         }
         XCTAssertEqual(session.accessToken, "new-access-token")
@@ -180,13 +181,13 @@ final class AuthViewModelCoverageTests: XCTestCase {
         let scope = "playlist-read-private playlist-read-collaborative user-library-read user-library-modify streaming"
         let httpClient = AuthCoverageHTTPClient(
             data: """
-            {
-              "access_token": "new-access-token",
-              "token_type": "Bearer",
-              "expires_in": 1800,
-              "scope": "\(scope)"
-            }
-            """.data(using: .utf8)!,
+                {
+                  "access_token": "new-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 1800,
+                  "scope": "\(scope)"
+                }
+                """.data(using: .utf8)!,
             statusCode: 200
         )
         let viewModel = AuthViewModel(
@@ -205,15 +206,16 @@ final class AuthViewModelCoverageTests: XCTestCase {
     func testSignOutInvalidatesDelayedRefreshCompletion() async throws {
         let store = InMemoryRefreshTokenStore()
         try store.saveRefreshToken("old-refresh-token")
-        let httpClient = DelayedAuthHTTPClient(data: """
-        {
-          "access_token": "late-access-token",
-          "token_type": "Bearer",
-          "expires_in": 1800,
-          "refresh_token": "late-refresh-token",
-          "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
-        }
-        """.data(using: .utf8)!)
+        let httpClient = DelayedAuthHTTPClient(
+            data: """
+                {
+                  "access_token": "late-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 1800,
+                  "refresh_token": "late-refresh-token",
+                  "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
+                }
+                """.data(using: .utf8)!)
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
             tokenClient: SpotifyTokenClient(httpClient: httpClient),
@@ -275,23 +277,23 @@ final class AuthViewModelCoverageTests: XCTestCase {
         )
         let httpClient = ReconnectAuthHTTPClient(
             refreshData: """
-            {
-              "access_token": "account-a-late-access-token",
-              "token_type": "Bearer",
-              "expires_in": 1800,
-              "refresh_token": "account-a-late-refresh-token",
-              "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
-            }
-            """.data(using: .utf8)!,
+                {
+                  "access_token": "account-a-late-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 1800,
+                  "refresh_token": "account-a-late-refresh-token",
+                  "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
+                }
+                """.data(using: .utf8)!,
             signInData: """
-            {
-              "access_token": "account-b-access-token",
-              "token_type": "Bearer",
-              "expires_in": 3600,
-              "refresh_token": "account-b-refresh-token",
-              "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
-            }
-            """.data(using: .utf8)!
+                {
+                  "access_token": "account-b-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 3600,
+                  "refresh_token": "account-b-refresh-token",
+                  "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
+                }
+                """.data(using: .utf8)!
         )
         let viewModel = AuthViewModel(
             settings: makeSettings(clientID: "client-id"),
@@ -311,7 +313,7 @@ final class AuthViewModelCoverageTests: XCTestCase {
         await httpClient.completeRefresh()
         _ = try? await refreshTask.value
 
-        guard case let .signedIn(session) = viewModel.state else {
+        guard case .signedIn(let session) = viewModel.state else {
             return XCTFail("Expected account B to remain signed in, got \(viewModel.state)")
         }
         XCTAssertEqual(session.accessToken, "account-b-access-token")
@@ -333,14 +335,14 @@ final class AuthViewModelCoverageTests: XCTestCase {
         )
         let httpClient = AuthCoverageHTTPClient(
             data: """
-            {
-              "access_token": "account-b-access-token",
-              "token_type": "Bearer",
-              "expires_in": 3600,
-              "refresh_token": "account-b-refresh-token",
-              "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
-            }
-            """.data(using: .utf8)!,
+                {
+                  "access_token": "account-b-access-token",
+                  "token_type": "Bearer",
+                  "expires_in": 3600,
+                  "refresh_token": "account-b-refresh-token",
+                  "scope": "playlist-read-private playlist-read-collaborative user-library-read streaming"
+                }
+                """.data(using: .utf8)!,
             statusCode: 200
         )
         let store = InMemoryRefreshTokenStore()
@@ -352,12 +354,13 @@ final class AuthViewModelCoverageTests: XCTestCase {
             refreshTokenStore: store,
             signOutDataCleaner: { try? cache.clearPrivateAccountData() },
             artworkCacheClearer: {},
-            initialState: .signedIn(AuthenticatedSession(
-                accessToken: "account-a-access-token",
-                tokenType: "Bearer",
-                scope: "playlist-read-private playlist-read-collaborative user-library-read streaming",
-                expiresAt: Date().addingTimeInterval(3_600)
-            ))
+            initialState: .signedIn(
+                AuthenticatedSession(
+                    accessToken: "account-a-access-token",
+                    tokenType: "Bearer",
+                    scope: "playlist-read-private playlist-read-collaborative user-library-read streaming",
+                    expiresAt: Date().addingTimeInterval(3_600)
+                ))
         )
 
         await viewModel.signIn()
@@ -366,7 +369,7 @@ final class AuthViewModelCoverageTests: XCTestCase {
         XCTAssertEqual(try cache.loadGETResponseRecord(digest: "public-catalog", allowExpired: false)?.data, Data([7]))
         XCTAssertEqual(try cache.loadPinnedItems(userID: "account-a"), [oldPin])
         XCTAssertEqual(try store.loadRefreshToken(), "account-b-refresh-token")
-        guard case let .signedIn(session) = viewModel.state else {
+        guard case .signedIn(let session) = viewModel.state else {
             return XCTFail("Expected account B to be signed in, got \(viewModel.state)")
         }
         XCTAssertEqual(session.accessToken, "account-b-access-token")
@@ -374,7 +377,8 @@ final class AuthViewModelCoverageTests: XCTestCase {
 
     func testSignOutPreservesPerAccountPinsForLaterRebind() async throws {
         let cache = try SpotifyLocalCache(rootDirectory: spotiglassTestsTemporaryDirectory())
-        let item = PinnedItem.playlist(PlaylistBrowsingTestFixtures.playlist(id: "account-a-playlist", name: "Account A"))
+        let item = PinnedItem.playlist(
+            PlaylistBrowsingTestFixtures.playlist(id: "account-a-playlist", name: "Account A"))
         try cache.savePinnedItems([item], userID: "account-a")
         let tokenStore = InMemoryRefreshTokenStore()
         try tokenStore.saveRefreshToken("account-a-refresh-token")
@@ -400,7 +404,7 @@ final class AuthViewModelCoverageTests: XCTestCase {
             (.notConnectedToInternet, "offline"),
             (.timedOut, "timed out"),
             (.cannotFindHost, "reach Spotify"),
-            (.cancelled, "cancelled")
+            (.cancelled, "cancelled"),
         ]
         for (code, marker) in cases {
             let viewModel = AuthViewModel(
@@ -410,7 +414,7 @@ final class AuthViewModelCoverageTests: XCTestCase {
                 refreshTokenStore: InMemoryRefreshTokenStore()
             )
             await viewModel.signIn()
-            guard case let .failed(error) = viewModel.state else {
+            guard case .failed(let error) = viewModel.state else {
                 return XCTFail("Expected failed for \(code)")
             }
             XCTAssertTrue(
@@ -428,7 +432,7 @@ final class AuthViewModelCoverageTests: XCTestCase {
 
         await viewModel.signOut()
 
-        guard case let .failed(error) = viewModel.state else {
+        guard case .failed(let error) = viewModel.state else {
             return XCTFail("Expected failed sign-out")
         }
         XCTAssertTrue(error.message.contains("Disconnect"))
@@ -528,7 +532,8 @@ private actor ReconnectAuthHTTPClient: HTTPClient {
     }
 
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let isRefresh = String(data: request.httpBody ?? Data(), encoding: .utf8)?.contains("grant_type=refresh_token") == true
+        let isRefresh =
+            String(data: request.httpBody ?? Data(), encoding: .utf8)?.contains("grant_type=refresh_token") == true
         let responseData = isRefresh ? refreshData : signInData
         let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
         guard isRefresh else { return (responseData, response) }

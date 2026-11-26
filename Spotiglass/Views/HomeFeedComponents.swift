@@ -109,7 +109,7 @@ struct HomeMediaCardView: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("HomeMediaCardView:\(card.id)")
+            let _ = ViewBodyTally.record("HomeMediaCardView:\(card.id)")
         #endif
         VStack(alignment: .leading, spacing: SpotiglassDesign.spacingXS) {
             Button(action: action) {
@@ -135,7 +135,8 @@ struct HomeMediaCardView: View {
             .collectionAccessibilityActions(card.menuTarget, browserViewModel: browserViewModel)
 
             if hasArtistLinks {
-                HomeCardArtistCredits(subtitle: card.subtitle, credits: card.artistCredits, openArtist: openArtist, openCard: action)
+                HomeCardArtistCredits(
+                    subtitle: card.subtitle, credits: card.artistCredits, openArtist: openArtist, openCard: action)
             }
         }
         .frame(width: Self.artworkSize, alignment: .leading)
@@ -183,7 +184,7 @@ struct HomeCardArtistCredits: View {
     @ViewBuilder
     private func creditView(_ credit: HomeArtistCredit) -> some View {
         switch credit {
-        case let .link(artist):
+        case .link(let artist):
             Button {
                 openArtist(artist)
             } label: {
@@ -193,8 +194,10 @@ struct HomeCardArtistCredits: View {
                     .lineLimit(1)
             }
             .buttonStyle(.spotiglassTextLink)
-            .accessibilityLabel(SpotiglassL10n.format("playback.controls.openArtist", UnnamedMusicItem.displayName(artist.name, kind: .artist)))
-        case let .name(name):
+            .accessibilityLabel(
+                SpotiglassL10n.format(
+                    "playback.controls.openArtist", UnnamedMusicItem.displayName(artist.name, kind: .artist)))
+        case .name(let name):
             // A name without an ID next to linked ones opens the card, like the
             // line does when it has no links at all. VoiceOver reads it in the
             // card's own label.
@@ -230,7 +233,7 @@ struct HomeSectionNotice: View {
                     .controlSize(.small)
                 Text(SpotiglassL10n.string("home.section.loading"))
                     .foregroundStyle(.secondary)
-            case let .message(icon, text):
+            case .message(let icon, let text):
                 Image(systemName: icon)
                     .foregroundStyle(.secondary)
                 Text(text)

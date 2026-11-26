@@ -35,7 +35,7 @@ struct QueuePanelView: View {
 
     var body: some View {
         #if DEBUG
-        let _ = ViewBodyTally.record("QueuePanelView")
+            let _ = ViewBodyTally.record("QueuePanelView")
         #endif
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -114,7 +114,9 @@ struct QueuePanelView: View {
                     ? SpotiglassL10n.string("queue.shuffle.on")
                     : SpotiglassL10n.string("queue.shuffle.off")
             )
-            .accessibilityHint(PlaybackControlsView.serviceString("queue.shuffle.hint", appleMusic: "queue.shuffle.appleMusic.hint"))
+            .accessibilityHint(
+                PlaybackControlsView.serviceString("queue.shuffle.hint", appleMusic: "queue.shuffle.appleMusic.hint")
+            )
             .help(PlaybackTransportTooltips.shuffleTooltip(isEnabled: playbackViewModel.shuffleEnabled))
         }
     }
@@ -273,7 +275,10 @@ struct QueuePanelView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(SpotiglassDesign.spacingM)
-                        .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: SpotiglassDesign.cornerS, style: .continuous))
+                        .background(
+                            .secondary.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: SpotiglassDesign.cornerS, style: .continuous)
+                        )
                         .transition(.opacity)
                 }
             }
@@ -290,7 +295,10 @@ struct QueuePanelView: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(SpotiglassDesign.spacingM)
-                    .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: SpotiglassDesign.cornerS, style: .continuous))
+                    .background(
+                        .secondary.opacity(0.08),
+                        in: RoundedRectangle(cornerRadius: SpotiglassDesign.cornerS, style: .continuous)
+                    )
                     .transition(.opacity)
             } else {
                 ForEach(queueViewModel.upcomingItems) { item in
@@ -423,11 +431,13 @@ private struct QueueRowView: View {
         .contentShape(Rectangle())
         // Single click selects, the way a Mac list row does; playing is the
         // double click, Return on the selection, or the VoiceOver action below.
-        .modifier(QueueRowPlayInteractionModifier(
-            isPlayable: item.playableURI != nil,
-            action: onSelect,
-            accessibilityLabel: SpotiglassL10n.string("queue.playNow")
-        ))
+        .modifier(
+            QueueRowPlayInteractionModifier(
+                isPlayable: item.playableURI != nil,
+                action: onSelect,
+                accessibilityLabel: SpotiglassL10n.string("queue.playNow")
+            )
+        )
         .contextMenu {
             if item.playableURI != nil {
                 Button(SpotiglassL10n.string("queue.playNow"), action: onSelect)

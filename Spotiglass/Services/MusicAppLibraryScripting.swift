@@ -43,7 +43,8 @@ protocol MusicAppLibraryControlling: Sendable {
     /// persistent IDs (16 hex digits) in the order Spotiglass shows them; the edit stops before
     /// changing anything when Music lists anything else. `moveToEnd` are the zero-based
     /// positions of the entries to move to the end, in turn (`PlaylistTrackReorder`).
-    func reorderPlaylist(_ playlist: MusicAppPlaylistMatch, expectedPersistentIDs: [String], moveToEnd: [Int]) async throws
+    func reorderPlaylist(_ playlist: MusicAppPlaylistMatch, expectedPersistentIDs: [String], moveToEnd: [Int])
+        async throws
 }
 
 /// Runs one AppleScript against the Music app. Separate from the script text so tests check
@@ -120,9 +121,14 @@ struct MusicAppLibraryScripting: MusicAppLibraryControlling {
         return id
     }
 
-    func reorderPlaylist(_ playlist: MusicAppPlaylistMatch, expectedPersistentIDs: [String], moveToEnd: [Int]) async throws {
+    func reorderPlaylist(_ playlist: MusicAppPlaylistMatch, expectedPersistentIDs: [String], moveToEnd: [Int])
+        async throws
+    {
         guard !moveToEnd.isEmpty else { return }
-        try await run(MusicAppScripts.reorderPlaylist(playlist, expectedPersistentIDs: expectedPersistentIDs, moveToEnd: moveToEnd)) { progress in
+        try await run(
+            MusicAppScripts.reorderPlaylist(
+                playlist, expectedPersistentIDs: expectedPersistentIDs, moveToEnd: moveToEnd)
+        ) { progress in
             .finish(MusicAppScripts.finishReordering(playlist, progress: progress))
         }
     }
@@ -145,10 +151,10 @@ struct MusicAppLibraryScripting: MusicAppLibraryControlling {
             return try await runner.run(source)
         } catch let late as MusicAppLateChange {
             switch end(late.progress) {
-            case let .finish(script):
+            case .finish(let script):
                 try await settle(script)
                 return nil
-            case let .takeBack(script):
+            case .takeBack(let script):
                 try await settle(script)
                 throw AppleMusicLibraryEditError.musicUnavailable
             }
@@ -192,12 +198,13 @@ enum MusicAppScripts {
     static func removeFromLibrary(_ tracks: [MusicAppTrackMatch], now: Date = Date()) -> String {
         var lines = [scriptNowLine, "tell application \"Music\"", "set lib to library playlist 1", "set targets to {}"]
         for track in tracks {
-            lines += cutoffLines(track, now: now) + [
-                "set found to (every track of lib whose \(condition(track)))",
-                "if (count of found) is 0 then error \"not found\" number \(notFoundError)",
-                "if (count of found) is greater than 1 then error \"ambiguous\" number \(ambiguousSongError)",
-                "set end of targets to item 1 of found",
-            ]
+            lines +=
+                cutoffLines(track, now: now) + [
+                    "set found to (every track of lib whose \(condition(track)))",
+                    "if (count of found) is 0 then error \"not found\" number \(notFoundError)",
+                    "if (count of found) is greater than 1 then error \"ambiguous\" number \(ambiguousSongError)",
+                    "set end of targets to item 1 of found",
+                ]
         }
         lines += changes(["repeat with target in targets", "delete target", "end repeat"], progress: "\"\"")
         lines.append("end tell")
@@ -209,11 +216,12 @@ enum MusicAppScripts {
     static func finishRemovingFromLibrary(_ tracks: [MusicAppTrackMatch], now: Date = Date()) -> String {
         var lines = [scriptNowLine, "tell application \"Music\"", "set lib to library playlist 1"]
         for track in tracks {
-            lines += cutoffLines(track, now: now) + [
-                "set found to (every track of lib whose \(condition(track)))",
-                "if (count of found) is greater than 1 then error \"ambiguous\" number \(ambiguousSongError)",
-                "if (count of found) is 1 then delete (item 1 of found)",
-            ]
+            lines +=
+                cutoffLines(track, now: now) + [
+                    "set found to (every track of lib whose \(condition(track)))",
+                    "if (count of found) is greater than 1 then error \"ambiguous\" number \(ambiguousSongError)",
+                    "if (count of found) is 1 then delete (item 1 of found)",
+                ]
         }
         lines.append("end tell")
         return lines.joined(separator: "\n")
@@ -229,32 +237,37 @@ enum MusicAppScripts {
         removals: [MusicAppPlaylistRemoval],
         now: Date = Date()
     ) -> String {
-        let entries = removals
+        let entries =
+            removals
             .flatMap { removal in removal.positions.map { (position: $0, track: removal.track) } }
             .sorted { $0.position > $1.position }
         var lines = [scriptNowLine, "tell application \"Music\""] + findPlaylist(playlist) + ["set targetIDs to {}"]
         for entry in entries {
             let index = entry.position + 1
-            lines += cutoffLines(entry.track, now: now) + [
-                "set picked to missing value",
-                "if \(index) is less than or equal to (count of tracks of pl) then",
-                "set t to track \(index) of pl",
-                "if (\(condition(entry.track, of: "t"))) and (targetIDs does not contain (id of t)) then set picked to id of t",
-                "end if",
-                "if picked is missing value then",
-                "repeat with candidate in (every track of pl whose \(condition(entry.track)))",
-                "if targetIDs does not contain (id of candidate) then",
-                "set picked to id of candidate",
-                "exit repeat",
-                "end if",
-                "end repeat",
-                "end if",
-                "if picked is missing value then error \"not found\" number \(notFoundError)",
-                "set end of targetIDs to picked",
-            ]
+            lines +=
+                cutoffLines(entry.track, now: now) + [
+                    "set picked to missing value",
+                    "if \(index) is less than or equal to (count of tracks of pl) then",
+                    "set t to track \(index) of pl",
+                    "if (\(condition(entry.track, of: "t"))) and (targetIDs does not contain (id of t)) then set picked to id of t",
+                    "end if",
+                    "if picked is missing value then",
+                    "repeat with candidate in (every track of pl whose \(condition(entry.track)))",
+                    "if targetIDs does not contain (id of candidate) then",
+                    "set picked to id of candidate",
+                    "exit repeat",
+                    "end if",
+                    "end repeat",
+                    "end if",
+                    "if picked is missing value then error \"not found\" number \(notFoundError)",
+                    "set end of targetIDs to picked",
+                ]
         }
         lines += changes(
-            ["repeat with targetID in targetIDs", "delete (every track of pl whose id is (contents of targetID))", "end repeat"],
+            [
+                "repeat with targetID in targetIDs", "delete (every track of pl whose id is (contents of targetID))",
+                "end repeat",
+            ],
             progress: "(targetIDs as text)"
         )
         lines.append("end tell")
@@ -278,7 +291,9 @@ enum MusicAppScripts {
     /// past the playlist's old end whose persistent ID this script added go, once per add that
     /// succeeded: a song another device appended meanwhile stays (a failed add records nothing),
     /// and nothing leaves the library.
-    static func addToPlaylist(_ playlist: MusicAppPlaylistMatch, tracks: [MusicAppTrackMatch], now: Date = Date()) -> String {
+    static func addToPlaylist(_ playlist: MusicAppPlaylistMatch, tracks: [MusicAppTrackMatch], now: Date = Date())
+        -> String
+    {
         var lines = [scriptNowLine, "tell application \"Music\""] + findPlaylist(playlist)
         lines += findTracks(tracks, now: now)
         lines += [
@@ -298,33 +313,34 @@ enum MusicAppScripts {
         // Music may still be adding the song that timed out; a rollback now would miss it.
         lines += lateChange(progress: "(countBefore as text) & \"|\" & (addedIDs as text) & \"|\" & pendingID")
         // The rollback itself can time out halfway; the edit then takes back what is left.
-        lines += cleanup(rollbackLines, progress: "(countBefore as text) & \"|\" & (addedIDs as text) & \"|\"") + [
-            "error errorMessage number errorNumber",
-            "end try",
-            "end tell",
-        ]
+        lines +=
+            cleanup(rollbackLines, progress: "(countBefore as text) & \"|\" & (addedIDs as text) & \"|\"") + [
+                "error errorMessage number errorNumber",
+                "end try",
+                "end tell",
+            ]
         return lines.joined(separator: "\n")
     }
 
     /// Takes the entries this script appended out of the playlist again: only entries past its
     /// old end whose persistent ID is in `addedIDs`, once per entry there.
     private static let rollbackLines = [
-            "repeat with i from (count of tracks of pl) to (countBefore + 1) by -1",
-            "set entryID to persistent ID of track i of pl",
-            "if addedIDs contains entryID then",
-            "delete track i of pl",
-            "set keptIDs to {}",
-            "set dropped to false",
-            "repeat with addedID in addedIDs",
-            "if (not dropped) and ((contents of addedID) is entryID) then",
-            "set dropped to true",
-            "else",
-            "set end of keptIDs to (contents of addedID)",
-            "end if",
-            "end repeat",
-            "set addedIDs to keptIDs",
-            "end if",
-            "end repeat",
+        "repeat with i from (count of tracks of pl) to (countBefore + 1) by -1",
+        "set entryID to persistent ID of track i of pl",
+        "if addedIDs contains entryID then",
+        "delete track i of pl",
+        "set keptIDs to {}",
+        "set dropped to false",
+        "repeat with addedID in addedIDs",
+        "if (not dropped) and ((contents of addedID) is entryID) then",
+        "set dropped to true",
+        "else",
+        "set end of keptIDs to (contents of addedID)",
+        "end if",
+        "end repeat",
+        "set addedIDs to keptIDs",
+        "end if",
+        "end repeat",
     ]
 
     /// After a late change in `addToPlaylist`: takes back what it added, the late song included
@@ -334,10 +350,11 @@ enum MusicAppScripts {
         let countBefore = parts.first.flatMap { Int($0) } ?? 0
         let ids = parts.dropFirst().flatMap(list)
         var lines = ["tell application \"Music\""] + findPlaylist(playlist)
-        lines += [
-            "set countBefore to \(countBefore)",
-            "set addedIDs to {\(ids.map(quoted).joined(separator: ", "))}",
-        ] + rollbackLines
+        lines +=
+            [
+                "set countBefore to \(countBefore)",
+                "set addedIDs to {\(ids.map(quoted).joined(separator: ", "))}",
+            ] + rollbackLines
         lines.append("end tell")
         return lines.joined(separator: "\n")
     }
@@ -360,12 +377,13 @@ enum MusicAppScripts {
         ]
         // Music may still be making the playlist or adding to it; a delete now could miss it.
         lines += lateChange(progress: "newID & \"|\" & (namesakesBefore as text)")
-        lines += cleanup(["if newID is not \"\" then delete pl"], progress: "newID & \"|\" & (namesakesBefore as text)") + [
-            "error errorMessage number errorNumber",
-            "end try",
-            "return newID",
-            "end tell",
-        ]
+        lines +=
+            cleanup(["if newID is not \"\" then delete pl"], progress: "newID & \"|\" & (namesakesBefore as text)") + [
+                "error errorMessage number errorNumber",
+                "end try",
+                "return newID",
+                "end tell",
+            ]
         return lines.joined(separator: "\n")
     }
 
@@ -401,7 +419,9 @@ enum MusicAppScripts {
     /// `index` can't be set: tried on macOS 27). An entry moved that way gets a new entry ID, so
     /// every ID is read before the first move. A playlist that changed elsewhere stops the edit
     /// before anything moves.
-    static func reorderPlaylist(_ playlist: MusicAppPlaylistMatch, expectedPersistentIDs: [String], moveToEnd: [Int]) -> String {
+    static func reorderPlaylist(_ playlist: MusicAppPlaylistMatch, expectedPersistentIDs: [String], moveToEnd: [Int])
+        -> String
+    {
         var lines = ["tell application \"Music\""] + findPlaylist(playlist)
         lines += [
             "set expectedIDs to {\(expectedPersistentIDs.map(quoted).joined(separator: ", "))}",
@@ -415,7 +435,10 @@ enum MusicAppScripts {
             "set moved to 0",
         ]
         lines += changes(
-            ["repeat with entryID in movedIDs", "move (track id (contents of entryID) of pl) to pl", "set moved to moved + 1", "end repeat"],
+            [
+                "repeat with entryID in movedIDs", "move (track id (contents of entryID) of pl) to pl",
+                "set moved to moved + 1", "end repeat",
+            ],
             progress: "(moved as text) & \"|\" & (movedIDs as text)"
         )
         lines.append("end tell")
@@ -432,7 +455,9 @@ enum MusicAppScripts {
         var lines = ["tell application \"Music\""] + findPlaylist(playlist)
         for (index, id) in ids.enumerated() {
             if index == 0 {
-                lines.append("if (count of (every track of pl whose id is \(id))) is greater than 0 then move (track id \(id) of pl) to pl")
+                lines.append(
+                    "if (count of (every track of pl whose id is \(id))) is greater than 0 then move (track id \(id) of pl) to pl"
+                )
             } else {
                 lines.append("move (track id \(id) of pl) to pl")
             }
@@ -502,7 +527,7 @@ enum MusicAppScripts {
         var lines = ["set lib to library playlist 1", "set pickedSongs to {}"]
         for track in tracks {
             lines += cutoffLines(track, now: now) + ["set found to (every track of lib whose \(condition(track)))"]
-            if case let .playlistEntry(_, playlistID) = track {
+            if case .playlistEntry(_, let playlistID) = track {
                 // A playlist may list the same song twice; either copy is the song.
                 lines += [
                     "if (count of found) is 0 then",
@@ -533,9 +558,9 @@ enum MusicAppScripts {
     /// done once that name is gone and the new one is there.
     static func finishRenaming(_ playlist: MusicAppPlaylistMatch, to name: String) -> String {
         var lines = ["tell application \"Music\""]
-        if case let .name(oldName) = playlist {
+        if case .name(let oldName) = playlist {
             lines += [
-                "if (count of (every user playlist whose name is \(quoted(oldName)))) is 0 and (count of (every user playlist whose name is \(quoted(name)))) is greater than 0 then return",
+                "if (count of (every user playlist whose name is \(quoted(oldName)))) is 0 and (count of (every user playlist whose name is \(quoted(name)))) is greater than 0 then return"
             ]
         }
         lines += findPlaylist(playlist) + ["set name of pl to \(quoted(name))", "end tell"]
@@ -543,14 +568,19 @@ enum MusicAppScripts {
     }
 
     static func deletePlaylist(_ playlist: MusicAppPlaylistMatch) -> String {
-        (["tell application \"Music\""] + findPlaylist(playlist) + changes(["delete pl"], progress: "\"\"") + ["end tell"])
-            .joined(separator: "\n")
+        (["tell application \"Music\""] + findPlaylist(playlist) + changes(["delete pl"], progress: "\"\"") + [
+            "end tell"
+        ])
+        .joined(separator: "\n")
     }
 
     /// After a late delete: the first run found the playlist, so one that is gone now is one the
     /// late delete took; one still there is deleted now.
     static func finishDeleting(_ playlist: MusicAppPlaylistMatch) -> String {
-        (["tell application \"Music\"", "if (count of (every user playlist whose \(playlistFilter(playlist)))) is 0 then return"]
+        ([
+            "tell application \"Music\"",
+            "if (count of (every user playlist whose \(playlistFilter(playlist)))) is 0 then return",
+        ]
             + findPlaylist(playlist) + ["delete pl", "end tell"])
             .joined(separator: "\n")
     }
@@ -568,8 +598,8 @@ enum MusicAppScripts {
 
     private static func playlistFilter(_ playlist: MusicAppPlaylistMatch) -> String {
         switch playlist {
-        case let .persistentID(id): "persistent ID is \(quoted(id))"
-        case let .name(name): "name is \(quoted(name))"
+        case .persistentID(let id): "persistent ID is \(quoted(id))"
+        case .name(let name): "name is \(quoted(name))"
         }
     }
 
@@ -579,7 +609,7 @@ enum MusicAppScripts {
     /// Sets `cutoff` for a match limited to tracks added since a save: relative to this Mac's
     /// clock, so no date has to be parsed in AppleScript.
     private static func cutoffLines(_ track: MusicAppTrackMatch, now: Date) -> [String] {
-        guard case let .metadata(_, _, _, addedSince?) = track else { return [] }
+        guard case .metadata(_, _, _, let addedSince?) = track else { return [] }
         let seconds = max(0, Int(now.timeIntervalSince(addedSince).rounded(.up)) + addedSinceMarginSeconds)
         return ["set cutoff to (scriptNow - \(seconds))"]
     }
@@ -588,9 +618,9 @@ enum MusicAppScripts {
     private static func condition(_ track: MusicAppTrackMatch, of variable: String? = nil) -> String {
         let prefix = variable.map { " of \($0)" } ?? ""
         switch track {
-        case let .persistentID(id), let .playlistEntry(id, _):
+        case .persistentID(let id), .playlistEntry(let id, _):
             return "persistent ID\(prefix) is \(quoted(id))"
-        case let .metadata(name, artist, album, addedSince):
+        case .metadata(let name, let artist, let album, let addedSince):
             var parts = ["name\(prefix) is \(quoted(name))", "artist\(prefix) is \(quoted(artist))"]
             if let album, !album.isEmpty {
                 parts.append("album\(prefix) is \(quoted(album))")
@@ -605,7 +635,8 @@ enum MusicAppScripts {
     /// An AppleScript string literal; quotes and backslashes are escaped, so a title can't end
     /// the string early.
     static func quoted(_ value: String) -> String {
-        let escaped = value
+        let escaped =
+            value
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
         return "\"\(escaped)\""

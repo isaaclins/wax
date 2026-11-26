@@ -82,10 +82,13 @@ final class HangWatch: @unchecked Sendable {
         timer.resume()
         guard followingAppActivity else { return }
         let center = NotificationCenter.default
-        for (name, active) in [(NSApplication.didBecomeActiveNotification, true), (NSApplication.didResignActiveNotification, false)] {
-            observers.append(center.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in
-                self?.setInBackground(!active)
-            })
+        for (name, active) in [
+            (NSApplication.didBecomeActiveNotification, true), (NSApplication.didResignActiveNotification, false),
+        ] {
+            observers.append(
+                center.addObserver(forName: name, object: nil, queue: nil) { [weak self] _ in
+                    self?.setInBackground(!active)
+                })
         }
         // A Wax opened behind other windows starts at the slower pace.
         if !NSApplication.shared.isActive { setInBackground(true) }
@@ -97,7 +100,8 @@ final class HangWatch: @unchecked Sendable {
             inBackground = background
             // A hang being watched carries on: only the pace changes.
             let interval = background ? backgroundInterval : Self.interval
-            timer.schedule(deadline: .now() + interval, repeating: interval, leeway: .milliseconds(background ? 100 : 10))
+            timer.schedule(
+                deadline: .now() + interval, repeating: interval, leeway: .milliseconds(background ? 100 : 10))
         }
     }
 
@@ -157,11 +161,13 @@ final class HangWatch: @unchecked Sendable {
     private func line(_ hang: Hang?, sentAt: TimeInterval, blocked: TimeInterval, ended: Bool) -> String {
         // A block shorter than the timer's step can end before a sample was taken.
         let calls = hang?.calls ?? CallLog.runningSummary()
-        var line = ended
+        var line =
+            ended
             ? "MAIN THREAD BLOCKED for \(CallLog.milliseconds(blocked)); \(calls)"
             : "MAIN THREAD STILL BLOCKED after \(CallLog.milliseconds(blocked)) (a line follows when it ends); \(calls)"
         if let interaction = hang?.interaction ?? CallLog.lastInteraction {
-            line += "; last interaction #\(interaction.id) \(interaction.label) \(CallLog.seconds(max(0, sentAt - interaction.at))) before it began"
+            line +=
+                "; last interaction #\(interaction.id) \(interaction.label) \(CallLog.seconds(max(0, sentAt - interaction.at))) before it began"
         }
         let samples = hang?.samples ?? []
         if samples.isEmpty { line += "\n  (it ended before a stack sample was taken)" }
@@ -175,7 +181,7 @@ final class HangWatch: @unchecked Sendable {
     /// The main thread's frames, innermost first, symbolized after it runs again.
     private func sampleMainThread() -> [String] {
         let count = readMainThreadFrames()
-        return (0 ..< count).map { Self.symbolize(frames[$0]) }
+        return (0..<count).map { Self.symbolize(frames[$0]) }
     }
 
     /// Pauses the main thread, walks its frame pointers into ``frames`` and lets it go again.
@@ -186,30 +192,32 @@ final class HangWatch: @unchecked Sendable {
         var count = 0
         var framePointer: UInt = 0
         #if arch(arm64)
-        var state = arm_thread_state64_t()
-        var stateCount = mach_msg_type_number_t(MemoryLayout<arm_thread_state64_t>.size / MemoryLayout<natural_t>.size)
-        let result = withUnsafeMutablePointer(to: &state) {
-            $0.withMemoryRebound(to: natural_t.self, capacity: Int(stateCount)) {
-                thread_get_state(mainThread, ARM_THREAD_STATE64, $0, &stateCount)
+            var state = arm_thread_state64_t()
+            var stateCount = mach_msg_type_number_t(
+                MemoryLayout<arm_thread_state64_t>.size / MemoryLayout<natural_t>.size)
+            let result = withUnsafeMutablePointer(to: &state) {
+                $0.withMemoryRebound(to: natural_t.self, capacity: Int(stateCount)) {
+                    thread_get_state(mainThread, ARM_THREAD_STATE64, $0, &stateCount)
+                }
             }
-        }
-        guard result == KERN_SUCCESS else { return 0 }
-        frames[0] = Self.strip(UInt(state.__pc))
-        frames[1] = Self.strip(UInt(state.__lr))
-        count = 2
-        framePointer = UInt(state.__fp)
+            guard result == KERN_SUCCESS else { return 0 }
+            frames[0] = Self.strip(UInt(state.__pc))
+            frames[1] = Self.strip(UInt(state.__lr))
+            count = 2
+            framePointer = UInt(state.__fp)
         #elseif arch(x86_64)
-        var state = x86_thread_state64_t()
-        var stateCount = mach_msg_type_number_t(MemoryLayout<x86_thread_state64_t>.size / MemoryLayout<natural_t>.size)
-        let result = withUnsafeMutablePointer(to: &state) {
-            $0.withMemoryRebound(to: natural_t.self, capacity: Int(stateCount)) {
-                thread_get_state(mainThread, x86_THREAD_STATE64, $0, &stateCount)
+            var state = x86_thread_state64_t()
+            var stateCount = mach_msg_type_number_t(
+                MemoryLayout<x86_thread_state64_t>.size / MemoryLayout<natural_t>.size)
+            let result = withUnsafeMutablePointer(to: &state) {
+                $0.withMemoryRebound(to: natural_t.self, capacity: Int(stateCount)) {
+                    thread_get_state(mainThread, x86_THREAD_STATE64, $0, &stateCount)
+                }
             }
-        }
-        guard result == KERN_SUCCESS else { return 0 }
-        frames[0] = UInt(state.__rip)
-        count = 1
-        framePointer = UInt(state.__rbp)
+            guard result == KERN_SUCCESS else { return 0 }
+            frames[0] = UInt(state.__rip)
+            count = 1
+            framePointer = UInt(state.__rbp)
         #endif
         // Each frame starts with the caller's frame pointer and the return address.
         var pair: (UInt, UInt) = (0, 0)
@@ -240,9 +248,10 @@ final class HangWatch: @unchecked Sendable {
         address & 0x0000_7FFF_FFFF_FFFF
     }
 
-    private typealias Demangle = @convention(c) (
-        UnsafePointer<CChar>?, Int, UnsafeMutablePointer<CChar>?, UnsafeMutablePointer<Int>?, UInt32
-    ) -> UnsafeMutablePointer<CChar>?
+    private typealias Demangle =
+        @convention(c) (
+            UnsafePointer<CChar>?, Int, UnsafeMutablePointer<CChar>?, UnsafeMutablePointer<Int>?, UInt32
+        ) -> UnsafeMutablePointer<CChar>?
 
     private static let demangle: Demangle? = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "swift_demangle")
         .map { unsafeBitCast($0, to: Demangle.self) }
@@ -313,9 +322,12 @@ final class ResourceLog {
         var usage = rusage()
         getrusage(RUSAGE_SELF, &usage)
         let cpu = Self.seconds(usage.ru_utime) + Self.seconds(usage.ru_stime)
-        let cpuShare = last.map { previous in
-            String(format: "%.1f%% of one core over the last %.0f s", (cpu - previous.cpu) / max(now - previous.at, 0.001) * 100, now - previous.at)
-        } ?? "first sample"
+        let cpuShare =
+            last.map { previous in
+                String(
+                    format: "%.1f%% of one core over the last %.0f s",
+                    (cpu - previous.cpu) / max(now - previous.at, 0.001) * 100, now - previous.at)
+            } ?? "first sample"
         last = (cpu, now)
         var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
@@ -324,8 +336,11 @@ final class ResourceLog {
                 task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
             }
         }
-        let memory = status == KERN_SUCCESS
-            ? String(format: "%.1f MB in use (peak %.1f MB)", Double(info.phys_footprint) / 1_048_576, Double(info.ledger_phys_footprint_peak) / 1_048_576)
+        let memory =
+            status == KERN_SUCCESS
+            ? String(
+                format: "%.1f MB in use (peak %.1f MB)", Double(info.phys_footprint) / 1_048_576,
+                Double(info.ledger_phys_footprint_peak) / 1_048_576)
             : "memory unknown"
         write("resources while playing: \(memory), CPU \(cpuShare)")
     }

@@ -1,11 +1,13 @@
 import XCTest
+
 @testable import Spotiglass
 
 @MainActor
 final class QueueViewModelEnqueueCoverageTests: XCTestCase {
     func testAddToQueueWithoutDeviceSetsPlaybackUnavailableError() async {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
 
         await queue.addToQueue(uri: "spotify:track:x")
@@ -18,7 +20,8 @@ final class QueueViewModelEnqueueCoverageTests: XCTestCase {
     func testRateLimitedEnqueueSetsRateLimitBanner() async {
         let api = MockPlaybackAPI()
         api.addToQueueErrors = [SpotifyAPIError.rateLimited(retryAfter: 2)]
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         playback.handle(.ready(deviceID: "device-1"))
         let queue = QueueViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api),
@@ -34,7 +37,8 @@ final class QueueViewModelEnqueueCoverageTests: XCTestCase {
 
     func testBatchEnqueuePreservesOrderDeduplicatesAndReportsCount() async {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         playback.handle(.ready(deviceID: "device-1"))
         let queue = QueueViewModel(
             provider: SpotifyPlaybackProvider(playbackAPI: api),
@@ -51,14 +55,15 @@ final class QueueViewModelEnqueueCoverageTests: XCTestCase {
             api.actions.filter { $0.hasPrefix("addToQueue:") },
             [
                 "addToQueue:device-1:spotify:track:first",
-                "addToQueue:device-1:spotify:track:second"
+                "addToQueue:device-1:spotify:track:second",
             ]
         )
     }
 
     func testClearErrorRemovesBanner() async {
         let api = MockPlaybackAPI()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
         let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
         await queue.addToQueue(uri: "spotify:track:x")
         XCTAssertNotNil(queue.lastError)
@@ -70,7 +75,8 @@ final class QueueViewModelEnqueueCoverageTests: XCTestCase {
     func testPlayItemWithBlankURIValuesNoOps() async {
         let api = MockPlaybackAPI()
         let commander = MockWebPlaybackCommander()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: commander))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: commander))
         playback.handle(.ready(deviceID: "device-1"))
         let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
 
@@ -92,7 +98,8 @@ final class QueueViewModelEnqueueCoverageTests: XCTestCase {
     func testPlayItemWithoutURINoOps() async {
         let api = MockPlaybackAPI()
         let commander = MockWebPlaybackCommander()
-        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: commander))
+        let playback = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: commander))
         playback.handle(.ready(deviceID: "device-1"))
         let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
         let item = QueueItem(

@@ -1,7 +1,8 @@
-import XCTest
 import Accelerate
-@testable import Spotiglass
 import SpotiglassEQDriverC
+import XCTest
+
+@testable import Spotiglass
 
 /// Offline A/B RMS verification of the EQ DSP path. The criterion-5 bar is
 /// "same track EQ-off vs Flat within ±0.05 dB RMS"; we satisfy it directly
@@ -26,7 +27,8 @@ final class EqualizerABRMSTests: XCTestCase {
 
     func testFlatPresetIsBitExactToBypass() throws {
         let input = synthesiseRepresentativeStereoSignal()
-        let bypassOutput = renderThroughCoefficientCascade(input: input, frame: .bypass(sampleRateHz: UInt32(sampleRate)))
+        let bypassOutput = renderThroughCoefficientCascade(
+            input: input, frame: .bypass(sampleRateHz: UInt32(sampleRate)))
 
         var settings = EqualizerSettings(enabled: true)
         settings.apply(preset: EqualizerPreset.flat)
@@ -41,11 +43,13 @@ final class EqualizerABRMSTests: XCTestCase {
         let deltaDb = abs(bypassDb - flatDb)
 
         // Criterion 5 bar: within ±0.05 dB RMS.
-        XCTAssertLessThan(deltaDb, 0.05,
-                          "Flat vs bypass RMS delta \(deltaDb) dB must be < 0.05 dB")
+        XCTAssertLessThan(
+            deltaDb, 0.05,
+            "Flat vs bypass RMS delta \(deltaDb) dB must be < 0.05 dB")
         // Stronger guarantee that holds because both paths are identity:
-        XCTAssertEqual(flatRMS, bypassRMS, accuracy: 1e-6,
-                       "Flat-preset biquads must be bit-exact identity")
+        XCTAssertEqual(
+            flatRMS, bypassRMS, accuracy: 1e-6,
+            "Flat-preset biquads must be bit-exact identity")
     }
 
     func testBassBoostLiftsLowFrequencyEnergyMoreThanHighFrequency() throws {
@@ -78,8 +82,8 @@ final class EqualizerABRMSTests: XCTestCase {
         // than highs, by a wide margin.
         XCTAssertGreaterThan(
             lowsDeltaDb - highsDeltaDb, 2.0,
-            "Bass Boost must lift 32 Hz relative to 8 kHz by >2 dB " +
-            "(got lows=\(lowsDeltaDb) dB, highs=\(highsDeltaDb) dB)"
+            "Bass Boost must lift 32 Hz relative to 8 kHz by >2 dB "
+                + "(got lows=\(lowsDeltaDb) dB, highs=\(highsDeltaDb) dB)"
         )
     }
 
@@ -99,8 +103,9 @@ final class EqualizerABRMSTests: XCTestCase {
             // Allow up to 0.5 dB clipping margin for the genuinely-loud preset
             // (Loudness preamp is -2 dB, but the band boosts still leave room
             // for transient peaks above ±1).
-            XCTAssertLessThan(peak, 1.06,
-                              "\(preset.name) preset peaked at \(peak) — exceeds ±1.06 ceiling")
+            XCTAssertLessThan(
+                peak, 1.06,
+                "\(preset.name) preset peaked at \(peak) — exceeds ±1.06 ceiling")
         }
     }
 

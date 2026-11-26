@@ -47,10 +47,12 @@ struct CommandPalettePrefetchProgressHeader: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if progress.phase == .running, progress.total > 0 {
-                ProgressView(value: Double(progress.completed + progress.skipped + progress.failed),
-                             total: Double(progress.total))
-                    .progressViewStyle(.linear)
-                    .frame(maxWidth: SpotiglassDesign.Layout.paletteProgressMaxWidth)
+                ProgressView(
+                    value: Double(progress.completed + progress.skipped + progress.failed),
+                    total: Double(progress.total)
+                )
+                .progressViewStyle(.linear)
+                .frame(maxWidth: SpotiglassDesign.Layout.paletteProgressMaxWidth)
             }
             Spacer(minLength: 0)
             if progress.phase == .running {
@@ -117,14 +119,16 @@ struct CommandPaletteSearchingPlaceholderView: View {
                         .font(SpotiglassDesign.Typography.commandPaletteEmptyState)
                         .foregroundStyle(.secondary)
                         .symbolRenderingMode(.hierarchical)
-                        .accessibilityLabel(SpotiglassL10n.format("palette.searching", MusicServiceSelection.current.displayName))
+                        .accessibilityLabel(
+                            SpotiglassL10n.format("palette.searching", MusicServiceSelection.current.displayName))
                 } else {
                     Image(systemName: "sparkles")
                         .font(SpotiglassDesign.Typography.commandPaletteEmptyState)
                         .foregroundStyle(.secondary)
                         .symbolRenderingMode(.hierarchical)
                         .symbolEffect(.variableColor.iterative.reversing, options: .repeating)
-                        .accessibilityLabel(SpotiglassL10n.format("palette.searching", MusicServiceSelection.current.displayName))
+                        .accessibilityLabel(
+                            SpotiglassL10n.format("palette.searching", MusicServiceSelection.current.displayName))
                 }
             }
         }

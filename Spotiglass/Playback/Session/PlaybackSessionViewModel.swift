@@ -105,8 +105,8 @@ final class PlaybackSessionViewModel: ObservableObject {
         // Something starting here is what the bar shows, though the other service is still heard
         // until it has paused (#679).
         guard isOtherServiceHeard, !isStartingPlay,
-              !PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: connectionState),
-              let otherServicePlayer
+            !PlaylistBrowserPlaybackHelpers.isCurrentlyPlaying(connectionState: connectionState),
+            let otherServicePlayer
         else { return self }
         return otherServicePlayer
     }
@@ -175,24 +175,27 @@ final class PlaybackSessionViewModel: ObservableObject {
     /// connection, Retry moves playback to this device again. Apple Music has neither, so its
     /// errors say what happened and offer nothing (#430).
     private func offeringOnlyRecoveryThatHelps(_ state: PlaybackConnectionState) -> PlaybackConnectionState {
-        guard case let .error(error) = state, let action = error.action else { return state }
-        let helps = switch action {
-        case .reconnect: canReconnectPlayer
-        case .retryTransfer, .retry: supportsDeviceTransfer
-        case .reauthenticate: true
-        }
+        guard case .error(let error) = state, let action = error.action else { return state }
+        let helps =
+            switch action {
+            case .reconnect: canReconnectPlayer
+            case .retryTransfer, .retry: supportsDeviceTransfer
+            case .reauthenticate: true
+            }
         guard !helps else { return state }
         // Without a connection to restore, an error whose only fix was Reconnect means the
         // player isn't ready yet; its own text would point at a Reconnect that isn't there.
         // The fix it offered was for a connection or a device this player doesn't have: the
         // player is still there, so the failure was momentary.
-        return .error(error.with { message in
-            if action == .reconnect {
-                message.messageText = LocalizedText(SpotiglassL10n.string("error.playback.deviceUnavailable.notReady"))
-            }
-            message.action = nil
-            message.isMomentary = true
-        })
+        return .error(
+            error.with { message in
+                if action == .reconnect {
+                    message.messageText = LocalizedText(
+                        SpotiglassL10n.string("error.playback.deviceUnavailable.notReady"))
+                }
+                message.action = nil
+                message.isMomentary = true
+            })
     }
 
     /// Whether the in-app player has its own volume. The transport bar hides its volume
@@ -524,9 +527,9 @@ final class PlaybackSessionViewModel: ObservableObject {
 
         var supersededURIs: Set<String> {
             switch kind {
-            case let .uri(expectedURI):
+            case .uri(let expectedURI):
                 return Set([expectedURI])
-            case let .context(staleURIs):
+            case .context(let staleURIs):
                 var identities = staleURIs
                 if let firstContextURI {
                     identities.insert(firstContextURI)
@@ -543,7 +546,7 @@ final class PlaybackSessionViewModel: ObservableObject {
     /// transition itself is the only stored play-fence state.
     var pendingPlayURI: String? {
         guard let transition = pendingPlayTransition else { return nil }
-        guard case let .uri(expectedURI) = transition.kind else { return nil }
+        guard case .uri(let expectedURI) = transition.kind else { return nil }
         return expectedURI
     }
     /// Maximum time we'll suppress mismatched events while waiting for the
@@ -890,7 +893,9 @@ final class PlaybackSessionViewModel: ObservableObject {
     /// each view that uses `@AppStorage`, the whole window included, and the player reports its
     /// volume with every reading (#409).
     private func storePlaybackVolume(_ volume: Double) {
-        guard (defaults.object(forKey: Self.playbackVolumeUserDefaultsKey) as? NSNumber)?.doubleValue != volume else { return }
+        guard (defaults.object(forKey: Self.playbackVolumeUserDefaultsKey) as? NSNumber)?.doubleValue != volume else {
+            return
+        }
         defaults.set(volume, forKey: Self.playbackVolumeUserDefaultsKey)
     }
 
@@ -950,10 +955,11 @@ final class PlaybackSessionViewModel: ObservableObject {
                 }
             }
             guard let self,
-                  self.ownsPlaybackHostGeneration(generation),
-                  self.volumeMutationVersion == version,
-                  self.playbackVolumeSendSerial == serial,
-                  !Task.isCancelled else { return }
+                self.ownsPlaybackHostGeneration(generation),
+                self.volumeMutationVersion == version,
+                self.playbackVolumeSendSerial == serial,
+                !Task.isCancelled
+            else { return }
             do {
                 try await self.provider.setVolume(value, generation: generation)
             } catch is CancellationError {
@@ -983,7 +989,7 @@ final class PlaybackSessionViewModel: ObservableObject {
         inflightTransferTask?.cancel()
         pushedPlayStateExpectationTask?.cancel()
         inAppCommandAckTimeoutTask?.cancel()
-        inAppCommandAckWaiters.forEach { $0.resume() }
+        for waiter in inAppCommandAckWaiters { waiter.resume() }
         refusedPlayPauseClearTask?.cancel()
         playPauseCommandTail?.cancel()
         transportPollTask?.cancel()
@@ -1082,13 +1088,13 @@ final class PlaybackSessionViewModel: ObservableObject {
                 message: SpotiglassL10n.string("error.spotify.insufficientPermissions"),
                 action: .reauthenticate
             )
-        case let .subscriptionRequired(message):
+        case .subscriptionRequired(let message):
             return ErrorMessage(
                 title: SpotiglassL10n.string("error.playback.premium.title"),
                 message: message ?? SpotiglassL10n.string("error.playback.premium.message"),
                 action: nil
             )
-        case let .rateLimited(retryAfter):
+        case .rateLimited(let retryAfter):
             return ErrorMessage(
                 title: SpotiglassL10n.string("error.playback.rateLimited.title"),
                 message: String(
@@ -1102,7 +1108,9 @@ final class PlaybackSessionViewModel: ObservableObject {
             // language (#470).
             return ErrorMessage(
                 title: SpotiglassL10n.string("error.playback.commandFailed.title"),
-                message: String(format: SpotiglassL10n.string("error.playback.commandFailed.message"), SpotifyAPIError.userMessage(for: original)),
+                message: String(
+                    format: SpotiglassL10n.string("error.playback.commandFailed.message"),
+                    SpotifyAPIError.userMessage(for: original)),
                 action: .retryTransfer
             )
         }
@@ -1151,7 +1159,8 @@ final class PlaybackSessionViewModel: ObservableObject {
 
     func fallbackNowPlaying() -> PlaybackNowPlaying {
         PlaybackNowPlaying(
-            name: PlaybackControlsView.serviceString("playback.fallbackName", appleMusic: "playback.fallbackName.appleMusic"),
+            name: PlaybackControlsView.serviceString(
+                "playback.fallbackName", appleMusic: "playback.fallbackName.appleMusic"),
             artists: [],
             albumName: nil,
             albumID: nil,
@@ -1164,9 +1173,9 @@ final class PlaybackSessionViewModel: ObservableObject {
 
     var currentNowPlayingURI: String? {
         switch connectionState {
-        case let .playing(nowPlaying):
+        case .playing(let nowPlaying):
             return nowPlaying.uri
-        case let .paused(nowPlaying):
+        case .paused(let nowPlaying):
             return nowPlaying?.uri
         case .disconnected, .connecting, .ready, .transferring, .unavailable, .error:
             return nil
@@ -1175,9 +1184,9 @@ final class PlaybackSessionViewModel: ObservableObject {
 
     var currentNowPlaying: PlaybackNowPlaying? {
         switch connectionState {
-        case let .playing(nowPlaying):
+        case .playing(let nowPlaying):
             return nowPlaying
-        case let .paused(nowPlaying):
+        case .paused(let nowPlaying):
             return nowPlaying
         case .disconnected, .connecting, .ready, .transferring, .unavailable, .error:
             return nil
@@ -1214,7 +1223,8 @@ final class PlaybackSessionViewModel: ObservableObject {
         level: ErrorReporting.Level = .error,
         _ message: ErrorMessage
     ) {
-        setConnectionState(.error(reportPlaybackError(error, while: operation, context: context, level: level, message)))
+        setConnectionState(
+            .error(reportPlaybackError(error, while: operation, context: context, level: level, message)))
     }
 
     func setConnectionState(_ newState: PlaybackConnectionState) {
@@ -1243,8 +1253,9 @@ final class PlaybackSessionViewModel: ObservableObject {
     /// momentary failure of a connected player recovers this way; missing access or
     /// subscription stays on screen. Reads never raise a momentary failure, so this can't loop.
     private func schedulePassingErrorRecoveryIfNeeded(for state: PlaybackConnectionState) {
-        guard case let .error(error) = state, error.isMomentary, error.action == nil,
-              !canReconnectPlayer, deviceID != nil else { return }
+        guard case .error(let error) = state, error.isMomentary, error.action == nil,
+            !canReconnectPlayer, deviceID != nil
+        else { return }
         let generation = playbackHostGeneration
         let delay = passingErrorRecoveryDelay
         let clock = clock
@@ -1258,7 +1269,8 @@ final class PlaybackSessionViewModel: ObservableObject {
                 try? await clock.sleep(until: deadline, tolerance: nil)
                 deadline = clock.now.advanced(by: delay)
                 guard let self, !Task.isCancelled, self.ownsPlaybackHostGeneration(generation),
-                      self.connectionState == state else { return }
+                    self.connectionState == state
+                else { return }
             } while self?.controlCommandsInFlight ?? 0 > 0
             guard let self, let deviceID = self.deviceID else { return }
             // From here the read's own state changes must not cancel this task.
@@ -1267,20 +1279,22 @@ final class PlaybackSessionViewModel: ObservableObject {
             // Nothing loaded (or a read that predates the failed command): the player is
             // still there and ready, and polling from `.ready` picks up what it plays.
             guard self.ownsPlaybackHostGeneration(generation), self.connectionState == state,
-                  self.controlCommandsInFlight == 0 else { return }
+                self.controlCommandsInFlight == 0
+            else { return }
             self.setConnectionState(.ready(deviceID: deviceID))
         }
     }
 
     func updateStableTransportTrackURI(from state: PlaybackConnectionState) {
-        let uri: String? = switch state {
-        case let .playing(nowPlaying):
-            nowPlaying.uri
-        case let .paused(nowPlaying):
-            nowPlaying?.uri
-        default:
-            nil
-        }
+        let uri: String? =
+            switch state {
+            case .playing(let nowPlaying):
+                nowPlaying.uri
+            case .paused(let nowPlaying):
+                nowPlaying?.uri
+            default:
+                nil
+            }
         if let uri, !uri.isEmpty {
             stableTransportTrackURI = uri
         }

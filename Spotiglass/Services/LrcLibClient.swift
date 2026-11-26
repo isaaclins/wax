@@ -97,13 +97,13 @@ struct LrcLibClient: Sendable {
         } catch let failure as Failure {
             switch failure {
             case .noLyrics:
-                break // cached miss/unusable -> try full
+                break  // cached miss/unusable -> try full
             case .decoding:
-                break // cached decode issue -> try full
-            case let .http(code) where code >= 500:
-                break // transient server-side cached error -> try full
+                break  // cached decode issue -> try full
+            case .http(let code) where code >= 500:
+                break  // transient server-side cached error -> try full
             case .rateLimited:
-                throw failure // under pressure, do not escalate to full endpoint
+                throw failure  // under pressure, do not escalate to full endpoint
             case .invalidURL, .http:
                 throw failure
             }
@@ -123,18 +123,18 @@ struct LrcLibClient: Sendable {
         let full = try await fullResult
         for response in [cached, full] {
             switch response {
-            case let .success(dto?):
+            case .success(let dto?):
                 if let lyrics = mapResponse(dto) { return lyrics }
             case .success(nil):
                 continue
-            case let .failure(error):
-                if case let .rateLimited(retryAfter) = error {
+            case .failure(let error):
+                if case .rateLimited(let retryAfter) = error {
                     throw Failure.rateLimited(retryAfter: retryAfter)
                 }
             }
         }
         for response in [cached, full] {
-            if case let .failure(error) = response {
+            if case .failure(let error) = response {
                 throw error
             }
         }
@@ -152,7 +152,7 @@ struct LrcLibClient: Sendable {
                 endpoint: "search",
                 queryItems: [
                     URLQueryItem(name: "track_name", value: LrcLibMatch.searchTitle(track.name)),
-                    URLQueryItem(name: "artist_name", value: track.lrcLibArtistQuery)
+                    URLQueryItem(name: "artist_name", value: track.lrcLibArtistQuery),
                 ]
             )
         } catch {
@@ -169,12 +169,14 @@ struct LrcLibClient: Sendable {
                 lyrics: lyrics
             )
         }
-        guard let best = LrcLibMatch.best(
-            among: candidates,
-            title: track.name,
-            artists: track.artists,
-            durationMilliseconds: track.durationMilliseconds
-        ) else {
+        guard
+            let best = LrcLibMatch.best(
+                among: candidates,
+                title: track.name,
+                artists: track.artists,
+                durationMilliseconds: track.durationMilliseconds
+            )
+        else {
             throw Failure.noLyrics
         }
         return best.lyrics
@@ -223,7 +225,8 @@ struct LrcLibClient: Sendable {
             }
         }
         if let raw = dto.plainLyrics?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
-            let plainLines = raw
+            let plainLines =
+                raw
                 .components(separatedBy: .newlines)
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
@@ -241,16 +244,18 @@ struct LrcLibClient: Sendable {
                 URLQueryItem(name: "track_name", value: track.name),
                 URLQueryItem(name: "artist_name", value: track.lrcLibArtistQuery),
                 URLQueryItem(name: "album_name", value: track.lrcLibAlbumQuery),
-                URLQueryItem(name: "duration", value: String(track.lrcLibDurationSeconds))
+                URLQueryItem(name: "duration", value: String(track.lrcLibDurationSeconds)),
             ]
         )
     }
 
     private func request<Response: Decodable>(endpoint: String, queryItems: [URLQueryItem]) async throws -> Response? {
-        guard var components = URLComponents(
-            url: baseURL.appendingPathComponent("api/\(endpoint)"),
-            resolvingAgainstBaseURL: false
-        ) else {
+        guard
+            var components = URLComponents(
+                url: baseURL.appendingPathComponent("api/\(endpoint)"),
+                resolvingAgainstBaseURL: false
+            )
+        else {
             throw Failure.invalidURL
         }
         components.queryItems = queryItems
@@ -288,21 +293,25 @@ struct LrcLibClient: Sendable {
             )
             throw Failure.rateLimited(retryAfter: retryAfter)
         }
-        guard (200 ... 299).contains(http.statusCode) else {
+        guard (200...299).contains(http.statusCode) else {
             SpotiglassLog.error(.api, "LRCLIB \(endpoint) -> status=\(http.statusCode)")
             throw Failure.http(http.statusCode)
         }
         do {
             return try JSONDecoder().decode(Response.self, from: data)
         } catch {
-            SpotiglassLog.error(.api, "LRCLIB \(endpoint) -> status=\(http.statusCode), \(SpotiglassLog.describe(error))")
+            SpotiglassLog.error(
+                .api, "LRCLIB \(endpoint) -> status=\(http.statusCode), \(SpotiglassLog.describe(error))")
             throw Failure.decoding
         }
     }
 
     private func parseRetryAfterSeconds(from response: HTTPURLResponse) -> TimeInterval? {
-        guard let raw = response.value(forHTTPHeaderField: "Retry-After")?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !raw.isEmpty else {
+        guard
+            let raw = response.value(forHTTPHeaderField: "Retry-After")?.trimmingCharacters(
+                in: .whitespacesAndNewlines),
+            !raw.isEmpty
+        else {
             return nil
         }
         if let seconds = TimeInterval(raw) {
@@ -415,7 +424,7 @@ enum LrcLibMatch {
     /// With Me" is a title). Group 2 is the credited names.
     private static let featuringPatterns = [
         #"\s*[\(\[](feat\.?|ft\.?|featuring|with)\s+([^\)\]]*)[\)\]]"#,
-        #"\s+(feat\.?|ft\.?|featuring)\s+([^\(\)\[\]]+?)(?=\s+-\s|\s*[\(\[]|$)"#
+        #"\s+(feat\.?|ft\.?|featuring)\s+([^\(\)\[\]]+?)(?=\s+-\s|\s*[\(\[]|$)"#,
     ]
     /// No "/": it belongs to names like "AC/DC" more often than it joins two artists.
     private static let artistSeparatorPattern = #"\s*(,|&|\+|•|·|;)\s*|\s+(feat\.?|ft\.?|featuring|with|and|y|e|et)\s+"#

@@ -87,7 +87,9 @@ enum InteractionLatency {
             for m in measurements {
                 let verdict = m.isWithinBudget ? "ok  " : "SLOW"
                 let tries = m.milliseconds.map { Self.format($0) }.joined(separator: " ")
-                let timeouts = m.timedOut > 0 ? "  (\(m.timedOut) never showed: \(Set(m.problems).sorted().joined(separator: "; ")))" : ""
+                let timeouts =
+                    m.timedOut > 0
+                    ? "  (\(m.timedOut) never showed: \(Set(m.problems).sorted().joined(separator: "; ")))" : ""
                 lines.append(
                     "\(verdict) \(m.id.padding(toLength: 24, withPad: " ", startingAt: 0)) "
                         + "median \(m.median.map(Self.format) ?? "-") ms, checked \(m.gated.map { $0.isFinite ? Self.format($0) : "never" } ?? "-") ms"

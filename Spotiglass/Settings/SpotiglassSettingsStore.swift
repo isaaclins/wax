@@ -45,7 +45,8 @@ final class SpotiglassSettingsStore: ObservableObject {
     /// merely because some event happened after a local write.
     private var lastOwnWriteData: Data?
 
-    init(fileManager: FileManager = .default, fileURL customFileURL: URL? = nil, now: @escaping () -> Date = Date.init) {
+    init(fileManager: FileManager = .default, fileURL customFileURL: URL? = nil, now: @escaping () -> Date = Date.init)
+    {
         self.fileManager = fileManager
         self.now = now
         let resolvedURL = customFileURL ?? Self.defaultFileURL(fileManager: fileManager)
@@ -348,7 +349,7 @@ final class SpotiglassSettingsStore: ObservableObject {
     /// real command answers to nothing. Add an entry here whenever a
     /// ``CommandPaletteCommandID`` value changes.
     static let renamedCommandIDs: [String: String] = [
-        "search.open": CommandPaletteCommandID.openSearch,
+        "search.open": CommandPaletteCommandID.openSearch
     ]
 
     /// Repoints saved bindings at the current command IDs. A row whose new ID is
@@ -386,7 +387,8 @@ final class SpotiglassSettingsStore: ObservableObject {
         for spec in CommandPaletteCommandCatalog.editable {
             guard let keystroke = spec.defaultKeystroke, !alreadySeeded.contains(spec.commandID) else { continue }
             if !boundCommands.contains(spec.commandID),
-               !defaultShortcutTaken(keystroke: keystroke, when: spec.defaultWhen, in: file.keybinds) {
+                !defaultShortcutTaken(keystroke: keystroke, when: spec.defaultWhen, in: file.keybinds)
+            {
                 file.keybinds.append(
                     CommandPaletteKeyBinding(
                         keystrokes: [keystroke],
@@ -485,7 +487,10 @@ final class SpotiglassSettingsStore: ObservableObject {
             nil,
             while: "reading the settings file in full (kept a copy before saving)",
             in: .settings,
-            context: [.public("file", fileURL.path), .public("copy", copy.path), .private("problems", snapshot.problems.joined(separator: "; "))],
+            context: [
+                .public("file", fileURL.path), .public("copy", copy.path),
+                .private("problems", snapshot.problems.joined(separator: "; ")),
+            ],
             showing: ErrorMessage(message: String(format: SpotiglassL10n.string("settings.file.backedUp"), name))
         )
     }
@@ -582,7 +587,8 @@ final class SpotiglassSettingsStore: ObservableObject {
         } catch {
             // Unreadable, not damaged: run on defaults and leave the file alone. Every save
             // reads it first, so none replaces it until it can be read and copied.
-            lastError = reportFileError(error, while: "reading the settings file, using defaults without saving over it")
+            lastError = reportFileError(
+                error, while: "reading the settings file, using defaults without saving over it")
             // The defaults in use are the baseline: once the file reads again, a change made
             // here is merged into what is on disk instead of the defaults replacing it.
             lastKnownDiskSettings = settings
@@ -695,15 +701,19 @@ final class SpotiglassSettingsStore: ObservableObject {
     /// alongside the app's `Spotiglass/Logs` directory, so all app data lives under
     /// the macOS-standard path (#27).
     static func defaultFileURL(fileManager: FileManager) -> URL {
-        let base = (try? fileManager.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: false
-        )) ?? fileManager
+        let base =
+            // try?: without the system's answer the standard path is built by hand below.
+            (try? fileManager.url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: false
+            ))
+            ?? fileManager
             .homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support", isDirectory: true)
-        return base
+        return
+            base
             .appendingPathComponent("Spotiglass", isDirectory: true)
             .appendingPathComponent("settings.json", isDirectory: false)
     }
@@ -724,7 +734,7 @@ final class SpotiglassSettingsStore: ObservableObject {
     /// fresh file at the new path instead.
     static func migrateLegacyConfigIfNeeded(fileManager: FileManager, from legacyURL: URL, to newURL: URL) {
         guard !fileManager.fileExists(atPath: newURL.path),
-              fileManager.fileExists(atPath: legacyURL.path)
+            fileManager.fileExists(atPath: legacyURL.path)
         else { return }
         do {
             try fileManager.createDirectory(
@@ -738,13 +748,17 @@ final class SpotiglassSettingsStore: ObservableObject {
                     .standardizedFileURL
                 try fileManager.createSymbolicLink(at: newURL, withDestinationURL: target)
                 try fileManager.removeItem(at: legacyURL)
-                SpotiglassLog.info(.settings, "Migrated the settings.json link from ~/.config/spotiglass to Application Support; it still points at \(target.path).")
+                SpotiglassLog.info(
+                    .settings,
+                    "Migrated the settings.json link from ~/.config/spotiglass to Application Support; it still points at \(target.path)."
+                )
                 return
             }
             try fileManager.moveItem(at: legacyURL, to: newURL)
             SpotiglassLog.info(.settings, "Migrated settings.json from ~/.config/spotiglass to Application Support.")
         } catch {
-            SpotiglassLog.error(.settings, "Settings migration from legacy location failed: \(error.localizedDescription)")
+            SpotiglassLog.error(
+                .settings, "Settings migration from legacy location failed: \(error.localizedDescription)")
         }
     }
 
@@ -761,7 +775,7 @@ final class SpotiglassSettingsStore: ObservableObject {
     static func defaultKeybinds() -> [CommandPaletteKeyBinding] {
         let json = CommandPaletteCommandCatalog.defaultKeymapJSON
         guard let data = json.data(using: .utf8),
-              let parsed = try? JSONDecoder().decode(CommandPaletteKeymapFile.self, from: data)
+            let parsed = try? JSONDecoder().decode(CommandPaletteKeymapFile.self, from: data)
         else {
             return []
         }

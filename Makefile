@@ -6,10 +6,6 @@
 
 .PHONY: all build run release test test-speed test-make-targets coverage coverage-check format lint scan clean sign-out list help audit-eq-permission audit-error-handling build-driver embed-driver sign-driver install-driver
 
-# Prefer a standalone install, then fall back to the copy inside the active
-# Xcode toolchain so `make lint` works without `brew install swift-format`.
-SWIFT_FORMAT := $(shell command -v swift-format 2>/dev/null || xcrun --find swift-format 2>/dev/null)
-
 PROJECT       := Spotiglass.xcodeproj
 SCHEME        := Spotiglass
 DESTINATION   := platform=macOS
@@ -230,19 +226,12 @@ coverage:
 coverage-check: coverage
 	./scripts/check-coverage-per-file.sh
 
+# CI runs the same script on every pull request (#365).
 format:
-ifndef SWIFT_FORMAT
-	@echo "swift-format not found. Install with: brew install swift-format" >&2
-	@exit 1
-endif
-	@find Spotiglass SpotiglassTests -name '*.swift' -print0 | xargs -0 "$(SWIFT_FORMAT)" format -i -r --configuration .swift-format
+	@./scripts/swift-format.sh format
 
 lint:
-ifndef SWIFT_FORMAT
-	@echo "swift-format not found. Install with: brew install swift-format" >&2
-	@exit 1
-endif
-	@find Spotiglass SpotiglassTests -name '*.swift' -print0 | xargs -0 "$(SWIFT_FORMAT)" lint --strict --configuration .swift-format
+	@./scripts/swift-format.sh lint
 
 scan:
 	periphery scan \

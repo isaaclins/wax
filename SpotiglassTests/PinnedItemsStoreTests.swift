@@ -1,6 +1,7 @@
 import MusicKit
-import XCTest
 import UniformTypeIdentifiers
+import XCTest
+
 @testable import Spotiglass
 
 private final class RecordingPinnedCache: PinnedItemsCache {
@@ -45,7 +46,9 @@ final class PinnedItemsStoreTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let valid = String(decoding: try encoder.encode(Self.validPin), as: UTF8.self)
-        let original = Data("[\(valid),{\"id\":\"podcast:1\",\"kind\":\"podcast\",\"title\":\"Show\",\"subtitle\":\"x\",\"isStale\":false}]".utf8)
+        let original = Data(
+            "[\(valid),{\"id\":\"podcast:1\",\"kind\":\"podcast\",\"title\":\"Show\",\"subtitle\":\"x\",\"isStale\":false}]"
+                .utf8)
         try original.write(to: url)
 
         let store = PinnedItemsStore(cache: cache)
@@ -118,7 +121,9 @@ final class PinnedItemsStoreTests: XCTestCase {
     /// works the line naming the copy comes back instead of nothing.
     func testCopyLineComesBackAfterAFailedSaveWorks() throws {
         let (cache, url) = try pinsFile(userID: "u1")
-        try Data("[{\"id\":\"podcast:1\",\"kind\":\"podcast\",\"title\":\"Show\",\"subtitle\":\"x\",\"isStale\":false}]".utf8).write(to: url)
+        try Data(
+            "[{\"id\":\"podcast:1\",\"kind\":\"podcast\",\"title\":\"Show\",\"subtitle\":\"x\",\"isStale\":false}]".utf8
+        ).write(to: url)
         let store = PinnedItemsStore(cache: cache)
         store.bind(userID: "u1")
         let copyLine = try XCTUnwrap(store.fileNotice?.message)
@@ -151,7 +156,8 @@ final class PinnedItemsStoreTests: XCTestCase {
         store.pin(.playlist(summary("road", nil)))
         store.pin(.playlist(summary("mix", "https://example.com/old.jpg")))
         store.pin(.playlist(summary("gone", nil)))
-        store.pin(.album(MusicAlbum(id: "road", name: "Road", artists: [], imageURL: nil, uri: "applemusic:album:road")))
+        store.pin(
+            .album(MusicAlbum(id: "road", name: "Road", artists: [], imageURL: nil, uri: "applemusic:album:road")))
 
         store.fillMissingPlaylistArtwork(from: [
             PlaylistRowViewModel(summary("road", "musicKit://artwork/road")),
@@ -178,7 +184,9 @@ final class PinnedItemsStoreTests: XCTestCase {
         }
         store.pin(.playlist(summary("pl.u-ZmblDrrtVmXYkko", nil)))
 
-        store.fillMissingPlaylistArtwork(from: [PlaylistRowViewModel(summary("46595082274209082", "musicKit://artwork/shared"))])
+        store.fillMissingPlaylistArtwork(from: [
+            PlaylistRowViewModel(summary("46595082274209082", "musicKit://artwork/shared"))
+        ])
         XCTAssertNil(store.items.first?.artworkURL)
 
         store.fillMissingPlaylistArtwork(from: [summary("pl.u-ZmblDrrtVmXYkko", "https://example.com/shared.jpg")])
@@ -227,30 +235,42 @@ final class PinnedItemsStoreTests: XCTestCase {
             pinID == "playlist:pl.u-ZmblDrrtVmXYkko" ? URL(string: "musicKit://artwork/shared") : nil
         }
         store.bind(userID: "u1")
-        store.pin(.playlist(MusicPlaylistSummary(
-            id: "pl.u-ZmblDrrtVmXYkko", name: "Shared", ownerID: "me", ownerName: "You",
-            imageURL: nil, trackCount: nil, snapshotID: "applemusic"
-        )))
-        store.pin(.album(MusicAlbum(id: "pl.u-ZmblDrrtVmXYkko", name: "Road", artists: [], imageURL: nil, uri: "applemusic:album:x")))
+        store.pin(
+            .playlist(
+                MusicPlaylistSummary(
+                    id: "pl.u-ZmblDrrtVmXYkko", name: "Shared", ownerID: "me", ownerName: "You",
+                    imageURL: nil, trackCount: nil, snapshotID: "applemusic"
+                )))
+        store.pin(
+            .album(
+                MusicAlbum(
+                    id: "pl.u-ZmblDrrtVmXYkko", name: "Road", artists: [], imageURL: nil, uri: "applemusic:album:x")))
 
-        store.fillMissingPlaylistArtwork(from: [PlaylistRowViewModel(MusicPlaylistSummary(
-            id: "46595082274209082", name: "Shared", ownerID: "me", ownerName: "You",
-            imageURL: URL(string: "musicKit://artwork/library"), trackCount: nil, snapshotID: "applemusic"
-        ))])
+        store.fillMissingPlaylistArtwork(from: [
+            PlaylistRowViewModel(
+                MusicPlaylistSummary(
+                    id: "46595082274209082", name: "Shared", ownerID: "me", ownerName: "You",
+                    imageURL: URL(string: "musicKit://artwork/library"), trackCount: nil, snapshotID: "applemusic"
+                ))
+        ])
 
         XCTAssertEqual(store.items.map(\.artworkURL?.absoluteString), ["musicKit://artwork/shared", nil])
         XCTAssertEqual(cache.saved["u1"]?.first?.artworkURL?.absoluteString, "musicKit://artwork/shared")
 
         // That cover only draws while the playlist is in the library. Search's catalog cover
         // loads on its own and takes its place; a later library cover doesn't undo that.
-        store.fillMissingPlaylistArtwork(from: [MusicPlaylistSummary(
-            id: "pl.u-ZmblDrrtVmXYkko", name: "Shared", ownerID: "me", ownerName: "You",
-            imageURL: URL(string: "https://example.com/shared.jpg"), trackCount: nil, snapshotID: "applemusic"
-        )])
-        store.fillMissingPlaylistArtwork(from: [MusicPlaylistSummary(
-            id: "pl.u-ZmblDrrtVmXYkko", name: "Shared", ownerID: "me", ownerName: "You",
-            imageURL: URL(string: "musicKit://artwork/other"), trackCount: nil, snapshotID: "applemusic"
-        )])
+        store.fillMissingPlaylistArtwork(from: [
+            MusicPlaylistSummary(
+                id: "pl.u-ZmblDrrtVmXYkko", name: "Shared", ownerID: "me", ownerName: "You",
+                imageURL: URL(string: "https://example.com/shared.jpg"), trackCount: nil, snapshotID: "applemusic"
+            )
+        ])
+        store.fillMissingPlaylistArtwork(from: [
+            MusicPlaylistSummary(
+                id: "pl.u-ZmblDrrtVmXYkko", name: "Shared", ownerID: "me", ownerName: "You",
+                imageURL: URL(string: "musicKit://artwork/other"), trackCount: nil, snapshotID: "applemusic"
+            )
+        ])
         XCTAssertEqual(store.items.first?.artworkURL?.absoluteString, "https://example.com/shared.jpg")
         XCTAssertEqual(cache.saved["u1"]?.first?.artworkURL?.absoluteString, "https://example.com/shared.jpg")
     }
@@ -280,11 +300,13 @@ final class PinnedItemsStoreTests: XCTestCase {
         let store = PinnedItemsStore(cache: cache)
         store.bind(userID: "u1")
         let a = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "a", name: "A",
+            MusicPlaylistSummary(
+                id: "a", name: "A",
                 ownerID: "test-owner", ownerName: "o", imageURL: nil, trackCount: 0, snapshotID: "1")
         )
         let b = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "b", name: "B",
+            MusicPlaylistSummary(
+                id: "b", name: "B",
                 ownerID: "test-owner", ownerName: "o", imageURL: nil, trackCount: 0, snapshotID: "2")
         )
         store.pin(a)
@@ -298,15 +320,18 @@ final class PinnedItemsStoreTests: XCTestCase {
         let store = PinnedItemsStore(cache: cache)
         store.bind(userID: "u1")
         let a = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "a", name: "A",
+            MusicPlaylistSummary(
+                id: "a", name: "A",
                 ownerID: "test-owner", ownerName: "o", imageURL: nil, trackCount: 0, snapshotID: "1")
         )
         let b = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "b", name: "B",
+            MusicPlaylistSummary(
+                id: "b", name: "B",
                 ownerID: "test-owner", ownerName: "o", imageURL: nil, trackCount: 0, snapshotID: "2")
         )
         let c = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "c", name: "C",
+            MusicPlaylistSummary(
+                id: "c", name: "C",
                 ownerID: "test-owner", ownerName: "o", imageURL: nil, trackCount: 0, snapshotID: "3")
         )
 
@@ -321,11 +346,13 @@ final class PinnedItemsStoreTests: XCTestCase {
         let store = PinnedItemsStore(cache: cache)
         store.bind(userID: "u1")
         let a = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "a", name: "A",
+            MusicPlaylistSummary(
+                id: "a", name: "A",
                 ownerID: "test-owner", ownerName: "o", imageURL: nil, trackCount: 0, snapshotID: "1")
         )
         let b = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "b", name: "B",
+            MusicPlaylistSummary(
+                id: "b", name: "B",
                 ownerID: "test-owner", ownerName: "o", imageURL: nil, trackCount: 0, snapshotID: "2")
         )
         store.pin(a)
@@ -390,16 +417,16 @@ final class PinnedItemsStoreTests: XCTestCase {
 
     func testLegacyTrackPinJSONDecodesAndMigratesWhenBound() throws {
         let legacyJSON = """
-        {
-          "id": "track:track-real:7",
-          "kind": "track",
-          "title": "Same Song",
-          "subtitle": "Artist",
-          "artworkURL": null,
-          "spotifyURI": "spotify:track:track-real",
-          "isStale": false
-        }
-        """
+            {
+              "id": "track:track-real:7",
+              "kind": "track",
+              "title": "Same Song",
+              "subtitle": "Artist",
+              "artworkURL": null,
+              "spotifyURI": "spotify:track:track-real",
+              "isStale": false
+            }
+            """
         let legacy = try JSONDecoder().decode(PinnedItem.self, from: Data(legacyJSON.utf8))
         let cache = RecordingPinnedCache()
         cache.saved["u"] = [legacy]
@@ -416,7 +443,8 @@ final class PinnedItemsStoreTests: XCTestCase {
         let store = PinnedItemsStore(cache: cache)
         store.bind(userID: "u")
         let p = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "x", name: "X",
+            MusicPlaylistSummary(
+                id: "x", name: "X",
                 ownerID: "test-owner", ownerName: "o", imageURL: nil, trackCount: 0, snapshotID: "s")
         )
         store.pin(p)
@@ -429,7 +457,8 @@ final class PinnedItemsStoreTests: XCTestCase {
         let store = PinnedItemsStore(cache: cache)
         store.bind(userID: "u")
         let p = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "x", name: "X",
+            MusicPlaylistSummary(
+                id: "x", name: "X",
                 ownerID: "test-owner", ownerName: "o", imageURL: nil, trackCount: 0, snapshotID: "s")
         )
         store.pin(p)
@@ -445,7 +474,8 @@ final class PinnedItemsStoreTests: XCTestCase {
         let cache = RecordingPinnedCache()
         let store = PinnedItemsStore(cache: cache)
         let alicePlaylist = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "alice-playlist", name: "Alice",
+            MusicPlaylistSummary(
+                id: "alice-playlist", name: "Alice",
                 ownerID: "test-owner", ownerName: "Alice", imageURL: nil, trackCount: 0, snapshotID: "a")
         )
         let bobArtist = PinnedItem.artist(
@@ -469,7 +499,8 @@ final class PinnedItemsStoreTests: XCTestCase {
         let cache = RecordingPinnedCache()
         let store = PinnedItemsStore(cache: cache)
         let alicePlaylist = PinnedItem.playlist(
-            MusicPlaylistSummary(id: "alice-playlist", name: "Alice",
+            MusicPlaylistSummary(
+                id: "alice-playlist", name: "Alice",
                 ownerID: "test-owner", ownerName: "Alice", imageURL: nil, trackCount: 0, snapshotID: "a")
         )
         store.bind(userID: "alice")
@@ -487,7 +518,7 @@ final class PinnedItemsStoreTests: XCTestCase {
         let existing = [
             LibrarySidebarOrder.pinnedToken(for: "p2"),
             "orphan",
-            LibrarySidebarOrder.homeToken
+            LibrarySidebarOrder.homeToken,
         ]
         let normalized = LibrarySidebarOrder.normalizedOrder(
             existing: existing,
@@ -499,7 +530,7 @@ final class PinnedItemsStoreTests: XCTestCase {
             [
                 LibrarySidebarOrder.pinnedToken(for: "p2"),
                 LibrarySidebarOrder.pinnedToken(for: "p1"),
-                LibrarySidebarOrder.homeToken
+                LibrarySidebarOrder.homeToken,
             ]
         )
     }
@@ -515,7 +546,7 @@ final class PinnedItemsStoreTests: XCTestCase {
             [
                 LibrarySidebarOrder.pinnedToken(for: "p1"),
                 LibrarySidebarOrder.pinnedToken(for: "p2"),
-                LibrarySidebarOrder.homeToken
+                LibrarySidebarOrder.homeToken,
             ]
         )
     }
@@ -545,7 +576,9 @@ final class PinnedItemsStoreTests: XCTestCase {
         store.pin(b)
 
         store.applyOrder([b.id, "unknown-id"])
-        XCTAssertEqual(store.items.map(\.id), [b.id, a.id], "Unlisted pins keep their relative order at the end; unknown IDs are ignored.")
+        XCTAssertEqual(
+            store.items.map(\.id), [b.id, a.id],
+            "Unlisted pins keep their relative order at the end; unknown IDs are ignored.")
     }
 
     /// Locks the `UTType.spotiglassPinnedItem` JSON wire format used by
@@ -590,10 +623,10 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         persistentID: String, title: String, trackCount: Int = 12, releaseDate: String = "2017-01-13"
     ) throws -> Album {
         let json = """
-        {"id":"\(persistentID)","type":"albums","attributes":{"name":"\(title)","artistName":"Bonobo",\
-        "trackCount":\(trackCount),"releaseDate":"\(releaseDate)","playParams":{"musicKit_persistentID":"\(persistentID)",\
-        "musicKit_databaseID":"785BA2D7E82AE547","kind":"album","id":"\(persistentID)","isLibrary":true}}}
-        """
+            {"id":"\(persistentID)","type":"albums","attributes":{"name":"\(title)","artistName":"Bonobo",\
+            "trackCount":\(trackCount),"releaseDate":"\(releaseDate)","playParams":{"musicKit_persistentID":"\(persistentID)",\
+            "musicKit_databaseID":"785BA2D7E82AE547","kind":"album","id":"\(persistentID)","isLibrary":true}}}
+            """
         return try JSONDecoder().decode(Album.self, from: Data(json.utf8))
     }
 
@@ -603,19 +636,24 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
     ) throws -> Album {
         let rating = explicit.map { #","contentRating":"\#($0 ? "explicit" : "clean")""# } ?? ""
         let json = """
-        {"id":"\(id)","type":"albums","attributes":{"name":"\(title)","artistName":"Bonobo","trackCount":\(trackCount)\
-        \(rating),"releaseDate":"\(releaseDate)","playParams":{"id":"\(id)","kind":"album"}}}
-        """
+            {"id":"\(id)","type":"albums","attributes":{"name":"\(title)","artistName":"Bonobo","trackCount":\(trackCount)\
+            \(rating),"releaseDate":"\(releaseDate)","playParams":{"id":"\(id)","kind":"album"}}}
+            """
         return try JSONDecoder().decode(Album.self, from: Data(json.utf8))
     }
 
     /// What Home's Recently played pins: a catalog album known only by its ID, title and artist.
     private func homePin(_ catalogID: String, title: String) -> PinnedItem {
-        .album(MusicAlbum(id: catalogID, name: title, artists: ["Bonobo"], imageURL: nil, uri: "applemusic:album:\(catalogID)"))
+        .album(
+            MusicAlbum(
+                id: catalogID, name: title, artists: ["Bonobo"], imageURL: nil, uri: "applemusic:album:\(catalogID)"))
     }
 
     private func savedPin(_ persistentID: String, title: String) -> PinnedItem {
-        .album(MusicAlbum(id: persistentID, name: title, artists: ["Bonobo"], imageURL: nil, uri: "applemusic:album:\(persistentID)"))
+        .album(
+            MusicAlbum(
+                id: persistentID, name: title, artists: ["Bonobo"], imageURL: nil,
+                uri: "applemusic:album:\(persistentID)"))
     }
 
     /// The resolver the app uses, with the library and the catalog replaced: `catalog` is what a
@@ -669,7 +707,8 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
     func testAlbumPinnedFromArtistPageAndFromSearchIsOnePin() async throws {
         let catalog = try catalogAlbum(id: "1225217151", title: "Migration 487a")
         let saved = try libraryAlbum(persistentID: "-2428838143274200674", title: "Migration 487a")
-        let store = PinnedItemsStore(cache: RecordingPinnedCache(), aliases: aliases(catalog: [catalog], library: [saved]))
+        let store = PinnedItemsStore(
+            cache: RecordingPinnedCache(), aliases: aliases(catalog: [catalog], library: [saved]))
         store.bind(userID: account)
 
         // The artist page's album card, then the palette's search hit for the saved copy.
@@ -716,9 +755,12 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
     func testASavedAlbumPairsWithTheReleaseOutOnItsDay() async throws {
         // As on a real library: the catalog has the explicit release (out 2022-07-15) and the
         // clean one (2022-07-14); the saved album has no rating, but came out on the 15th.
-        let explicit = try catalogAlbum(id: "1225217153", title: "Migration 487c", explicit: true, trackCount: 10, releaseDate: "2022-07-15")
-        let clean = try catalogAlbum(id: "1225217154", title: "Migration 487c", explicit: false, trackCount: 10, releaseDate: "2022-07-14")
-        let saved = try libraryAlbum(persistentID: "-8203387087766707776", title: "Migration 487c", trackCount: 10, releaseDate: "2022-07-15")
+        let explicit = try catalogAlbum(
+            id: "1225217153", title: "Migration 487c", explicit: true, trackCount: 10, releaseDate: "2022-07-15")
+        let clean = try catalogAlbum(
+            id: "1225217154", title: "Migration 487c", explicit: false, trackCount: 10, releaseDate: "2022-07-14")
+        let saved = try libraryAlbum(
+            persistentID: "-8203387087766707776", title: "Migration 487c", trackCount: 10, releaseDate: "2022-07-15")
         let store = PinnedItemsStore(
             cache: RecordingPinnedCache(), aliases: aliases(catalog: [explicit, clean], library: [saved])
         )
@@ -734,9 +776,12 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
     }
 
     func testReleasesOutOnTheSameDayStayApart() async throws {
-        let explicit = try catalogAlbum(id: "1225217155", title: "Migration 487q", explicit: true, releaseDate: "2022-07-15")
-        let clean = try catalogAlbum(id: "1225217156", title: "Migration 487q", explicit: false, releaseDate: "2022-07-15")
-        let saved = try libraryAlbum(persistentID: "-8203387087766707777", title: "Migration 487q", releaseDate: "2022-07-15")
+        let explicit = try catalogAlbum(
+            id: "1225217155", title: "Migration 487q", explicit: true, releaseDate: "2022-07-15")
+        let clean = try catalogAlbum(
+            id: "1225217156", title: "Migration 487q", explicit: false, releaseDate: "2022-07-15")
+        let saved = try libraryAlbum(
+            persistentID: "-8203387087766707777", title: "Migration 487q", releaseDate: "2022-07-15")
         let store = PinnedItemsStore(
             cache: RecordingPinnedCache(), aliases: aliases(catalog: [explicit, clean], library: [saved])
         )
@@ -751,17 +796,23 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
 
     func testDuplicatePinsFromBeforeMergeOnLaunchKeepingTheFirstPlace() async throws {
         let cache = RecordingPinnedCache()
-        let other = PinnedItem.playlist(MusicPlaylistSummary(
-            id: "p.Other", name: "Other", ownerID: account, ownerName: "You",
-            imageURL: nil, trackCount: 3, snapshotID: "applemusic"
-        ))
+        let other = PinnedItem.playlist(
+            MusicPlaylistSummary(
+                id: "p.Other", name: "Other", ownerID: account, ownerName: "You",
+                imageURL: nil, trackCount: 3, snapshotID: "applemusic"
+            ))
         // As saved before #487: the catalog copy, a playlist, then the library copy of the same album.
-        cache.saved[account] = [homePin("1225217999", title: "Migration 487d"), other, savedPin("9177095676878600743", title: "Migration 487d")]
+        cache.saved[account] = [
+            homePin("1225217999", title: "Migration 487d"), other,
+            savedPin("9177095676878600743", title: "Migration 487d"),
+        ]
         let catalog = try catalogAlbum(id: "1225217999", title: "Migration 487d")
         let saved = try libraryAlbum(persistentID: "9177095676878600743", title: "Migration 487d")
-        let store = PinnedItemsStore(cache: cache, aliases: aliases(
-            registry: AppleMusicPinAliasRegistry(), catalog: [catalog], library: [saved], pinned: [catalog, saved]
-        ))
+        let store = PinnedItemsStore(
+            cache: cache,
+            aliases: aliases(
+                registry: AppleMusicPinAliasRegistry(), catalog: [catalog], library: [saved], pinned: [catalog, saved]
+            ))
 
         store.bind(userID: account)
         await waitForPins(store) { store.items.count == 2 }
@@ -775,19 +826,25 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
 
     func testPinningDuringTheLaunchLookupStillMergesOldDuplicates() async throws {
         let cache = RecordingPinnedCache()
-        cache.saved[account] = [homePin("1225217998", title: "Migration 487e"), savedPin("9177095676878600744", title: "Migration 487e")]
+        cache.saved[account] = [
+            homePin("1225217998", title: "Migration 487e"), savedPin("9177095676878600744", title: "Migration 487e"),
+        ]
         let catalog = try catalogAlbum(id: "1225217998", title: "Migration 487e")
         let loaded = [catalog, try libraryAlbum(persistentID: "9177095676878600744", title: "Migration 487e")]
         let launchLookup = MockCallHold()
-        let store = PinnedItemsStore(cache: cache, aliases: AppleMusicPinAliases(
-            registry: AppleMusicPinAliasRegistry(), lookUp: { _, _ in [:] },
-            albums: { ids in
-                await launchLookup.pass()
-                return loaded.filter { ids.contains($0.id.rawValue) }
-            },
-            searchAlbums: { _ in AppleMusicAlbumSearch(catalog: [catalog], library: loaded.filter { $0.id != catalog.id }) },
-            songReferences: AppleMusicSongReferenceRegistry()
-        ))
+        let store = PinnedItemsStore(
+            cache: cache,
+            aliases: AppleMusicPinAliases(
+                registry: AppleMusicPinAliasRegistry(), lookUp: { _, _ in [:] },
+                albums: { ids in
+                    await launchLookup.pass()
+                    return loaded.filter { ids.contains($0.id.rawValue) }
+                },
+                searchAlbums: { _ in
+                    AppleMusicAlbumSearch(catalog: [catalog], library: loaded.filter { $0.id != catalog.id })
+                },
+                songReferences: AppleMusicSongReferenceRegistry()
+            ))
         store.bind(userID: account)
         let didStartLookup = await launchLookup.entered.wait(timeout: .seconds(mustHappenTimeout))
         XCTAssertTrue(didStartLookup, "binding should look up the pinned albums")
@@ -803,13 +860,18 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         // One pinned catalog release, and a saved album that is the other release of that name:
         // the catalog has two "Live" by this artist, so the saved one can't be paired with either.
         let cache = RecordingPinnedCache()
-        cache.saved[account] = [homePin("1225217181", title: "Live 487i"), savedPin("9177095676878600745", title: "Live 487i")]
+        cache.saved[account] = [
+            homePin("1225217181", title: "Live 487i"), savedPin("9177095676878600745", title: "Live 487i"),
+        ]
         let first = try catalogAlbum(id: "1225217181", title: "Live 487i")
         let second = try catalogAlbum(id: "1225217182", title: "Live 487i")
         let saved = try libraryAlbum(persistentID: "9177095676878600745", title: "Live 487i")
-        let store = PinnedItemsStore(cache: cache, aliases: aliases(
-            registry: AppleMusicPinAliasRegistry(), catalog: [first, second], library: [saved], pinned: [first, saved]
-        ))
+        let store = PinnedItemsStore(
+            cache: cache,
+            aliases: aliases(
+                registry: AppleMusicPinAliasRegistry(), catalog: [first, second], library: [saved],
+                pinned: [first, saved]
+            ))
         store.bind(userID: account)
         await waitForPins(store) { store.items.allSatisfy { $0.aliasIDs != nil } }
 
@@ -822,13 +884,17 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
 
     func testAFailedCatalogSearchMergesNothing() async throws {
         let cache = RecordingPinnedCache()
-        cache.saved[account] = [homePin("1225217191", title: "Migration 487j"), savedPin("9177095676878600746", title: "Migration 487j")]
+        cache.saved[account] = [
+            homePin("1225217191", title: "Migration 487j"), savedPin("9177095676878600746", title: "Migration 487j"),
+        ]
         let catalog = try catalogAlbum(id: "1225217191", title: "Migration 487j")
-        let store = PinnedItemsStore(cache: cache, aliases: aliases(
-            registry: AppleMusicPinAliasRegistry(), catalog: [catalog],
-            pinned: [catalog, try libraryAlbum(persistentID: "9177095676878600746", title: "Migration 487j")],
-            searchFails: true
-        ))
+        let store = PinnedItemsStore(
+            cache: cache,
+            aliases: aliases(
+                registry: AppleMusicPinAliasRegistry(), catalog: [catalog],
+                pinned: [catalog, try libraryAlbum(persistentID: "9177095676878600746", title: "Migration 487j")],
+                searchFails: true
+            ))
         store.bind(userID: account)
         await settle()
         XCTAssertEqual(store.items.count, 2, "without the catalog's answer the copies stay apart")
@@ -860,8 +926,12 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
     func testPinnedAlbumsSharingANameSurviveLaunch() async throws {
         let cache = RecordingPinnedCache()
         cache.saved[account] = [homePin("1225217171", title: "Live 487h"), homePin("1225217172", title: "Live 487h")]
-        let loaded = [try catalogAlbum(id: "1225217171", title: "Live 487h"), try catalogAlbum(id: "1225217172", title: "Live 487h")]
-        let store = PinnedItemsStore(cache: cache, aliases: aliases(registry: AppleMusicPinAliasRegistry(), catalog: loaded, pinned: loaded))
+        let loaded = [
+            try catalogAlbum(id: "1225217171", title: "Live 487h"),
+            try catalogAlbum(id: "1225217172", title: "Live 487h"),
+        ]
+        let store = PinnedItemsStore(
+            cache: cache, aliases: aliases(registry: AppleMusicPinAliasRegistry(), catalog: loaded, pinned: loaded))
         store.bind(userID: account)
         await waitForPins(store) { store.items.allSatisfy { $0.aliasIDs != nil } }
 
@@ -878,10 +948,14 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         let catalog = try catalogAlbum(id: "1225217201", title: title, trackCount: catalogTracks)
         let saved = try libraryAlbum(persistentID: "9177095676878600747", title: title, trackCount: savedTracks)
         var library = [saved]
-        if extraSaved { library.append(try libraryAlbum(persistentID: "9177095676878600748", title: title, trackCount: savedTracks)) }
-        let store = PinnedItemsStore(cache: cache, aliases: aliases(
-            registry: AppleMusicPinAliasRegistry(), catalog: [catalog], library: library, pinned: [catalog, saved]
-        ))
+        if extraSaved {
+            library.append(try libraryAlbum(persistentID: "9177095676878600748", title: title, trackCount: savedTracks))
+        }
+        let store = PinnedItemsStore(
+            cache: cache,
+            aliases: aliases(
+                registry: AppleMusicPinAliasRegistry(), catalog: [catalog], library: library, pinned: [catalog, saved]
+            ))
         store.bind(userID: account)
         await waitForPins(store) { store.items.allSatisfy { $0.aliasIDs != nil } }
         return (store, cache)
@@ -896,7 +970,8 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
     }
 
     func testTwoSavedAlbumsOfOneNameAreNotPaired() async throws {
-        let (store, _) = try await launchWithSameNamePair(title: "Twice 487m", catalogTracks: 12, savedTracks: 12, extraSaved: true)
+        let (store, _) = try await launchWithSameNamePair(
+            title: "Twice 487m", catalogTracks: 12, savedTracks: 12, extraSaved: true)
         XCTAssertEqual(store.items.count, 2, "the library has two albums under the key, so it's ambiguous")
     }
 
@@ -909,13 +984,18 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         // Pinned: catalog release C2 "Live" from Home, and a saved album that is really release C1.
         // The search only lists C1 (its 25 results missed C2), but the app knows C2 too.
         let cache = RecordingPinnedCache()
-        cache.saved[account] = [homePin("1225219002", title: "Live 487o"), savedPin("9177095676878609001", title: "Live 487o")]
+        cache.saved[account] = [
+            homePin("1225219002", title: "Live 487o"), savedPin("9177095676878609001", title: "Live 487o"),
+        ]
         let pinnedRelease = try catalogAlbum(id: "1225219002", title: "Live 487o")
         let otherRelease = try catalogAlbum(id: "1225219001", title: "Live 487o")
         let saved = try libraryAlbum(persistentID: "9177095676878609001", title: "Live 487o")
-        let store = PinnedItemsStore(cache: cache, aliases: aliases(
-            registry: AppleMusicPinAliasRegistry(), catalog: [otherRelease], library: [saved], pinned: [pinnedRelease, saved]
-        ))
+        let store = PinnedItemsStore(
+            cache: cache,
+            aliases: aliases(
+                registry: AppleMusicPinAliasRegistry(), catalog: [otherRelease], library: [saved],
+                pinned: [pinnedRelease, saved]
+            ))
         store.bind(userID: account)
         await waitForPins(store) { store.items.allSatisfy { $0.aliasIDs != nil } }
 
@@ -929,16 +1009,22 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         // Pinned: catalog release C2 "Live" (2020) and a saved album that is really release C1
         // (2019), same track count. The search lists only C2: it isn't the saved album's release.
         let cache = RecordingPinnedCache()
-        cache.saved[account] = [homePin("1225219102", title: "Live 487r"), savedPin("9177095676878609101", title: "Live 487r")]
+        cache.saved[account] = [
+            homePin("1225219102", title: "Live 487r"), savedPin("9177095676878609101", title: "Live 487r"),
+        ]
         let pinnedRelease = try catalogAlbum(id: "1225219102", title: "Live 487r", releaseDate: "2020-05-01")
         let saved = try libraryAlbum(persistentID: "9177095676878609101", title: "Live 487r", releaseDate: "2019-03-01")
-        let store = PinnedItemsStore(cache: cache, aliases: aliases(
-            registry: AppleMusicPinAliasRegistry(), catalog: [pinnedRelease], library: [saved], pinned: [pinnedRelease, saved]
-        ))
+        let store = PinnedItemsStore(
+            cache: cache,
+            aliases: aliases(
+                registry: AppleMusicPinAliasRegistry(), catalog: [pinnedRelease], library: [saved],
+                pinned: [pinnedRelease, saved]
+            ))
         store.bind(userID: account)
         await waitForPins(store) { store.items.allSatisfy { $0.aliasIDs != nil } }
 
-        XCTAssertEqual(store.items.map(\.id), ["album:1225219102", "album:9177095676878609101"], "neither pin is deleted")
+        XCTAssertEqual(
+            store.items.map(\.id), ["album:1225219102", "album:9177095676878609101"], "neither pin is deleted")
     }
 
     func testSongDuplicatesMergeOnceAPlaylistRowTellsTheirIDs() async {
@@ -955,7 +1041,8 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         XCTAssertEqual(store.items.count, 2)
 
         // The playlist is read: its row is remembered with the song's catalog ID and mapped.
-        references.remember(AppleMusicSongReference(itemID: "-4954366973876942251", catalogID: "1600513004", isInLibrary: true))
+        references.remember(
+            AppleMusicSongReference(itemID: "-4954366973876942251", catalogID: "1600513004", isInLibrary: true))
         registry.register(kind: .track, itemID: "-4954366973876942251") { nil }
         // The playlist's other rows ask whether they're pinned.
         XCTAssertFalse(store.isPinned(id: "track:-4954366973876942252"))
@@ -986,10 +1073,11 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         let store = PinnedItemsStore(cache: RecordingPinnedCache(), aliases: aliases(registry: registry))
         store.bind(userID: account)
         func playlist(_ id: String) -> PinnedItem {
-            .playlist(MusicPlaylistSummary(
-                id: id, name: "Chill", ownerID: "Apple Music", ownerName: "Apple Music",
-                imageURL: nil, trackCount: 20, snapshotID: "applemusic"
-            ))
+            .playlist(
+                MusicPlaylistSummary(
+                    id: id, name: "Chill", ownerID: "Apple Music", ownerName: "Apple Music",
+                    imageURL: nil, trackCount: 20, snapshotID: "applemusic"
+                ))
         }
 
         XCTAssertTrue(store.pin(playlist("pl.u-Cat487")))
@@ -1000,13 +1088,15 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
     }
 
     private func songPin(_ id: String) -> PinnedItem {
-        PinnedItem(id: "track:\(id)", kind: .track, title: "Kerala", subtitle: "Bonobo", artworkURL: nil,
-                   spotifyURI: "applemusic:song:\(id)", isStale: false)
+        PinnedItem(
+            id: "track:\(id)", kind: .track, title: "Kerala", subtitle: "Bonobo", artworkURL: nil,
+            spotifyURI: "applemusic:song:\(id)", isStale: false)
     }
 
     func testSavedSongMatchesItsCatalogSong() throws {
         // Shape captured from a real library: a saved song carries its catalog ID.
-        let json = #"{"id":"i.xrXvb5YUMXrPzzb","type":"library-songs","attributes":{"name":"Kerala","artistName":"Bonobo","playParams":{"kind":"song","musicKit_persistentID":"260349940219299207","id":"i.xrXvb5YUMXrPzzb","catalogId":"1677797558","musicKit_libraryID":"i.xrXvb5YUMXrPzzb","isLibrary":true}}}"#
+        let json =
+            #"{"id":"i.xrXvb5YUMXrPzzb","type":"library-songs","attributes":{"name":"Kerala","artistName":"Bonobo","playParams":{"kind":"song","musicKit_persistentID":"260349940219299207","id":"i.xrXvb5YUMXrPzzb","catalogId":"1677797558","musicKit_libraryID":"i.xrXvb5YUMXrPzzb","isLibrary":true}}}"#
         let saved = AppleMusicItemMapping.track(try JSONDecoder().decode(Song.self, from: Data(json.utf8)))
         let store = PinnedItemsStore(cache: RecordingPinnedCache(), aliases: aliases())
         store.bind(userID: account)
@@ -1020,9 +1110,10 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         // Rows of a library playlist are keyed by a persistent ID; the IDs the app worked out
         // for the row when it read the playlist (#401) tie it to the catalog song.
         let references = AppleMusicSongReferenceRegistry()
-        references.remember(AppleMusicSongReference(
-            itemID: "-4954366973876942250", catalogID: "1600513003", isInLibrary: true
-        ))
+        references.remember(
+            AppleMusicSongReference(
+                itemID: "-4954366973876942250", catalogID: "1600513003", isInLibrary: true
+            ))
         let store = PinnedItemsStore(cache: RecordingPinnedCache(), aliases: aliases(songReferences: references))
         store.bind(userID: account)
 
@@ -1038,9 +1129,11 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         struct Offline: Error {}
         let cache = RecordingPinnedCache()
         cache.saved[account] = [songPin("1225217888"), songPin("1225217889")]
-        let offline = PinnedItemsStore(cache: cache, aliases: aliases(
-            registry: AppleMusicPinAliasRegistry(), lookUp: { _, _ in throw Offline() }
-        ))
+        let offline = PinnedItemsStore(
+            cache: cache,
+            aliases: aliases(
+                registry: AppleMusicPinAliasRegistry(), lookUp: { _, _ in throw Offline() }
+            ))
         offline.bind(userID: account)
         await settle()
         XCTAssertEqual(offline.items.map(\.aliasIDs), [nil, nil], "a failed lookup is not marked as checked")
@@ -1048,16 +1141,19 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
 
         // The next launch: the library answers, one request for both songs.
         let asked = LockedCount()
-        let online = PinnedItemsStore(cache: cache, aliases: aliases(
-            registry: AppleMusicPinAliasRegistry(),
-            lookUp: { _, ids in
-                asked.add()
-                return ids.contains("1225217888") ? ["1225217888": "i.Saved487"] : [:]
-            }
-        ))
+        let online = PinnedItemsStore(
+            cache: cache,
+            aliases: aliases(
+                registry: AppleMusicPinAliasRegistry(),
+                lookUp: { _, ids in
+                    asked.add()
+                    return ids.contains("1225217888") ? ["1225217888": "i.Saved487"] : [:]
+                }
+            ))
         online.bind(userID: account)
         await waitForPins(online) { online.items.allSatisfy { $0.aliasIDs != nil } }
-        XCTAssertEqual(online.items.map(\.aliasIDs), [["track:i.Saved487"], []], "a lookup that found nothing counts as checked")
+        XCTAssertEqual(
+            online.items.map(\.aliasIDs), [["track:i.Saved487"], []], "a lookup that found nothing counts as checked")
         XCTAssertEqual(asked.value, 1)
     }
 
@@ -1068,9 +1164,11 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         cache.saved[account] = [gone, savedPin("9177095676878600749", title: "Gone 487p")]
         let catalog = try catalogAlbum(id: "1225217211", title: "Gone 487p")
         let saved = try libraryAlbum(persistentID: "9177095676878600749", title: "Gone 487p")
-        let store = PinnedItemsStore(cache: cache, aliases: aliases(
-            registry: AppleMusicPinAliasRegistry(), catalog: [catalog], library: [saved], pinned: [catalog, saved]
-        ))
+        let store = PinnedItemsStore(
+            cache: cache,
+            aliases: aliases(
+                registry: AppleMusicPinAliasRegistry(), catalog: [catalog], library: [saved], pinned: [catalog, saved]
+            ))
         store.bind(userID: account)
         await waitForPins(store) { store.items.count == 1 }
         XCTAssertEqual(store.items.first?.isStale, false, "the saved copy still opens")
@@ -1080,8 +1178,12 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
         let resolver = CountingAliasResolver()
         let store = PinnedItemsStore(cache: RecordingPinnedCache(), aliases: resolver)
         store.bind(userID: "spotify-user")
-        XCTAssertTrue(store.pin(.album(MusicAlbum(id: "4aawyAB9vmqN3uQ7FjRGTy", name: "Global Warming", artists: ["Pitbull"],
-                                                  imageURL: nil, uri: "spotify:album:4aawyAB9vmqN3uQ7FjRGTy"))))
+        XCTAssertTrue(
+            store.pin(
+                .album(
+                    MusicAlbum(
+                        id: "4aawyAB9vmqN3uQ7FjRGTy", name: "Global Warming", artists: ["Pitbull"],
+                        imageURL: nil, uri: "spotify:album:4aawyAB9vmqN3uQ7FjRGTy"))))
 
         XCTAssertTrue(store.isPinned(spotifyID: "4aawyAB9vmqN3uQ7FjRGTy", kind: .album))
         XCTAssertFalse(store.isPinned(spotifyID: "0sNOF9WDwhWunNAHPD3Baj", kind: .album))
@@ -1092,18 +1194,31 @@ final class PinnedItemsAppleMusicIdentityTests: XCTestCase {
     func testSpotifyPinsAreLeftExactlyAsTheyWere() async throws {
         let cache = RecordingPinnedCache()
         let pins = [
-            PinnedItem.album(MusicAlbum(id: "4aawyAB9vmqN3uQ7FjRGTy", name: "Global Warming", artists: ["Pitbull"],
-                                        imageURL: nil, uri: "spotify:album:4aawyAB9vmqN3uQ7FjRGTy")),
+            PinnedItem.album(
+                MusicAlbum(
+                    id: "4aawyAB9vmqN3uQ7FjRGTy", name: "Global Warming", artists: ["Pitbull"],
+                    imageURL: nil, uri: "spotify:album:4aawyAB9vmqN3uQ7FjRGTy"))
         ]
         cache.saved["spotify-user"] = pins
         let asked = LockedFlag()
-        let store = PinnedItemsStore(cache: cache, aliases: AppleMusicPinAliases(
-            registry: AppleMusicPinAliasRegistry(),
-            lookUp: { @MainActor _, _ in asked.set(); return ["x": "y"] },
-            albums: { @MainActor _ in asked.set(); return [] },
-            searchAlbums: { @MainActor _ in asked.set(); return AppleMusicAlbumSearch(catalog: [], library: []) },
-            songReferences: AppleMusicSongReferenceRegistry()
-        ))
+        let store = PinnedItemsStore(
+            cache: cache,
+            aliases: AppleMusicPinAliases(
+                registry: AppleMusicPinAliasRegistry(),
+                lookUp: { @MainActor _, _ in
+                    asked.set()
+                    return ["x": "y"]
+                },
+                albums: { @MainActor _ in
+                    asked.set()
+                    return []
+                },
+                searchAlbums: { @MainActor _ in
+                    asked.set()
+                    return AppleMusicAlbumSearch(catalog: [], library: [])
+                },
+                songReferences: AppleMusicSongReferenceRegistry()
+            ))
         store.bind(userID: "spotify-user")
         await settle()
 

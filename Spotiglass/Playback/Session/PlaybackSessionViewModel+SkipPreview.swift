@@ -108,18 +108,20 @@ extension PlaybackSessionViewModel {
     func holdsReportForSkipPreview(_ nowPlaying: PlaybackNowPlaying?, event: MusicPlaybackEvent) -> Bool {
         guard var preview = skipPreview else { return false }
         guard ownsPlaybackHostGeneration(preview.hostGeneration),
-              let nowPlaying,
-              let uri = nowPlaying.uri,
-              uri == preview.shownURI
+            let nowPlaying,
+            let uri = nowPlaying.uri,
+            uri == preview.shownURI
                 ? preview.restartsSong && nowPlaying.positionMilliseconds >= Self.previousRestartsAfterMilliseconds
-                : preview.leftURIs.contains(uri) else {
+                : preview.leftURIs.contains(uri)
+        else {
             endSkipPreview()
             return false
         }
         preview.reportedURI = uri
         preview.heldReport = MusicPlaybackEventEnvelope(event: event, hostGeneration: playbackHostGeneration)
         skipPreview = preview
-        SpotiglassLog.info(.playback, "Holding SDK state_changed uri=\(uri) while a skip to \(preview.shownURI) is on its way")
+        SpotiglassLog.info(
+            .playback, "Holding SDK state_changed uri=\(uri) while a skip to \(preview.shownURI) is on its way")
         return true
     }
 
