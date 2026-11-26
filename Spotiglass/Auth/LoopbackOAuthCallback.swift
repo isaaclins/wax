@@ -152,6 +152,12 @@ final class ActiveLoopbackOAuthListener {
         let responseCopy = self.responseCopy
         return try await Task.detached(priority: .userInitiated) {
             while true {
+                // After close() a dropped read lands back here: the listening descriptor is
+                // closed and its number may already belong to another socket, so never accept
+                // on it again.
+                guard !self.isClosed else {
+                    throw self.endedError
+                }
                 var address = sockaddr()
                 var length = socklen_t(MemoryLayout<sockaddr>.size)
                 let client = Darwin.accept(self.socketDescriptor, &address, &length)
@@ -221,6 +227,12 @@ final class ActiveLoopbackOAuthListener {
         closeLock.lock()
         defer { closeLock.unlock() }
         return didTimeOut ? .timedOut : .invalidRequest
+    }
+
+    private var isClosed: Bool {
+        closeLock.lock()
+        defer { closeLock.unlock() }
+        return didClose
     }
 
     /// Remembers the accepted connection so close() can end a read that is in flight.

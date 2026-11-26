@@ -267,10 +267,15 @@ func finishWithin<T: Sendable>(
         let work = Task {
             do { once.resume(with: .success(try await operation())) } catch { once.resume(with: .failure(error)) }
         }
-        Task {
-            try? await Task.sleep(for: .seconds(seconds))
+        let timer = Task {
+            guard (try? await Task.sleep(for: .seconds(seconds))) != nil else { return }
             once.resume(with: .failure(BoundExceeded(what: what, seconds: seconds)))
             work.cancel()
+        }
+        // Don't leave the timer sleeping out the whole bound after the work is done.
+        Task {
+            _ = await work.result
+            timer.cancel()
         }
     }
 }
