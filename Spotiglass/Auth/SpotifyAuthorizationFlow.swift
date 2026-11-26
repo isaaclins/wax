@@ -33,13 +33,18 @@ enum SpotifyAuthorizationFlowError: LocalizedError, Equatable {
 struct SpotifyAuthorizationFlow: SpotifyAuthorizationFlowing {
     private let listenerFactory: LoopbackOAuthListenerFactory
     private let presenter: AuthorizationURLPresenter
+    private let loopbackPort: UInt16
 
+    /// `loopbackPort` is the port registered with Spotify. Tests pass 0 so the kernel picks a
+    /// free one: a fixed port collides with any other test run or Wax sign-in on the Mac (#771).
     init(
         listenerFactory: LoopbackOAuthListenerFactory = LoopbackOAuthListenerFactory(),
-        presenter: AuthorizationURLPresenter = SystemAuthorizationURLPresenter()
+        presenter: AuthorizationURLPresenter = SystemAuthorizationURLPresenter(),
+        loopbackPort: UInt16 = SpotifyAuthConfiguration.defaultLoopbackPort
     ) {
         self.listenerFactory = listenerFactory
         self.presenter = presenter
+        self.loopbackPort = loopbackPort
     }
 
     func requestAuthorizationCode(clientID: String, timeout: TimeInterval = 120) async throws -> SpotifyAuthorizationCode {
@@ -53,6 +58,7 @@ struct SpotifyAuthorizationFlow: SpotifyAuthorizationFlowing {
         let listener = try listenerFactory.start(
             expectedState: state,
             timeout: timeout,
+            port: loopbackPort,
             responseCopy: responseCopy
         )
         let configuration = try SpotifyAuthConfiguration(clientID: clientID, redirectURI: listener.redirectURI)
