@@ -94,9 +94,12 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
         )
         await viewModel.selectArtist(id: artist.id)
 
-        XCTAssertEqual(viewModel.effectiveTrackTargets(forRowID: saved.id).map(\.id), [saved.id])
+        guard case let .artist(detail)? = viewModel.detailState.currentValue,
+              let savedRow = detail.libraryTracks.first(where: { $0.id == saved.id })
+        else { return XCTFail("the artist page has no library section with the saved song") }
+        XCTAssertEqual(viewModel.effectiveTrackTargets(for: savedRow, selectedRows: viewModel.selectedRowsForMenus).map(\.id), [saved.id])
         viewModel.selectedDetailTrackIDs = [top.id, saved.id]
-        XCTAssertEqual(viewModel.effectiveTrackTargets(forRowID: saved.id).map(\.id), [top.id, saved.id])
+        XCTAssertEqual(viewModel.effectiveTrackTargets(for: savedRow, selectedRows: viewModel.selectedRowsForMenus).map(\.id), [top.id, saved.id])
     }
 
     private func apiWithOneAlbum(albumTracks: @escaping (String, String?, Int) async throws -> [MusicTrack]) -> MockBrowsingAPI {

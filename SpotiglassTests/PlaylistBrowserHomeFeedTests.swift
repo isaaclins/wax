@@ -120,7 +120,7 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
 
         XCTAssertEqual(vm.selectedTrackRows.map(\.title), ["Track t1", "Track t3"])
         XCTAssertTrue(PlaylistBrowserView.canEnqueueTrackSelection(rows: vm.selectedTrackRows, hasPlaybackDevice: true))
-        XCTAssertEqual(vm.effectiveTrackTargets(forRowID: rows[2].id).map(\.title), ["Track t1", "Track t3"])
+        XCTAssertEqual(vm.effectiveTrackTargets(for: rows[2], selectedRows: vm.selectedRowsForMenus).map(\.title), ["Track t1", "Track t3"])
 
         // Leaving Home drops the selection, like leaving any other list.
         await vm.selectSidebar(.playlist("one"))
@@ -190,7 +190,7 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
         let palette = CommandPaletteManager()
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         store.bind(userID: "u1")
-        _ = ViewTestHost.host(
+        let controller = ViewTestHost.host(
             PlaylistBrowserView(
                 viewModel: browserVM,
                 playbackHost: playbackHost,
@@ -203,7 +203,20 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
             size: CGSize(width: 1_200, height: 800)
         )
 
-        // As the app does once the browser is up: its own load runs, then a row is clicked.
+        let window = try XCTUnwrap(controller.view.window)
+        // The browser starts at a width of zero and collapses the sidebar; a widening brings it
+        // back, as it does when a real window opens.
+        window.setContentSize(NSSize(width: 1_250, height: 800))
+        // As the app does once the browser is up: its own load runs, the top tracks are scrolled
+        // to under Home's shelves, then a row is clicked. The table builds only the rows it
+        // shows (#655).
+        var table: NSTableView?
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: {
+            table = AppKitTestSupport.tables(in: window.contentView).first { $0.numberOfRows > rows.count }
+            return table != nil
+        }), "Home's table never showed its top tracks")
+        let homeTable = try XCTUnwrap(table)
+        homeTable.scrollRowToVisible(homeTable.numberOfRows - 1)
         XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { ViewBodyTally.counts?["TrackListRow:\(rows[0].id)"] != nil }), "Home's rows never came on screen")
         browserVM.selectedDetailTrackIDs = [rows[0].id]
         XCTAssertTrue(

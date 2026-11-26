@@ -32,23 +32,36 @@ enum LibraryEditableTrackURI {
 }
 
 extension PlaylistBrowserViewModel {
-    /// Track IDs the menu actions should apply to: the active table selection,
-    /// or just the row the menu was opened on when no selection exists.
-    func effectiveTrackTargets(forRowID rowID: String) -> [TrackRowViewModel] {
-        guard var tracks = selectableDetailTracks else { return [] }
-        // The songs of an artist page's "In your library" section count too (#658).
-        if case let .artist(detail)? = detailState.currentValue { tracks += detail.libraryTracks }
+    /// Rows the menu actions should apply to: the active table selection, or just the row the
+    /// menu was opened on when no selection includes it.
+    ///
+    /// Every row builds its menu each time the row is drawn, not only when the menu opens, so
+    /// this runs for each row that scrolls into view, and for every selected row when the
+    /// selection changes. Looking the row up in the whole list made that a pass over all of a
+    /// 2,000-song playlist per row: a flick stuttered, and ⌘A took seconds (#655). So the row the
+    /// menu is for is used as it is, and a selection of several is `selectedRows`, which the list
+    /// works out once per change of the selection (``selectedTrackRows``) and hands every row.
+    func effectiveTrackTargets(for row: TrackRowViewModel, selectedRows: [TrackRowViewModel]) -> [TrackRowViewModel] {
         let selection = selectedDetailTrackIDs
-        if selection.contains(rowID), selection.count > 1 {
-            // Preserve list order so batched calls keep playlist sequence sane.
-            return tracks.filter { selection.contains($0.id) }
+        if selection.count > 1, selection.contains(row.id), !selectedRows.isEmpty {
+            return selectedRows
         }
-        return tracks.first(where: { $0.id == rowID }).map { [$0] } ?? []
+        return [row]
+    }
+
+    /// The selected rows in list order when several are selected, which is when a row's menu
+    /// needs them; empty otherwise, so a click on one row doesn't walk the list. The songs of an
+    /// artist page's "In your library" section count too (#658).
+    var selectedRowsForMenus: [TrackRowViewModel] {
+        let selection = selectedDetailTrackIDs
+        guard selection.count > 1, var tracks = selectableDetailTracks else { return [] }
+        if case let .artist(detail)? = detailState.currentValue { tracks += detail.libraryTracks }
+        return tracks.filter { selection.contains($0.id) }
     }
 
     /// Rows for the current table selection, in list order.
     ///
-    /// The context menu uses ``effectiveTrackTargets(forRowID:)`` because it has
+    /// The context menu uses ``effectiveTrackTargets(for:selectedRows:)`` because it has
     /// a row to fall back on. A menu bar item has no row, only the selection, so
     /// an empty selection means there is nothing to act on (#132).
     var selectedTrackRows: [TrackRowViewModel] {

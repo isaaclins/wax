@@ -371,6 +371,7 @@
 		5C62EF4ED81DF4EAF298F073 /* PlaylistBrowserNarrowWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945E4FAC7DF15B2B04967917 /* PlaylistBrowserNarrowWindowTests.swift */; };
 		TST0000000000000000000108 /* SpotifyAuthorizationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST0000000000000000010108 /* SpotifyAuthorizationFlowTests.swift */; };
 		TST0000000000000000000109 /* WebPlaybackViewCommanderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST0000000000000000010109 /* WebPlaybackViewCommanderTests.swift */; };
+		F655000000000000000000B1 /* LongListScrollCostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F655000000000000000000A1 /* LongListScrollCostTests.swift */; };
 		847F11DF48CEFB524BAE95AC /* WindowResizeCostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A9CD667378D879CF9B5B7B /* WindowResizeCostTests.swift */; };
 		TST000000000000000000010A /* SpotifyPlaybackWebViewCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000000000000000001010A /* SpotifyPlaybackWebViewCoordinatorTests.swift */; };
 		TST000000000000000000010B /* PlaylistBrowserTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST000000000000000001010B /* PlaylistBrowserTypesTests.swift */; };
@@ -941,6 +942,7 @@
 		945E4FAC7DF15B2B04967917 /* PlaylistBrowserNarrowWindowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistBrowserNarrowWindowTests.swift; sourceTree = "<group>"; };
 		TST0000000000000000010108 /* SpotifyAuthorizationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyAuthorizationFlowTests.swift; sourceTree = "<group>"; };
 		TST0000000000000000010109 /* WebPlaybackViewCommanderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebPlaybackViewCommanderTests.swift; sourceTree = "<group>"; };
+		F655000000000000000000A1 /* LongListScrollCostTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LongListScrollCostTests.swift; sourceTree = "<group>"; };
 		36A9CD667378D879CF9B5B7B /* WindowResizeCostTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowResizeCostTests.swift; sourceTree = "<group>"; };
 		TST000000000000000001010A /* SpotifyPlaybackWebViewCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyPlaybackWebViewCoordinatorTests.swift; sourceTree = "<group>"; };
 		TST000000000000000001010B /* PlaylistBrowserTypesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistBrowserTypesTests.swift; sourceTree = "<group>"; };
@@ -1298,6 +1300,7 @@
 				TST000000000000000001010B /* PlaylistBrowserTypesTests.swift */,
 				TST000000000000000001010A /* SpotifyPlaybackWebViewCoordinatorTests.swift */,
 				TST0000000000000000010109 /* WebPlaybackViewCommanderTests.swift */,
+				F655000000000000000000A1 /* LongListScrollCostTests.swift */,
 				36A9CD667378D879CF9B5B7B /* WindowResizeCostTests.swift */,
 				TST0000000000000000010108 /* SpotifyAuthorizationFlowTests.swift */,
 				TST0000000000000000010107 /* PlaylistBrowserMainSurfaceRefreshTests.swift */,
@@ -2191,6 +2194,7 @@
 				TST000000000000000000010B /* PlaylistBrowserTypesTests.swift in Sources */,
 				TST000000000000000000010A /* SpotifyPlaybackWebViewCoordinatorTests.swift in Sources */,
 				TST0000000000000000000109 /* WebPlaybackViewCommanderTests.swift in Sources */,
+				F655000000000000000000B1 /* LongListScrollCostTests.swift in Sources */,
 				847F11DF48CEFB524BAE95AC /* WindowResizeCostTests.swift in Sources */,
 				TST0000000000000000000108 /* SpotifyAuthorizationFlowTests.swift in Sources */,
 				TST0000000000000000000107 /* PlaylistBrowserMainSurfaceRefreshTests.swift in Sources */,

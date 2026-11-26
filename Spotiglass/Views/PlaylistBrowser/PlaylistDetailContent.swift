@@ -68,6 +68,8 @@ struct PlaylistDetailContent: View {
     @EnvironmentObject private var pinnedStore: PinnedItemsStore
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.spotiglassLocale) private var spotiglassLocale
+    /// One marks per list for the rows the table keeps (#683).
+    @State private var marksCache = TrackListPlaybackMarksCache()
     @State private var isPromptingNewPlaylist = false
     @State private var newPlaylistName = ""
     @State private var newPlaylistInitialRows: [TrackRowViewModel] = []
@@ -147,6 +149,19 @@ struct PlaylistDetailContent: View {
         }
     }
 
+    /// What a row shows or offers besides its own track and selection (#655): the list, whether
+    /// it's an album, and whether there is a device to queue on. The rest needs no key: a row
+    /// looks its text up while its body runs, which ties it to the app language (#548), and
+    /// playing looks the playlist up again when it starts.
+    private var rowContentKey: AnyHashable {
+        AnyHashable([
+            detail.playlist.id,
+            detail.playlist.title,
+            detail.playlist.isAlbumDetail ? "album" : "playlist",
+            hasPlaybackDevice ? "device" : "no-device",
+        ])
+    }
+
     private var isEditingDisplayedPlaylistName: Bool {
         guard isEditingPlaylistName,
               let editingPlaylistID
@@ -166,58 +181,62 @@ struct PlaylistDetailContent: View {
             if detail.tracks.isEmpty {
                 EmptyStateView(title: SpotiglassL10n.string("browser.noTracks.title"), message: SpotiglassL10n.string("browser.noTracks.emptyPlaylist"))
             } else {
-                let marks = playback.marks(in: detail.tracks)
-                TrackListView(
-                    tracks: detail.tracks,
-                    selection: $browserViewModel.selectedDetailTrackIDs,
-                    rowBuilder: { track in
-                        marks.row(for: track) { mark in
-                            TrackListRow(
-                                trackNumber: track.listPosition,
-                                track: track,
-                                playURI: playURI,
-                                togglePlayPause: togglePlayPause,
-                                isCurrent: mark.isCurrent,
-                                isPlaying: mark.isPlaying,
-                                openArtist: openArtist,
-                                tracksSurfaceID: tracksSurfaceKey,
-                                isSelected: browserViewModel.selectedDetailTrackIDs.contains(track.id),
-                                drawsRowHighlights: false,
-                                isKeyboardFocusable: false,
-                                trackOpsMenuItems: {
-                                    AnyView(TrackOpsMenuItems(
-                                        targets: browserViewModel.effectiveTrackTargets(forRowID: track.id),
-                                        browserViewModel: browserViewModel,
-                                        sourcePlaylistID: detail.playlist.isAlbumDetail ? nil : detail.playlist.id,
-                                        onRequestCreatePlaylist: { rows in
-                                            newPlaylistInitialRows = rows
-                                            newPlaylistName = ""
-                                            isPromptingNewPlaylist = true
-                                        },
-                                        onRequestLibraryContinuation: onRequestLibraryContinuation,
-                                        openArtist: { target in
-                                            if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
-                                        },
-                                        addToQueue: addToQueue,
-                                        hasPlaybackDevice: hasPlaybackDevice,
-                                        copyableURI: track.playableURI
-                                    ))
-                                }
-                            )
-                        }
-                    },
-                    pendingScrollRestoreTrackID: $pendingScrollRestoreTrackID,
-                    onFirstVisibleTrackChanged: onTrackEnteredViewportApproximation,
-                    playSelection: { selectedIDs in
-                        // Play the first selected row in list order, so a
-                        // multi-row selection has a defined result.
-                        guard let track = detail.tracks.first(where: { selectedIDs.contains($0.id) }),
-                            let uri = track.playableURI
-                        else { return }
-                        playURI(uri)
-                    },
-                    moveRows: moveRows
-                )
+                let marks = marksCache.marks(in: detail.tracks, from: playback)
+                DetailTrackSelectionReader(selection: browserViewModel.detailTrackSelection) { selection in
+                    let selectedRows = browserViewModel.selectedRowsForMenus
+                    TrackListView(
+                        tracks: detail.tracks,
+                        selection: selection,
+                        rowBuilder: { track in
+                            marks.row(for: track) { mark in
+                                TrackListRow(
+                                    trackNumber: track.listPosition,
+                                    track: track,
+                                    playURI: playURI,
+                                    togglePlayPause: togglePlayPause,
+                                    isCurrent: mark.isCurrent,
+                                    isPlaying: mark.isPlaying,
+                                    openArtist: openArtist,
+                                    tracksSurfaceID: tracksSurfaceKey,
+                                    isSelected: browserViewModel.selectedDetailTrackIDs.contains(track.id),
+                                    drawsRowHighlights: false,
+                                    isKeyboardFocusable: false,
+                                    trackOpsMenuItems: {
+                                        AnyView(TrackOpsMenuItems(
+                                            targets: browserViewModel.effectiveTrackTargets(for: track, selectedRows: selectedRows),
+                                            browserViewModel: browserViewModel,
+                                            sourcePlaylistID: detail.playlist.isAlbumDetail ? nil : detail.playlist.id,
+                                            onRequestCreatePlaylist: { rows in
+                                                newPlaylistInitialRows = rows
+                                                newPlaylistName = ""
+                                                isPromptingNewPlaylist = true
+                                            },
+                                            onRequestLibraryContinuation: onRequestLibraryContinuation,
+                                            openArtist: { target in
+                                                if let id = target.id { openArtist(MusicArtistRef(id: id, name: target.name)) }
+                                            },
+                                            addToQueue: addToQueue,
+                                            hasPlaybackDevice: hasPlaybackDevice,
+                                            copyableURI: track.playableURI
+                                        ))
+                                    }
+                                )
+                            }
+                        },
+                        pendingScrollRestoreTrackID: $pendingScrollRestoreTrackID,
+                        onFirstVisibleTrackChanged: onTrackEnteredViewportApproximation,
+                        playSelection: { selectedIDs in
+                            // Play the first selected row in list order, so a
+                            // multi-row selection has a defined result.
+                            guard let track = detail.tracks.first(where: { selectedIDs.contains($0.id) }),
+                                let uri = track.playableURI
+                            else { return }
+                            playURI(uri)
+                        },
+                        moveRows: moveRows,
+                        rowContentKey: rowContentKey
+                    )
+                }
             }
         }
         .alert(SpotiglassL10n.string("playlist.detail.newPlaylist.title"), isPresented: $isPromptingNewPlaylist) {

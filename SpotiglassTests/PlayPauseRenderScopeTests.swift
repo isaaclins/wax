@@ -9,9 +9,18 @@ import XCTest
 /// track and playlist row, though only the playing ones looked any different.
 @MainActor
 final class PlayPauseRenderScopeTests: XCTestCase {
+    private var hostedWindow: NSWindow?
+    /// The songs of the list this test opened. Only their rows count: a window an earlier test
+    /// closed can still draw a row of its own list while this one measures (#683).
+    private var hostedTrackIDs: Set<String> = []
+    private var hostedBrowser: PlaylistBrowserViewModel?
+
     override func tearDown() {
         ViewBodyTally.counts = nil
         ViewTestHost.tearDownAll()
+        hostedWindow = nil
+        hostedTrackIDs = []
+        hostedBrowser = nil
         super.tearDown()
     }
 
@@ -59,7 +68,9 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             trackResults: ["p1": [.success(tracks)]],
             playlistsHandler: { playlists }
         )
+        hostedTrackIDs = Set(tracks.map(\.id))
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        hostedBrowser = browserVM
         await browserVM.load()
         await browserVM.selectPlaylist(id: "p1")
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(browserVM.detailState).count, tracks.count)
@@ -79,6 +90,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         .environmentObject(store)
         .environmentObject(LyricsOverlayController())
         let controller = ViewTestHost.host(view, size: CGSize(width: 1_600, height: 1_400))
+        hostedWindow = controller.view.window
         await AppKitTestSupport.settle()
         // The browser starts at a width of zero and collapses the sidebar; a widening brings it
         // back, as it does when a real window opens.
@@ -107,6 +119,7 @@ final class PlayPauseRenderScopeTests: XCTestCase {
 
     private func trackRows(in counts: [String: Int]) -> Set<String> {
         Set(counts.keys.filter { $0.hasPrefix("TrackListRow:") }.map { String($0.dropFirst("TrackListRow:".count)) })
+            .intersection(hostedTrackIDs)
     }
 
     private func playlistRows(in counts: [String: Int]) -> Set<String> {
@@ -156,6 +169,26 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         assertOnlyTheRowsChanged(otherPlaylist, tracks: ["t4", "t5"], playlists: ["p1", "p2"])
     }
 
+    /// A row off screen isn't built again on a pause (#655). It shows the pause once it scrolls in.
+    func testARowOffScreenShowsAPauseWhenItScrollsIn() async throws {
+        let rowCount = 300
+        let last = "o\(rowCount)"
+        let playback = try await hostBrowser(
+            tracks: (1...rowCount).map { PlaylistBrowsingTestFixtures.track(id: "o\($0)") },
+            playing: .playing(Self.nowPlaying(last))
+        )
+        let table = try XCTUnwrap(AppKitTestSupport.tables(in: hostedWindow?.contentView).first { $0.numberOfRows >= rowCount })
+        XCTAssertFalse(table.rows(in: table.visibleRect).contains(rowCount - 1), "the playing row started on screen")
+
+        playback.setConnectionState(.paused(Self.nowPlaying(last)))
+        await AppKitTestSupport.settle()
+        ViewBodyTally.counts = [:]
+        table.scrollRowToVisible(rowCount - 1)
+        let shown = await AppKitTestSupport.settle(until: { ViewBodyTally.counts?["TrackListRowMark:\(last):paused"] != nil })
+        XCTAssertTrue(shown, "the playing row scrolled in without showing the pause: \((ViewBodyTally.counts ?? [:]).keys.filter { $0.hasPrefix("TrackListRowMark:\(last)") })")
+        XCTAssertNil(ViewBodyTally.counts?["TrackListRowMark:\(last):playing"], "the playing row scrolled in still playing")
+    }
+
     /// An Apple Music song started from another list is found among the rows by title, artists
     /// and length (#396). One change of the player looks for it once for the whole list: done by
     /// each row, one pause on a list of 1000 songs held the main thread for 0.3 to 0.5 s.
@@ -193,6 +226,20 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             return playing ? .playing(nowPlaying) : .paused(nowPlaying)
         }
         let playback = try await hostBrowser(tracks: (0..<rowCount).map(song), playing: state(playing: true))
+        // The matched row on screen, as when someone looks at it. A row off screen isn't built
+        // again on a pause; it shows the player's state when it comes into view (#655, tested
+        // above).
+        let table = try XCTUnwrap(AppKitTestSupport.tables(in: hostedWindow?.contentView).first { $0.numberOfRows >= rowCount })
+        table.scrollRowToVisible(matched)
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { table.rows(in: table.visibleRect).contains(matched) }))
+        await AppKitTestSupport.settle()
+        // Between pauses the page runs again (the browser published something) and a click
+        // builds one row again. The table keeps the other rows, and they all still share one
+        // search: each body handing the rows a new marks left several on screen (#683).
+        hostedBrowser?.objectWillChange.send()
+        await AppKitTestSupport.settle()
+        hostedBrowser?.selectedDetailTrackIDs = ["r\(matched + 1)"]
+        await AppKitTestSupport.settle()
 
         for playing in [false, true] {
             let counts = await bodies { playback.setConnectionState(state(playing: playing)) }
