@@ -144,6 +144,18 @@ final class MenuKeyEquivalentTests: XCTestCase {
         )
     }
 
+    /// The key monitor finds Shuffle, Repeat and Back by their titles (#730). If one of them were
+    /// renamed in the menu and not there, its key would quietly go the slow way again.
+    func testTheMenuHasEveryItemTheKeyMonitorRunsItself() throws {
+        AppKitTestSupport.activateAppIfNeeded()
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { NSApp.mainMenu != nil }))
+        let menu = try XCTUnwrap(NSApp.mainMenu)
+        let keyedTitles = Set(menuKeyEquivalentItems(in: menu).compactMap { $0.path.components(separatedBy: " > ").last })
+        for title in MenuOnlyShortcuts.titles {
+            XCTAssertTrue(keyedTitles.contains(title), "no menu item with a shortcut is titled \"\(title)\"")
+        }
+    }
+
     func testRepeatCycleCommandAdvancesThroughAllModes() async {
         let manager = CommandPaletteManager(keymapStore: makeStore())
         manager.playbackTransportMutationPrerequisite = { true }
