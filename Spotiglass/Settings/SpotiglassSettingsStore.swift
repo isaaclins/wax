@@ -702,6 +702,7 @@ final class SpotiglassSettingsStore: ObservableObject {
     /// the macOS-standard path (#27).
     static func defaultFileURL(fileManager: FileManager) -> URL {
         let base =
+            // try?: without the system's answer the standard path is built by hand below.
             (try? fileManager.url(
                 for: .applicationSupportDirectory,
                 in: .userDomainMask,

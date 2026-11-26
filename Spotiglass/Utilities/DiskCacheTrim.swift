@@ -37,6 +37,7 @@ enum DiskCacheTrim {
 
         let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey]
         guard
+            // try?: a folder that can't be listed has nothing to trim.
             let files = try? fileManager.contentsOfDirectory(
                 at: directory,
                 includingPropertiesForKeys: keys,

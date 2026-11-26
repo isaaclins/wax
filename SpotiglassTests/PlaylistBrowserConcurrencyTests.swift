@@ -454,7 +454,7 @@ private actor TestDeferred<Value> {
             waiter = continuation
             let waiters = blockedWaiters
             blockedWaiters.removeAll()
-            waiters.forEach { $0.resume() }
+            for waiter in waiters { waiter.resume() }
         }
     }
 

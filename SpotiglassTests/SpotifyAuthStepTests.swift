@@ -1805,7 +1805,7 @@ private actor ManualSleeper {
     func wake() {
         let waiting = sleepers
         sleepers.removeAll()
-        waiting.forEach { $0.resume() }
+        for waiter in waiting { waiter.resume() }
     }
 }
 

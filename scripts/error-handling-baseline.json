@@ -138,11 +138,6 @@
   {
     "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
     "rule": "try-reason",
-    "code": "let cachedTracks = try? cache.loadTracks(playlistID: virtualID, snapshotID: snapshotID, now: now(), maxAge: maxCacheAge) {"
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
-    "rule": "try-reason",
     "code": "let full = try? await read.value"
   },
   {
@@ -150,11 +145,6 @@
     "rule": "try-reason",
     "code": "let profile = try? await api.currentUserProfile()",
     "count": 3
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
-    "rule": "try-reason",
-    "code": "let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: virtualID, snapshotID: snapshotID) {"
   },
   {
     "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+LikedSongsDetailLoading.swift",
@@ -199,28 +189,12 @@
   {
     "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
     "rule": "try-reason",
-    "code": "let cachedTracks = try? cache.loadTracks(playlistID: playlist.id, snapshotID: playlist.snapshotID, now: now(), maxAge: maxCacheAge) {"
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
-    "rule": "try-reason",
-    "code": "let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: playlist.id, snapshotID: playlist.snapshotID) {"
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
-    "rule": "try-reason",
     "code": "try? await Task.sleep(for: Self.firstScreenDrawTime)"
   },
   {
     "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PlaylistTracksDetailLoading.swift",
     "rule": "try-reason",
     "code": "try? cache.saveTracks(tracks, playlistID: playlist.id, snapshotID: playlist.snapshotID, cachedAt: now())"
-  },
-  {
-    "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch let apiError as SpotifyAPIError { … if case let .rateLimited(retryAfter) = apiError, retryRemaining > 0 {",
-    "count": 2
   },
   {
     "file": "Spotiglass/Browsing/PlaylistBrowserViewModel+PrefetchAllTracks.swift",
@@ -423,11 +397,6 @@
     "code": "try? stopped.close() // Best effort: the line only explains the end of the file."
   },
   {
-    "file": "Spotiglass/Infrastructure/SpotiglassLog.swift",
-    "rule": "try-reason",
-    "code": "try? stopped.write(contentsOf: Data(\"=== Log file full at \\(stamp) and could not be moved aside; the rest of this session is in Console only ===\\n\".utf8))"
-  },
-  {
     "file": "Spotiglass/Persistence/LyricsDiskCache.swift",
     "rule": "try-reason",
     "code": "DiskCacheTrim.write { _ = try? fileManager.setAttributes([.modificationDate: Date()], ofItemAtPath: path) }"
@@ -562,11 +531,6 @@
   {
     "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
     "rule": "try-reason",
-    "code": "guard let data = try? String("
-  },
-  {
-    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
-    "rule": "try-reason",
     "code": "let contents = try? String(contentsOf: url, encoding: .utf8)"
   },
   {
@@ -624,11 +588,6 @@
     "rule": "catch-drops-error",
     "code": "} catch { … refusal = error",
     "count": 2
-  },
-  {
-    "file": "Spotiglass/Playback/MusicKitApplicationPlayer.swift",
-    "rule": "localized-text",
-    "code": "return MusicPlaybackError(service: .appleMusic, reason: .network(error.localizedDescription), detail: String(describing: error))"
   },
   {
     "file": "Spotiglass/Playback/MusicKitApplicationPlayer.swift",
@@ -851,11 +810,6 @@
     "code": "let version = (try? await source.libraryPlaylist(id: playlistID))?.lastModifiedDate"
   },
   {
-    "file": "Spotiglass/Services/AppleMusicBrowsingProvider.swift",
-    "rule": "try-reason",
-    "code": "var ratingsDeadline: @Sendable () async -> Void = { try? await Task.sleep(for: AppleMusicBrowsingProvider.ratingsWait) }"
-  },
-  {
     "file": "Spotiglass/Services/AppleMusicCloudLibrary.swift",
     "rule": "try-reason",
     "code": "request.httpBody = try? JSONSerialization.data(withJSONObject: json, options: [.sortedKeys])"
@@ -921,11 +875,6 @@
     "code": "if let data = try? JSONEncoder().encode(next) {"
   },
   {
-    "file": "Spotiglass/Services/LyricsTimingStore.swift",
-    "rule": "try-reason",
-    "code": "let decoded = try? JSONDecoder().decode([String: Entry].self, from: data) {"
-  },
-  {
     "file": "Spotiglass/Services/MusicKitLibraryLookup.swift",
     "rule": "try-reason",
     "code": "guard let data = try? JSONEncoder().encode(item) else {"
@@ -959,27 +908,12 @@
   {
     "file": "Spotiglass/Services/SpotifyAPIClient.swift",
     "rule": "try-reason",
-    "code": "let cachedValue = try? decoder.decode(Response.self, from: cacheHit.data) {"
-  },
-  {
-    "file": "Spotiglass/Services/SpotifyAPIClient.swift",
-    "rule": "try-reason",
-    "code": "let cachedValue = try? decoder.decode(Response.self, from: cachedData) {"
-  },
-  {
-    "file": "Spotiglass/Services/SpotifyAPIClient.swift",
-    "rule": "try-reason",
     "code": "let message = try? decoder.decode(SpotifyAPIErrorResponse.self, from: data).error.message"
   },
   {
     "file": "Spotiglass/Services/SpotifyDTOs+UserPlaylist.swift",
     "rule": "try-reason",
     "code": "collaborative = (try? container.decodeIfPresent(Bool.self, forKey: .collaborative)) ?? false"
-  },
-  {
-    "file": "Spotiglass/Services/SpotifyGETResponseCache.swift",
-    "rule": "try-reason",
-    "code": "guard let hit = try? diskCache.loadGETResponseRecord("
   },
   {
     "file": "Spotiglass/Services/SpotifyGETResponseCache.swift",
@@ -995,11 +929,6 @@
     "file": "Spotiglass/Settings/AppearanceSettingsView.swift",
     "rule": "try-reason",
     "code": "try? settingsStore.persistStagedSettings()"
-  },
-  {
-    "file": "Spotiglass/Settings/SpotiglassSettingsModel.swift",
-    "rule": "catch-drops-error",
-    "code": "} catch { … tracker?.noteRepair(at: codingPath + [key, SettingsRowKey(index)], index UnreadableFileBackup.describe(error) )"
   },
   {
     "file": "Spotiglass/Settings/SpotiglassSettingsModel.swift",
@@ -1042,11 +971,6 @@
     "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
     "rule": "try-reason",
     "code": "if let destination = try? fileManager.destinationOfSymbolicLink(atPath: legacyURL.path) {"
-  },
-  {
-    "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
-    "rule": "try-reason",
-    "code": "let base = (try? fileManager.url("
   },
   {
     "file": "Spotiglass/Settings/SpotiglassSettingsStore.swift",
@@ -1108,11 +1032,6 @@
     "file": "Spotiglass/Utilities/DiskCacheTrim.swift",
     "rule": "try-reason",
     "code": "guard let current = (try? fileManager.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date,"
-  },
-  {
-    "file": "Spotiglass/Utilities/DiskCacheTrim.swift",
-    "rule": "try-reason",
-    "code": "guard let files = try? fileManager.contentsOfDirectory("
   },
   {
     "file": "Spotiglass/Utilities/DiskCacheTrim.swift",

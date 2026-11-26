@@ -95,8 +95,9 @@ final class CommandPalettePanelTests: XCTestCase {
         var pinned = 0
         let usable = CommandPaletteItem(
             id: "track-q", title: "Song", subtitle: "Artist", iconSystemName: "music.note",
-            section: .tracks, keywords: [], pinAction: { pinned += 1 }, queueAction: { queued += 1 }
-        ) {}
+            section: .tracks, keywords: [], pinAction: { pinned += 1 }, queueAction: { queued += 1 },
+            action: {}
+        )
         viewModel.show()
         viewModel.query = "midnight city"
         viewModel.testingReplaceSections([(.tracks, [usable])])
@@ -481,8 +482,9 @@ final class CommandPalettePanelTests: XCTestCase {
             viewModel.query = "song"
             let queueable = CommandPaletteItem(
                 id: "track-q", title: "Song", subtitle: "Artist", iconSystemName: "music.note",
-                section: .tracks, keywords: [], pinAction: {}, queueAction: {}
-            ) {}
+                section: .tracks, keywords: [], pinAction: {}, queueAction: {},
+                action: {}
+            )
             viewModel.testingReplaceSections([(.tracks, [queueable])])
             XCTAssertTrue(viewModel.canEnqueueSelectedItem && viewModel.canPinSelectedItem)
 

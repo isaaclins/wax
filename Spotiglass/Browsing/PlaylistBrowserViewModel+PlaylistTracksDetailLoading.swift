@@ -23,6 +23,7 @@ extension PlaylistBrowserViewModel {
         let playlistRow = PlaylistRowViewModel(playlist)
 
         if refreshCachedData,
+            // try?: an unreadable cache entry is a miss; the tracks load from the service below.
             let cachedTracks = try? cache.loadTracks(
                 playlistID: playlist.id, snapshotID: playlist.snapshotID, now: now(), maxAge: maxCacheAge)
         {
@@ -47,6 +48,7 @@ extension PlaylistBrowserViewModel {
         }
 
         if refreshCachedData,
+            // try?: an unreadable cache entry is a miss; the tracks load from the service below.
             let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: playlist.id, snapshotID: playlist.snapshotID)
         {
             if staleTracks.isEmpty {

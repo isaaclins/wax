@@ -2305,7 +2305,7 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
     func releaseLookups() {
         let waiting = lookupWaiters
         lookupWaiters.removeAll()
-        waiting.forEach { $0.resume.resume() }
+        for waiter in waiting { waiter.resume.resume() }
     }
 
     private func lookup(_ name: String) async {
@@ -2329,7 +2329,7 @@ final class ScriptedAppleMusicPlayer: AppleMusicPlayerControlling {
         now += seconds
         let due = pending.filter { $0.at <= now }
         pending.removeAll { $0.at <= now }
-        due.forEach { $0.apply() }
+        for entry in due { entry.apply() }
     }
 
     private func position() -> Double {

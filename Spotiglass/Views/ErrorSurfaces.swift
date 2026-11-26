@@ -244,7 +244,8 @@ extension View {
                     .task(id: shown) {
                         // VoiceOver says it: it is gone before anyone could move to it.
                         AccessibilityNotification.Announcement(shown.text).post()
-                        try? await Task.sleep(for: ErrorToast.displayDuration)  // try?: a cancelled wait means a newer toast replaced this one
+                        // try?: a cancelled wait means a newer toast replaced this one.
+                        try? await Task.sleep(for: ErrorToast.displayDuration)
                         if message.wrappedValue == shown {
                             message.wrappedValue = nil
                         }

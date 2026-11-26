@@ -320,7 +320,7 @@ private actor ProfileLookupGate {
             waiter = continuation
             let waiters = blockedWaiters
             blockedWaiters.removeAll()
-            waiters.forEach { $0.resume() }
+            for waiter in waiters { waiter.resume() }
         }
     }
 

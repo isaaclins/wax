@@ -802,6 +802,6 @@ final class LibraryEditsGate: @unchecked Sendable {
         let resumed = waiters
         waiters = []
         lock.unlock()
-        resumed.forEach { $0.resume() }
+        for waiter in resumed { waiter.resume() }
     }
 }

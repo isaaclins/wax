@@ -641,7 +641,7 @@ final class AudioEqualizerEngine: ObservableObject {
         defer {
             let waiters = routeChangeEndWaiters
             routeChangeEndWaiters = []
-            waiters.forEach { $0.resume() }
+            for waiter in waiters { waiter.resume() }
         }
         if let settingsStore = observedSettingsStore, !settingsStore.settings.equalizer.enabled,
             routeState.isEngaged

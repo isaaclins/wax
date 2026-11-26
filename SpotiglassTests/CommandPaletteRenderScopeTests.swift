@@ -40,7 +40,7 @@ final class CommandPaletteRenderScopeTests: XCTestCase {
             // The menu bar observes the registry: a change here builds every menu again.
             registry.objectWillChange.sink { changes["menu bar", default: 0] += 1 },
         ]
-        defer { subscriptions.forEach { $0.cancel() } }
+        defer { for subscription in subscriptions { subscription.cancel() } }
 
         useThePalette(manager.viewModel)
 

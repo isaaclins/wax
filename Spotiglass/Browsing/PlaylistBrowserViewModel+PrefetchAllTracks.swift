@@ -198,6 +198,7 @@ extension PlaylistBrowserViewModel {
                 }
                 return await fetchAndCachePlaylistTracks(summary: summary, retryRemaining: retryRemaining - 1)
             }
+            SpotiglassLog.info(.browsing, "Prefetching a playlist's songs failed: \(SpotiglassLog.describe(apiError))")
             return .failed
         } catch {
             return .failed
@@ -232,6 +233,7 @@ extension PlaylistBrowserViewModel {
                 }
                 return await fetchAndCacheLikedSongs(retryRemaining: retryRemaining - 1)
             }
+            SpotiglassLog.info(.browsing, "Prefetching Liked Songs failed: \(SpotiglassLog.describe(apiError))")
             return .failed
         } catch {
             return .failed

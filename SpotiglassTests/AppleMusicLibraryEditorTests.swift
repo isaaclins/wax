@@ -205,7 +205,7 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
     }
 
     func testUnlikeOfASongNobodyCanFindSaysMusicIsNotThereYet() async {
-        await XCTAssertThrowsEditError(.notInMusicYet) { try await self.editor.removeSongs(ids: ["699902614"]) }
+        await assertThrowsEditError(.notInMusicYet) { try await self.editor.removeSongs(ids: ["699902614"]) }
         XCTAssertEqual(musicApp.calls, [])
     }
 
@@ -305,7 +305,7 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
             AppleMusicCloudPlaylist(id: "p.a", name: "Mix"), AppleMusicCloudPlaylist(id: "p.b", name: "Mix"),
         ]
 
-        await XCTAssertThrowsEditError(.ambiguousPlaylist) {
+        await assertThrowsEditError(.ambiguousPlaylist) {
             try await self.editor.addToPlaylist(playlistID: "-1", songIDs: ["699902614"])
         }
         XCTAssertFalse(cloud.calls.contains { $0.hasPrefix("addToPlaylist") })
@@ -358,8 +358,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
         cloud.createdPlaylistID = "p.new"
         _ = try await editor.createPlaylist(name: "Same", ownerName: "You", existingIDsWithSameName: ["-1"])
 
-        await XCTAssertThrowsEditError(.ambiguousPlaylist) { try await self.editor.deletePlaylist(playlistID: "p.new") }
-        await XCTAssertThrowsEditError(.ambiguousPlaylist) {
+        await assertThrowsEditError(.ambiguousPlaylist) { try await self.editor.deletePlaylist(playlistID: "p.new") }
+        await assertThrowsEditError(.ambiguousPlaylist) {
             try await self.editor.renamePlaylist(playlistID: "p.new", name: "Other")
         }
         XCTAssertEqual(musicApp.calls, [])
@@ -373,8 +373,8 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
             AppleMusicCloudPlaylist(id: "p.new", name: "mix"), AppleMusicCloudPlaylist(id: "p.old", name: "Mix"),
         ]
 
-        await XCTAssertThrowsEditError(.ambiguousPlaylist) { try await self.editor.deletePlaylist(playlistID: "p.new") }
-        await XCTAssertThrowsEditError(.ambiguousPlaylist) {
+        await assertThrowsEditError(.ambiguousPlaylist) { try await self.editor.deletePlaylist(playlistID: "p.new") }
+        await assertThrowsEditError(.ambiguousPlaylist) {
             try await self.editor.renamePlaylist(playlistID: "p.new", name: "Other")
         }
         XCTAssertEqual(musicApp.calls, [])
@@ -388,7 +388,7 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
             AppleMusicCloudPlaylist(id: "p.new", name: "Same"), AppleMusicCloudPlaylist(id: "p.old", name: "Same"),
         ]
 
-        await XCTAssertThrowsEditError(.ambiguousPlaylist) { try await self.editor.deletePlaylist(playlistID: "p.new") }
+        await assertThrowsEditError(.ambiguousPlaylist) { try await self.editor.deletePlaylist(playlistID: "p.new") }
         XCTAssertEqual(musicApp.calls, [])
     }
 
@@ -414,7 +414,7 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
             AppleMusicCloudPlaylist(id: "p.a", name: "A"), AppleMusicCloudPlaylist(id: "p.b", name: "B"),
         ]
 
-        await XCTAssertThrowsEditError(.notInMusicYet) {
+        await assertThrowsEditError(.notInMusicYet) {
             try await self.editor.addToPlaylist(playlistID: "-1", songIDs: ["699902614"])
         }
         XCTAssertFalse(cloud.calls.contains { $0.hasPrefix("addToPlaylist") })
@@ -422,7 +422,7 @@ final class AppleMusicLibraryEditorTests: XCTestCase {
 
     func testADeniedMusicPermissionSurfacesAsItsOwnError() async {
         musicApp.error = AppleMusicLibraryEditError.musicControlDenied
-        await XCTAssertThrowsEditError(.musicControlDenied) {
+        await assertThrowsEditError(.musicControlDenied) {
             try await self.editor.deletePlaylist(playlistID: "-1")
         }
         XCTAssertEqual(
@@ -1191,7 +1191,7 @@ final class AppleMusicCloudRequestsTests: XCTestCase {
     /// A timeout, 401 or 5xx on the first page used to read as a new, empty playlist (#595).
     func testAFailedFirstTrackReadIsAFailureNotAnEmptyPlaylist() async {
         let library = MusicDataRequestCloudLibrary { _ in throw AppleMusicLibraryEditError.requestFailed }
-        await XCTAssertThrowsEditError(.requestFailed) {
+        await assertThrowsEditError(.requestFailed) {
             _ = try await library.playlistTracks(cloudPlaylistID: "p.mine")
         }
     }
@@ -1243,7 +1243,7 @@ final class AppleMusicBrowsingProviderLibraryEditTests: XCTestCase {
 
 // MARK: - Mocks
 
-func XCTAssertThrowsEditError(
+func assertThrowsEditError(
     _ expected: AppleMusicLibraryEditError,
     file: StaticString = #filePath,
     line: UInt = #line,
@@ -1578,7 +1578,7 @@ final class MusicDataRequestCloudLibraryTests: XCTestCase {
 
     func testAnEmptyCreateResponseIsAFailure() async {
         let library = MusicDataRequestCloudLibrary { _ in Data(#"{"data":[]}"#.utf8) }
-        await XCTAssertThrowsEditError(.requestFailed) { _ = try await library.createPlaylist(name: "x", songs: []) }
+        await assertThrowsEditError(.requestFailed) { _ = try await library.createPlaylist(name: "x", songs: []) }
     }
 }
 
@@ -1750,7 +1750,7 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     }
 
     func testASongNeitherRouteCanAddIsRefusedBeforeAnythingIsSent() async {
-        await XCTAssertThrowsEditError(.notEditable) {
+        await assertThrowsEditError(.notEditable) {
             try await self.editor.addToPlaylist(playlistID: "-107247429512612591", songIDs: ["i.unknown"])
         }
         XCTAssertEqual(cloud.calls, [])
@@ -1784,7 +1784,7 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     }
 
     func testANewPlaylistWhoseSongCantBeAddedIsNeverCreated() async {
-        await XCTAssertThrowsEditError(.notEditable) {
+        await assertThrowsEditError(.notEditable) {
             _ = try await self.editor.createPlaylist(name: "Spotiglass test", ownerName: "You", songIDs: ["i.unknown"])
         }
         XCTAssertEqual(cloud.calls, [])
@@ -1795,7 +1795,7 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
     func testAFailedCreateThroughTheAPILeavesNothingBehind() async {
         cloud.createError = AppleMusicLibraryEditError.requestFailed
 
-        await XCTAssertThrowsEditError(.requestFailed) {
+        await assertThrowsEditError(.requestFailed) {
             _ = try await self.editor.createPlaylist(name: "Spotiglass test", ownerName: "You", songIDs: ["506650076"])
         }
         XCTAssertEqual(pending.applied(toPlaylists: []), [])
@@ -1869,7 +1869,7 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
 
     func testMusicPlaylistIDsMustComeBackAsHex() async {
         let runner = StubScriptRunner(result: "not an id")
-        await XCTAssertThrowsEditError(.requestFailed) {
+        await assertThrowsEditError(.requestFailed) {
             _ = try await MusicAppLibraryScripting(runner: runner).createPlaylist(
                 name: "x", tracks: [.persistentID(self.rowPersistentID)])
         }
@@ -2132,7 +2132,7 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         musicApp.createdPersistentID = "FE82FB07F4D3B512"
         let created = try await editor.createPlaylist(name: "Spotiglass test", ownerName: "You", songIDs: [rowID])
 
-        await XCTAssertThrowsEditError(.notInMusicYet) {
+        await assertThrowsEditError(.notInMusicYet) {
             try await self.editor.addToPlaylist(playlistID: created.id, songIDs: ["699902614"])
         }
     }
@@ -2145,7 +2145,7 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         cloud.playlists = [AppleMusicCloudPlaylist(id: "p.older", name: "Spotiglass mix")]
         try await editor.renamePlaylist(playlistID: created.id, name: "Spotiglass mix")
 
-        await XCTAssertThrowsEditError(.notInMusicYet) {
+        await assertThrowsEditError(.notInMusicYet) {
             try await self.editor.addToPlaylist(playlistID: created.id, songIDs: ["699902614"])
         }
         XCTAssertFalse(cloud.calls.contains { $0.hasPrefix("addToPlaylist") })
@@ -2181,7 +2181,7 @@ final class AppleMusicPlaylistEditFixTests: XCTestCase {
         )
         cloud.playlists = [AppleMusicCloudPlaylist(id: "p.older", name: "Spotiglass test")]
 
-        await XCTAssertThrowsEditError(.ambiguousPlaylist) {
+        await assertThrowsEditError(.ambiguousPlaylist) {
             try await self.editor.addToPlaylist(playlistID: created.id, songIDs: ["699902614"])
         }
         XCTAssertFalse(cloud.calls.contains { $0.hasPrefix("addToPlaylist") })
@@ -2372,7 +2372,7 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
         // Music had 5 songs in the playlist, added the first song and was still adding the second.
         runner.lateProgress = "5|\(rowPersistentID)|\(secondPersistentID)"
 
-        await XCTAssertThrowsEditError(.musicUnavailable) {
+        await assertThrowsEditError(.musicUnavailable) {
             try await self.editor.addToPlaylist(playlistID: self.playlistID, songIDs: [self.rowID, self.secondRowID])
         }
 
@@ -2388,7 +2388,7 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
         lookup.songsByID[rowID]?.sourcePlaylistPersistentID = "EFF09BC41F579694"
         runner.lateProgress = "FE82FB07F4D3B512|"
 
-        await XCTAssertThrowsEditError(.musicUnavailable) {
+        await assertThrowsEditError(.musicUnavailable) {
             _ = try await self.editor.createPlaylist(name: "Spotiglass test", ownerName: "You", songIDs: [self.rowID])
         }
 
@@ -2474,16 +2474,16 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
         runner.lateProgress = ""
         runner.settleError = AppleMusicLibraryEditError.musicUnavailable
 
-        await XCTAssertThrowsEditError(.musicStillBusy) {
+        await assertThrowsEditError(.musicStillBusy) {
             try await self.editor.removeSongs(ids: [self.rowID])
         }
         runner.settleError = AppleMusicLibraryEditError.notInMusicYet
-        await XCTAssertThrowsEditError(.musicStillBusy) {
+        await assertThrowsEditError(.musicStillBusy) {
             try await self.editor.removeSongs(ids: [self.rowID])
         }
         runner.settleError = AppleMusicLibraryEditError.ambiguousSong
         // Two songs that match alike is a state worth naming as it is.
-        await XCTAssertThrowsEditError(.ambiguousSong) {
+        await assertThrowsEditError(.ambiguousSong) {
             try await self.editor.removeSongs(ids: [self.rowID])
         }
     }
@@ -2492,7 +2492,7 @@ final class AppleMusicLateMusicChangeTests: XCTestCase {
         runner.lateProgress = ""
         runner.settleError = AppleMusicLibraryEditError.musicStillBusy
 
-        await XCTAssertThrowsEditError(.musicStillBusy) {
+        await assertThrowsEditError(.musicStillBusy) {
             try await self.editor.removeSongs(ids: [self.rowID])
         }
         XCTAssertFalse(pending.isRemoved([rowID]), "nothing is shown as done while it is unknown")
@@ -2786,7 +2786,7 @@ final class AppleMusicPlaylistOnlySongTests: XCTestCase {
         lookup.libraryIdentitiesByPersistentID = [:]
         registry.remember([.song(try row())], playlistID: playlistID)
 
-        await XCTAssertThrowsEditError(.notEditable) {
+        await assertThrowsEditError(.notEditable) {
             try await self.editor.saveSongs(ids: [self.rowID])
         }
         XCTAssertEqual(cloud.calls, [])

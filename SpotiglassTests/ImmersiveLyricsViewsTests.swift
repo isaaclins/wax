@@ -667,10 +667,9 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
         let line = TappableLyricLine(
             isActive: false,
             reduceMotion: true,
-            onTap: { tapped = true }
-        ) {
-            Text("First")
-        }
+            onTap: { tapped = true },
+            content: { Text("First") }
+        )
 
         ViewTestHost.host(line, size: CGSize(width: 400, height: 80))
         try line.inspect().button().tap()

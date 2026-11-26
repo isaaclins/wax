@@ -117,6 +117,7 @@ final class SpotifyGETResponseCache: @unchecked Sendable {
 
         guard let diskCache else { return nil }
         guard
+            // try?: an unreadable disk entry is a cache miss.
             let hit = try? diskCache.loadGETResponseRecord(
                 digest: Self.digest(for: key),
                 allowExpired: allowExpired

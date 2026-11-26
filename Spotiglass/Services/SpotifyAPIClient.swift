@@ -221,6 +221,7 @@ struct SpotifyAPIClient {
             SpotifyGETResponseCachePolicy.shouldCache(request),
             let key = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request),
             let cacheHit = cache.cachedEntry(forCacheKey: key, allowExpired: cacheMode == .allowStale),
+            // try?: a cached answer that no longer decodes is a miss; the request goes out below.
             let cachedValue = try? decoder.decode(Response.self, from: cacheHit.data)
         {
             return MusicCachedResponse(value: cachedValue, isStale: cacheHit.isExpired)
@@ -249,6 +250,7 @@ struct SpotifyAPIClient {
             SpotifyGETResponseCachePolicy.shouldCache(request),
             let key = SpotifyGETResponseCachePolicy.normalizedCacheKey(for: request),
             let cachedData = cache.cachedEntry(forCacheKey: key, allowExpired: cacheMode == .allowStale)?.data,
+            // try?: a cached answer that no longer decodes is a miss; the request goes out below.
             let cachedValue = try? decoder.decode(Response.self, from: cachedData)
         {
             return cachedValue

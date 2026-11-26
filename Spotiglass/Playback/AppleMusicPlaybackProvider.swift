@@ -385,7 +385,7 @@ final class AppleMusicPlaybackProvider: MusicPlaybackProvider {
     private func releaseQueueReads() {
         let waiters = queueReadWaiters
         queueReadWaiters = [:]
-        waiters.values.forEach { $0.resume() }
+        for waiter in waiters.values { waiter.resume() }
     }
 
     // MARK: - Mapping

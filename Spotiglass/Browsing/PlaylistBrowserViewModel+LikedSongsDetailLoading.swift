@@ -8,6 +8,7 @@ extension PlaylistBrowserViewModel {
         let snapshotID = SpotiglassSidebarLibrary.likedSongsCacheSnapshotID
 
         if refreshCachedData,
+            // try?: an unreadable cache entry is a miss; the tracks load from the service below.
             let cachedTracks = try? cache.loadTracks(
                 playlistID: virtualID, snapshotID: snapshotID, now: now(), maxAge: maxCacheAge)
         {
@@ -26,6 +27,7 @@ extension PlaylistBrowserViewModel {
         }
 
         if refreshCachedData,
+            // try?: an unreadable cache entry is a miss; the tracks load from the service below.
             let staleTracks = try? cache.loadTracksIgnoringAge(playlistID: virtualID, snapshotID: snapshotID)
         {
             guard await setLikedSongsDetailState(from: staleTracks, session: session) else { return }

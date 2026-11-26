@@ -96,6 +96,7 @@ extension KeyedDecodingContainer {
                 values.append(try type.init(from: itemDecoder))
             } catch {
                 // The row is skipped and named in the log; its siblings stay.
+                SpotiglassLog.debug(.settings, "Skipped settings row \(index): \(SpotiglassLog.describe(error))")
                 tracker?.noteRepair(
                     at: codingPath + [key, SettingsRowKey(index)],
                     "row \(index) skipped, \(UnreadableFileBackup.describe(error))")

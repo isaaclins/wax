@@ -133,6 +133,7 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
     /// How long a list waits for its songs' ratings before it shows without them (#518). The
     /// lookups carry on, so the next read of the list has them. Tests replace it.
     var ratingsDeadline: @Sendable () async -> Void = {
+        // try?: a cancelled wait only ends the wait early.
         try? await Task.sleep(for: AppleMusicBrowsingProvider.ratingsWait)
     }
     static let ratingsWait: Duration = .seconds(2)
@@ -776,17 +777,18 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         // Songs and albums match by the catalog ID a saved item carries, else by content
         // (``AppleMusicItemMapping/searchMatchKeys(_:isSaved:content:)``).
         let tracks = Self.merged(
-            libraryItems.songs, catalogItems.songs, limit: limit, showsLibrary: showsLibrary, id: { $0.id.rawValue }
-        ) {
-            AppleMusicItemMapping.searchMatchKeys($0, isSaved: $1, content: AppleMusicItemMapping.songContentKey)
-        }
+            libraryItems.songs, catalogItems.songs, limit: limit, showsLibrary: showsLibrary, id: { $0.id.rawValue },
+            match: {
+                AppleMusicItemMapping.searchMatchKeys($0, isSaved: $1, content: AppleMusicItemMapping.songContentKey)
+            }
+        )
         // Artists match by name on purpose: the same artist in the library and in the catalog
         // is far more common than two different artists with one name, one of them saved.
         let artists = Self.merged(
-            libraryItems.artists, catalogItems.artists, limit: limit, showsLibrary: showsLibrary, id: { $0.id.rawValue }
-        ) { artist, _ in
-            [artist.name.lowercased()]
-        }
+            libraryItems.artists, catalogItems.artists, limit: limit, showsLibrary: showsLibrary,
+            id: { $0.id.rawValue },
+            match: { artist, _ in [artist.name.lowercased()] }
+        )
         let albumMatch: (Album, Bool) -> [String] = {
             AppleMusicItemMapping.searchMatchKeys($0, isSaved: $1, content: AppleMusicItemMapping.albumContentKey)
         }
@@ -820,10 +822,9 @@ struct AppleMusicBrowsingProvider: MusicBrowsingProvider {
         // its play parameters, the pairing pins use too (#519).
         let playlists = Self.merged(
             libraryItems.playlists, catalogItems.playlists, limit: limit, showsLibrary: showsLibrary,
-            id: { $0.id.rawValue }
-        ) { playlist, _ in
-            [AppleMusicItemMapping.playlistMatchID(playlist)]
-        }
+            id: { $0.id.rawValue },
+            match: { playlist, _ in [AppleMusicItemMapping.playlistMatchID(playlist)] }
+        )
         // The saved copy's cover is a `musicKit://` one, which draws only while the playlist is
         // in the library. It shows the cover of the catalog copy it hid, which loads on its own,
         // so a pin of the playlist keeps a cover after the playlist leaves the library (#524).

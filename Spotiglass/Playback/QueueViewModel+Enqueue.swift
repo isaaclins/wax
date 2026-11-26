@@ -153,6 +153,7 @@ extension QueueViewModel {
             }
             return true
         } catch {
+            SpotiglassLog.info(.playback, "Adding to the queue failed: \(SpotiglassLog.describe(error))")
             if case .rateLimited(let retryAfter) = MusicPlaybackError.from(error)?.reason {
                 let retryDelay = Self.retryDelay(
                     retryAfter: retryAfter,

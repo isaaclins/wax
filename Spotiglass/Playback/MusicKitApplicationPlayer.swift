@@ -884,7 +884,9 @@ final class MusicKitApplicationPlayer: AppleMusicPlayerControlling {
             }
         case let error as URLError:
             return MusicPlaybackError(
-                service: .appleMusic, reason: .network(error.localizedDescription), detail: String(describing: error))
+                service: .appleMusic,
+                reason: .network(MusicServiceErrorText.networkMessage(for: error, service: .appleMusic)),
+                detail: String(describing: error))
         default:
             return playerError(error)
         }

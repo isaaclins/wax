@@ -464,6 +464,7 @@ final class FileLogSink {
                 )
                 if let stopped = try? FileHandle(forWritingTo: url) {
                     _ = try? stopped.seekToEnd()
+                    // try?: best effort, like the close below: the line only explains the end of the file.
                     try? stopped.write(
                         contentsOf: Data(
                             "=== Log file full at \(stamp) and could not be moved aside; the rest of this session is in Console only ===\n"

@@ -46,7 +46,7 @@ final class ManualPlaybackClock: PlaybackClock, @unchecked Sendable {
                     sleepers[id] = (deadline, continuation)
                     let ready = takeReadySleepersWaiters()
                     lock.unlock()
-                    ready.forEach { $0.resume(returning: true) }
+                    for continuation in ready { continuation.resume(returning: true) }
                 }
             },
             onCancel: {
@@ -59,9 +59,9 @@ final class ManualPlaybackClock: PlaybackClock, @unchecked Sendable {
         lock.lock()
         current = current.advanced(by: duration)
         let due = sleepers.filter { $0.value.deadline <= current }
-        due.keys.forEach { sleepers.removeValue(forKey: $0) }
+        for key in due.keys { sleepers.removeValue(forKey: key) }
         lock.unlock()
-        due.values.forEach { $0.continuation.resume() }
+        for sleeper in due.values { sleeper.continuation.resume() }
     }
 
     /// Returns `true` once at least `count` timers are armed on this clock, or `false` if none
@@ -101,7 +101,7 @@ final class ManualPlaybackClock: PlaybackClock, @unchecked Sendable {
     private func takeReadySleepersWaiters() -> [CheckedContinuation<Bool, Never>] {
         let deadlines = sleepers.values.map(\.deadline)
         let ready = sleepersWaiters.filter { $0.value.isMet(deadlines) }
-        ready.keys.forEach { sleepersWaiters.removeValue(forKey: $0) }
+        for key in ready.keys { sleepersWaiters.removeValue(forKey: key) }
         return ready.values.map(\.continuation)
     }
 

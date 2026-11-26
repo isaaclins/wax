@@ -989,7 +989,7 @@ final class PlaybackSessionViewModel: ObservableObject {
         inflightTransferTask?.cancel()
         pushedPlayStateExpectationTask?.cancel()
         inAppCommandAckTimeoutTask?.cancel()
-        inAppCommandAckWaiters.forEach { $0.resume() }
+        for waiter in inAppCommandAckWaiters { waiter.resume() }
         refusedPlayPauseClearTask?.cancel()
         playPauseCommandTail?.cancel()
         transportPollTask?.cancel()

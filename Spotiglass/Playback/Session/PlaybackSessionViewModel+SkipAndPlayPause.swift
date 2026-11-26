@@ -512,7 +512,7 @@ extension PlaybackSessionViewModel {
         inAppCommandAckTimeoutTask = nil
         let waiters = inAppCommandAckWaiters
         inAppCommandAckWaiters.removeAll()
-        waiters.forEach { $0.resume() }
+        for waiter in waiters { waiter.resume() }
     }
 
     static func isPlayPauseCommand(_ command: String) -> Bool {

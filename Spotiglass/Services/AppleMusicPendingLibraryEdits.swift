@@ -831,8 +831,8 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
         let allEntries =
             playlist.listed.indices.map(PlaylistEdits.Entry.listed)
             + playlist.additions.indices.map(PlaylistEdits.Entry.added)
-        allEntries.forEach { join(playlist.keys(of: $0)) }
-        rows.forEach { join($0.keys) }
+        for entry in allEntries { join(playlist.keys(of: entry)) }
+        for row in rows { join(row.keys) }
         var groupNumbers: [String: Int] = [:]
         func number(_ keys: Set<String>) -> Int {
             guard let first = keys.first else { return -1 }
@@ -854,7 +854,7 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
         )
         // How often the read and the listed rows have each song.
         var inRead: [Int: Int] = [:]
-        fit.rowGroups.forEach { inRead[$0, default: 0] += 1 }
+        for group in fit.rowGroups { inRead[group, default: 0] += 1 }
         var inListed: [Int: Int] = [:]
         for index in playlist.listed.indices where !hidden.contains(.listed(index)) {
             inListed[fit.group(of: .listed(index)), default: 0] += 1
@@ -874,7 +874,7 @@ final class AppleMusicPendingLibraryEdits: @unchecked Sendable {
             }
             if case .add(let indices, let route) = edit {
                 let count = route == .api ? apiEdits.count : musicAppEdits.count
-                indices.forEach { addedBy[$0] = (route, count) }
+                for index in indices { addedBy[index] = (route, count) }
             }
         }
         var missesByStep: [PlaylistEdits.Step: Int] = [:]

@@ -84,10 +84,11 @@ extension SpotifyAPIClient {
         guard !removals.isEmpty, !playlistID.isEmpty else { return }
         var currentSnapshotID = snapshotID
         let batches = removals.chunkedByPositionCount(maximum: Self.playlistTracksMutationBatchSize)
+        let removedRows: ([MusicPlaylistTrackRemoval]) -> Int = { $0.reduce(0) { $0 + $1.positions.count } }
         try await MusicLibraryPartialEditError.sendingBatches(
             batches,
             step: "remove from playlist",
-            count: { $0.reduce(0) { $0 + $1.positions.count } }
+            count: removedRows
         ) { chunk in
             var body: [String: Any] = [
                 "items": chunk.map {

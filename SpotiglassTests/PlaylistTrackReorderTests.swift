@@ -36,7 +36,7 @@ final class PlaylistTrackReorderTests: XCTestCase {
                 let order = PlaylistTrackReorder.order(count: count, moving: moving, toOffset: offset)
                 var playlist = Array(0..<count)
                 let moves = PlaylistTrackReorder.rangeMoves(for: order)
-                moves.forEach { PlaylistTrackReorder.apply($0, to: &playlist) }
+                for move in moves { PlaylistTrackReorder.apply(move, to: &playlist) }
                 XCTAssertEqual(playlist, order, "moving \(moving.sorted()) before \(offset)")
                 // A drag of rows that sit together is one request.
                 if moving.max()! - moving.min()! + 1 == moving.count {
@@ -51,7 +51,7 @@ final class PlaylistTrackReorderTests: XCTestCase {
         for _ in 0..<300 {
             let order = Array(0..<40).shuffled(using: &generator)
             var playlist = Array(0..<40)
-            PlaylistTrackReorder.rangeMoves(for: order).forEach { PlaylistTrackReorder.apply($0, to: &playlist) }
+            for move in PlaylistTrackReorder.rangeMoves(for: order) { PlaylistTrackReorder.apply(move, to: &playlist) }
             XCTAssertEqual(playlist, order)
         }
     }
@@ -64,7 +64,7 @@ final class PlaylistTrackReorderTests: XCTestCase {
                 let order = PlaylistTrackReorder.order(count: count, moving: moving, toOffset: offset)
                 var music = MusicAppMoveToEnd(entries: Array(0..<count))
                 // The script picks every entry by its ID before it moves any.
-                PlaylistTrackReorder.moveToEndSequence(for: order).forEach { music.moveToEnd(entry: $0) }
+                for entry in PlaylistTrackReorder.moveToEndSequence(for: order) { music.moveToEnd(entry: entry) }
                 XCTAssertEqual(music.entries, order, "moving \(moving.sorted()) before \(offset)")
             }
         }

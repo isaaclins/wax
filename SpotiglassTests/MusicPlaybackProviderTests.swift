@@ -715,7 +715,7 @@ final class ReadOnlyStatePlaybackProvider: MusicPlaybackProvider {
     func releaseCommands() {
         let waiting = commandWaiters
         commandWaiters.removeAll()
-        waiting.forEach { $0.resume() }
+        for waiter in waiting { waiter.resume() }
     }
 
     private func answer() async throws {

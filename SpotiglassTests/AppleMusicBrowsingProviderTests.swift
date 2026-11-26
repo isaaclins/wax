@@ -2794,7 +2794,7 @@ private final class TrackCountGate: @unchecked Sendable {
         let resumed = waiters
         waiters = []
         lock.unlock()
-        resumed.forEach { $0.resume() }
+        for waiter in resumed { waiter.resume() }
     }
 }
 
@@ -3046,7 +3046,7 @@ private final class Latch: @unchecked Sendable {
             defer { waiters = [] }
             return waiters
         }
-        waiting.forEach { $0.resume() }
+        for waiter in waiting { waiter.resume() }
     }
 }
 

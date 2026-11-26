@@ -490,6 +490,7 @@ final class EqualizerHALPluginController: @unchecked Sendable, EqualizerSampleRa
     /// in sync with whatever EQRouter is actually forwarding to.
     func currentForwardingTargetUID() -> String? {
         guard
+            // try?: no readable file means the driver forwards nowhere yet.
             let data = try? String(
                 contentsOf: Self.forwardingTargetURL,
                 encoding: .utf8
