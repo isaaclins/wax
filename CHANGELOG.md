@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.84] - 2026-11-26
+
+### Fixed
+
+- Hiding or showing the sidebar with ⌘S now responds almost instantly.
+
 ## [0.8.83] - 2026-11-26
 
 ### Fixed
