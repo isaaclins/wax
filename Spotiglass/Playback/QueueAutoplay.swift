@@ -55,10 +55,23 @@ protocol QueueAutoplaySource: AnyObject {
 /// a song at the very end, after everything already queued.
 @MainActor
 protocol QueueAutoplayPlayer: AnyObject {
-    func autoplayUpcomingTracks() async throws -> [MusicTrack]
+    func autoplayUpcoming() async throws -> QueueAutoplayUpcoming
     /// `isWanted` is asked right before the queue changes, so an add still waiting when
     /// Autoplay is turned off leaves the queue alone.
     func autoplayAppend(_ track: MusicTrack, isWanted: @escaping @MainActor () -> Bool) async throws
+}
+
+/// What is queued after the current song. Spotify's queue also holds podcast episodes: they
+/// steer nothing, but they are still ahead, so a song added then would play before them.
+struct QueueAutoplayUpcoming: Equatable {
+    var tracks: [MusicTrack]
+    /// Every item ahead, songs and episodes.
+    var itemCount: Int
+
+    init(tracks: [MusicTrack], itemCount: Int? = nil) {
+        self.tracks = tracks
+        self.itemCount = itemCount ?? tracks.count
+    }
 }
 
 /// The same song under different IDs (a library copy and its catalog song, or another edition)
@@ -525,8 +538,11 @@ final class QueueAutoplay: ObservableObject {
             let owedNow = owed
             needsFill = false
             let upcoming: [MusicTrack]
+            let itemsAhead: Int
             do {
-                upcoming = try await player.autoplayUpcomingTracks()
+                let queued = try await player.autoplayUpcoming()
+                upcoming = queued.tracks
+                itemsAhead = queued.itemCount
             } catch {
                 guard !Task.isCancelled else { return }
                 status = .failed
@@ -538,7 +554,7 @@ final class QueueAutoplay: ObservableObject {
             knownTracks = Dictionary(upcoming.map { ($0.uri, $0) }, uniquingKeysWith: { first, _ in first })
             // Only what keeps ``fillTarget`` songs ahead: a long list still ahead gets nothing
             // added, so the player's queue isn't touched while it plays (#735).
-            let want = fillTarget - upcoming.count
+            let want = fillTarget - itemsAhead
             guard want > 0 else {
                 owed = max(0, owed - owedNow)
                 continue
@@ -582,7 +598,8 @@ final class QueueAutoplay: ObservableObject {
                 guard isEnabled, !Task.isCancelled else { return }
                 // The queue may have changed while the suggestions loaded: a song added by hand
                 // meanwhile, or a new song playing, isn't added again.
-                if let queuedNow = try? await player.autoplayUpcomingTracks() {
+                // try?: if this second read fails, the queue read at the start of the look stands.
+                if let queuedNow = try? await player.autoplayUpcoming().tracks {
                     guard isEnabled, !Task.isCancelled else { return }
                     let taken = queuedNow.reduce(into: heardKeys.union(currentKeys).union(removedKeys)) {
                         $0.formUnion(QueueAutoplayIdentity.keys($1))
@@ -693,11 +710,13 @@ final class ProviderQueueAutoplayPlayer: QueueAutoplayPlayer {
         self.deviceID = deviceID
     }
 
-    func autoplayUpcomingTracks() async throws -> [MusicTrack] {
-        try await provider.fetchQueue().queue.compactMap { item in
+    func autoplayUpcoming() async throws -> QueueAutoplayUpcoming {
+        let queue = try await provider.fetchQueue().queue
+        let tracks = queue.compactMap { item -> MusicTrack? in
             if case let .track(track) = item { return track }
             return nil
         }
+        return QueueAutoplayUpcoming(tracks: tracks, itemCount: queue.count)
     }
 
     func autoplayAppend(_ track: MusicTrack, isWanted: @escaping @MainActor () -> Bool) async throws {

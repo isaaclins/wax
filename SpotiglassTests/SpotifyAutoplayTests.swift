@@ -42,6 +42,21 @@ final class SpotifyAutoplayTests: XCTestCase {
         XCTAssertEqual(h.autoplay.status, .on)
     }
 
+    /// A playlist whose last items are podcast episodes: while they are ahead nothing is added,
+    /// or Spotify would play the song before them.
+    func testEpisodesLeftInThePlaylistCountAsAhead() async throws {
+        let h = makeHarness()
+        h.queue.play([Self.track("song-1", artist: "Seed Artist"), Self.track("song-2", artist: "Seed Artist")], episodesAfter: 2)
+        try await h.notePlaying()
+        h.autoplay.setEnabled(true)
+        await h.autoplay.settle()
+        try await h.next()
+
+        XCTAssertEqual(h.queue.current?.uri, "spotify:track:song-2")
+        XCTAssertEqual(h.queue.appended, [], "two episodes are still ahead: nothing is added")
+        XCTAssertEqual(h.queue.addsAheadOfOtherSongs, 0)
+    }
+
     /// Turning Autoplay off stops the adds and leaves what it queued.
     func testTurningOffStopsAddingOnSpotify() async throws {
         let h = makeHarness()
@@ -201,13 +216,16 @@ final class SpotifyLikeQueue: QueueAutoplayPlayer {
     private(set) var current: MusicTrack?
     private var userQueue: [MusicTrack] = []
     private var context: [MusicTrack] = []
+    /// Podcast episodes left in the context after its songs.
+    private var contextEpisodes = 0
     private(set) var appended: [String] = []
     /// Adds that went in while the context still had songs ahead: they cut ahead of them.
     private(set) var addsAheadOfOtherSongs = 0
 
-    func play(_ tracks: [MusicTrack]) {
+    func play(_ tracks: [MusicTrack], episodesAfter: Int = 0) {
         current = tracks.first
         context = Array(tracks.dropFirst())
+        contextEpisodes = episodesAfter
         userQueue = []
     }
 
@@ -225,13 +243,14 @@ final class SpotifyLikeQueue: QueueAutoplayPlayer {
         }
     }
 
-    func autoplayUpcomingTracks() async throws -> [MusicTrack] {
-        userQueue + context
+    func autoplayUpcoming() async throws -> QueueAutoplayUpcoming {
+        let tracks = userQueue + context
+        return QueueAutoplayUpcoming(tracks: tracks, itemCount: tracks.count + contextEpisodes)
     }
 
     func autoplayAppend(_ track: MusicTrack, isWanted: @escaping @MainActor () -> Bool) async throws {
         guard isWanted() else { throw CancellationError() }
-        if !context.isEmpty { addsAheadOfOtherSongs += 1 }
+        if !context.isEmpty || contextEpisodes > 0 { addsAheadOfOtherSongs += 1 }
         userQueue.append(track)
         appended.append(track.uri)
     }
