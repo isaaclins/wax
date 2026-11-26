@@ -235,7 +235,15 @@ for both reads and writes when the target has a settable master volume.
 When it has none (many USB DACs, monitors over HDMI or DisplayPort), or a
 forwarded write or its read-back fails, the driver applies the level itself
 in `DoIOOperation`, post-EQ, with a ~10 ms ramp so a change never clicks
-(#605, `EQVolume.h`). The mode is decided again whenever the target changes.
+(#605, `EQVolume.h`). The mode is decided again whenever the target changes;
+until it is decided for the new target (up to one 150 ms worker tick), the
+level applies in software, so a DAC never gets a burst at full scale.
+
+The software level follows the same curve as devices with their own volume:
+dB rises in a straight line with the slider, from -64 dB to 0 dB (the Mac
+mini's speakers report 0.5 as -31.8 dB and 0.25 as -47.6 dB). Multiplying by
+the slider value directly would put 50 % at -6 dB, so a DAC would play about
+26 dB louder than speakers at the same slider position.
 
 ### Reason
 
@@ -243,7 +251,7 @@ For the targets we ship against (built-in speakers, USB DACs, AirPods,
 Bluetooth headsets), the target device accepts `kAudioDevicePropertyVolumeScalar`
 on the output scope's main element. Mirroring keeps the menu-bar slider in
 sync with the user's actual loudness and avoids double-attenuation
-(slider value + downstream hardware gain). The cache (`PluginState::cachedVolumeScalar`)
+(slider value + downstream hardware gain). The cache (`EQVolume::level`)
 gives the property handlers a stable answer when the EQRouter is mid-swap
 or when the target temporarily refuses a read.
 
@@ -258,7 +266,8 @@ level is below full scale.
 constexpr UInt32 kVolumeControlObjectID = 4;     // device-owned control
 constexpr Float32 kVolumeMinDB = -64.0f;          // slider floor
 constexpr Float32 kVolumeMaxDB =   0.0f;          // slider ceiling
-// dB curve: dB = 20·log10(scalar), inverted as scalar = 10^(dB/20).
+// dB curve: dB = -64 + 64·scalar (EQVolume::scalarToDB), and the software
+// volume plays 10^(dB/20), with 0 silent.
 ```
 
 The control is published via the device's `kAudioObjectPropertyControlList`

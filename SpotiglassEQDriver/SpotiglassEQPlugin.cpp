@@ -67,8 +67,8 @@ namespace {
 
 // Volume range exposed by the master control. Matches the typical macOS
 // device range so the menu-bar slider's full travel maps to a useful range.
-constexpr Float32 kVolumeMinDB = -64.0f;
-constexpr Float32 kVolumeMaxDB = 0.0f;
+constexpr Float32 kVolumeMinDB = EQVolume::kMinDB;
+constexpr Float32 kVolumeMaxDB = EQVolume::kMaxDB;
 
 // The discrete rates kAudioDevicePropertyAvailableNominalSampleRates
 // advertises; the EQ device follows its target's rate when it is one of them.
@@ -196,23 +196,10 @@ void PublishRouter(EQRouter* replacement) {
 
 // MARK: - Volume control math + target-device mirroring
 
-/// Clamps a scalar to [0, 1] then converts to dB on a 20·log10 curve, with
-/// the result floored at `kVolumeMinDB`. A scalar of 0 reports the floor
-/// rather than -inf so HAL clients don't see a denormal.
-Float32 ScalarToDB(Float32 scalar) {
-    if (scalar <= 0.0f) return kVolumeMinDB;
-    if (scalar >= 1.0f) return kVolumeMaxDB;
-    const Float32 db = 20.0f * log10f(scalar);
-    return db < kVolumeMinDB ? kVolumeMinDB : db;
-}
-
-/// Inverse of ScalarToDB; clamps the result to [0, 1].
-Float32 DBToScalar(Float32 db) {
-    if (db <= kVolumeMinDB) return 0.0f;
-    if (db >= kVolumeMaxDB) return 1.0f;
-    const Float32 s = powf(10.0f, db / 20.0f);
-    return s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s);
-}
+/// The volume control's dB curve, shared with the render path's software
+/// volume (EQVolume.h, #605).
+Float32 ScalarToDB(Float32 scalar) { return EQVolume::scalarToDB(scalar); }
+Float32 DBToScalar(Float32 db) { return EQVolume::dbToScalar(db); }
 
 // MARK: - Forward declarations (vtable members)
 
@@ -381,18 +368,20 @@ OSStatus DoIOOperation(AudioServerPlugInDriverRef /*self*/,
         // Leaving this cycle unfiltered is safer than shifting every band.
         EQDSP_Reset(&gPlugin.dsp);
     }
-    // A target without a settable volume gets the level applied here (#605).
-    gPlugin.gainRamp.apply(
-        static_cast<float*>(ioMainBuffer),
-        ioBufferFrameSize,
-        gPlugin.volume.renderGain(),
-        expectedRate
-    );
     // Forward the post-EQ stereo buffer to the previous real default output
     // so the user actually hears the result. EQRouter_Push is lock-free and
     // drops oldest frames if the consumer's IOProc falls behind, so it's
-    // safe to call from this realtime callback.
+    // safe to call from this realtime callback. A target without a settable
+    // volume gets the level applied here first (#605).
     RouterLease routerLease;
+    gPlugin.gainRamp.apply(
+        static_cast<float*>(ioMainBuffer),
+        ioBufferFrameSize,
+        gPlugin.volume.renderGain(
+            routerLease ? EQRouter_TargetDevice(routerLease.get()) : kAudioObjectUnknown
+        ),
+        expectedRate
+    );
     if (routerLease) {
         EQRouter_Push(
             routerLease.get(),

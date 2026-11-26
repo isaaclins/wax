@@ -588,14 +588,15 @@ struct FakeVolumeTarget {
 // Plays `seconds` of a full-scale stereo signal through the render path's
 // volume and returns the last left sample.
 float PlayThroughVolume(EQGainRamp& ramp, const EQVolume& volume, float seconds,
-                        uint32_t rate = 48000, uint32_t bufferFrames = 512) {
+                        uint32_t target = 7, uint32_t rate = 48000,
+                        uint32_t bufferFrames = 512) {
     std::vector<float> buffer(bufferFrames * 2);
     uint32_t left = static_cast<uint32_t>(seconds * rate);
     float last = 0.0f;
     while (left > 0) {
         const uint32_t frames = left < bufferFrames ? left : bufferFrames;
         for (auto& sample : buffer) sample = 1.0f;
-        ramp.apply(buffer.data(), frames, volume.renderGain(), rate);
+        ramp.apply(buffer.data(), frames, volume.renderGain(target), rate);
         last = buffer[2 * (frames - 1)];
         left -= frames;
     }
@@ -616,7 +617,7 @@ void testAUSBDACWithoutAVolumeGetsTheLevelInSoftware() {
     expect(!volume.tick(dac), "the slider keeps the level I set");
     expect(volume.software.load(), "a target without a volume gets it in software");
     expectEqual(volume.level.load(), 0.1f, "the level stays at what I set");
-    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 0.1f, "the music plays at 10 %");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), EQVolume::amplitude(0.1f), "the music plays at 10 %");
 }
 
 void testAFailedForwardSwitchesToSoftwareVolume() {
@@ -635,12 +636,12 @@ void testAFailedForwardSwitchesToSoftwareVolume() {
     expect(monitor.sets == 1, "the level was forwarded once");
     expect(volume.software.load(), "the failed forward switches to software volume");
     expectEqual(volume.level.load(), 0.2f, "the level stays at what I set");
-    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 0.2f, "the music plays at 20 %");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), EQVolume::amplitude(0.2f), "the music plays at 20 %");
 
     volume.userSets(0.5f);
     volume.tick(monitor);
     expect(monitor.sets == 1, "nothing more is forwarded to a target that refused");
-    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 0.5f, "the next change applies in software too");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), EQVolume::amplitude(0.5f), "the next change applies in software too");
 }
 
 void testAFailedReadBackSwitchesToSoftwareVolume() {
@@ -652,7 +653,7 @@ void testAFailedReadBackSwitchesToSoftwareVolume() {
     volume.userSets(0.3f);
     volume.tick(target);
     expect(volume.software.load(), "a target whose level can't be read back gets it in software");
-    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 0.3f, "the music plays at 30 %");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), EQVolume::amplitude(0.3f), "the music plays at 30 %");
 }
 
 void testASettableTargetKeepsForwardingAtFullScale() {
@@ -690,7 +691,7 @@ void testSwitchingTargetsDecidesTheModeAgain() {
     expect(volume.software.load(), "the DAC gets software volume");
     volume.tick(speakers);
     expect(!volume.software.load(), "speakers with their own volume are forwarded to again");
-    expectEqual(volume.renderGain(), 1.0f, "and the software volume is lifted");
+    expectEqual(volume.renderGain(speakers.device), 1.0f, "and the software volume is lifted");
     volume.tick(dac);
     expect(volume.software.load(), "back on the DAC the level applies in software again");
 }
@@ -704,17 +705,17 @@ void testVolumeChangesRampWithoutAClick() {
 
     volume.userSets(0.8f);
     volume.tick(dac);
-    PlayThroughVolume(ramp, volume, 0.05f, rate);
+    PlayThroughVolume(ramp, volume, 0.05f, dac.device, rate);
     volume.userSets(0.05f);
 
     std::vector<float> buffer(256 * 2, 1.0f);
     const float maxStep = 1.0f / (EQGainRamp::kRampSeconds * rate) + 1e-6f;
-    float previous = 0.8f;
+    float previous = EQVolume::amplitude(0.8f);
     bool smooth = true;
     float last = 0.0f;
     for (int cycle = 0; cycle < 4; ++cycle) {
         for (auto& sample : buffer) sample = 1.0f;
-        ramp.apply(buffer.data(), 256, volume.renderGain(), rate);
+        ramp.apply(buffer.data(), 256, volume.renderGain(dac.device), rate);
         for (uint32_t i = 0; i < 256; ++i) {
             if (std::fabs(buffer[2 * i] - previous) > maxStep) smooth = false;
             if (buffer[2 * i] != buffer[2 * i + 1]) smooth = false;
@@ -723,7 +724,7 @@ void testVolumeChangesRampWithoutAClick() {
         last = previous;
     }
     expect(smooth, "no sample-to-sample jump larger than the ramp allows");
-    expectEqual(last, 0.05f, "the ramp lands on the new level within ~10 ms");
+    expectEqual(last, EQVolume::amplitude(0.05f), "the ramp lands on the new level within ~10 ms");
 }
 
 void testPlaybackStartsAtTheLevelWithoutAFade() {
@@ -737,8 +738,49 @@ void testPlaybackStartsAtTheLevelWithoutAFade() {
     volume.tick(dac);
     ramp.reset();  // StartIO
     std::vector<float> buffer(2, 1.0f);
-    ramp.apply(buffer.data(), 1, volume.renderGain(), 48000);
-    expectEqual(buffer[0], 0.1f, "the first sample after StartIO is already at 10 %");
+    ramp.apply(buffer.data(), 1, volume.renderGain(dac.device), 48000);
+    expectEqual(buffer[0], EQVolume::amplitude(0.1f), "the first sample after StartIO is already at 10 %");
+}
+
+void testTheSoftwareVolumeFollowsTheCurveOfDevicesWithTheirOwnVolume() {
+    // The Mac mini's speakers (kAudioDevicePropertyVolumeScalarToDecibels):
+    // 0.25 -> -47.6 dB, 0.5 -> -31.8 dB, 0.75 -> -15.9 dB. The same slider
+    // position on a DAC must sound about as loud, not -6 dB at 50 %.
+    const float speakers[3][2] = {{0.25f, -47.6f}, {0.5f, -31.8f}, {0.75f, -15.9f}};
+    for (const auto& point : speakers) {
+        const float db = 20.0f * std::log10(EQVolume::amplitude(point[0]));
+        expect(std::fabs(db - point[1]) < 1.0f, "the software level is within 1 dB of the speakers' curve");
+        expect(std::fabs(EQVolume::scalarToDB(point[0]) - db) < 0.01f, "the reported dB is what plays");
+        expect(std::fabs(EQVolume::dbToScalar(EQVolume::scalarToDB(point[0])) - point[0]) < 1e-5f,
+               "dB converts back to the same slider position");
+    }
+    expectEqual(EQVolume::amplitude(0.0f), 0.0f, "the slider at 0 is silent");
+    expectEqual(EQVolume::amplitude(1.0f), 1.0f, "the slider at full is full scale");
+    expectEqual(EQVolume::scalarToDB(0.0f), EQVolume::kMinDB, "0 reports the floor, not -inf");
+}
+
+void testSwitchingToADACNeverPlaysAtFullScaleBeforeTheModeIsDecided() {
+    // Speakers I turned down to 20 % take the volume, so samples leave the
+    // EQ at full scale. Then the router moves to a DAC without a volume; the
+    // worker decides on its next tick, up to 150 ms later.
+    FakeVolumeTarget speakers;
+    speakers.hardware = 0.2f;
+    FakeVolumeTarget dac;
+    dac.device = 9;
+    dac.isSettable = false;
+    dac.setWorks = false;
+    dac.getWorks = false;
+    EQVolume volume;
+    EQGainRamp ramp;
+
+    volume.tick(speakers);
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f, speakers.device), 1.0f,
+                "on the speakers the samples are at full scale");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f, dac.device), EQVolume::amplitude(0.2f),
+                "the DAC plays at 20 % before the worker's next tick");
+    volume.tick(dac);
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f, dac.device), EQVolume::amplitude(0.2f),
+                "and still after it");
 }
 
 }  // namespace
@@ -844,6 +886,8 @@ int main() {
     testSwitchingTargetsDecidesTheModeAgain();
     testVolumeChangesRampWithoutAClick();
     testPlaybackStartsAtTheLevelWithoutAFade();
+    testTheSoftwareVolumeFollowsTheCurveOfDevicesWithTheirOwnVolume();
+    testSwitchingToADACNeverPlaysAtFullScaleBeforeTheModeIsDecided();
 
     if (gFailures == 0) {
         std::printf("driver router tests: all checks passed\n");
