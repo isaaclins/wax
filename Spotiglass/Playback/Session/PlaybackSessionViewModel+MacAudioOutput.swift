@@ -77,8 +77,10 @@ extension PlaybackSessionViewModel {
     func handleMacAudioOutputChange() {
         refreshTrayOutputSymbol()
         refreshMacAudioOutputDevices()
+        // Engaged, not only running: a change made while the equalizer is still starting is
+        // kept by the engine and applied once it is up (#604).
         guard let equalizerEngine,
-              equalizerEngine.isRunning,
+              equalizerEngine.isEngaged,
               let outputDeviceID = macAudioOutput.currentOutputDeviceID
         else { return }
 

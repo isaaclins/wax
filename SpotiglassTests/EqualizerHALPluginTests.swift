@@ -1232,6 +1232,94 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertFalse(settingsStore.settings.equalizer.enabled)
     }
 
+    /// The player's output menu stays usable while the equalizer starts. A device picked there
+    /// meanwhile was dropped, and the sound went to the old device once the equalizer was up.
+    @MainActor
+    func testAnOutputPickedFromTheMenuWhileTheEqualizerIsStartingIsUsedOnceItIsUp() async throws {
+        let rig = makeTwoOutputRig()
+        let starting = Task { try await rig.engine.start() }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.viewModel.setSystemDefaultOutputDevice(rig.selectedID)
+        rig.installer.letItFinish()
+        try await starting.value
+        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, errorMessage: nil) }
+
+        XCTAssertEqual(rig.controller.currentForwardingTargetUID(), rig.selectedUID)
+    }
+
+    /// Same for Control Center or another app: the change arrived while the equalizer was starting,
+    /// was dropped, and the equalizer kept sending the sound to the old device.
+    @MainActor
+    func testAnOutputChosenInControlCenterWhileTheEqualizerIsStartingIsUsedOnceItIsUp() async throws {
+        let rig = makeTwoOutputRig()
+        let starting = Task { try await rig.engine.start() }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.macOutput.currentOutputDeviceID = rig.selectedID
+        rig.macOutput.emitOutputChange()
+        // The notification is handled on a main-actor task of its own. It is queued before the
+        // start can resume there, so it reaches the engine while the route still says "starting".
+        rig.installer.letItFinish()
+        try await starting.value
+        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, errorMessage: nil) }
+
+        XCTAssertEqual(rig.controller.currentForwardingTargetUID(), rig.selectedUID)
+    }
+
+    private struct TwoOutputRig {
+        let selectedID = AudioObjectID(42)
+        let selectedUID = "SelectedOutputUID"
+        let installer: HeldDriverInstaller
+        let controller: EqualizerHALPluginController
+        let engine: AudioEqualizerEngine
+        let macOutput: TestEqualizerMacOutputProvider
+        let viewModel: PlaybackSessionViewModel
+    }
+
+    /// Two hardware outputs, an install that waits for the test, and a router that opens whatever
+    /// target was last written.
+    @MainActor
+    private func makeTwoOutputRig() -> TwoOutputRig {
+        let originalID = AudioObjectID(41)
+        let selectedID = AudioObjectID(42)
+        let virtualID = AudioObjectID(99)
+        let uids = [originalID: "OriginalOutputUID", selectedID: "SelectedOutputUID"]
+        let installer = HeldDriverInstaller()
+        let controller = EqualizerHALPluginController(
+            halDirectory: halDirectory,
+            bundle: fakeAppBundle,
+            defaultOutputBackupURL: defaultOutputBackupURL,
+            driverInstaller: installer,
+            outputDeviceIDForUID: { uid in uids.first { $0.value == uid }?.key },
+            outputDeviceUID: { uids[$0] },
+            defaultOutputDeviceIDProvider: { originalID },
+            virtualDeviceIDProvider: { virtualID },
+            defaultOutputSetter: { _ in },
+            routerStatusURL: makeTempDirectory().appendingPathComponent("router.status"),
+            routerStatusReader: {
+                let written = try? String(contentsOf: EqualizerHALPluginController.forwardingTargetURL, encoding: .utf8)
+                return written.map { .ready(targetUID: $0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            },
+            activeSampleRateObservationStarter: { _ in }
+        )
+        let engine = AudioEqualizerEngine(pluginController: controller)
+        let macOutput = TestEqualizerMacOutputProvider(deviceID: originalID)
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()),
+            macAudioOutput: macOutput,
+            equalizerEngine: engine,
+            defaults: UserDefaults(suiteName: "spotiglass-eq-starting-\(UUID().uuidString)")!
+        )
+        return TwoOutputRig(
+            installer: installer,
+            controller: controller,
+            engine: engine,
+            macOutput: macOutput,
+            viewModel: viewModel
+        )
+    }
+
     /// Waits for the engine's route to reach a state. Fails after 5 s rather than hanging.
     @MainActor
     private func waitForRoute(
