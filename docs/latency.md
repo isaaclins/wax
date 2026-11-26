@@ -153,8 +153,8 @@ checked): shuffle 30-31 / 30-33 ms, repeat 30-31 / 31-34, seek 28-29 / 29-45, âŒ
 Shuffle and repeat stayed under 40 checked in all five; âŒ˜[ only in two, so it stays listed with #675.
 
 Seek stays listed with #730. Its median is 24-29 ms and this work didn't change its path (it runs
-from the key monitor already), but its checked time still reaches 45 ms now and then, also in the
-in one of these five at load 3, so it isn't under the list's 40 ms yet.
+from the key monitor already), but its checked time still reaches 45 ms now and then, also in one
+of these five, at load 3, so it isn't under the list's 40 ms yet.
 
 ## The sound (Apple Music)
 
