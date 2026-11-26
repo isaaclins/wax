@@ -5,13 +5,21 @@
 If you believe you have found a security issue in Wax, please report it
 privately. Do not open a public GitHub issue for exploitable vulnerabilities.
 
-**Preferred:** [GitHub private vulnerability reporting](https://github.com/isaaclins/spotiglass/security/advisories/new) for this repository (if enabled).
+Report it through [GitHub private vulnerability reporting](https://github.com/isaaclins/wax/security/advisories/new)
+(the **Report a vulnerability** button on the repository's Security tab). Only
+you and I can see the report, and we can work on the fix and an advisory there
+together.
 
-**Alternative:** Contact the repository owner through a private channel you already
-use for this project (for example a direct message). Include enough detail to
-reproduce the issue.
+Please include:
 
-We aim to acknowledge reports within a reasonable time and will work with you on
+- The Wax version and your macOS version
+- What an attacker can do and what they need for it (another local account, a
+  malicious website, a network position, a crafted file)
+- Steps to reproduce, ideally the smallest one that works
+- Whether it touches the equalizer helper or driver, the sign-in, the updater or
+  the log
+
+I aim to acknowledge reports within a reasonable time and will work with you on
 a fix and coordinated disclosure when appropriate.
 
 ## What not to include in reports or public issues

@@ -13,7 +13,7 @@ same terms as the repository. See [LICENSE](LICENSE) for use restrictions
 
 1. Read [docs/getting-started.md](docs/getting-started.md) for Spotify setup.
 2. Read [docs/architecture.md](docs/architecture.md) for module layout.
-3. Check open work in the [issue tracker](https://github.com/isaaclins/spotiglass/issues).
+3. Check open work in the [issue tracker](https://github.com/isaaclins/wax/issues).
 
 ## Build and test
 
@@ -100,4 +100,30 @@ work yet, and how to report a barrier.
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+Wax holds a Spotify sign-in, drives Music.app, ships a root helper and a Core
+Audio driver, and installs its own updates, so a PR answers these questions
+when they apply (the [pull request template](.github/pull_request_template.md)
+has the same list; tick it or write "n/a"):
+
+- **Privileged code** (`SpotiglassEQPrivilegedHelper/`, `SpotiglassEQDriver/`,
+  the install path): who can call it and how that is checked; what it writes as
+  root, with which owner and mode.
+- **Files**: created only where this user alone can write, without following
+  symlinks and with the narrowest mode; a file the app can't read is never
+  overwritten.
+- **Data from outside** (Spotify, Apple Music, LRCLIB, the update feed, the
+  sign-in callback): numbers are parsed with bounds, never with trapping
+  conversions; a URL that gets a token is checked against the expected host;
+  text is escaped before it goes into the log or on screen.
+- **Secrets and privacy**: no tokens, codes, search text, library contents or
+  device IDs in the log; nothing new is written outside the Keychain where
+  another account or app could read it.
+- **Dependencies**: an update to Sparkle or another package names that
+  version's security advisories.
+- **Tests**: a security fix comes with a test that replays the attack and fails
+  on the old code.
+
+Secret scanning, push protection, Dependabot alerts and pinned actions run on
+the repository itself ([#385](https://github.com/isaaclins/wax/issues/385)).
+
+Found a vulnerability? Don't open an issue; see [SECURITY.md](SECURITY.md).
