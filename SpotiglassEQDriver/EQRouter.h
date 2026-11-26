@@ -63,6 +63,22 @@ size_t EQRouter_PickFallback(const EQRouterFallbackCandidate* candidates,
                              size_t count,
                              const char* own_uid);
 
+// What the target watcher does with the target the app asked for, given the
+// router it has now (#606).
+typedef enum EQRouterWatcherStep {
+    EQRouterWatcherStepNone = 0,     // nothing asked for, or already forwarding there
+    EQRouterWatcherStepOpen = 1,     // open a router to the requested target
+    EQRouterWatcherStepConfirm = 2,  // the fallback already forwards there: report it ready
+} EQRouterWatcherStep;
+
+// A fallback router can already forward to the very device the app then asks
+// for (the built-in output, after a restart). It never reported "ready", and
+// the app waits for exactly that, so the watcher reports it instead of
+// treating it as nothing to do.
+EQRouterWatcherStep EQRouter_WatcherStep(const char* current_uid,
+                                         int current_is_fallback,
+                                         const char* requested_uid);
+
 // EQRouter_PickFallback over the output devices Core Audio lists right now.
 // Writes the UID into `out` and returns 1, or returns 0 when there is none.
 int EQRouter_FallbackTargetUID(const char* own_uid, char* out, size_t out_size);

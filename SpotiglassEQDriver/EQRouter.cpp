@@ -375,6 +375,14 @@ size_t EQRouter_PickFallback(const EQRouterFallbackCandidate* candidates,
     return first_other;
 }
 
+EQRouterWatcherStep EQRouter_WatcherStep(const char* current_uid,
+                                         int current_is_fallback,
+                                         const char* requested_uid) {
+    if (!requested_uid || requested_uid[0] == '\0') return EQRouterWatcherStepNone;
+    if (!current_uid || strcmp(current_uid, requested_uid) != 0) return EQRouterWatcherStepOpen;
+    return current_is_fallback ? EQRouterWatcherStepConfirm : EQRouterWatcherStepNone;
+}
+
 namespace {
 
 bool HasOutputStreams(AudioObjectID device) {

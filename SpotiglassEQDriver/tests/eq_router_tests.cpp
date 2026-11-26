@@ -599,6 +599,27 @@ void testTheEQDeviceIsNeverItsOwnFallback() {
     expect(EQRouter_PickFallback(nullptr, 0, own) == 0, "an empty list has no fallback");
 }
 
+// After a restart something plays to "Wax EQ" with no target, so the driver
+// forwards to the built-in output without reporting "ready". Then Wax turns
+// the equalizer on with that same output as its target and waits for "ready"
+// for it. The watcher must report it, or switching the equalizer on times out.
+void testTheFallbackReportsReadyWhenTheAppAsksForItsDevice() {
+    expect(EQRouter_WatcherStep("BuiltInSpeakerDevice", 1, "BuiltInSpeakerDevice") ==
+               EQRouterWatcherStepConfirm,
+           "a fallback already on the requested device is reported ready");
+    expect(EQRouter_WatcherStep("BuiltInSpeakerDevice", 0, "BuiltInSpeakerDevice") ==
+               EQRouterWatcherStepNone,
+           "a requested router that is already open needs nothing");
+    expect(EQRouter_WatcherStep("BuiltInSpeakerDevice", 1, "AirPodsUID") == EQRouterWatcherStepOpen,
+           "a fallback on another device is replaced by the requested target");
+    expect(EQRouter_WatcherStep("", 0, "AirPodsUID") == EQRouterWatcherStepOpen,
+           "no router yet opens the requested target");
+    expect(EQRouter_WatcherStep(nullptr, 0, "AirPodsUID") == EQRouterWatcherStepOpen,
+           "a missing current target opens the requested one");
+    expect(EQRouter_WatcherStep("BuiltInSpeakerDevice", 1, "") == EQRouterWatcherStepNone,
+           "no request leaves the fallback alone");
+}
+
 int main() {
     testClassifyInterleavedStereo();
     testClassifyNonInterleavedStereo();
@@ -630,6 +651,7 @@ int main() {
     testWithNoTargetTheBuiltInOutputIsChosen();
     testWithoutABuiltInOutputAnotherPlayableOneIsChosen();
     testTheEQDeviceIsNeverItsOwnFallback();
+    testTheFallbackReportsReadyWhenTheAppAsksForItsDevice();
 
     if (gFailures == 0) {
         std::printf("driver router tests: all checks passed\n");

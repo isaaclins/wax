@@ -119,6 +119,8 @@ struct PluginState {
     // only performs lock-free atomic operations on this gate.
     std::atomic<bool> ioAccepting{false};
     std::atomic<uint32_t> ioUsers{0};
+    // The published router is the fallback (#606), not a target the app asked for.
+    std::atomic<bool> routerIsFallback{false};
 
     // Last scalar (0..1) the OS / user set on the master volume control.
     // The control mirrors-through to the EQRouter target device's
@@ -471,7 +473,17 @@ void* TargetWatcherMain(void* /*unused*/) {
                 );
             }
         }
-        if (strcmp(current_uid, new_uid) == 0) continue;
+        const EQRouterWatcherStep step = EQRouter_WatcherStep(
+            current_uid,
+            gPlugin.routerIsFallback.load(std::memory_order_acquire) ? 1 : 0,
+            new_uid
+        );
+        if (step == EQRouterWatcherStepNone) continue;
+        if (step == EQRouterWatcherStepConfirm) {
+            gPlugin.routerIsFallback.store(false, std::memory_order_release);
+            EQRouter_PublishReadyStatus(new_uid);
+            continue;
+        }
 
         // Open the replacement before publishing it. The exchange itself is
         // atomic, and PublishRouter waits off the realtime path before it
@@ -486,6 +498,7 @@ void* TargetWatcherMain(void* /*unused*/) {
             if (gPlugin.ioAccepting.load(std::memory_order_seq_cst)) OpenRouterOrFallback("");
             continue;
         }
+        gPlugin.routerIsFallback.store(false, std::memory_order_release);
         PublishRouter(opened);
         EQRouter_PublishReadyStatus(new_uid);
     }
@@ -777,6 +790,7 @@ void OpenRouterOrFallback(const char* requested_uid) {
         EQRouterOpenError open_error = EQRouterOpenErrorNone;
         EQRouter* opened = EQRouter_OpenWithError(requested_uid, &open_error);
         if (opened) {
+            gPlugin.routerIsFallback.store(false, std::memory_order_release);
             PublishRouter(opened);
             EQRouter_PublishReadyStatus(requested_uid);
             return;
@@ -792,7 +806,9 @@ void OpenRouterOrFallback(const char* requested_uid) {
     }
     EQRouterOpenError open_error = EQRouterOpenErrorNone;
     EQRouter* opened = EQRouter_OpenWithError(fallback_uid, &open_error);
-    if (opened) PublishRouter(opened);
+    if (!opened) return;
+    gPlugin.routerIsFallback.store(true, std::memory_order_release);
+    PublishRouter(opened);
 }
 
 static AudioStreamBasicDescription MakeStreamFormat(Float64 sampleRate) {
