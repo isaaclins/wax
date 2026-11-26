@@ -289,7 +289,7 @@ final class LyricsPopOutTests: XCTestCase {
         let scene = SpotiglassSceneHost(commandPaletteManager: manager)
         scene.window = main
         registry.activate(scene)
-        registry.mainWindowResignedKey()
+        registry.mainWindowResignedKey(appIsActive: true)
         XCTAssertTrue(commands.isSidebarItemEnabled(keyWindow: popOut))
         XCTAssertTrue(LyricsPopOutWindow.bringsMainWindowForward(for: CommandPaletteCommandID.toggleSidebar, keyWindow: popOut))
     }

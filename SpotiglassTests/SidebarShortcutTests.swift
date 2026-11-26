@@ -358,7 +358,7 @@ extension SidebarShortcutTests {
         XCTAssertEqual(commands.sidebarItemTitle, SpotiglassL10n.string("menu.view.hideSidebar"))
 
         // Settings comes to the front: the item is Settings', so it works and names no state.
-        registry.mainWindowResignedKey()
+        registry.mainWindowResignedKey(appIsActive: true)
         XCTAssertTrue(commands.isSidebarItemEnabled)
         XCTAssertEqual(
             commands.sidebarItemTitle,
