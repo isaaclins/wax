@@ -125,6 +125,23 @@ final class AudioEqualizerEngine: ObservableObject {
     private var routeHealthTimer: Timer?
     private var consecutiveBrokenRouteReadings = 0
     private var lastObservedSettings: EqualizerSettings?
+    /// Where the sound should go, picked while a route change was still running; applied once it
+    /// ends. The latest pick wins: a target from Settings, or a device from the player's menu,
+    /// Control Center or another app.
+    private var forwardingTargetPickedDuringRouteChange: String?
+    private var outputDevicePickedDuringRouteChange: AudioObjectID?
+    /// Set once quitting has put the output back, so the release at the very end of the quit doesn't run it again.
+    private var outputReleasedForQuit = false
+    /// Waiting for the running route change to end, such as a driver removal pressed during "Starting…".
+    private var routeChangeEndWaiters: [CheckedContinuation<Void, Never>] = []
+
+    /// Where the slow parts of a route change run: the helper install, the
+    /// wait for coreaudiod to list the EQ device and the wait for the router.
+    /// They take seconds after an install (the helper restarts coreaudiod),
+    /// and on the main actor they froze the whole app with a beachball (#604).
+    /// One serial queue, so two route changes never touch the controller at once. Meanwhile the
+    /// main actor only reads the controller's sample rate, which the controller guards with a lock.
+    private let routeQueue = DispatchQueue(label: "com.isaaclins.spotiglass.equalizer.route", qos: .userInitiated)
 
     /// In-memory mirror of the most recently applied settings. The persisted
     /// copy lives in ``SpotiglassSettingsStore``; this mirror is what's used
@@ -176,17 +193,29 @@ final class AudioEqualizerEngine: ObservableObject {
                    previousSettings.forwardingTargetUID != settings.forwardingTargetUID,
                    let forwardingTargetUID = settings.forwardingTargetUID,
                    !forwardingTargetUID.isEmpty {
-                    setForwardingTarget(uid: forwardingTargetUID)
+                    Task { @MainActor [weak self] in await self?.setForwardingTarget(uid: forwardingTargetUID) }
                 }
-            case .starting, .failed(_, true):
-                // A route transition or an engaged-but-not-ready route owns
-                // lifecycle changes until it reaches a terminal state.
+            case .starting:
+                // The running route change owns the lifecycle until it ends;
+                // a target picked meanwhile is applied after it.
+                if let previousSettings, previousSettings.forwardingTargetUID != settings.forwardingTargetUID {
+                    forwardingTargetPickedDuringRouteChange = settings.forwardingTargetUID
+                    outputDevicePickedDuringRouteChange = nil
+                }
+            case .failed(_, true):
+                // An engaged-but-not-ready route owns lifecycle changes until
+                // it reaches a terminal state.
                 return
             case .disabled, .failed(_, false):
-                do {
-                    try start(forwardingTargetUID: settings.forwardingTargetUID)
-                } catch {
-                    putPersistedSwitchBack(in: settingsStore)
+                Task { @MainActor [weak self, weak settingsStore] in
+                    // The switch and the target may have changed again before this ran.
+                    guard let self, let settingsStore, settingsStore.settings.equalizer.enabled else { return }
+                    do {
+                        try await start(forwardingTargetUID: settingsStore.settings.equalizer.forwardingTargetUID)
+                    } catch {
+                        SpotiglassLog.error(.playback, "Switching the equalizer on failed: \(error.localizedDescription)")
+                        putPersistedSwitchBack(in: settingsStore)
+                    }
                 }
             }
         } else {
@@ -242,13 +271,19 @@ final class AudioEqualizerEngine: ObservableObject {
     /// output device (from `EqualizerSettings.forwardingTargetUID`) so the
     /// user's pick survives a disable→enable cycle instead of resetting to
     /// the built-in speaker.
-    func start(forwardingTargetUID: String? = nil) throws {
-        guard !routeState.isLive else { return }
-        guard !isRemovingDriver else { return }
+    ///
+    /// The install and the waits run on ``routeQueue``; the route reads
+    /// "starting" meanwhile and the rest of the app keeps working (#604).
+    func start(forwardingTargetUID: String? = nil) async throws {
+        guard !routeState.isLive, !isStarting, !isRemovingDriver else { return }
         driverWasRemoved = false
         routeState = .starting(targetUID: nil)
+        defer { followSettingsChangedDuringRouteChange() }
+        let controller = pluginController
         do {
-            let targetUID = try pluginController.enable(preferredForwardingUID: forwardingTargetUID)
+            let targetUID = try await onRouteQueue {
+                try controller.enable(preferredForwardingUID: forwardingTargetUID)
+            }
             requiresBackgroundApproval = false
             routeState = .live(targetUID: targetUID, errorMessage: nil)
             publishCoefficients()
@@ -322,6 +357,22 @@ final class AudioEqualizerEngine: ObservableObject {
                 SpotiglassLog.error(.settings, "Could not save the EQ switch as off before removing the driver: \(error.localizedDescription)")
             }
         }
+        guard isStarting else {
+            releaseOutputAndRemoveDriver()
+            return
+        }
+        // A switch-on or output change is still running on the route queue and
+        // owns the controller until it ends (#604). It sees the switch off then
+        // and stops; the removal goes on after that.
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            // Checked again here: the change may have ended before this task ran.
+            if isStarting { await withCheckedContinuation { routeChangeEndWaiters.append($0) } }
+            releaseOutputAndRemoveDriver()
+        }
+    }
+
+    private func releaseOutputAndRemoveDriver() {
         do {
             if routeState.isEngaged {
                 do {
@@ -378,11 +429,29 @@ final class AudioEqualizerEngine: ObservableObject {
     /// back to the real device; the switch stays on, so the next launch puts
     /// the equalizer back.
     func releaseOutputForQuit() {
+        guard !outputReleasedForQuit else { return }
         guard routeState.isEngaged || pluginController.outputIsOnEqualizerDevice else { return }
         let released = pluginController.releaseOutputFromEqualizerDevice(
             fallbackUID: routeState.targetUID ?? pluginController.currentForwardingTargetUID()
         )
+        outputReleasedForQuit = true
         SpotiglassLog.info(.playback, "Quitting with the equalizer on; output restored: \(released)")
+    }
+
+    /// Quitting while a route change still runs (#604). Releasing the output right away would run
+    /// next to it, and the change could put the sound back on the EQ device just before Wax quits.
+    /// The release waits until no route change runs any more (one started by a pick made meanwhile
+    /// included), then runs on the main actor like any other quit, and `done` follows it. Returns
+    /// false when no route change runs, so quitting can go on.
+    func releaseOutputForQuitAfterRouteChange(_ done: @escaping @MainActor () -> Void) -> Bool {
+        guard isStarting else { return false }
+        Task { @MainActor [weak self] in
+            guard let self else { return done() }
+            while isStarting { await withCheckedContinuation { routeChangeEndWaiters.append($0) } }
+            releaseOutputForQuit()
+            done()
+        }
+        return true
     }
 
     // MARK: - Coefficient updates
@@ -419,15 +488,23 @@ final class AudioEqualizerEngine: ObservableObject {
     /// Updates where EQ-processed audio is sent. While active, the route stays
     /// non-live until the driver's background watcher confirms the new target.
     /// Before activation this only stores the user's preference for enable().
-    func setForwardingTarget(uid: String) {
+    func setForwardingTarget(uid: String) async {
+        if isStarting {
+            // Writing the target file now would swap the router under the running change.
+            forwardingTargetPickedDuringRouteChange = uid
+            outputDevicePickedDuringRouteChange = nil
+            return
+        }
         guard routeState.isLive else {
             pluginController.setForwardingTarget(uid: uid)
             return
         }
         let previousTarget = routeState.targetUID
         routeState = .starting(targetUID: previousTarget)
+        defer { followSettingsChangedDuringRouteChange() }
+        let controller = pluginController
         do {
-            let targetUID = try pluginController.setForwardingTargetAndWait(uid: uid)
+            let targetUID = try await onRouteQueue { try controller.setForwardingTargetAndWait(uid: uid) }
             routeState = .live(targetUID: targetUID, errorMessage: nil)
         } catch {
             turnOffAfterRouteFailure(error)
@@ -437,13 +514,23 @@ final class AudioEqualizerEngine: ObservableObject {
     /// Makes a hardware selection the EQRouter's target and restores the
     /// virtual device as macOS's default output. This is the user-selection
     /// path used by the playback device menu while EQ is engaged.
-    func selectOutputDevice(_ outputDeviceID: AudioObjectID) {
+    func selectOutputDevice(_ outputDeviceID: AudioObjectID) async {
         guard routeState.isEngaged else { return }
-        guard !isStarting else { return }
+        if isStarting {
+            // With the route change off the main actor the menu stays usable meanwhile; the
+            // pick is applied once that change has ended instead of being dropped (#604).
+            outputDevicePickedDuringRouteChange = outputDeviceID
+            forwardingTargetPickedDuringRouteChange = nil
+            return
+        }
         let previousTarget = routeState.targetUID
         routeState = .starting(targetUID: previousTarget)
+        defer { followSettingsChangedDuringRouteChange() }
+        let controller = pluginController
         do {
-            let targetUID = try pluginController.routeEqualizerThroughOutputDevice(outputDeviceID)
+            let targetUID = try await onRouteQueue {
+                try controller.routeEqualizerThroughOutputDevice(outputDeviceID)
+            }
             routeState = .live(targetUID: targetUID, errorMessage: nil)
         } catch {
             turnOffAfterRouteFailure(error)
@@ -453,12 +540,13 @@ final class AudioEqualizerEngine: ObservableObject {
     /// Handles a default-output change made outside the EQ settings. A
     /// hardware default is adopted as the forwarding target, then the virtual
     /// EQ device is restored as the system default.
-    func reconcileSystemDefaultOutputDevice(_ outputDeviceID: AudioObjectID) {
-        guard routeState.isLive else { return }
+    func reconcileSystemDefaultOutputDevice(_ outputDeviceID: AudioObjectID) async {
+        // A change that arrives while a route change runs is kept for when it ends (#604).
+        guard routeState.isLive || isStarting else { return }
         guard let virtualDeviceID = pluginController.lookupSpotiglassEQDeviceID(),
               outputDeviceID != virtualDeviceID
         else { return }
-        selectOutputDevice(outputDeviceID)
+        await selectOutputDevice(outputDeviceID)
     }
 
     /// The UID currently written to the target file (whatever the driver
@@ -529,6 +617,57 @@ final class AudioEqualizerEngine: ObservableObject {
     }
 
     // MARK: - Internals
+
+    private func onRouteQueue<T>(_ work: @escaping () throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            routeQueue.async { continuation.resume(with: Result(catching: work)) }
+        }
+    }
+
+    /// The switch and the target can change while a route change runs off
+    /// the main actor. Once it has ended, the route follows what they say now.
+    private func followSettingsChangedDuringRouteChange() {
+        let pickedTarget = forwardingTargetPickedDuringRouteChange
+        let pickedDevice = outputDevicePickedDuringRouteChange
+        forwardingTargetPickedDuringRouteChange = nil
+        outputDevicePickedDuringRouteChange = nil
+        defer {
+            let waiters = routeChangeEndWaiters
+            routeChangeEndWaiters = []
+            waiters.forEach { $0.resume() }
+        }
+        if let settingsStore = observedSettingsStore, !settingsStore.settings.equalizer.enabled,
+           routeState.isEngaged {
+            do {
+                try stop()
+            } catch {
+                SpotiglassLog.error(.playback, "Switching the equalizer off after it started failed: \(error.localizedDescription)")
+                putPersistedSwitchBack(in: settingsStore)
+            }
+        }
+        guard case let .live(targetUID, _) = routeState else {
+            // The equalizer is off now (switched off meanwhile, or it could not start), and
+            // putting the sound back chose the device from before. A device picked meanwhile is
+            // where the sound should go, as if the equalizer had been off when it was picked.
+            if let pickedDevice, !routeState.isEngaged { moveOutput(to: pickedDevice) }
+            return
+        }
+        if let settingsStore = observedSettingsStore, !settingsStore.settings.equalizer.enabled { return }
+        if let pickedDevice {
+            Task { @MainActor [weak self] in await self?.selectOutputDevice(pickedDevice) }
+        } else if let pickedTarget, !pickedTarget.isEmpty, pickedTarget != targetUID {
+            Task { @MainActor [weak self] in await self?.setForwardingTarget(uid: pickedTarget) }
+        }
+    }
+
+    private func moveOutput(to outputDeviceID: AudioObjectID) {
+        guard outputDeviceID != pluginController.lookupSpotiglassEQDeviceID() else { return }
+        do {
+            try pluginController.setDefaultOutputDevice(to: outputDeviceID)
+        } catch {
+            SpotiglassLog.error(.playback, "Could not move the output to the device picked while the equalizer was starting: \(error.localizedDescription)")
+        }
+    }
 
     private var isStarting: Bool {
         if case .starting = routeState { return true }

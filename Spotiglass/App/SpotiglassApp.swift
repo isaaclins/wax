@@ -89,6 +89,7 @@ struct SpotiglassApp: App {
             Self.restoreEqualizerIfEnabled(settingsStore: store, engine: equalizer)
             equalizer.observe(settingsStore: store)
             if !AppMetadata.isRunningUnitTests {
+                SpotiglassApplicationDelegate.equalizerEngine = equalizer
                 // The output must not stay on the EQ device once nothing drives it (#606).
                 NotificationCenter.default.addObserver(
                     forName: NSApplication.willTerminateNotification,
@@ -117,8 +118,11 @@ struct SpotiglassApp: App {
 
     /// Re-engage the EQ only when the persisted master switch was on. The
     /// settings toggle is the source of truth across launches: an off value
-    /// leaves the engine stopped, while an unavailable driver is logged and the
-    /// persisted switch is reset instead of claiming the EQ is active.
+    /// leaves the engine stopped. An on value is picked up by the engine's
+    /// settings observer, which starts the route off the main actor once the
+    /// app is running, so the window comes up first (#604); an unavailable
+    /// driver is logged and the persisted switch is reset instead of claiming
+    /// the EQ is active.
     private static func restoreEqualizerIfEnabled(
         settingsStore: SpotiglassSettingsStore,
         engine: AudioEqualizerEngine
@@ -130,24 +134,7 @@ struct SpotiglassApp: App {
             if !AppMetadata.isRunningUnitTests { engine.releaseStrandedOutput() }
             return
         }
-
         engine.apply(settings: equalizerSettings)
-        do {
-            try engine.start(forwardingTargetUID: equalizerSettings.forwardingTargetUID)
-        } catch {
-            do {
-                try settingsStore.mutate { $0.equalizer.enabled = false }
-            } catch {
-                SpotiglassLog.error(
-                    .settings,
-                    "Could not persist the disabled EQ state after startup restore failed: \(error.localizedDescription)"
-                )
-            }
-            SpotiglassLog.error(
-                .settings,
-                "Equalizer startup restore failed: \(error.localizedDescription)"
-            )
-        }
     }
 
     /// Mirrors the sign-in mapping ``RootView`` uses to gate the palette, so menu
@@ -310,6 +297,27 @@ struct SpotiglassApp: App {
 
 /// App-level AppKit hooks that SwiftUI has no scene modifier for.
 final class SpotiglassApplicationDelegate: NSObject, NSApplicationDelegate {
+    /// Set at launch, so quitting can wait for an equalizer start that is still running (#604).
+    @MainActor static weak var equalizerEngine: AudioEqualizerEngine?
+
+    /// Quitting while the equalizer is still starting waits until the start has ended and the
+    /// output is off the EQ device, at most 5 s so a start that hangs can't keep Wax open (#604).
+    @MainActor
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let engine = Self.equalizerEngine else { return .terminateNow }
+        var replied = false
+        let reply: @MainActor () -> Void = {
+            guard !replied else { return }
+            replied = true
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        guard engine.releaseOutputForQuitAfterRouteChange(reply) else { return .terminateNow }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            MainActor.assumeIsolated { reply() }
+        }
+        return .terminateLater
+    }
+
     /// Under `make test` the app is only the XCTest host. Several test runs share the Mac with
     /// people using it, so the host must never come to the front or take keyboard focus (#418).
     /// Setting the policy before launch finishes is what stops the launch-time activation.

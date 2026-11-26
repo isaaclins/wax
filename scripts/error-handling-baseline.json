@@ -636,8 +636,7 @@
   {
     "file": "Spotiglass/Playback/AudioEqualizerEngine.swift",
     "rule": "catch-drops-error",
-    "code": "} catch { … putPersistedSwitchBack(in: settingsStore)",
-    "count": 2
+    "code": "} catch { … putPersistedSwitchBack(in: settingsStore)"
   },
   {
     "file": "Spotiglass/Playback/AudioEqualizerEngine.swift",

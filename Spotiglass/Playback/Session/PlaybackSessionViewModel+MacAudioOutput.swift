@@ -44,9 +44,13 @@ extension PlaybackSessionViewModel {
         setDefault: (AudioDeviceID) -> OSStatus = MacAudioOutputHardware.setDefaultOutputDevice
     ) {
         if let equalizerEngine, equalizerEngine.isEngaged {
-            equalizerEngine.selectOutputDevice(audioDeviceID)
-            refreshMacAudioOutputDevices()
-            refreshTrayOutputSymbol()
+            // The engine waits for the router off the main actor (#604); the
+            // list and tray follow once the route has settled.
+            Task { @MainActor [weak self] in
+                await equalizerEngine.selectOutputDevice(audioDeviceID)
+                self?.refreshMacAudioOutputDevices()
+                self?.refreshTrayOutputSymbol()
+            }
             return
         }
 
@@ -73,14 +77,18 @@ extension PlaybackSessionViewModel {
     func handleMacAudioOutputChange() {
         refreshTrayOutputSymbol()
         refreshMacAudioOutputDevices()
+        // Engaged, not only running: a change made while the equalizer is still starting is
+        // kept by the engine and applied once it is up (#604).
         guard let equalizerEngine,
-              equalizerEngine.isRunning,
+              equalizerEngine.isEngaged,
               let outputDeviceID = macAudioOutput.currentOutputDeviceID
         else { return }
 
-        equalizerEngine.reconcileSystemDefaultOutputDevice(outputDeviceID)
-        refreshMacAudioOutputDevices()
-        refreshTrayOutputSymbol()
+        Task { @MainActor [weak self] in
+            await equalizerEngine.reconcileSystemDefaultOutputDevice(outputDeviceID)
+            self?.refreshMacAudioOutputDevices()
+            self?.refreshTrayOutputSymbol()
+        }
     }
 
     func refreshTrayOutputSymbol() {

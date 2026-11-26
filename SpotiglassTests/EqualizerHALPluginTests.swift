@@ -398,7 +398,7 @@ final class EqualizerHALPluginTests: XCTestCase {
     }
 
     @MainActor
-    func testStartDoesNotReportLiveWhenRouterOpenFails() throws {
+    func testStartDoesNotReportLiveWhenRouterOpenFails() async throws {
         let originalID = AudioObjectID(41)
         let virtualID = AudioObjectID(99)
         let uid = "OriginalOutputUID"
@@ -421,12 +421,11 @@ final class EqualizerHALPluginTests: XCTestCase {
         try controller.install()
         let engine = AudioEqualizerEngine(pluginController: controller)
 
-        XCTAssertThrowsError(try engine.start()) { error in
-            XCTAssertEqual(
-                error.localizedDescription,
-                SpotiglassL10n.string("eq.error.routerTargetOpenFailed")
-            )
-        }
+        let error = await startError(of: engine)
+        XCTAssertEqual(
+            error?.localizedDescription,
+            SpotiglassL10n.string("eq.error.routerTargetOpenFailed")
+        )
         XCTAssertEqual(setIDs, [virtualID])
         XCTAssertFalse(engine.isRunning)
         guard case .failed = engine.routeState else {
@@ -478,13 +477,14 @@ final class EqualizerHALPluginTests: XCTestCase {
     /// the EQ device) used to leave the Mac's sound on the EQ device, where it
     /// stuttered and sped up.
     @MainActor
-    func testASwitchOnTheRouterNeverConfirmsPutsTheSoundBackOnThePreviousDevice() throws {
+    func testASwitchOnTheRouterNeverConfirmsPutsTheSoundBackOnThePreviousDevice() async throws {
         let output = FakeMacOutput()
         let controller = makeController(for: output)
         try controller.install()
         let engine = AudioEqualizerEngine(pluginController: controller)
 
-        XCTAssertThrowsError(try engine.start())
+        let error = await startError(of: engine)
+        XCTAssertNotNil(error)
 
         XCTAssertEqual(output.setIDs, [output.virtualID, output.originalID])
         XCTAssertEqual(output.current, output.originalID, "the sound stayed on the EQ device")
@@ -494,13 +494,13 @@ final class EqualizerHALPluginTests: XCTestCase {
 
     /// A live route whose router stops processing hands the sound back by itself.
     @MainActor
-    func testALiveRouteThatStopsProcessingPutsTheSoundBack() throws {
+    func testALiveRouteThatStopsProcessingPutsTheSoundBack() async throws {
         let output = FakeMacOutput()
         output.routerStatus = .ready(targetUID: output.originalUID)
         let controller = makeController(for: output)
         try controller.install()
         let engine = AudioEqualizerEngine(pluginController: controller)
-        try engine.start()
+        try await engine.start()
         XCTAssertEqual(output.current, output.virtualID)
 
         engine.checkRouteHealth()
@@ -571,6 +571,8 @@ final class EqualizerHALPluginTests: XCTestCase {
         let engine = AudioEqualizerEngine(pluginController: controller)
         engine.observe(settingsStore: settingsStore)
         try settingsStore.mutate { $0.equalizer.enabled = true }
+        // The start runs off the main actor (#604).
+        await waitForRoute(of: engine) { $0.isLive }
         XCTAssertEqual(output.current, output.virtualID)
         XCTAssertTrue(engine.isRunning)
 
@@ -659,6 +661,8 @@ final class EqualizerHALPluginTests: XCTestCase {
         let engine = AudioEqualizerEngine(pluginController: controller)
         engine.observe(settingsStore: settingsStore)
         try settingsStore.mutate { $0.equalizer.enabled = true }
+        // The start runs off the main actor (#604).
+        await waitForRoute(of: engine) { $0.isLive }
         XCTAssertEqual(output.current, output.virtualID)
 
         originalIsPlugged = false
@@ -695,7 +699,7 @@ final class EqualizerHALPluginTests: XCTestCase {
     /// silent. Quitting now puts the sound back and keeps the switch on, so the
     /// next launch brings the equalizer back.
     @MainActor
-    func testQuittingWithTheEqualizerOnPutsTheSoundBack() throws {
+    func testQuittingWithTheEqualizerOnPutsTheSoundBack() async throws {
         let output = FakeMacOutput()
         output.routerStatus = .ready(targetUID: output.originalUID)
         let controller = makeController(for: output)
@@ -704,6 +708,8 @@ final class EqualizerHALPluginTests: XCTestCase {
         let engine = AudioEqualizerEngine(pluginController: controller)
         engine.observe(settingsStore: settingsStore)
         try settingsStore.mutate { $0.equalizer.enabled = true }
+        // The start runs off the main actor (#604).
+        await waitForRoute(of: engine) { $0.isLive }
         XCTAssertEqual(output.current, output.virtualID)
 
         engine.releaseOutputForQuit()
@@ -826,6 +832,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         let engine = AudioEqualizerEngine(pluginController: controller)
         engine.observe(settingsStore: settingsStore)
         try settingsStore.mutate { $0.equalizer.enabled = true }
+        await waitForRoute(of: engine) { $0.isLive }
         XCTAssertEqual(output.current, output.virtualID)
         XCTAssertTrue(engine.isRunning)
 
@@ -862,7 +869,7 @@ final class EqualizerHALPluginTests: XCTestCase {
     /// Settings › Equalizer shows why the EQ isn't running. The pane sits in the same window as
     /// the language picker, and the reason stayed in the old language after a switch (#571).
     @MainActor
-    func testTheRouteFailureFollowsALanguageSwitch() throws {
+    func testTheRouteFailureFollowsALanguageSwitch() async throws {
         let languageStore = try ViewTestHost.makeSettingsStore()
         SpotiglassL10n.settingsStore = languageStore
         defer { SpotiglassL10n.settingsStore = nil }
@@ -887,7 +894,8 @@ final class EqualizerHALPluginTests: XCTestCase {
         )
         try controller.install()
         let engine = AudioEqualizerEngine(pluginController: controller)
-        XCTAssertThrowsError(try engine.start())
+        let error = await startError(of: engine)
+        XCTAssertNotNil(error)
         XCTAssertEqual(engine.lastError, SpotiglassL10n.string("eq.error.routerTargetOpenFailed"))
 
         try languageStore.mutate { $0.appearance.language = .german }
@@ -930,7 +938,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         )
         try controller.install()
         let engine = AudioEqualizerEngine(pluginController: controller)
-        try engine.start()
+        try await engine.start()
 
         let macOutput = TestEqualizerMacOutputProvider(deviceID: selectedID)
         let viewModel = PlaybackSessionViewModel(
@@ -941,6 +949,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         )
         statusTarget = selectedUID
         viewModel.setSystemDefaultOutputDevice(selectedID)
+        await waitForRoute(of: engine) { $0 == .live(targetUID: selectedUID, errorMessage: nil) }
 
         XCTAssertEqual(setIDs, [virtualID, virtualID])
         XCTAssertEqual(controller.currentForwardingTargetUID(), selectedUID)
@@ -955,8 +964,9 @@ final class EqualizerHALPluginTests: XCTestCase {
         statusTarget = originalUID
         macOutput.currentOutputDeviceID = originalID
         macOutput.emitOutputChange()
-        // The change is handled on a task of its own; wait for it however late it runs.
-        while setIDs.count < 3 || controller.currentForwardingTargetUID() != originalUID { await Task.yield() }
+        // The change is handled on a task of its own and the route waits off the main actor
+        // (#604); wait for the route to settle on the new target however late that is.
+        await waitForRoute(of: engine) { $0 == .live(targetUID: originalUID, errorMessage: nil) }
 
         XCTAssertEqual(setIDs, [virtualID, virtualID, virtualID])
         XCTAssertEqual(controller.currentForwardingTargetUID(), originalUID)
@@ -1063,7 +1073,7 @@ final class EqualizerHALPluginTests: XCTestCase {
     // MARK: - Settings reload observation
 
     @MainActor
-    func testExternalSettingsReloadReappliesCoefficientsWhileEngineIsRunning() throws {
+    func testExternalSettingsReloadReappliesCoefficientsWhileEngineIsRunning() async throws {
         let settingsURL = makeTempDirectory().appendingPathComponent("settings.json")
         var initialSettings = SpotiglassSettingsStore.bootstrapDefaults()
         initialSettings.equalizer.enabled = true
@@ -1108,7 +1118,7 @@ final class EqualizerHALPluginTests: XCTestCase {
             pluginController: controller,
             coefficientPublisher: publisher
         )
-        try engine.start()
+        try await engine.start()
         engine.observe(settingsStore: settingsStore)
         XCTAssertEqual(
             engine.routeState,
@@ -1145,6 +1155,336 @@ final class EqualizerHALPluginTests: XCTestCase {
         try engine.stop()
         XCTAssertFalse(engine.isRunning)
         XCTAssertEqual(routedOutputIDs, [virtualOutputID, originalOutputID])
+    }
+
+    // MARK: - Slow helper or Core Audio (#604)
+
+    /// An installer that is still busy (an approved helper that hangs, or coreaudiod coming back
+    /// after the helper restarted it) until the test lets it finish. It gives up after 2 s, so the
+    /// old code, which waited on the main thread, ends instead of hanging the test.
+    private final class HeldDriverInstaller: EqualizerDriverInstalling, @unchecked Sendable {
+        private let held = DispatchSemaphore(value: 0)
+
+        func letItFinish() { held.signal() }
+
+        func installDriver(sourceURL: URL, destinationURL: URL) throws {
+            _ = held.wait(timeout: .now() + 2)
+            try EqualizerFileDriverInstaller(fileManager: .default)
+                .installDriver(sourceURL: sourceURL, destinationURL: destinationURL)
+        }
+
+        func removeDriver(destinationURL: URL) throws {
+            try EqualizerFileDriverInstaller(fileManager: .default).removeDriver(destinationURL: destinationURL)
+        }
+    }
+
+    /// Switching the equalizer on froze the whole app with a beachball while the helper or
+    /// Core Audio was slow: the install and the waits ran on the main thread.
+    @MainActor
+    func testStartingTheEqualizerNeverBlocksTheMainThread() async throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let installer = HeldDriverInstaller()
+        let engine = AudioEqualizerEngine(pluginController: makeController(for: output, driverInstaller: installer))
+        var stateWhileInstalling: EqualizerRouteState?
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            MainActor.assumeIsolated { stateWhileInstalling = engine.routeState }
+            installer.letItFinish()
+        }
+
+        try await engine.start()
+
+        XCTAssertEqual(stateWhileInstalling, .starting(targetUID: nil),
+                       "the main thread was blocked until the equalizer had started")
+        XCTAssertTrue(engine.isRunning)
+        XCTAssertEqual(output.current, output.virtualID)
+    }
+
+    /// A launch with the equalizer on showed no window until the driver was up: the restore ran
+    /// inside the app's init.
+    @MainActor
+    func testALaunchWithTheEqualizerOnDoesNotWaitForTheDriver() async throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let installer = HeldDriverInstaller()
+        let engine = AudioEqualizerEngine(pluginController: makeController(for: output, driverInstaller: installer))
+        let settingsStore = try ViewTestHost.makeSettingsStore()
+        try settingsStore.mutate { $0.equalizer.enabled = true }
+
+        engine.observe(settingsStore: settingsStore)
+
+        XCTAssertFalse(engine.isRunning, "the launch waited for the driver before going on")
+        await waitForRoute(of: engine) { $0 == .starting(targetUID: nil) }
+        installer.letItFinish()
+        await waitForRoute(of: engine) { $0.isLive }
+        XCTAssertEqual(output.current, output.virtualID)
+        XCTAssertTrue(settingsStore.settings.equalizer.enabled)
+    }
+
+    /// With the start no longer blocking, the switch can go off while the driver is still coming
+    /// up. The sound must not be left on the EQ device with the switch off.
+    @MainActor
+    func testSwitchingOffWhileTheEqualizerIsStartingPutsTheSoundBack() async throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let installer = HeldDriverInstaller()
+        let engine = AudioEqualizerEngine(pluginController: makeController(for: output, driverInstaller: installer))
+        let settingsStore = try ViewTestHost.makeSettingsStore()
+        engine.observe(settingsStore: settingsStore)
+
+        try settingsStore.mutate { $0.equalizer.enabled = true }
+        await waitForRoute(of: engine) { $0 == .starting(targetUID: nil) }
+        try settingsStore.mutate { $0.equalizer.enabled = false }
+        installer.letItFinish()
+        await waitForRoute(of: engine) { $0 == .disabled }
+
+        XCTAssertEqual(output.current, output.originalID, "the sound stayed on the EQ device with the switch off")
+        XCTAssertFalse(settingsStore.settings.equalizer.enabled)
+    }
+
+    /// "Remove equalizer driver" pressed while the equalizer was still starting ran next to the
+    /// start on the controller: the driver was deleted, then the start installed it again.
+    @MainActor
+    func testRemovingTheDriverWhileTheEqualizerIsStartingWaitsForTheStart() async throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let installer = HeldDriverInstaller()
+        let controller = makeController(for: output, driverInstaller: installer)
+        let engine = AudioEqualizerEngine(pluginController: controller)
+        let settingsStore = try ViewTestHost.makeSettingsStore()
+        engine.observe(settingsStore: settingsStore)
+        try settingsStore.mutate { $0.equalizer.enabled = true }
+        await waitForRoute(of: engine) { $0 == .starting(targetUID: nil) }
+
+        engine.removeDriver(settingsStore: settingsStore)
+        XCTAssertTrue(engine.isRemovingDriver, "the button showed no progress straight away")
+        XCTAssertEqual(engine.routeState, .starting(targetUID: nil),
+                       "the removal went ahead on the controller while the start was still running")
+        installer.letItFinish()
+        await waitForTheRemovalToFinish(on: engine)
+
+        XCTAssertFalse(controller.isInstalled, "the start put the driver back after it was removed")
+        XCTAssertTrue(engine.driverWasRemoved)
+        XCTAssertEqual(engine.routeState, .disabled)
+        XCTAssertEqual(output.current, output.originalID)
+        XCTAssertFalse(settingsStore.settings.equalizer.enabled)
+    }
+
+    /// Quitting is possible while the equalizer starts. The quit put the output back next to the
+    /// running start, which then moved it onto the EQ device again, where it stayed after Wax quit.
+    @MainActor
+    func testQuittingWhileTheEqualizerIsStartingPutsTheSoundBackAfterTheStart() async throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let installer = HeldDriverInstaller()
+        let engine = AudioEqualizerEngine(pluginController: makeController(for: output, driverInstaller: installer))
+        let starting = Task { try? await engine.start() }
+        await waitForRoute(of: engine) { $0 == .starting(targetUID: nil) }
+
+        // Wax quits as soon as this runs: nothing the start does afterwards gets undone.
+        let quitCanGoOn = expectation(description: "the quit went on")
+        var routeWhenQuitting: EqualizerRouteState?
+        var outputWhenQuitting: AudioObjectID?
+        XCTAssertTrue(engine.releaseOutputForQuitAfterRouteChange {
+            routeWhenQuitting = engine.routeState
+            outputWhenQuitting = output.current
+            quitCanGoOn.fulfill()
+        }, "the quit didn't wait for the running start")
+        installer.letItFinish()
+        await fulfillment(of: [quitCanGoOn], timeout: 5)
+        await starting.value
+
+        XCTAssertNotEqual(routeWhenQuitting, .starting(targetUID: nil), "the quit went on while the start could still move the sound")
+        XCTAssertEqual(outputWhenQuitting, output.originalID, "the sound was on the EQ device when Wax quit")
+        engine.releaseOutputForQuit()
+        XCTAssertEqual(output.current, output.originalID)
+    }
+
+    /// A device picked during the start moves the sound once the start is up. Quitting right after
+    /// the pick released the output before that move, which then put the sound back on the EQ device.
+    @MainActor
+    func testQuittingRightAfterPickingAnOutputDuringTheStartLeavesTheSoundOnThatOutput() async throws {
+        let rig = makeTwoOutputRig()
+        let starting = Task { try await rig.engine.start() }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.viewModel.setSystemDefaultOutputDevice(rig.selectedID)
+        let quitCanGoOn = expectation(description: "the quit went on")
+        XCTAssertTrue(rig.engine.releaseOutputForQuitAfterRouteChange { quitCanGoOn.fulfill() })
+        rig.installer.letItFinish()
+        try await starting.value
+        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, errorMessage: nil) }
+        await fulfillment(of: [quitCanGoOn], timeout: 5)
+        rig.engine.releaseOutputForQuit()
+
+        XCTAssertEqual(rig.output.current, rig.selectedID, "the sound was left on the EQ device after quitting")
+    }
+
+    /// The player's output menu stays usable while the equalizer starts. A device picked there
+    /// meanwhile was dropped, and the sound went to the old device once the equalizer was up.
+    @MainActor
+    func testAnOutputPickedFromTheMenuWhileTheEqualizerIsStartingIsUsedOnceItIsUp() async throws {
+        let rig = makeTwoOutputRig()
+        let starting = Task { try await rig.engine.start() }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.viewModel.setSystemDefaultOutputDevice(rig.selectedID)
+        rig.installer.letItFinish()
+        try await starting.value
+        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, errorMessage: nil) }
+
+        XCTAssertEqual(rig.controller.currentForwardingTargetUID(), rig.selectedUID)
+    }
+
+    /// Same for Control Center or another app: the change arrived while the equalizer was starting,
+    /// was dropped, and the equalizer kept sending the sound to the old device.
+    @MainActor
+    func testAnOutputChosenInControlCenterWhileTheEqualizerIsStartingIsUsedOnceItIsUp() async throws {
+        let rig = makeTwoOutputRig()
+        let starting = Task { try await rig.engine.start() }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.macOutput.currentOutputDeviceID = rig.selectedID
+        rig.macOutput.emitOutputChange()
+        // The notification is handled on a main-actor task of its own. It is queued before the
+        // start can resume there, so it reaches the engine while the route still says "starting".
+        rig.installer.letItFinish()
+        try await starting.value
+        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, errorMessage: nil) }
+
+        XCTAssertEqual(rig.controller.currentForwardingTargetUID(), rig.selectedUID)
+    }
+
+    /// A device picked while the equalizer was starting must not be lost when the equalizer then
+    /// gives up: before, the click ran after the freeze and set that device directly.
+    @MainActor
+    func testAnOutputPickedWhileTheEqualizerIsStartingIsUsedWhenTheStartFails() async throws {
+        let rig = makeTwoOutputRig(routerOpens: false)
+        let starting = Task { try await rig.engine.start() }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.viewModel.setSystemDefaultOutputDevice(rig.selectedID)
+        rig.installer.letItFinish()
+        do {
+            try await starting.value
+            XCTFail("the router never opened, so the start should have failed")
+        } catch {}
+
+        XCTAssertFalse(rig.engine.isEngaged)
+        XCTAssertEqual(rig.output.current, rig.selectedID, "the sound went back to the old device instead of the picked one")
+    }
+
+    @MainActor
+    func testAnOutputPickedWhileTheEqualizerIsStartingIsUsedWhenItIsSwitchedOffMeanwhile() async throws {
+        let rig = makeTwoOutputRig()
+        let settingsStore = try ViewTestHost.makeSettingsStore()
+        rig.engine.observe(settingsStore: settingsStore)
+        try settingsStore.mutate { $0.equalizer.enabled = true }
+        await waitForRoute(of: rig.engine) { $0 == .starting(targetUID: nil) }
+
+        rig.viewModel.setSystemDefaultOutputDevice(rig.selectedID)
+        try settingsStore.mutate { $0.equalizer.enabled = false }
+        rig.installer.letItFinish()
+        await waitForRoute(of: rig.engine) { $0 == .disabled }
+
+        XCTAssertEqual(rig.output.current, rig.selectedID, "the sound went back to the old device instead of the picked one")
+    }
+
+    /// The Mac's default output as the rig's controller sets and reads it, from the route's queue
+    /// and from the test.
+    private final class RigOutput: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storedCurrent: AudioObjectID
+
+        init(current: AudioObjectID) { storedCurrent = current }
+
+        var current: AudioObjectID {
+            get { lock.withLock { storedCurrent } }
+            set { lock.withLock { storedCurrent = newValue } }
+        }
+    }
+
+    private struct TwoOutputRig {
+        let selectedID = AudioObjectID(42)
+        let selectedUID = "SelectedOutputUID"
+        let installer: HeldDriverInstaller
+        let output: RigOutput
+        let controller: EqualizerHALPluginController
+        let engine: AudioEqualizerEngine
+        let macOutput: TestEqualizerMacOutputProvider
+        let viewModel: PlaybackSessionViewModel
+    }
+
+    /// Two hardware outputs, an install that waits for the test, and a router that opens whatever
+    /// target was last written, or never opens anything.
+    @MainActor
+    private func makeTwoOutputRig(routerOpens: Bool = true) -> TwoOutputRig {
+        let originalID = AudioObjectID(41)
+        let selectedID = AudioObjectID(42)
+        let virtualID = AudioObjectID(99)
+        let uids = [originalID: "OriginalOutputUID", selectedID: "SelectedOutputUID"]
+        let installer = HeldDriverInstaller()
+        let output = RigOutput(current: originalID)
+        let controller = EqualizerHALPluginController(
+            halDirectory: halDirectory,
+            bundle: fakeAppBundle,
+            defaultOutputBackupURL: defaultOutputBackupURL,
+            driverInstaller: installer,
+            outputDeviceIDForUID: { uid in uids.first { $0.value == uid }?.key },
+            outputDeviceUID: { uids[$0] },
+            defaultOutputDeviceIDProvider: { output.current },
+            virtualDeviceIDProvider: { virtualID },
+            defaultOutputSetter: { output.current = $0 },
+            routerStatusURL: makeTempDirectory().appendingPathComponent("router.status"),
+            routerStatusReader: {
+                guard routerOpens else { return nil }
+                let written = try? String(contentsOf: EqualizerHALPluginController.forwardingTargetURL, encoding: .utf8)
+                return written.map { .ready(targetUID: $0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+            },
+            routerReadinessTimeout: 0.2,
+            activeSampleRateObservationStarter: { _ in }
+        )
+        let engine = AudioEqualizerEngine(pluginController: controller)
+        let macOutput = TestEqualizerMacOutputProvider(deviceID: originalID)
+        let viewModel = PlaybackSessionViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: MockPlaybackAPI(), webCommander: MockWebPlaybackCommander()),
+            macAudioOutput: macOutput,
+            equalizerEngine: engine,
+            defaults: UserDefaults(suiteName: "spotiglass-eq-starting-\(UUID().uuidString)")!
+        )
+        return TwoOutputRig(
+            installer: installer,
+            output: output,
+            controller: controller,
+            engine: engine,
+            macOutput: macOutput,
+            viewModel: viewModel
+        )
+    }
+
+    /// Waits for the engine's route to reach a state. Fails after 5 s rather than hanging.
+    @MainActor
+    private func waitForRoute(
+        of engine: AudioEqualizerEngine,
+        _ isReached: @escaping (EqualizerRouteState) -> Bool
+    ) async {
+        let reached = expectation(description: "the equalizer route reached the expected state")
+        reached.assertForOverFulfill = false
+        let watch = engine.$routeState
+            .filter(isReached)
+            .sink { _ in reached.fulfill() }
+        await fulfillment(of: [reached], timeout: 5)
+        watch.cancel()
+    }
+
+    @MainActor
+    private func startError(of engine: AudioEqualizerEngine) async -> Error? {
+        do {
+            try await engine.start()
+            return nil
+        } catch {
+            return error
+        }
     }
 
     // MARK: - Helpers
