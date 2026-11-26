@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.87] - 2026-11-26
+
+### Fixed
+
+- Volume keys now change the loudness with the equalizer on, even on USB DAC and HDMI outputs.
+
 ## [0.8.86] - 2026-11-26
 
 ### Fixed
