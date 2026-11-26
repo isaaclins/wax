@@ -651,7 +651,7 @@ extension MusicKitContentSource {
     /// whether one saved album and one catalog release share a key or several do. The library is
     /// searched by title only: it finds nothing for title and artist together.
     static func albums(matching query: AppleMusicAlbumQuery) async throws -> AppleMusicAlbumSearch {
-        try await logged("album search for a pin (\(query.title) / \(query.artist))") { () async throws -> AppleMusicAlbumSearch in
+        try await logged("album search for a pin (\(SpotiglassLog.personal(query.title)) / \(SpotiglassLog.personal(query.artist)))") { () async throws -> AppleMusicAlbumSearch in
             var catalog = MusicCatalogSearchRequest(term: "\(query.title) \(query.artist)", types: [Album.self])
             catalog.limit = pinnedAlbumSearchLimit
             var library = MusicLibrarySearchRequest(term: query.title, types: [Album.self])
@@ -710,7 +710,7 @@ extension MusicKitContentSource {
 /// (`top-songs`) and similar artists (`similar-artists`).
 extension MusicKitContentSource: AppleMusicAutoplayCatalog {
     func autoplayArtistMatches(named name: String, limit: Int) async throws -> [AppleMusicAutoplayArtistMatch] {
-        try await Self.logged("autoplay artist search (\(name))") { () async throws -> [AppleMusicAutoplayArtistMatch] in
+        try await Self.logged("autoplay artist search (\(SpotiglassLog.personal(name)))") { () async throws -> [AppleMusicAutoplayArtistMatch] in
             var request = MusicCatalogSearchRequest(term: name, types: [Artist.self])
             request.limit = limit
             return try await request.response().artists.map {

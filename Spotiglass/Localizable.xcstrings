@@ -13487,19 +13487,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wax behält das vollständige Log dieser und der vorherigen Sitzung auf diesem Mac. Hängen Sie einem Fehlerbericht die Kopie an, die „Kopie des Logs sichern“ erstellt: Ihre Suchen, Namen, Titel-, Playlist- und Geräte-IDs und Webadressen sind darin ersetzt."
+            "value": "Wax behält das vollständige Log dieser und der vorherigen Sitzung auf diesem Mac. Hängen Sie einem Fehlerbericht die Kopie an, die „Kopie des Logs sichern…“ erstellt. Ihre Suchen, Namen, Titel-, Playlist- und Geräte-IDs und Webadressen sind darin ersetzt."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wax keeps the full log of this session and the one before on this Mac. For a bug report, attach the copy Save Copy of the Log makes: your searches, names, song, playlist and device IDs and web addresses are replaced in it."
+            "value": "Wax keeps the full log of this session and the one before on this Mac. For a bug report, attach the copy “Save Copy of the Log…” makes. Your searches, names, song, playlist and device IDs and web addresses are replaced in it."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wax guarda en este Mac el registro completo de esta sesión y de la anterior. En un informe de error, adjunta la copia que crea Guardar copia del registro: en ella se reemplazan tus búsquedas, nombres, ID de canciones, listas y dispositivos y direcciones web."
+            "value": "Wax guarda en este Mac el registro completo de esta sesión y de la anterior. En un informe de error, adjunta la copia que crea «Guardar copia del registro…». En ella se reemplazan tus búsquedas, nombres, ID de canciones, listas y dispositivos y direcciones web."
           }
         }
       }

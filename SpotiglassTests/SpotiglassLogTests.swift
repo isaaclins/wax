@@ -207,6 +207,9 @@ final class SpotiglassLogTests: XCTestCase {
             ("INFO", "calls", "→ #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg"),
             ("INFO", "calls", "← #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg done after 78.3 ms: status 200, 114795 bytes"),
             ("ERROR", "auth", "Sign-in failed: access_denied\n2026-11-25T16:00:00.000Z [INFO] [auth] Signed in"),
+            ("INFO", "calls", "→ #7 MusicKit album search for a pin (\(SpotiglassLog.personal("Currents")) / \(SpotiglassLog.personal("Tame Impala")))"),
+            ("INFO", "calls", "→ #8 MusicKit autoplay artist search (\(SpotiglassLog.personal("Pond")))"),
+            ("INFO", "calls", "← #9 MusicKit catalog artist 909253 top songs done after 120.4 ms"),
         ]
         for (level, category, message) in lines {
             sink.write(level: level, category: category, message: message, synchronously: true)
@@ -227,7 +230,7 @@ final class SpotiglassLogTests: XCTestCase {
             "tame impala", "tame%20impala", "Let It Happen", "isaac.lins", "/Users/isaac/",
             "4651336237147474264", "1718416633700638354", "69022FF1-C55C-4807-9D44-AB5C2C770DCD",
             "b7aXaLAhy::5GlvfRUeI", deviceID, "6rqhFgbbKwnb9MLmUQDhG6", "The access token expired", "key T",
-            "20UMGIM03371",
+            "20UMGIM03371", "Currents", "Tame Impala", "Pond", "909253",
         ] {
             XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
         }
@@ -236,6 +239,7 @@ final class SpotiglassLogTests: XCTestCase {
             "position 9 of 440", "first frame after 6.1 ms", "row 3 of 40", "button “Next”", "window “Wax”",
             "shortcut ⌘K", "/v1/search?<query>", "applemusic:song:#", "spotify:track:#", "currentURI=<nil>",
             "/Users/<user>/Library/Caches", "access_denied", "https://is1-ssl.mzstatic.com/#", "status 200, 114795 bytes",
+            "album search for a pin (“#", "catalog artist #", "top songs done after 120.4 ms",
         ] {
             XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
         }

@@ -563,6 +563,11 @@ enum BugReportLogCopy {
                 if ["<nil>", "nil", "none", "?"].contains(value) || cleaner.isStandIn(value) || value.contains(":#") { return match }
                 return "\(key)=\(cleaner.standIn(value))"
             }
+            // `catalog artist 909253 top songs`: older catalog IDs are shorter than the shapes below.
+            result = replace(Self.namedCatalogID, in: result) { cleaner, match in
+                guard let space = match.lastIndex(of: " ") else { return match }
+                return "\(match[...space])\(cleaner.standIn(String(match[match.index(after: space)...])))"
+            }
             for shape in Self.identifierShapes {
                 result = replace(shape, in: result) { cleaner, match in
                     cleaner.isStandIn(match) ? match : cleaner.standIn(match)
@@ -624,6 +629,8 @@ enum BugReportLogCopy {
         private static let spotifyUser = pattern(#"/users/[^/\s?"'”)]+"#)
         /// `deviceID=…`, `playlistID=…`, `clickedURI=…`, `uid=…`: every value of a key that names an identifier.
         private static let identifierValue = pattern(#"\b(?:\w*(?:ID|Id|URI|Uri|UID|Uid)|id|uri|uid|\w+_id)=[^\s,;)\]"'”]+"#)
+        /// A short catalog ID after the kind it names, as MusicKit call names write it.
+        private static let namedCatalogID = pattern(#"\b(?:album|song|artist|playlist) \d{5,8}\b"#)
         private static let identifierShapes: [NSRegularExpression?] = [
             // UUIDs: queue entries, sessions.
             pattern(#"\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\b"#),
