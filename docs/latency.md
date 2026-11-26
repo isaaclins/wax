@@ -124,6 +124,9 @@ updates the browser twice for one selection.
 On CI's runner ⌘F to Search went from 370 ms to 46-69 ms (median of three runs). The runner's
 speed swings between runs (the lyrics toggle's median went from 351 to 793 ms with the same code),
 so its `ci` time is the slowest of those medians with half again on top, 104 ms.
+On the Mac, ⌘F's median is under 50 ms (43-45 ms with other builds running), but the try that's
+checked is still 50-52 ms under load, above the 40 ms a listed interaction needs to come off the
+list, so it stays listed at 52 ms with #675.
 
 ## The sound (Apple Music)
 
