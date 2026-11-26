@@ -50,7 +50,7 @@ enum PlaylistBrowserTapTargetNavigation {
         showFailure: @MainActor (LocalizedText) -> Void
     ) async {
         guard !(error is CancellationError), !Task.isCancelled else { return }
-        SpotiglassLog.error(.browsing, "Looking up \"\(name)\" to open it failed: \(SpotiglassLog.describe(error))")
+        SpotiglassLog.error(.browsing, "Looking up \(SpotiglassLog.personal(name)) to open it failed: \(SpotiglassLog.describe(error))")
         await showFailure(LocalizedText(SpotiglassL10n.format("browser.tapTarget.openFailed", name)))
     }
 }

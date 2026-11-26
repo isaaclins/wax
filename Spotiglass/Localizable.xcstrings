@@ -13487,19 +13487,19 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wird bei jedem Start neu angelegt; das Protokoll der vorherigen Sitzung bleibt als spotiglass.previous.log erhalten, der ältere Teil einer langen Sitzung in einer Datei, die auf earlier.log endet. Hängen Sie beim Melden von Fehlern alle diese Dateien an."
+            "value": "Wax behält das vollständige Log dieser und der vorherigen Sitzung auf diesem Mac. Hängen Sie einem Fehlerbericht die Kopie an, die „Kopie des Logs sichern…“ erstellt. Ihre Suchen, Namen, Titel-, Playlist- und Geräte-IDs und Webadressen sind darin ersetzt."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reset at each launch; the previous session’s log is kept as spotiglass.previous.log, and the earlier part of a long session in a file ending in earlier.log. Attach all of them when filing bug reports."
+            "value": "Wax keeps the full log of this session and the one before on this Mac. For a bug report, attach the copy “Save Copy of the Log…” makes. Your searches, names, song, playlist and device IDs and web addresses are replaced in it."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Se reinicia en cada arranque; el registro de la sesión anterior se conserva como spotiglass.previous.log y la parte más antigua de una sesión larga en un archivo que termina en earlier.log. Adjúntalos todos al reportar errores."
+            "value": "Wax guarda en este Mac el registro completo de esta sesión y de la anterior. En un informe de error, adjunta la copia que crea «Guardar copia del registro…». En ella se reemplazan tus búsquedas, nombres, ID de canciones, listas y dispositivos y direcciones web."
           }
         }
       }
@@ -18806,6 +18806,98 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wird entfernt …"
+          }
+        }
+      }
+    },
+    "settings.account.diagnostics.reportLabel": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bug report"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehlerbericht"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informe de error"
+          }
+        }
+      }
+    },
+    "settings.account.diagnostics.saveForReport": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Copy of the Log…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopie des Logs sichern…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guardar copia del registro…"
+          }
+        }
+      }
+    },
+    "settings.account.diagnostics.reportFileName": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax log for a bug report.txt"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wax-Log für einen Fehlerbericht.txt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registro de Wax para un informe.txt"
+          }
+        }
+      }
+    },
+    "settings.account.diagnostics.saveFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The copy of the log couldn’t be saved"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Kopie des Logs konnte nicht gesichert werden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo guardar la copia del registro"
           }
         }
       }

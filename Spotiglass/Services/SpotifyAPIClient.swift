@@ -260,7 +260,7 @@ struct SpotifyAPIClient {
                 )
                 SpotiglassLog.error(
                     .api,
-                    "Spotify API failure: \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "<missing URL>")\n\(responseDetails)"
+                    "Spotify API failure: \(request.httpMethod ?? "GET") \(request.url?.absoluteString ?? "<missing URL>") HTTP \(response.statusCode), headers and body: \(SpotiglassLog.personal(responseDetails))"
                 )
             }
             if response.statusCode == 401 && !didRefreshAfterUnauthorized {
@@ -573,7 +573,7 @@ struct SpotifyAPIClient {
 
     private func logRequestFailure(request: URLRequest?, method: String, fallbackPath: String, error: Error) {
         let target = request?.url?.absoluteString ?? fallbackPath
-        let details = (error as? SpotifyAPIError)?.diagnosticDetails.map { "\n\($0)" } ?? ""
+        let details = (error as? SpotifyAPIError)?.diagnosticDetails.map { " \(SpotiglassLog.personal($0))" } ?? ""
         SpotiglassLog.error(.api, "Spotify API failure: \(method) \(target) — \(error.localizedDescription)\(details)")
     }
 

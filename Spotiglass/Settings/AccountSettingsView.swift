@@ -145,12 +145,44 @@ struct AccountSettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                if let url = SpotiglassLog.logFileURL {
+                    LabeledContent(SpotiglassL10n.string("settings.account.diagnostics.reportLabel")) {
+                        Button(SpotiglassL10n.string("settings.account.diagnostics.saveForReport")) {
+                            Self.saveCopyForBugReport(logFolder: url.deletingLastPathComponent())
+                        }
+                    }
+                }
             } header: {
                 Text(SpotiglassL10n.string("settings.account.diagnostics.header"))
             } footer: {
                 Text(SpotiglassL10n.string("settings.account.diagnostics.footer"))
                     .foregroundStyle(.secondary)
             }
+    }
+
+    /// Asks where to put the bug-report copy of the log (#603) and writes it there off the main
+    /// thread; the full log can be 128 MB.
+    private static func saveCopyForBugReport(logFolder: URL) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = SpotiglassL10n.string("settings.account.diagnostics.reportFileName")
+        panel.allowedContentTypes = [.plainText]
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        SpotiglassLog.flush()
+        let ownWords = BugReportLogCopy.appWords()
+        Task.detached(priority: .userInitiated) {
+            do {
+                try BugReportLogCopy.write(from: logFolder, to: destination, keeping: ownWords)
+                SpotiglassLog.info(.settings, "Saved the log copy for a bug report")
+                await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([destination]) }
+            } catch {
+                SpotiglassLog.error(.settings, "Saving the log copy for a bug report failed: \(SpotiglassLog.describe(error))")
+                await MainActor.run {
+                    let alert = NSAlert(error: error)
+                    alert.messageText = SpotiglassL10n.string("settings.account.diagnostics.saveFailed")
+                    alert.runModal()
+                }
+            }
+        }
     }
 
     private var activeSession: AuthenticatedSession? {

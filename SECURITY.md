@@ -21,6 +21,8 @@ a fix and coordinated disclosure when appropriate.
 - Contents of your **Keychain** or `settings.json` from Application Support
 - OAuth callback URLs containing live `code=` or `state=` parameters from a real session
 
+- The raw files in `~/Library/Application Support/Spotiglass/Logs/`. They hold everything Wax did, including what you searched for, song, playlist and device IDs and full request addresses. To share a log, use **Settings → Account → Diagnostics → Save Copy of the Log…**: that copy replaces your searches, names, IDs, addresses and home folder name with stand-ins like `#3f2a9c1d` and keeps the times, status codes and errors that explain a failure.
+
 Redact or rotate credentials if they were accidentally exposed.
 
 ## Scope
