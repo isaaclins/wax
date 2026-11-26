@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.95] - 2026-11-26
+
+### Fixed
+
+- On macOS 26, opening or closing the queue no longer makes the player controls and song rows redraw.
+
 ## [0.8.94] - 2026-11-26
 
 ### Fixed
