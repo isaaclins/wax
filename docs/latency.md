@@ -146,7 +146,8 @@ builds (load 4-25). Two things made shuffle, repeat and ⌘[ slower than seek:
 Shuffle, repeat and seek are off the `known` list. Shuffle stayed at or under 40 ms checked in all
 ten runs. Repeat did in the five runs on the final code, and reached 43 ms once in the five before
 the player bar change. Seek did in those first five, and reached 45 ms once in the five on the
-final code, under load 6-18. Seek's path didn't change (its median is 24-29 ms), so that's the load. ⌘[ is at 35-38 ms median, but its checked time still reached 42-48 ms in some runs:
+final code, under load 6-18. Seek's path didn't change (its median is 24-29 ms), so that's the load.
+⌘[ is at 35-38 ms median, but its checked time still reached 42-48 ms in some runs:
 what's left is the page change itself (the browser's body runs again and draws the sidebar and the
 page a second time), the same work as ⌘F and a sidebar click. It stays listed, at 47 ms, with #675.
 
