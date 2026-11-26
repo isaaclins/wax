@@ -292,7 +292,7 @@ extension QueueItem {
             albumID: track.albumID,
             durationMilliseconds: track.durationMilliseconds,
             uri: track.uri,
-            artistTapTargets: artistTapTargets(artistRefs: track.artistRefs, fallbackSubtitle: track.artists.joined(separator: ", "))
+            artistTapTargets: artistTapTargets(artistRefs: track.artistRefs, fallbackNames: track.artists)
         )
     }
 
@@ -331,14 +331,14 @@ extension QueueItem {
         )
     }
 
-    static func artistTapTargets(artistRefs: [MusicArtistRef], fallbackSubtitle: String) -> [ArtistTapTarget] {
+    /// One link per artist the service named. Without IDs each name stays whole as sent: an
+    /// Apple Music credit like "Tyler, The Creator & Kali Uchis" is one link, and a click finds
+    /// the artists inside it (``PlaylistBrowserTapTargetResolver/resolveArtistID(forName:search:)``),
+    /// as in the player bar. Cutting it at the comma made a link called "Tyler" (#639).
+    static func artistTapTargets(artistRefs: [MusicArtistRef], fallbackNames: [String]) -> [ArtistTapTarget] {
         if !artistRefs.isEmpty {
             return artistRefs.map { ArtistTapTarget(id: $0.id, name: $0.name) }
         }
-        let fallbackNames = fallbackSubtitle
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
         return PlaybackNowPlaying.artistTapTargets(fromNames: fallbackNames)
     }
 

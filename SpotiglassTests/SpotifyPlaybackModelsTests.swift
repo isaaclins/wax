@@ -160,8 +160,8 @@ final class SpotifyPlaybackModelsTests: XCTestCase {
 
     func testQueueItemArtistTapTargetsFromRefsAndFallback() {
         let refs = [MusicArtistRef(id: "1", name: "One")]
-        XCTAssertEqual(QueueItem.artistTapTargets(artistRefs: refs, fallbackSubtitle: "ignored").count, 1)
-        let fallback = QueueItem.artistTapTargets(artistRefs: [], fallbackSubtitle: "Alpha, Beta")
+        XCTAssertEqual(QueueItem.artistTapTargets(artistRefs: refs, fallbackNames: ["ignored"]).count, 1)
+        let fallback = QueueItem.artistTapTargets(artistRefs: [], fallbackNames: ["Alpha", "Beta"])
         XCTAssertEqual(fallback.count, 2)
     }
 
