@@ -423,6 +423,11 @@ final class CommandPaletteManager: ObservableObject {
             return false
         }
 
+        // ⌥⌘S, ⌥⌘R and ⌘[ run their menu items from here, not after the menu bar's slow search (#730).
+        if MenuOnlyShortcuts.perform(event) {
+            return true
+        }
+
         // A bare key (no ⌘/⌃/⌥) must reach a focused text field rather than fire a
         // single-key command like Space → Play/Pause while the user is typing. The
         // palette has its own field handling above, so this only guards the global

@@ -26,6 +26,9 @@ final class PlayPauseRenderScopeTests: XCTestCase {
 
     private static let trackIDs = (1...20).map { "t\($0)" }
 
+    /// The browser `hostBrowser` put on screen.
+    private var hostedBrowser: PlaylistBrowserViewModel?
+
     /// How long the play/pause icon's swap animates (`PlaybackControlsView`).
     private static let iconSwap = Duration.milliseconds(180)
 
@@ -153,6 +156,17 @@ final class PlayPauseRenderScopeTests: XCTestCase {
 
         let resumed = await bodies { playback.setConnectionState(.playing(Self.nowPlaying("t3"))) }
         assertOnlyTheRowsChanged(resumed, tracks: ["t3"], playlists: ["p1"])
+    }
+
+    /// A page change runs the browser's body, and it drew the player bar again too, though the bar
+    /// shows nothing that changed: 8 of ⌘['s 18 ms (#730).
+    func testAPageChangeLeavesThePlayerBarAlone() async throws {
+        _ = try await hostBrowserPlaying()
+        let browser = try XCTUnwrap(hostedBrowser)
+        let changed = await bodies { browser.sidebarSelection = .search }
+        XCTAssertNotNil(changed["PlaylistBrowserView"], "the page change never ran the browser's body")
+        XCTAssertNil(changed["BrowserTransportBar"], "the player bar ran again for a page change")
+        XCTAssertNil(changed["PlaybackControlsView"], "the player bar ran again for a page change")
     }
 
     func testANewTrackRerendersOnlyTheOldAndTheNewPlayingRow() async throws {
