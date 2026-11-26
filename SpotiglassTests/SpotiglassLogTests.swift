@@ -204,6 +204,8 @@ final class SpotiglassLogTests: XCTestCase {
             ("INFO", "interaction", "#13 key T in window “Wax” on focus NSTextView; first frame after 4.0 ms"),
             ("INFO", "interaction", "#14 shortcut ⌘K in window “Wax” on button “Next”; first frame after 3.2 ms"),
             ("INFO", "persistence", "Cache folder /Users/isaac/Library/Caches/Spotiglass unreadable"),
+            ("INFO", "calls", "→ #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg"),
+            ("INFO", "calls", "← #6 HTTP GET https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/da/8b/77/da8b77aa/20UMGIM03371.rgb.jpg/640x640bb.jpg done after 78.3 ms: status 200, 114795 bytes"),
             ("ERROR", "auth", "Sign-in failed: access_denied\n2026-11-25T16:00:00.000Z [INFO] [auth] Signed in"),
         ]
         for (level, category, message) in lines {
@@ -225,6 +227,7 @@ final class SpotiglassLogTests: XCTestCase {
             "tame impala", "tame%20impala", "Let It Happen", "isaac.lins", "/Users/isaac/",
             "4651336237147474264", "1718416633700638354", "69022FF1-C55C-4807-9D44-AB5C2C770DCD",
             "b7aXaLAhy::5GlvfRUeI", deviceID, "6rqhFgbbKwnb9MLmUQDhG6", "The access token expired", "key T",
+            "20UMGIM03371",
         ] {
             XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
         }
@@ -232,7 +235,7 @@ final class SpotiglassLogTests: XCTestCase {
             "[ERROR] [api]", "HTTP 401", "NSURLErrorDomain -1009", "provider 412ms", "playableCount=440",
             "position 9 of 440", "first frame after 6.1 ms", "row 3 of 40", "button “Next”", "window “Wax”",
             "shortcut ⌘K", "/v1/search?<query>", "applemusic:song:#", "spotify:track:#", "currentURI=<nil>",
-            "/Users/<user>/Library/Caches", "access_denied",
+            "/Users/<user>/Library/Caches", "access_denied", "https://is1-ssl.mzstatic.com/#", "status 200, 114795 bytes",
         ] {
             XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
         }
@@ -242,6 +245,11 @@ final class SpotiglassLogTests: XCTestCase {
         }
         XCTAssertEqual(standIns.count, 2)
         XCTAssertEqual(Set(standIns).count, 1)
+        let covers = copy.split(separator: "\n").filter { $0.contains("mzstatic") }.compactMap { line in
+            line.range(of: #"mzstatic\.com/#[0-9a-f]{6}"#, options: .regularExpression).map { String(line[$0]) }
+        }
+        XCTAssertEqual(covers.count, 2)
+        XCTAssertEqual(Set(covers).count, 1)
     }
 
     func testTheCopyTakesThePreviousSessionFirst() throws {

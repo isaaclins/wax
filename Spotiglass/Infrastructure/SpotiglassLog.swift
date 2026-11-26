@@ -464,23 +464,49 @@ enum BugReportLogCopy {
             .filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 
-    /// Writes the cleaned copy of every log file in `folder` to `destination`.
+    /// Writes the cleaned copy of every log file in `folder` to `destination`. The four files
+    /// can hold 128 MB, so each is cleaned in pieces on all cores; a stand-in depends only on
+    /// the value and this copy's salt, so the pieces agree on it.
     static func write(from folder: URL, to destination: URL, keeping ownWords: Set<String> = appWords()) throws {
-        var cleaner = Cleaner(ownWords: ownWords)
-        var output = "=== Wax log for a bug report, saved \(ISO8601DateFormatter().string(from: Date())). Searches, names, IDs and addresses are replaced by stand-ins like #3f2a9c. ===\n"
+        let salt = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) })
+        var output = Data("=== Wax log for a bug report, saved \(ISO8601DateFormatter().string(from: Date())). Searches, names, IDs and addresses are replaced by stand-ins like #3f2a9c. ===\n".utf8)
         for file in sourceFiles(in: folder) {
             let text = try String(contentsOf: file, encoding: .utf8)
-            output += "=== \(file.lastPathComponent) ===\n"
-            output += cleaner.clean(text)
-            if !text.hasSuffix("\n") { output += "\n" }
+            output.append(Data("=== \(file.lastPathComponent) ===\n".utf8))
+            let pieces = Self.pieces(of: text)
+            let cleaned = OSAllocatedUnfairLock(initialState: [String](repeating: "", count: pieces.count))
+            DispatchQueue.concurrentPerform(iterations: pieces.count) { index in
+                var cleaner = Cleaner(ownWords: ownWords, salt: salt)
+                let piece = cleaner.clean(String(pieces[index]))
+                cleaned.withLock { $0[index] = piece }
+            }
+            for piece in cleaned.withLock({ $0 }) {
+                output.append(Data(piece.utf8))
+            }
+            if !text.hasSuffix("\n") { output.append(Data("\n".utf8)) }
         }
-        try Data(output.utf8).write(to: destination, options: .atomic)
+        try output.write(to: destination, options: .atomic)
+    }
+
+    /// `text` cut at line ends into pieces of about `size` characters.
+    static func pieces(of text: String, size: Int = 256 * 1024) -> [Substring] {
+        var pieces: [Substring] = []
+        var start = text.startIndex
+        while start < text.endIndex {
+            var end = text.index(start, offsetBy: size, limitedBy: text.endIndex) ?? text.endIndex
+            if end < text.endIndex {
+                end = text[end...].firstIndex(of: "\n").map { text.index(after: $0) } ?? text.endIndex
+            }
+            pieces.append(text[start ..< end])
+            start = end
+        }
+        return pieces
     }
 
     /// Every word and sentence Wax itself shows, in every language it ships: a control named
     /// “Next” or “Shuffle” stays readable in the copy, a song or playlist name doesn't.
     static func appWords(bundle: Bundle = .main) -> Set<String> {
-        var words: Set<String> = [AppMetadata.displayName, "Wax", "Settings"]
+        var words: Set<String> = [AppMetadata.displayName, "\(AppMetadata.displayName) Settings", "Settings"]
         for localization in bundle.localizations {
             for table in ["Localizable", "InfoPlist"] {
                 guard let url = bundle.url(forResource: table, withExtension: "strings", subdirectory: nil, localization: localization),
@@ -494,11 +520,12 @@ enum BugReportLogCopy {
     struct Cleaner {
         let ownWords: Set<String>
         /// Random for each copy, so a stand-in can't be worked back to a value by trying names.
-        private let salt = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) })
+        private let salt: Data
         private var standIns: [String: String] = [:]
 
-        init(ownWords: Set<String>) {
+        init(ownWords: Set<String>, salt: Data) {
             self.ownWords = ownWords
+            self.salt = salt
         }
 
         mutating func clean(_ text: String) -> String {
@@ -514,6 +541,12 @@ enum BugReportLogCopy {
             result = replace(Self.query, in: result) { _, match in
                 // Whatever came before the `?` (the end of a path) stays.
                 (match.first == "?" ? "" : String(match.prefix(1))) + "?<query>"
+            }
+            // A cover's address names the album it belongs to; the stand-in still ties the
+            // lines of one cover together.
+            result = replace(Self.coverAddress, in: result) { cleaner, match in
+                guard let slash = match.range(of: "/", range: match.index(match.startIndex, offsetBy: 8) ..< match.endIndex) else { return match }
+                return "\(match[..<slash.lowerBound])/\(cleaner.standIn(String(match[slash.upperBound...])))"
             }
             result = replace(Self.serviceURI, in: result) { cleaner, match in
                 let parts = match.split(separator: ":", maxSplits: 2).map(String.init)
@@ -583,6 +616,8 @@ enum BugReportLogCopy {
         private static let homeFolder = pattern(#"/Users/[^/\s"'”]+"#)
         /// A query: `?q=night&type=track` after an address or path.
         private static let query = pattern(#"[^\s]?\?[A-Za-z_][\w.\[\]-]*=[^\s"'”)]*"#)
+        /// Cover art on Apple's and Spotify's image servers.
+        private static let coverAddress = pattern(#"https?://[^/\s]*(?:mzstatic\.com|scdn\.co|spotifycdn\.com)/[^\s"'”)]+"#)
         /// `spotify:track:6rqhFgbbKwnb9MLmUQDhG6`, `applemusic:song:4651336237147474264`.
         private static let serviceURI = pattern(#"\b(?:spotify|applemusic):[a-z]+:[^\s,;)'"\]]+"#)
         /// `/v1/users/<name>/playlists`: a Spotify user ID is often the person's name.
