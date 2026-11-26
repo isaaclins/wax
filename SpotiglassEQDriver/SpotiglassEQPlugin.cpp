@@ -506,8 +506,8 @@ void* TargetWatcherMain(void* /*unused*/) {
 // another app calling SetVolume). On change, it publishes a
 // `PropertiesChanged` so HAL clients refresh their cached read.
 //
-// A target whose master volume isn't settable, or one whose write or read
-// fails, gets the level in software instead (EQVolume::tick, #605): many USB
+// A target whose master volume isn't settable, or one that refuses a write,
+// gets the level in software instead (EQVolume::tick, #605): many USB
 // DACs and HDMI / DisplayPort monitors have no volume of their own.
 //
 // This MUST be off the HAL property dispatch path — calling

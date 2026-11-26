@@ -640,20 +640,32 @@ void testAFailedForwardSwitchesToSoftwareVolume() {
 
     volume.userSets(0.5f);
     volume.tick(monitor);
-    expect(monitor.sets == 1, "nothing more is forwarded to a target that refused");
+    expect(volume.software.load(), "a target that refuses again stays on software volume");
     expectEqual(PlayThroughVolume(ramp, volume, 0.05f), EQVolume::amplitude(0.5f), "the next change applies in software too");
+
+    monitor.setWorks = true;
+    monitor.getWorks = true;
+    volume.userSets(0.4f);
+    volume.tick(monitor);
+    expect(!volume.software.load(), "once a write goes through it is forwarded again");
+    expectEqual(monitor.hardware, 0.4f, "the target has the level");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 1.0f, "and the samples are back at full scale");
 }
 
-void testAFailedReadBackSwitchesToSoftwareVolume() {
+void testAFailedReadBackKeepsForwarding() {
+    // The device took the level; only reading it back failed. Applying it in
+    // software too would play 30 % of 30 %.
     FakeVolumeTarget target;
     target.getWorks = false;
     EQVolume volume;
     EQGainRamp ramp;
 
     volume.userSets(0.3f);
-    volume.tick(target);
-    expect(volume.software.load(), "a target whose level can't be read back gets it in software");
-    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), EQVolume::amplitude(0.3f), "the music plays at 30 %");
+    expect(!volume.tick(target), "a missed read-back changes nothing");
+    expect(!volume.software.load(), "a target that took the level keeps getting it forwarded");
+    expectEqual(target.hardware, 0.3f, "the level is on the target");
+    expectEqual(volume.level.load(), 0.3f, "the slider stays at what I set");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 1.0f, "samples leave the EQ at full scale, not attenuated twice");
 }
 
 void testASettableTargetKeepsForwardingAtFullScale() {
@@ -881,7 +893,7 @@ int main() {
 
     testAUSBDACWithoutAVolumeGetsTheLevelInSoftware();
     testAFailedForwardSwitchesToSoftwareVolume();
-    testAFailedReadBackSwitchesToSoftwareVolume();
+    testAFailedReadBackKeepsForwarding();
     testASettableTargetKeepsForwardingAtFullScale();
     testSwitchingTargetsDecidesTheModeAgain();
     testVolumeChangesRampWithoutAClick();

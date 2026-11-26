@@ -12,9 +12,9 @@
 // path, with a short ramp so a change doesn't click.
 //
 // The slider maps to dB in a straight line over kMinDB...kMaxDB, the way
-// devices with their own volume do it (the Mac mini's speakers: 0.5 is
-// -31.8 dB, 0.25 is -47.6 dB), so the same slider position sounds about as
-// loud on a DAC as on speakers. The device's reported dB uses the same curve.
+// devices with their own volume do it (the Mac mini's speakers run from
+// -63.5 dB: 0.5 is -31.8 dB, 0.25 is -47.6 dB), so the same slider position
+// sounds about as loud on a DAC as on speakers, within half a dB. The device's reported dB uses the same curve.
 
 #include <atomic>
 #include <math.h>
@@ -59,6 +59,8 @@ struct EQVolume {
     /// The target `software` was decided for. Written by the worker, read by
     /// the render callback.
     std::atomic<uint32_t> decidedTarget{0};
+    /// Worker only: the decided target has no settable master volume.
+    bool unsettable = false;
 
     /// The amplitude to multiply samples by right now, for the router's
     /// current target. Until the worker has decided the mode for that target
@@ -87,23 +89,31 @@ struct EQVolume {
     bool tick(Target& t) {
         const uint32_t id = t.id();
         if (id != decidedTarget.load(std::memory_order_acquire)) {
-            software.store(!t.settable(), std::memory_order_release);
+            unsettable = !t.settable();
+            software.store(unsettable, std::memory_order_release);
             decidedTarget.store(id, std::memory_order_release);
         }
         const bool hadWrite = hasPendingWrite.exchange(false, std::memory_order_acq_rel);
-        if (software.load(std::memory_order_acquire)) return false;
+        if (unsettable) return false;
 
         // Drain a pending write before sampling, otherwise the read races
-        // the write and the slider flickers back to the stale value.
-        if (hadWrite && !t.set(clamp(pendingWrite.load(std::memory_order_acquire)))) {
-            software.store(true, std::memory_order_release);
+        // the write and the slider flickers back to the stale value. A
+        // refused write switches to software volume; the next change tries
+        // the device again, so one hiccup doesn't stick.
+        if (hadWrite) {
+            if (!t.set(clamp(pendingWrite.load(std::memory_order_acquire)))) {
+                software.store(true, std::memory_order_release);
+                return false;
+            }
+            software.store(false, std::memory_order_release);
+        } else if (software.load(std::memory_order_acquire)) {
+            // Its own level is stale: reading it would undo what I set.
             return false;
         }
+        // A missed read-back changes nothing: the device took the level, so
+        // applying it in software too would attenuate twice.
         float fresh = 0.0f;
-        if (!t.get(fresh)) {
-            software.store(true, std::memory_order_release);
-            return false;
-        }
+        if (!t.get(fresh)) return false;
         fresh = clamp(fresh);
         if (fabsf(fresh - level.load(std::memory_order_acquire)) < 0.0005f) return false;
         level.store(fresh, std::memory_order_release);

@@ -233,7 +233,7 @@ Three ways to expose a working slider:
 **Hybrid.** Mirror to the EQRouter target's `kAudioDevicePropertyVolumeScalar`
 for both reads and writes when the target has a settable master volume.
 When it has none (many USB DACs, monitors over HDMI or DisplayPort), or a
-forwarded write or its read-back fails, the driver applies the level itself
+forwarded write fails, the driver applies the level itself
 in `DoIOOperation`, post-EQ, with a ~10 ms ramp so a change never clicks
 (#605, `EQVolume.h`). The mode is decided again whenever the target changes;
 until it is decided for the new target (up to one 150 ms worker tick), the
@@ -279,9 +279,10 @@ The control is published via the device's `kAudioObjectPropertyControlList`
   No syscalls inside `DoIOOperation`.
 - **Pro:** Slider tracks downstream hardware-side changes (e.g. user
   presses physical headphone volume button) via the volume mirror worker.
-- **Con:** A target that refused one write stays on software volume until
-  the EQ forwards to another device. Its own hardware level then stays where
-  it was.
+- **Con:** A target that refused a write is on software volume until a
+  later write goes through. Its own hardware level stays where it was in
+  the meantime. A failed read-back alone changes nothing: the device took
+  the level.
 - **Con:** The control reports a single channel-master scalar — no
   per-channel or balance control yet. Acceptable for the EQ use case.
 
