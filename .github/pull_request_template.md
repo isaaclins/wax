@@ -1,5 +1,6 @@
 <!--
-Thanks for the pull request. Fill in what applies and delete what doesn't.
+Thanks for the pull request. Fill in what applies and delete what doesn't,
+except the Security section, which every PR keeps.
 If nothing on screen changes, delete the "How it looks" section.
 -->
 
