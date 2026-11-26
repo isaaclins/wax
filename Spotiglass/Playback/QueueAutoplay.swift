@@ -487,7 +487,9 @@ final class QueueAutoplay: ObservableObject {
                 candidates = try await source.candidates(for: seeds)
             } catch {
                 guard !Task.isCancelled else { return }
-                SpotiglassLog.error(.playback, "Autoplay suggestions failed: \(String(describing: error))")
+                // The catalog read's own line in the call log already has MusicKit's status and code;
+                // this one says what Autoplay did about it (#631).
+                SpotiglassLog.error(.playback, "Autoplay added nothing: its suggestions didn't load; the next song tries again")
                 status = .failed
                 owed = 0
                 return
