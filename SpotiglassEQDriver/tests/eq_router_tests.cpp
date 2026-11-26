@@ -4,7 +4,8 @@
 //
 // The driver is built by build-driver.sh rather than Xcode, so it has no test
 // target. run-driver-tests.sh compiles this against EQRouter.cpp and runs it.
-// EQRouter_OpenWithError is never called, so nothing here touches CoreAudio devices.
+// EQRouter_OpenWithError and EQRouter_FallbackTargetUID are never called, so nothing here
+// touches CoreAudio devices.
 
 #include "../EQClock.h"
 #include "../EQDeviceState.h"
@@ -558,6 +559,67 @@ void testTheEQDeviceFollowsEveryCommonOutputRate() {
 
 }  // namespace
 
+// MARK: - Fallback target (#606)
+
+// After a restart the target file in /tmp is gone while "Wax EQ" is still the
+// default output. With no target the router used to stay closed and the Mac
+// played nothing; it now picks an output that plays.
+void testWithNoTargetTheBuiltInOutputIsChosen() {
+    const char* own = "com.isaaclins.spotiglass.eqdevice";
+    const EQRouterFallbackCandidate devices[] = {
+        {own, 0, 1},                          // the EQ device itself
+        {"AirPodsUID", 0, 1},                 // Bluetooth, listed first
+        {"BuiltInSpeakerDevice", 1, 1},
+    };
+    expect(EQRouter_PickFallback(devices, 3, own) == 2,
+           "the built-in output wins over other devices");
+}
+
+void testWithoutABuiltInOutputAnotherPlayableOneIsChosen() {
+    const char* own = "com.isaaclins.spotiglass.eqdevice";
+    const EQRouterFallbackCandidate devices[] = {
+        {own, 1, 1},
+        {"HDMIUID", 0, 0},                    // can't take Float32 stereo
+        {"USBInterfaceUID", 0, 1},
+    };
+    expect(EQRouter_PickFallback(devices, 3, own) == 2,
+           "a Mac without speakers plays on the next output the router can drive");
+}
+
+void testTheEQDeviceIsNeverItsOwnFallback() {
+    const char* own = "com.isaaclins.spotiglass.eqdevice";
+    const EQRouterFallbackCandidate devices[] = {
+        {own, 1, 1},
+        {"HDMIUID", 1, 0},
+        {"", 1, 1},
+        {nullptr, 1, 1},
+    };
+    expect(EQRouter_PickFallback(devices, 4, own) == 4,
+           "no playable output other than the EQ device means no fallback");
+    expect(EQRouter_PickFallback(nullptr, 0, own) == 0, "an empty list has no fallback");
+}
+
+// After a restart something plays to "Wax EQ" with no target, so the driver
+// forwards to the built-in output without reporting "ready". Then Wax turns
+// the equalizer on with that same output as its target and waits for "ready"
+// for it. The watcher must report it, or switching the equalizer on times out.
+void testTheFallbackReportsReadyWhenTheAppAsksForItsDevice() {
+    expect(EQRouter_WatcherStep("BuiltInSpeakerDevice", 1, "BuiltInSpeakerDevice") ==
+               EQRouterWatcherStepConfirm,
+           "a fallback already on the requested device is reported ready");
+    expect(EQRouter_WatcherStep("BuiltInSpeakerDevice", 0, "BuiltInSpeakerDevice") ==
+               EQRouterWatcherStepNone,
+           "a requested router that is already open needs nothing");
+    expect(EQRouter_WatcherStep("BuiltInSpeakerDevice", 1, "AirPodsUID") == EQRouterWatcherStepOpen,
+           "a fallback on another device is replaced by the requested target");
+    expect(EQRouter_WatcherStep("", 0, "AirPodsUID") == EQRouterWatcherStepOpen,
+           "no router yet opens the requested target");
+    expect(EQRouter_WatcherStep(nullptr, 0, "AirPodsUID") == EQRouterWatcherStepOpen,
+           "a missing current target opens the requested one");
+    expect(EQRouter_WatcherStep("BuiltInSpeakerDevice", 1, "") == EQRouterWatcherStepNone,
+           "no request leaves the fallback alone");
+}
+
 int main() {
     testClassifyInterleavedStereo();
     testClassifyNonInterleavedStereo();
@@ -585,6 +647,11 @@ int main() {
     testAClientRateAppliesWhenTheTargetsRateCantBeFollowed();
     testIOStartsWithTheFirstClientAndStopsWithTheLast();
     testTheEQDeviceFollowsEveryCommonOutputRate();
+
+    testWithNoTargetTheBuiltInOutputIsChosen();
+    testWithoutABuiltInOutputAnotherPlayableOneIsChosen();
+    testTheEQDeviceIsNeverItsOwnFallback();
+    testTheFallbackReportsReadyWhenTheAppAsksForItsDevice();
 
     if (gFailures == 0) {
         std::printf("driver router tests: all checks passed\n");

@@ -93,6 +93,16 @@ struct SpotiglassApp: App {
         if !ScreenshotMode.isActive {
             Self.restoreEqualizerIfEnabled(settingsStore: store, engine: equalizer)
             equalizer.observe(settingsStore: store)
+            if !AppMetadata.isRunningUnitTests {
+                // The output must not stay on the EQ device once nothing drives it (#606).
+                NotificationCenter.default.addObserver(
+                    forName: NSApplication.willTerminateNotification,
+                    object: nil,
+                    queue: .main
+                ) { _ in
+                    MainActor.assumeIsolated { equalizer.releaseOutputForQuit() }
+                }
+            }
         }
         _equalizerEngine = StateObject(wrappedValue: equalizer)
         // Built lazily (after NSApp exists). Apple Music plays through MusicKit's own player:

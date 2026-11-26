@@ -3,12 +3,19 @@ import ServiceManagement
 
 protocol EqualizerDriverInstalling {
     func installDriver(sourceURL: URL, destinationURL: URL) throws
+    /// Deletes the installed driver and makes Core Audio drop its device (#606).
+    func removeDriver(destinationURL: URL) throws
 }
 
 @objc protocol EqualizerPrivilegedHelperProtocol {
     func installDriver(
         from sourcePath: String,
         to destinationPath: String,
+        withReply reply: @escaping (NSDictionary) -> Void
+    )
+
+    func removeDriver(
+        at destinationPath: String,
         withReply reply: @escaping (NSDictionary) -> Void
     )
 }
@@ -46,10 +53,30 @@ final class EqualizerPrivilegedHelperClient: @unchecked Sendable, EqualizerDrive
             throw EqualizerDriverInstallError.invalidRequest
         }
 
+        try performWithHelper { proxy, reply in
+            proxy.installDriver(from: source.path, to: destination.path, withReply: reply)
+        }
+    }
+
+    func removeDriver(destinationURL: URL) throws {
+        let destination = destinationURL.standardizedFileURL
+        guard destination == installedDriverURL else {
+            throw EqualizerDriverInstallError.invalidRequest
+        }
+        try performWithHelper { proxy, reply in
+            proxy.removeDriver(at: destination.path, withReply: reply)
+        }
+    }
+
+    /// Registers the helper if needed, sends one request and, when a helper from another
+    /// build could not answer it, registers this build's helper and sends it once more.
+    private func performWithHelper(
+        _ send: (EqualizerPrivilegedHelperProtocol, @escaping (NSDictionary) -> Void) -> Void
+    ) throws {
         try ensureRegistered()
         try awaitEnabledService()
         do {
-            try requestInstall(sourceURL: source, destinationURL: destination)
+            try sendRequest(send)
         } catch let error as EqualizerDriverInstallError {
             // The helper answered badly or not at all. Re-registering is only
             // worth it when the running helper is a different build from the
@@ -63,7 +90,7 @@ final class EqualizerPrivilegedHelperClient: @unchecked Sendable, EqualizerDrive
             ) else { throw error }
             try reRegister()
             try awaitEnabledService()
-            try requestInstall(sourceURL: source, destinationURL: destination)
+            try sendRequest(send)
         }
         writeHelperVersionMarker()
     }
@@ -217,7 +244,9 @@ final class EqualizerPrivilegedHelperClient: @unchecked Sendable, EqualizerDrive
         }
     }
 
-    private func requestInstall(sourceURL: URL, destinationURL: URL) throws {
+    private func sendRequest(
+        _ send: (EqualizerPrivilegedHelperProtocol, @escaping (NSDictionary) -> Void) -> Void
+    ) throws {
         let connection = NSXPCConnection(
             machServiceName: EqualizerPrivilegedHelperIdentity.machServiceName,
             options: .privileged
@@ -253,10 +282,7 @@ final class EqualizerPrivilegedHelperClient: @unchecked Sendable, EqualizerDrive
             )
         }
 
-        proxy.installDriver(
-            from: sourceURL.path,
-            to: destinationURL.path
-        ) { reply in
+        send(proxy) { reply in
             replyBox.store(.success(reply))
             completion.signal()
         }
@@ -350,5 +376,11 @@ struct EqualizerFileDriverInstaller: EqualizerDriverInstalling {
             try fileManager.removeItem(at: destinationURL)
         }
         try fileManager.moveItem(at: temporaryURL, to: destinationURL)
+    }
+
+    func removeDriver(destinationURL: URL) throws {
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try fileManager.removeItem(at: destinationURL)
+        }
     }
 }

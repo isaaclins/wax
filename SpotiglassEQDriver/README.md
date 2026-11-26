@@ -32,6 +32,9 @@ The application now contains a separate Xcode target for
 user enables EQ. The driver itself remains a standalone target for now, and
 `make embed-driver` places it inside the app before a signed manual check.
 `coreaudiod` on macOS 26 refuses to load `.driver` bundles signed only ad-hoc.
+The same helper deletes it again for Settings → Equalizer → Remove Equalizer
+Driver…; [docs/equalizer.md](../docs/equalizer.md#removing-the-driver) also
+says how to remove it by hand.
 
 ## Status of property handlers
 

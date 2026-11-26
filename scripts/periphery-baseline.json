@@ -137,14 +137,6 @@
   },
   {
     "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
-    "kind": "var.instance",
-    "name": "isInstalled",
-    "hints": [
-      "unused"
-    ]
-  },
-  {
-    "file": "Spotiglass/Playback/EqualizerHALPluginController.swift",
     "kind": "var.static",
     "name": "driverBundleID",
     "hints": [

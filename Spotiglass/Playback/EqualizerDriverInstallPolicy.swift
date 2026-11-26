@@ -157,4 +157,11 @@ enum EqualizerDriverInstallErrorMapper {
             return .driverInstallationFailed(diagnostic: error.diagnosticDetails)
         }
     }
+
+    /// The same split for "Remove equalizer driver": approval keeps its own line, the
+    /// rest says the removal failed rather than an install.
+    static func mapRemoval(_ error: EqualizerDriverInstallError) -> EqualizerHALPluginError {
+        if case .approvalRequired = error { return .driverInstallApprovalRequired }
+        return .driverRemovalFailed(diagnostic: error.diagnosticDetails)
+    }
 }

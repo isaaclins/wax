@@ -359,6 +359,115 @@ EQRouter* EQRouter_OpenWithError(const char* target_uid, EQRouterOpenError* out_
     return router;
 }
 
+size_t EQRouter_PickFallback(const EQRouterFallbackCandidate* candidates,
+                             size_t count,
+                             const char* own_uid) {
+    if (!candidates) return count;
+    size_t first_other = count;
+    for (size_t index = 0; index < count; ++index) {
+        const EQRouterFallbackCandidate& candidate = candidates[index];
+        if (!candidate.uid || candidate.uid[0] == '\0') continue;
+        if (own_uid && strcmp(candidate.uid, own_uid) == 0) continue;
+        if (!candidate.plays_float32_stereo) continue;
+        if (candidate.is_built_in) return index;
+        if (first_other == count) first_other = index;
+    }
+    return first_other;
+}
+
+EQRouterWatcherStep EQRouter_WatcherStep(const char* current_uid,
+                                         int current_is_fallback,
+                                         const char* requested_uid) {
+    if (!requested_uid || requested_uid[0] == '\0') return EQRouterWatcherStepNone;
+    if (!current_uid || strcmp(current_uid, requested_uid) != 0) return EQRouterWatcherStepOpen;
+    return current_is_fallback ? EQRouterWatcherStepConfirm : EQRouterWatcherStepNone;
+}
+
+namespace {
+
+bool HasOutputStreams(AudioObjectID device) {
+    AudioObjectPropertyAddress address = {
+        kAudioDevicePropertyStreams,
+        kAudioObjectPropertyScopeOutput,
+        kAudioObjectPropertyElementMain
+    };
+    UInt32 size = 0;
+    return AudioObjectGetPropertyDataSize(device, &address, 0, nullptr, &size) == noErr && size > 0;
+}
+
+bool IsBuiltIn(AudioObjectID device) {
+    AudioObjectPropertyAddress address = {
+        kAudioDevicePropertyTransportType,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMain
+    };
+    UInt32 transport = 0;
+    UInt32 size = sizeof(transport);
+    return AudioObjectGetPropertyData(device, &address, 0, nullptr, &size, &transport) == noErr &&
+        transport == kAudioDeviceTransportTypeBuiltIn;
+}
+
+bool CopyDeviceUID(AudioObjectID device, char* out, size_t out_size) {
+    AudioObjectPropertyAddress address = {
+        kAudioDevicePropertyDeviceUID,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMain
+    };
+    CFStringRef uid = nullptr;
+    UInt32 size = sizeof(uid);
+    if (AudioObjectGetPropertyData(device, &address, 0, nullptr, &size, &uid) != noErr || !uid) {
+        return false;
+    }
+    const bool copied = CFStringGetCString(uid, out, static_cast<CFIndex>(out_size), kCFStringEncodingUTF8);
+    CFRelease(uid);
+    return copied;
+}
+
+} // namespace
+
+int EQRouter_FallbackTargetUID(const char* own_uid, char* out, size_t out_size) {
+    if (!out || out_size == 0) return 0;
+    out[0] = '\0';
+    AudioObjectPropertyAddress address = {
+        kAudioHardwarePropertyDevices,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMain
+    };
+    UInt32 size = 0;
+    if (AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &address, 0, nullptr, &size) != noErr) {
+        return 0;
+    }
+    constexpr size_t kMaxDevices = 64;
+    constexpr size_t kUIDLength = 256;
+    AudioObjectID devices[kMaxDevices] = {};
+    if (size > sizeof(devices)) size = sizeof(devices);
+    if (AudioObjectGetPropertyData(kAudioObjectSystemObject, &address, 0, nullptr, &size, devices) != noErr) {
+        return 0;
+    }
+    const size_t device_count = size / sizeof(AudioObjectID);
+    char uids[kMaxDevices][kUIDLength] = {};
+    EQRouterFallbackCandidate candidates[kMaxDevices] = {};
+    size_t count = 0;
+    for (size_t index = 0; index < device_count; ++index) {
+        const AudioObjectID device = devices[index];
+        // The UID first: the EQ device itself is skipped before any other
+        // property query, so the driver never asks Core Audio about itself.
+        if (!CopyDeviceUID(device, uids[count], kUIDLength)) continue;
+        if (own_uid && strcmp(uids[count], own_uid) == 0) continue;
+        if (!HasOutputStreams(device)) continue;
+        candidates[count].uid = uids[count];
+        candidates[count].is_built_in = IsBuiltIn(device) ? 1 : 0;
+        candidates[count].plays_float32_stereo = SupportsFloat32StereoOutput(device) ? 1 : 0;
+        ++count;
+    }
+    const size_t chosen = EQRouter_PickFallback(candidates, count, own_uid);
+    if (chosen >= count) return 0;
+    strncpy(out, candidates[chosen].uid, out_size - 1);
+    out[out_size - 1] = '\0';
+    EQR_log("EQRouter_FallbackTargetUID → %s", out);
+    return 1;
+}
+
 void EQRouter_PublishReadyStatus(const char* target_uid) {
     WriteRouterStatus("ready", target_uid, 0);
 }

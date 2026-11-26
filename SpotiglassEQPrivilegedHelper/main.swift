@@ -14,12 +14,18 @@ private let helperLog = Logger(subsystem: "com.isaaclins.spotiglass", category: 
         to destinationPath: String,
         withReply reply: @escaping (NSDictionary) -> Void
     )
+
+    func removeDriver(
+        at destinationPath: String,
+        withReply reply: @escaping (NSDictionary) -> Void
+    )
 }
 
 private enum HelperOperationError: Error, CustomStringConvertible {
     case invalidRequest
     case sourceMissing
     case copyFailed(errno: Int32)
+    case removeFailed(String)
     case restartFailed(status: Int32)
     case restartCouldNotStart(String)
 
@@ -31,6 +37,8 @@ private enum HelperOperationError: Error, CustomStringConvertible {
             return "the bundled driver is missing"
         case .copyFailed(let errno):
             return "copyfile failed with errno \(errno)"
+        case .removeFailed(let message):
+            return "removing the installed driver failed: \(message)"
         case .restartFailed(let status):
             return "coreaudiod restart returned status \(status)"
         case .restartCouldNotStart(let message):
@@ -74,6 +82,46 @@ private final class EqualizerPrivilegedService: NSObject, EqualizerPrivilegedHel
             }
             reply(Self.response(status: status, message: String(describing: error)))
         }
+    }
+
+    func removeDriver(
+        at destinationPath: String,
+        withReply reply: @escaping (NSDictionary) -> Void
+    ) {
+        do {
+            try remove(destinationURL: URL(fileURLWithPath: destinationPath))
+            helperLog.notice("Driver removed from \(destinationPath, privacy: .public) and coreaudiod restarted")
+            reply(Self.response(status: 0, message: ""))
+        } catch {
+            let status: Int32 = isRejected(error) ? 64 : 74
+            if !isRejected(error) {
+                helperLog.error(
+                    "Driver removal from \(destinationPath, privacy: .public) failed (reply status \(status)): \(String(describing: error), privacy: .public)"
+                )
+            }
+            reply(Self.response(status: status, message: String(describing: error)))
+        }
+    }
+
+    /// Deletes only the one driver bundle in the HAL folder, the same fixed path the install
+    /// writes, then restarts `coreaudiod` so the "Wax EQ" device leaves Sound › Output (#606).
+    private func remove(destinationURL: URL) throws {
+        guard destinationURL.standardizedFileURL == expectedDestinationURL else {
+            helperLog.error("Refused a removal outside this app's driver in the HAL folder")
+            throw HelperOperationError.invalidRequest
+        }
+        // lstat, not fileExists: a symlink planted at the path is removed itself, never followed.
+        var info = stat()
+        if lstat(expectedDestinationURL.path, &info) == 0 {
+            do {
+                try fileManager.removeItem(at: expectedDestinationURL)
+            } catch {
+                throw HelperOperationError.removeFailed(String(describing: error))
+            }
+        }
+        // Restarted even when the bundle was already gone: coreaudiod keeps a driver it
+        // loaded until it restarts, so the device would otherwise stay in Sound › Output.
+        try restartCoreAudio()
     }
 
     private func install(sourceURL: URL, destinationURL: URL) throws {

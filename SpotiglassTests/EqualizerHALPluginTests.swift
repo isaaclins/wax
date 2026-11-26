@@ -112,11 +112,9 @@ final class EqualizerHALPluginTests: XCTestCase {
     }
 
     func testUninstallRemovesDirectoryAndIsIdempotent() throws {
-        let controller = EqualizerHALPluginController(
-            halDirectory: halDirectory,
-            fileManager: .default,
-            bundle: fakeAppBundle
-        )
+        // Fake outputs: removal moves the Mac's output first, and a test must
+        // never move the real one.
+        let controller = makeController(for: FakeMacOutput())
         // Stage an install first.
         try controller.install()
         XCTAssertTrue(controller.isInstalled)
@@ -453,12 +451,14 @@ final class EqualizerHALPluginTests: XCTestCase {
 
     private func makeController(
         for output: FakeMacOutput,
-        routerStatusURL: URL? = nil
+        routerStatusURL: URL? = nil,
+        driverInstaller: EqualizerDriverInstalling? = nil
     ) -> EqualizerHALPluginController {
         EqualizerHALPluginController(
             halDirectory: halDirectory,
             bundle: fakeAppBundle,
             defaultOutputBackupURL: defaultOutputBackupURL,
+            driverInstaller: driverInstaller,
             outputDeviceIDForUID: { $0 == output.originalUID ? output.originalID : nil },
             outputDeviceUID: { $0 == output.originalID ? output.originalUID : nil },
             defaultOutputDeviceIDProvider: { output.current },
@@ -519,6 +519,197 @@ final class EqualizerHALPluginTests: XCTestCase {
     private struct FailingDriverInstaller: EqualizerDriverInstalling {
         let error: Error
         func installDriver(sourceURL: URL, destinationURL: URL) throws { throw error }
+        func removeDriver(destinationURL: URL) throws { throw error }
+    }
+
+    /// Stands in for the privileged helper: does the file work and records
+    /// which path it was asked to remove.
+    private final class RecordingDriverInstaller: EqualizerDriverInstalling, @unchecked Sendable {
+        private let files = EqualizerFileDriverInstaller(fileManager: .default)
+        private(set) var removedPaths: [String] = []
+        var outputWhenRemoved: (() -> AudioObjectID)?
+        private(set) var outputAtRemoval: AudioObjectID?
+
+        func installDriver(sourceURL: URL, destinationURL: URL) throws {
+            try files.installDriver(sourceURL: sourceURL, destinationURL: destinationURL)
+        }
+
+        func removeDriver(destinationURL: URL) throws {
+            outputAtRemoval = outputWhenRemoved?()
+            removedPaths.append(destinationURL.path)
+            try files.removeDriver(destinationURL: destinationURL)
+        }
+    }
+
+    @MainActor
+    private func waitForTheRemovalToFinish(on engine: AudioEqualizerEngine) async {
+        let finished = expectation(description: "the driver removal finished")
+        finished.assertForOverFulfill = false
+        // @Published replays the current value, so an already finished removal fulfils at once.
+        let watch = engine.$isRemovingDriver
+            .filter { !$0 }
+            .sink { _ in finished.fulfill() }
+        await fulfillment(of: [finished], timeout: 5)
+        watch.cancel()
+    }
+
+    // MARK: - Remove equalizer driver (#606)
+
+    /// The equalizer is on and the Mac plays through "Wax EQ". Removing the
+    /// driver used to be impossible from the app; it now puts the sound back on
+    /// the speakers first and only then deletes the driver, so the Mac is never
+    /// left with a default output that no longer exists.
+    @MainActor
+    func testRemovingTheDriverPutsTheSoundBackThenDeletesIt() async throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let installer = RecordingDriverInstaller()
+        installer.outputWhenRemoved = { output.current }
+        let controller = makeController(for: output, driverInstaller: installer)
+        try controller.install()
+        let settingsStore = try ViewTestHost.makeSettingsStore()
+        let engine = AudioEqualizerEngine(pluginController: controller)
+        engine.observe(settingsStore: settingsStore)
+        try settingsStore.mutate { $0.equalizer.enabled = true }
+        XCTAssertEqual(output.current, output.virtualID)
+        XCTAssertTrue(engine.isRunning)
+
+        engine.removeDriver(settingsStore: settingsStore)
+        XCTAssertTrue(engine.isRemovingDriver, "the button showed no progress straight away")
+        await waitForTheRemovalToFinish(on: engine)
+
+        XCTAssertEqual(installer.outputAtRemoval, output.originalID,
+                       "the driver was deleted while the Mac's sound was still on it")
+        XCTAssertEqual(installer.removedPaths, [controller.installedDriverURL.path])
+        XCTAssertFalse(controller.isInstalled)
+        XCTAssertEqual(output.current, output.originalID)
+        XCTAssertFalse(settingsStore.settings.equalizer.enabled)
+        XCTAssertFalse(engine.isEngaged)
+        XCTAssertNil(engine.lastError)
+        XCTAssertTrue(engine.driverWasRemoved)
+        XCTAssertNil(controller.currentForwardingTargetUID())
+    }
+
+    /// If nothing can take the Mac's output off "Wax EQ", deleting the driver
+    /// would leave the default output on a device that no longer exists. The
+    /// driver stays and the pane says why.
+    @MainActor
+    func testTheDriverStaysWhenTheSoundCantLeaveTheEQDevice() async throws {
+        let output = FakeMacOutput()
+        output.current = output.virtualID
+        let installer = RecordingDriverInstaller()
+        let controller = EqualizerHALPluginController(
+            halDirectory: halDirectory,
+            bundle: fakeAppBundle,
+            defaultOutputBackupURL: defaultOutputBackupURL,
+            driverInstaller: installer,
+            outputDeviceIDForUID: { _ in nil },
+            outputDeviceUID: { _ in nil },
+            defaultOutputDeviceIDProvider: { output.current },
+            virtualDeviceIDProvider: { output.virtualID },
+            defaultOutputSetter: { _ in throw EqualizerHALPluginError.coreAudioStatus(-1) },
+            routerStatusReader: { nil },
+            routerReadinessTimeout: 0,
+            activeSampleRateObservationStarter: { _ in }
+        )
+        try controller.install()
+        let engine = AudioEqualizerEngine(pluginController: controller)
+
+        engine.removeDriver(settingsStore: nil)
+        await waitForTheRemovalToFinish(on: engine)
+
+        XCTAssertTrue(installer.removedPaths.isEmpty, "the driver was deleted under the default output")
+        XCTAssertTrue(controller.isInstalled)
+        XCTAssertFalse(engine.driverWasRemoved)
+        XCTAssertEqual(engine.lastError, SpotiglassL10n.string("eq.error.outputStuckOnEqualizerDevice"))
+    }
+
+    /// The headphones the sound was on before the EQ were unplugged, so switching
+    /// the EQ off can't put the sound back there. Removal used to stop at that
+    /// error and turn the switch back on; it now moves the sound to another output
+    /// that plays and removes the driver.
+    @MainActor
+    func testRemovingTheDriverAfterThePreEQDeviceIsGoneUsesAnotherOutput() async throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let speakersID = AudioObjectID(7)
+        var originalIsPlugged = true
+        let installer = RecordingDriverInstaller()
+        installer.outputWhenRemoved = { output.current }
+        let controller = EqualizerHALPluginController(
+            halDirectory: halDirectory,
+            bundle: fakeAppBundle,
+            defaultOutputBackupURL: defaultOutputBackupURL,
+            driverInstaller: installer,
+            outputDeviceIDForUID: { uid in
+                if uid == output.originalUID { return originalIsPlugged ? output.originalID : nil }
+                return uid == EqualizerHALPluginController.fallbackForwardingUID ? speakersID : nil
+            },
+            outputDeviceUID: { $0 == output.originalID ? output.originalUID : nil },
+            defaultOutputDeviceIDProvider: { output.current },
+            virtualDeviceIDProvider: { output.virtualID },
+            defaultOutputSetter: { id in output.current = id },
+            routerStatusURL: makeTempDirectory().appendingPathComponent("router.status"),
+            routerStatusReader: { output.routerStatus },
+            routerReadinessTimeout: 0,
+            activeSampleRateObservationStarter: { _ in }
+        )
+        try controller.install()
+        let settingsStore = try ViewTestHost.makeSettingsStore()
+        let engine = AudioEqualizerEngine(pluginController: controller)
+        engine.observe(settingsStore: settingsStore)
+        try settingsStore.mutate { $0.equalizer.enabled = true }
+        XCTAssertEqual(output.current, output.virtualID)
+
+        originalIsPlugged = false
+        engine.removeDriver(settingsStore: settingsStore)
+        await waitForTheRemovalToFinish(on: engine)
+
+        XCTAssertEqual(installer.outputAtRemoval, speakersID,
+                       "the driver was deleted while the Mac's sound was still on it")
+        XCTAssertEqual(installer.removedPaths, [controller.installedDriverURL.path],
+                       "removal gave up because the pre-EQ device was gone")
+        XCTAssertEqual(output.current, speakersID)
+        XCTAssertTrue(engine.driverWasRemoved)
+        XCTAssertFalse(engine.isEngaged)
+        XCTAssertFalse(settingsStore.settings.equalizer.enabled, "the switch went back on after the driver was removed")
+    }
+
+    /// The helper deletes only the one driver bundle in the HAL folder.
+    func testTheHelperIsOnlyAskedToRemoveTheInstalledDriver() {
+        let client = EqualizerPrivilegedHelperClient(bundle: fakeAppBundle)
+        XCTAssertThrowsError(
+            try client.removeDriver(destinationURL: URL(fileURLWithPath: "/Library/Audio/Plug-Ins/HAL/Other.driver"))
+        ) { error in
+            XCTAssertEqual(error as? EqualizerDriverInstallError, .invalidRequest)
+        }
+        XCTAssertThrowsError(
+            try client.removeDriver(destinationURL: URL(fileURLWithPath: "/Library/Audio/Plug-Ins/HAL/../../../Applications"))
+        ) { error in
+            XCTAssertEqual(error as? EqualizerDriverInstallError, .invalidRequest)
+        }
+    }
+
+    /// Quitting with the equalizer on left the Mac's output on "Wax EQ". After
+    /// a restart (or with Wax deleted) nothing moved it back and the Mac stayed
+    /// silent. Quitting now puts the sound back and keeps the switch on, so the
+    /// next launch brings the equalizer back.
+    @MainActor
+    func testQuittingWithTheEqualizerOnPutsTheSoundBack() throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let controller = makeController(for: output)
+        try controller.install()
+        let settingsStore = try ViewTestHost.makeSettingsStore()
+        let engine = AudioEqualizerEngine(pluginController: controller)
+        engine.observe(settingsStore: settingsStore)
+        try settingsStore.mutate { $0.equalizer.enabled = true }
+        XCTAssertEqual(output.current, output.virtualID)
+
+        engine.releaseOutputForQuit()
+
+        XCTAssertEqual(output.current, output.originalID, "the sound stayed on the EQ device after quitting")
+        XCTAssertTrue(settingsStore.settings.equalizer.enabled, "quitting turned the equalizer off for the next launch")
     }
 
     /// Waits for the store to publish the switch going back off. On the old code that never
