@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.90] - 2026-11-26
+
+### Fixed
+
+- Switching the equalizer on no longer freezes the app, and the window shows right away at launch even with the equalizer on.
+
 ## [0.8.89] - 2026-11-26
 
 ### Fixed
