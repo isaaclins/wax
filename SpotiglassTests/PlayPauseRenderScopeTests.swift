@@ -21,10 +21,14 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         hostedWindow = nil
         hostedTrackIDs = []
         hostedBrowser = nil
+        hostedLyrics = nil
         super.tearDown()
     }
 
     private static let trackIDs = (1...20).map { "t\($0)" }
+
+    /// The lyrics overlay of the browser `hostBrowser` put on screen.
+    private var hostedLyrics: LyricsOverlayController?
 
     /// How long the play/pause icon's swap animates (`PlaybackControlsView`).
     private static let iconSwap = Duration.milliseconds(180)
@@ -80,6 +84,8 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         let tokens = RenderScopeTokenProvider()
         let playbackHost = provider.map { SpotiglassPlaybackHost(provider: $0) } ?? SpotiglassPlaybackHost(tokenProvider: tokens)
         let playback = playbackHost.playbackViewModel
+        let lyrics = LyricsOverlayController()
+        hostedLyrics = lyrics
         let view = PlaylistBrowserView(
             viewModel: browserVM,
             playbackHost: playbackHost,
@@ -88,7 +94,11 @@ final class PlayPauseRenderScopeTests: XCTestCase {
             signOut: {}
         )
         .environmentObject(store)
-        .environmentObject(LyricsOverlayController())
+        .environmentObject(lyrics)
+        // The lyrics read their settings when they open.
+        .environmentObject(SpotiglassSettingsStore(
+            fileURL: FileManager.default.temporaryDirectory.appendingPathComponent("render-scope-\(UUID().uuidString).json")
+        ))
         let controller = ViewTestHost.host(view, size: CGSize(width: 1_600, height: 1_400))
         hostedWindow = controller.view.window
         await AppKitTestSupport.settle()
@@ -153,6 +163,16 @@ final class PlayPauseRenderScopeTests: XCTestCase {
 
         let resumed = await bodies { playback.setConnectionState(.playing(Self.nowPlaying("t3"))) }
         assertOnlyTheRowsChanged(resumed, tracks: ["t3"], playlists: ["p1"])
+    }
+
+    /// The bar counts as unchanged across page changes (#675), but not across the lyrics opening:
+    /// its Lyrics button shows whether they are open.
+    func testOpeningTheLyricsRedrawsThePlayerBar() async throws {
+        _ = try await hostBrowserPlaying()
+        let lyrics = try XCTUnwrap(hostedLyrics)
+        let changed = await bodies { lyrics.isPresented = true }
+        XCTAssertNotNil(changed["BrowserTransportBar"], "the player bar didn't follow the lyrics opening")
+        XCTAssertNotNil(changed["PlaybackControlsView"], "the Lyrics button didn't follow the lyrics opening")
     }
 
     func testANewTrackRerendersOnlyTheOldAndTheNewPlayingRow() async throws {

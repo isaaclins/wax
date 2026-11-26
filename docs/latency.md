@@ -70,9 +70,9 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `playback.toggle.click` | Click the play/pause button | 36 | 38 | |
 | `playback.next` | ⇧⌘→ skips to the next song | 37 | 39 | fixed in #687 (was never) |
 | `playback.previous` | ⇧⌘← goes back a song | 38 | 39-53 | #704 (was never; shows at once since #687) |
-| `playback.seek` | ⌘→ jumps ahead in the song | 24-30 | 30-46 | #730 (was never) |
-| `playback.shuffle` | ⌥⌘S turns shuffle on or off | 38-55 | 42-59 | #730 (was never) |
-| `playback.repeat` | ⌥⌘R changes repeat | 41-58 | 44-60 | #730 (was never) |
+| `playback.seek` | ⌘→ jumps ahead in the song | 24-30 → 24-29 | 30-46 → 26-45 | #730 (was never) |
+| `playback.shuffle` | ⌥⌘S turns shuffle on or off | 38-55 → 25-33 | 42-59 → 26-35 | #730 (was never) |
+| `playback.repeat` | ⌥⌘R changes repeat | 41-58 → 25-34 | 44-60 → 26-43 | #730 (was never) |
 | `palette.open` | ⌘K opens the command palette | 79 → 26 | 88 → 36 | #671 |
 | `palette.type` | Typing a letter in the palette | 71* → 41 | never → 44 | #671 |
 | `palette.close` | Esc closes the palette | 72 → 37 | 78 → 46 | #671 |
@@ -80,7 +80,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `queue.toggle` | ⌥⌘Q opens or closes the queue | 72 → 52† | 77 → 61† | #673 |
 | `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 114 | 123 | #674 |
 | `page.search` | ⌘F opens Search | 86 | 89 | #675 |
-| `page.back` | ⌘[ goes back a page | 41-62 | 45-63 | #730 (was never) |
+| `page.back` | ⌘[ goes back a page | 41-62 → 35-38 | 45-63 → 38-48 | #730, the rest #675 (was never) |
 | `page.sidebarClick` | Click a playlist in the sidebar | 60 | 66 | #675 |
 | `playback.toggle.longList` | Space with the 1000-song playlist open | 36 | 37 | |
 | `list.scroll` | Scrolling a 1000-song playlist | 30 | 37 | |
@@ -127,6 +127,34 @@ so its `ci` time is the slowest of those medians with half again on top, 104 ms.
 On the Mac, ⌘F's median is under 50 ms (43-45 ms with other builds running), but the try that's
 checked is still 50-52 ms under load, above the 40 ms a listed interaction needs to come off the
 list, so it stays listed at 52 ms with #675.
+
+The "→" times for these four are from #730, 2026-11-26, ten runs on a Mac mini shared with other
+builds (load 4-25). Two things made shuffle, repeat and ⌘[ slower than seek:
+
+- **The menu bar's search.** They are menu-only commands, so their keys went to the menu bar,
+  which looks through every menu and brings SwiftUI's items up to date before it runs one: 15-23 ms
+  from the key to the command, where ⌘→ runs from the key monitor in under 2 ms. The key monitor
+  now runs these three items itself (`MenuOnlyShortcuts`): the same item, only when it is enabled,
+  with the key its menu shows.
+- **The whole window drew again.** The menu bar's state (shuffle's checkmark, repeat, whether Back
+  is enabled) is mirrored on the window's command palette manager, and the window's root view
+  observed the scene that passes those changes on. So each change ran the root view's body and,
+  under it, the whole browser's, in the frame that showed the change: 20 ms instead of seek's 5.
+  The root view now keeps the scene without observing it.
+
+Shuffle and repeat are off the `known` list. Shuffle stayed at or under 40 ms checked in all ten
+runs, and repeat in the five on the final code (it reached 43 ms once in the five before the player
+bar change). ⌘[ is at 35-38 ms median, but its checked time still reached 42-48 ms in some runs:
+what's left is the page change itself (the browser's body runs again and draws the sidebar and the
+page a second time), the same work as ⌘F and a sidebar click. It stays listed, at 47 ms, with #675.
+
+Again on top of #675's page-change work above (2026-11-26, five runs in a row, load 3-4, median /
+checked): shuffle 30-31 / 30-33 ms, repeat 30-31 / 31-34, seek 28-29 / 29-45, ⌘[ 31-40 / 38-45.
+Shuffle and repeat stayed under 40 checked in all five; ⌘[ only in two, so it stays listed with #675.
+
+Seek stays listed with #730. Its median is 24-29 ms and this work didn't change its path (it runs
+from the key monitor already), but its checked time still reaches 45 ms now and then, also in one
+of these five, at load 3, so it isn't under the list's 40 ms yet.
 
 ## The sound (Apple Music)
 

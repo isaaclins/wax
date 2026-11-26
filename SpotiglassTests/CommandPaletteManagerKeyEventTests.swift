@@ -541,6 +541,30 @@ final class CommandPaletteManagerKeyEventTests: XCTestCase {
         XCTAssertTrue(prefetched)
     }
 
+    /// ⌘[ runs Back from the key monitor without waiting for the menu to dim it (#730), so Back
+    /// itself must not act on the page under open lyrics (#438).
+    func testBackDoesNothingWhileTheLyricsAreOpen() async {
+        let manager = CommandPaletteManager()
+        var lyricsOpen = true
+        manager.isLyricsPresented = { lyricsOpen }
+        var backs = 0
+        let wentBack = expectation(description: "back")
+        wentBack.assertForOverFulfill = false
+        manager.navigateBack = {
+            backs += 1
+            wentBack.fulfill()
+        }
+        manager.execute(commandID: CommandPaletteCommandID.navigateBack)
+        // The main actor runs its work in order: once this has run, so has anything Back queued.
+        await Task { @MainActor in }.value
+        XCTAssertEqual(backs, 0, "Back ran while the lyrics were open")
+
+        lyricsOpen = false
+        manager.execute(commandID: CommandPaletteCommandID.navigateBack)
+        await fulfillment(of: [wentBack], timeout: mustHappenTimeout)
+        XCTAssertEqual(backs, 1)
+    }
+
     func testExecuteSignOutSettingsAndTransport() async {
         let manager = CommandPaletteManager()
         var signedOut = false

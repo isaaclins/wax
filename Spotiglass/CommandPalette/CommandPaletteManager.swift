@@ -423,6 +423,11 @@ final class CommandPaletteManager: ObservableObject {
             return false
         }
 
+        // ⌥⌘S, ⌥⌘R and ⌘[ run their menu items from here, not after the menu bar's slow search (#730).
+        if MenuOnlyShortcuts.perform(event) {
+            return true
+        }
+
         // A bare key (no ⌘/⌃/⌥) must reach a focused text field rather than fire a
         // single-key command like Space → Play/Pause while the user is typing. The
         // palette has its own field handling above, so this only guards the global
@@ -528,6 +533,10 @@ final class CommandPaletteManager: ObservableObject {
             guard repeatMutationPrerequisite?() ?? false else { return }
             Task { await cycleRepeat?() }
         case CommandPaletteCommandID.navigateBack:
+            // Back acts on the page under the lyrics, which you can't see while they are open
+            // (#438). The menu dims it then, but ⌘[ runs the item from the key monitor without
+            // waiting for the menu to catch up (#730), so the lyrics are checked here, live.
+            guard !(isLyricsPresented?() ?? false) else { return }
             Task { await navigateBack?() }
         case CommandPaletteCommandID.seekForward:
             Task { await seekBy?(PlaybackSeekStep.milliseconds) }

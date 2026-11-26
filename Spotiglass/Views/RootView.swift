@@ -314,11 +314,27 @@ private final class SceneHostActivationProbeView: NSView {
     }
 }
 
+/// Keeps a window's scene host as long as the window, without watching it. The scene host passes
+/// on every change of the command palette manager and the lyrics controller, so the menu bar can
+/// follow shuffle, repeat and whether Back is enabled. As the root view's own `@StateObject`, each
+/// of those changes also ran the root view's body, and with it the whole browser's, in the frame
+/// that showed the change: ⌥⌘S took 20 ms to draw where ⌘→ took 5 (#730). The root view reads
+/// nothing from either of them; the views that show their state observe them themselves.
+@MainActor
+private final class SceneHostOwner: ObservableObject {
+    let host: SpotiglassSceneHost
+
+    init(_ host: SpotiglassSceneHost) {
+        self.host = host
+    }
+}
+
 @MainActor
 struct RootView: View {
     @EnvironmentObject private var viewModel: AuthViewModel
     @EnvironmentObject private var pinnedStore: PinnedItemsStore
-    @StateObject private var sceneHost: SpotiglassSceneHost
+    /// Owned for the window's life but not observed: see ``SceneHostOwner``.
+    @StateObject private var sceneHostOwner: SceneHostOwner
     /// Counts the times a paused Spotify sign-in came back, so the library reloads what failed
     /// meanwhile (#593).
     @State private var spotifySignInResumptions = 0
@@ -334,6 +350,10 @@ struct RootView: View {
     @Environment(\.openWaxSettings) private var openSettingsAction
     @Environment(\.openWindow) private var openWindowAction
 
+    private var sceneHost: SpotiglassSceneHost {
+        sceneHostOwner.host
+    }
+
     private var commandPaletteManager: CommandPaletteManager {
         sceneHost.commandPaletteManager
     }
@@ -348,7 +368,7 @@ struct RootView: View {
         commandPaletteManager: CommandPaletteManager,
         playbackHost: SpotiglassPlaybackHost
     ) {
-        _sceneHost = StateObject(wrappedValue: SpotiglassSceneHost(commandPaletteManager: commandPaletteManager))
+        _sceneHostOwner = StateObject(wrappedValue: SceneHostOwner(SpotiglassSceneHost(commandPaletteManager: commandPaletteManager)))
         sceneRegistry = nil
         playbackHosts = Self.hosts(spotify: playbackHost)
         _serviceStore = ObservedObject(wrappedValue: MusicServiceStore(
@@ -367,10 +387,10 @@ struct RootView: View {
         recentSearches: CommandPaletteRecentSearches = .inMemory(),
         appleMusicCatalog: @escaping () -> any MusicBrowsingProvider = { AppleMusicBrowsingProvider(catalogMatches: .shared) }
     ) {
-        _sceneHost = StateObject(
-            wrappedValue: SpotiglassSceneHost(
+        _sceneHostOwner = StateObject(
+            wrappedValue: SceneHostOwner(SpotiglassSceneHost(
                 commandPaletteManager: CommandPaletteManager(keymapStore: keymapStore, recentSearches: recentSearches)
-            )
+            ))
         )
         self.sceneRegistry = sceneRegistry
         self.playbackHosts = playbackHosts

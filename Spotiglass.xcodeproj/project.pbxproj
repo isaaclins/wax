@@ -214,6 +214,7 @@
 		SRC000000000000000000001A /* CommandShortcutMenuKeyEquivalent.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC000000000000000008001A /* CommandShortcutMenuKeyEquivalent.swift */; };
 		G70000000000000000000023 /* FocusedKeyEventOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = G70000000000000000000022 /* FocusedKeyEventOwner.swift */; };
 		G70000000000000000000007 /* CommandPaletteEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = G70000000000000000000017 /* CommandPaletteEventMonitor.swift */; };
+		F73000000000000000000003 /* MenuOnlyShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73000000000000000000004 /* MenuOnlyShortcuts.swift */; };
 		G70000000000000000000008 /* CommandPaletteSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = G70000000000000000000018 /* CommandPaletteSettingsView.swift */; };
 		G70000000000000000000009 /* CommandPaletteView+Backdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = G7000000000000000000001C /* CommandPaletteView+Backdrop.swift */; };
 		G7000000000000000000000A /* CommandPaletteCommandCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = G7000000000000000000001A /* CommandPaletteCommandCatalog.swift */; };
@@ -451,6 +452,8 @@
 		TST00000000000000000800F0 /* CrossServicePlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000800F1 /* CrossServicePlaybackTests.swift */; };
 		SRC0000000000000000080B00 /* PlaybackPositionUpdateScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080B01 /* PlaybackPositionUpdateScopeTests.swift */; };
 		F67100000000000000000001 /* CommandPaletteRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67100000000000000000002 /* CommandPaletteRenderScopeTests.swift */; };
+		F73000000000000000000005 /* MenuOnlyShortcutsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73000000000000000000006 /* MenuOnlyShortcutsTests.swift */; };
+		F73000000000000000000001 /* RootViewRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F73000000000000000000002 /* RootViewRenderScopeTests.swift */; };
 		F42200000000000000000003 /* PlayPauseRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F42200000000000000000004 /* PlayPauseRenderScopeTests.swift */; };
 		F67200000000000000000001 /* SidebarToggleRenderScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F67200000000000000000002 /* SidebarToggleRenderScopeTests.swift */; };
 		TST00000000000000000800D0 /* ScrubberViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000800D1 /* ScrubberViewTests.swift */; };
@@ -733,6 +736,7 @@
 		SRC000000000000000008001A /* CommandShortcutMenuKeyEquivalent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandShortcutMenuKeyEquivalent.swift; sourceTree = "<group>"; };
 		G70000000000000000000022 /* FocusedKeyEventOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusedKeyEventOwner.swift; sourceTree = "<group>"; };
 		G70000000000000000000017 /* CommandPaletteEventMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteEventMonitor.swift; sourceTree = "<group>"; };
+		F73000000000000000000004 /* MenuOnlyShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuOnlyShortcuts.swift; sourceTree = "<group>"; };
 		G70000000000000000000018 /* CommandPaletteSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteSettingsView.swift; sourceTree = "<group>"; };
 		G7000000000000000000001A /* CommandPaletteCommandCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteCommandCatalog.swift; sourceTree = "<group>"; };
 		G7000000000000000000001B /* HotkeyRecorderField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyRecorderField.swift; sourceTree = "<group>"; };
@@ -857,6 +861,8 @@
 		TST00000000000000000800F1 /* CrossServicePlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrossServicePlaybackTests.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080B01 /* PlaybackPositionUpdateScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPositionUpdateScopeTests.swift; sourceTree = "<group>"; };
 		F67100000000000000000002 /* CommandPaletteRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteRenderScopeTests.swift; sourceTree = "<group>"; };
+		F73000000000000000000006 /* MenuOnlyShortcutsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuOnlyShortcutsTests.swift; sourceTree = "<group>"; };
+		F73000000000000000000002 /* RootViewRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootViewRenderScopeTests.swift; sourceTree = "<group>"; };
 		F42200000000000000000004 /* PlayPauseRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayPauseRenderScopeTests.swift; sourceTree = "<group>"; };
 		F67200000000000000000002 /* SidebarToggleRenderScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarToggleRenderScopeTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000800D1 /* ScrubberViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrubberViewTests.swift; sourceTree = "<group>"; };
@@ -1247,6 +1253,8 @@
 				F67100000000000000000002 /* CommandPaletteRenderScopeTests.swift */,
 				F42200000000000000000004 /* PlayPauseRenderScopeTests.swift */,
 				F67200000000000000000002 /* SidebarToggleRenderScopeTests.swift */,
+				F73000000000000000000002 /* RootViewRenderScopeTests.swift */,
+				F73000000000000000000006 /* MenuOnlyShortcutsTests.swift */,
 				TST00000000000000000800D1 /* ScrubberViewTests.swift */,
 				86D387C17B543FD31C6C6E27 /* ServiceNeutralBrowsingTests.swift */,
 				D614C9B833214402B058244D /* SettingsLanguageSwitchTests.swift */,
@@ -1610,6 +1618,7 @@
 				SBR436000000000000000002 /* CommandPaletteSidebarShortcut.swift */,
 				G70000000000000000000011 /* CommandPaletteModels.swift */,
 				G70000000000000000000017 /* CommandPaletteEventMonitor.swift */,
+				F73000000000000000000004 /* MenuOnlyShortcuts.swift */,
 				G70000000000000000000022 /* FocusedKeyEventOwner.swift */,
 				G70000000000000000000014 /* CommandPaletteViewModel.swift */,
 				G70000000000000000000015 /* CommandPaletteView.swift */,
@@ -2086,6 +2095,7 @@
 				SRC000000000000000000001A /* CommandShortcutMenuKeyEquivalent.swift in Sources */,
 				G70000000000000000000023 /* FocusedKeyEventOwner.swift in Sources */,
 				G70000000000000000000007 /* CommandPaletteEventMonitor.swift in Sources */,
+				F73000000000000000000003 /* MenuOnlyShortcuts.swift in Sources */,
 				728E7A062FEAA68E00FB3C01 /* PlaylistBrowserViewModel+Home.swift in Sources */,
 				G70000000000000000000008 /* CommandPaletteSettingsView.swift in Sources */,
 				G7000000000000000000000A /* CommandPaletteCommandCatalog.swift in Sources */,
@@ -2146,6 +2156,8 @@
 				F67100000000000000000001 /* CommandPaletteRenderScopeTests.swift in Sources */,
 				F42200000000000000000003 /* PlayPauseRenderScopeTests.swift in Sources */,
 				F67200000000000000000001 /* SidebarToggleRenderScopeTests.swift in Sources */,
+				F73000000000000000000001 /* RootViewRenderScopeTests.swift in Sources */,
+				F73000000000000000000005 /* MenuOnlyShortcutsTests.swift in Sources */,
 				TST00000000000000000800D0 /* ScrubberViewTests.swift in Sources */,
 				86370D0FBE489A0D0A054DD9 /* ServiceNeutralBrowsingTests.swift in Sources */,
 				515545A0C26A278485622323 /* SettingsLanguageSwitchTests.swift in Sources */,
