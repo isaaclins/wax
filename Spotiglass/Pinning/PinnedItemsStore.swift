@@ -36,14 +36,14 @@ final class PinnedItemsStore: ObservableObject {
     @Published private(set) var didFailToBind = false
     /// Says that the account's pins file could not be fully read and names the copy kept of
     /// it, or that pins aren't saved because no copy could be made (#597).
-    @Published private(set) var fileNotice: LocalizedText?
+    @Published private(set) var fileNotice: DisplayError?
     /// True while the pins file could be neither read in full nor copied: nothing is written
     /// over it until the account is bound again.
     private var isSavingHeld = false
     /// True while ``fileNotice`` says the last save failed; the next save that works clears it.
     private var isShowingSaveFailure = false
     /// The line naming the copy kept at bind, shown again once a failed save works.
-    private var keptCopyNotice: LocalizedText?
+    private var keptCopyNotice: DisplayError?
 
     private let cache: PinnedItemsCache?
     private let resolver: PinnedItemAliasResolving?
@@ -139,26 +139,27 @@ final class PinnedItemsStore: ObservableObject {
         let location = file?.path ?? "the pins file"
         do {
             guard let copy = try cache?.preservePinnedItemsFile(userID: userID) else {
-                SpotiglassLog.error(SpotiglassLog.pinning, "Pins in \(location) could not be fully read. \(problems.joined(separator: "; "))")
+                SpotiglassLog.error(SpotiglassLog.pinning, "Pins in \(SpotiglassLog.personal(location)) could not be fully read. \(SpotiglassLog.personal(problems.joined(separator: "; ")))")
                 return
             }
-            SpotiglassLog.error(
-                SpotiglassLog.pinning,
-                "Pins in \(location) could not be fully read; kept a copy at \(copy.path). \(problems.joined(separator: "; "))"
-            )
             let name = copy.lastPathComponent
-            fileNotice = LocalizedText(
-                SpotiglassL10n.format("browser.pinned.copyKept", name),
-                comparedBy: "browser.pinned.copyKept|\(name)"
+            fileNotice = ErrorReporting.report(
+                nil,
+                while: "reading the pins file (kept a copy, saving over the original)",
+                in: .pinning,
+                context: [.private("file", location), .private("problems", problems.joined(separator: "; ")), .private("copy", copy.path)],
+                showing: ErrorMessage(message: SpotiglassL10n.format("browser.pinned.copyKept", name))
             )
             keptCopyNotice = fileNotice
         } catch {
             isSavingHeld = true
-            SpotiglassLog.error(
-                SpotiglassLog.pinning,
-                "Pins in \(location) could not be read (\(problems.joined(separator: "; "))) or copied (\(UnreadableFileBackup.describe(error))); not saving pins for this account."
+            fileNotice = ErrorReporting.report(
+                error,
+                while: "reading or copying the pins file (not saving pins for this account)",
+                in: .pinning,
+                context: [.private("file", location), .private("problems", problems.joined(separator: "; "))],
+                showing: ErrorMessage(message: SpotiglassL10n.string("browser.pinned.notSaved"))
             )
-            fileNotice = LocalizedText(SpotiglassL10n.string("browser.pinned.notSaved"), comparedByKey: "browser.pinned.notSaved")
         }
     }
 
@@ -500,10 +501,15 @@ final class PinnedItemsStore: ObservableObject {
                 fileNotice = keptCopyNotice
             }
         } catch {
-            SpotiglassLog.error(SpotiglassLog.pinning, "Failed to save pinned items: \(UnreadableFileBackup.describe(error))")
             // A pin change that looks saved but is gone after a relaunch is worse than a line saying so.
             isShowingSaveFailure = true
-            fileNotice = LocalizedText(SpotiglassL10n.string("browser.pinned.saveFailed"), comparedByKey: "browser.pinned.saveFailed")
+            fileNotice = ErrorReporting.report(
+                error,
+                while: "saving pinned items",
+                in: .pinning,
+                context: [.private("cause", UnreadableFileBackup.describe(error))],
+                showing: ErrorMessage(message: SpotiglassL10n.string("browser.pinned.saveFailed"))
+            )
         }
     }
 }

@@ -49,7 +49,10 @@ final class ErrorReportingTests: XCTestCase {
         )
         let line = try XCTUnwrap(try SpotiglassLogReader.lines(containing: failure.marker).first)
         // The reported line, as a log folder of its own for the copy to clean.
-        FileLogSink(directory: { directory }).write(level: "ERROR", category: "browsing", message: line, synchronously: true)
+        let sink = FileLogSink(directory: { directory })
+        sink.boot()
+        sink.write(level: "ERROR", category: "browsing", message: line, synchronously: true)
+        sink.flush()
         let destination = directory.appendingPathComponent("report.txt")
         try BugReportLogCopy.write(from: directory, to: destination, keeping: [])
         let copy = try String(contentsOf: destination, encoding: .utf8)

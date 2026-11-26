@@ -164,7 +164,13 @@ final class ImmersiveLyricsViewModel: ObservableObject {
 
     private func load(track: PlaybackNowPlaying, generation: Int, honoursBackoff: Bool) async {
         guard let tid = track.lyricsTrackKey else {
-            phase = .failed(Self.report(nil, while: "loading lyrics for something that isn't a song", level: .info, SpotiglassL10n.string("lyrics.error.musicOnly")))
+            phase = .failed(Self.report(
+                nil,
+                while: "loading lyrics for something that isn't a song",
+                level: .info,
+                action: nil,
+                SpotiglassL10n.string("lyrics.error.musicOnly")
+            ))
             return
         }
 
@@ -231,6 +237,7 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         _ error: Error?,
         while operation: String,
         level: ErrorReporting.Level = .error,
+        action: ErrorMessage.Action? = .retry,
         _ message: @autoclosure @escaping () -> String
     ) -> DisplayError {
         ErrorReporting.report(
@@ -238,7 +245,7 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             while: operation,
             in: .api,
             level: level,
-            showing: ErrorMessage(message: message(), action: .retry)
+            showing: ErrorMessage(message: message(), action: action)
         )
     }
 

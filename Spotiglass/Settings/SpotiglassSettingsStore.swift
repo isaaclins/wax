@@ -19,7 +19,7 @@ final class SpotiglassSettingsStore: ObservableObject {
     @Published private(set) var lastError: DisplayError?
     /// Names the copy kept of a settings file that could not be fully read before it was
     /// saved over (#597). Shown above every Settings pane until dismissed.
-    @Published private(set) var backupNotice: LocalizedText?
+    @Published private(set) var backupNotice: DisplayError?
     @Published private(set) var backupURL: URL?
     /// Set while saving fails (a folder that can't be written, a full disk, a file that can't
     /// be read and so isn't replaced); the next save that works clears it.
@@ -479,15 +479,14 @@ final class SpotiglassSettingsStore: ObservableObject {
             throw error
         }
         guard copy != backupURL else { return }
-        SpotiglassLog.error(
-            SpotiglassLog.settings,
-            "Settings file \(fileURL.path) could not be fully read; kept a copy at \(copy.path) before saving. \(snapshot.problems.joined(separator: "; "))"
-        )
         backupURL = copy
         let name = copy.lastPathComponent
-        backupNotice = LocalizedText(
-            String(format: SpotiglassL10n.string("settings.file.backedUp"), name),
-            comparedBy: "settings.file.backedUp|\(name)"
+        backupNotice = ErrorReporting.report(
+            nil,
+            while: "reading the settings file in full (kept a copy before saving)",
+            in: .settings,
+            context: [.public("file", fileURL.path), .public("copy", copy.path), .private("problems", snapshot.problems.joined(separator: "; "))],
+            showing: ErrorMessage(message: String(format: SpotiglassL10n.string("settings.file.backedUp"), name))
         )
     }
 

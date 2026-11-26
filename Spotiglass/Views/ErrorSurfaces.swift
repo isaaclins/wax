@@ -111,47 +111,86 @@ struct ErrorBanner: View {
     var body: some View {
         switch style {
         case .inline:
-            content
-                .font(.callout)
+            BannerLine(sentence, help: message) { buttons }
         case .floating:
-            content
-                .font(.caption)
-                .padding(SpotiglassDesign.spacingS)
-                .background(.background, in: Capsule())
-                .padding(SpotiglassDesign.spacingM)
+            HStack(alignment: .firstTextBaseline, spacing: SpotiglassDesign.spacingS) {
+                sentence
+                    .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .help(message)
+                buttons
+            }
+            .font(.caption)
+            .padding(SpotiglassDesign.spacingS)
+            .background(.background, in: Capsule())
+            .padding(SpotiglassDesign.spacingM)
+            .accessibilityElement(children: .contain)
         }
     }
 
-    private var content: some View {
-        HStack(alignment: .firstTextBaseline, spacing: SpotiglassDesign.spacingS) {
-            if style == .inline {
-                Image(systemName: "exclamationmark.triangle")
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-            }
-            Group {
-                if showsTitle, let error {
-                    Text("\(Text(error.title).fontWeight(.semibold)) \(error.message)")
-                } else {
-                    Text(message)
-                }
-            }
-            .multilineTextAlignment(style == .floating ? .center : .leading)
-            .lineLimit(nil)
-            // A narrow panel offers one line; the sentence wraps instead of ending in "…" (#470).
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: style == .inline ? .infinity : nil, alignment: .leading)
-            .help(message)
-            if let retry {
-                Button(SpotiglassL10n.string("browser.retry"), action: retry)
-                    .buttonStyle(.link)
-            }
-            if let dismiss {
-                Button(SpotiglassL10n.string("queue.dismiss"), action: dismiss)
-                    .buttonStyle(.link)
-            }
+    private var sentence: Text {
+        if showsTitle, let error {
+            Text("\(Text(error.title).fontWeight(.semibold)) \(error.message)")
+        } else {
+            Text(message)
         }
+    }
+
+    @ViewBuilder
+    private var buttons: some View {
+        if let retry {
+            Button(SpotiglassL10n.string("browser.retry"), action: retry)
+                .buttonStyle(.link)
+        }
+        if let dismiss {
+            Button(SpotiglassL10n.string("queue.dismiss"), action: dismiss)
+                .buttonStyle(.link)
+        }
+    }
+}
+
+/// The inline banner's line: a triangle, the sentence, link buttons after it. ``ErrorBanner``
+/// draws a reported failure with it; a notice that follows one (the copy kept of a file that
+/// couldn't be read, rows of a file that were left out) uses it with its own actions.
+struct BannerLine<Actions: View>: View {
+    let text: Text
+    let help: String
+    let actions: Actions
+
+    init(_ text: Text, help: String, @ViewBuilder actions: () -> Actions) {
+        self.text = text
+        self.help = help
+        self.actions = actions()
+    }
+
+    init(_ string: String, @ViewBuilder actions: () -> Actions) {
+        self.init(Text(string), help: string, actions: actions)
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: SpotiglassDesign.spacingS) {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            text
+                .multilineTextAlignment(.leading)
+                .lineLimit(nil)
+                // A narrow panel offers one line; the sentence wraps instead of ending in "…" (#470).
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .help(help)
+            actions
+                .buttonStyle(.link)
+        }
+        .font(.callout)
         .accessibilityElement(children: .contain)
+    }
+}
+
+extension BannerLine where Actions == EmptyView {
+    init(_ string: String) {
+        self.init(string) { EmptyView() }
     }
 }
 

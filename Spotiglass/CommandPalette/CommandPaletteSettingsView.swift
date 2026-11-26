@@ -71,7 +71,7 @@ struct CommandPaletteSettingsView: View {
             }
 
             if let unusable = keymapStore.unusableRowsText {
-                SettingsFileNotice(text: unusable.string)
+                BannerLine(unusable.string)
             }
 
             // No instruction line: each field says what to do itself (#541).

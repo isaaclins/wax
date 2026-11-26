@@ -79,7 +79,7 @@ final class SettingsShellViewsTests: XCTestCase {
         let url = dir.appendingPathComponent("settings.json")
         try Data(#"{"version":1,"keybinds":["#.utf8).write(to: url)
         let store = SpotiglassSettingsStore(fileURL: url)
-        let copyLine = try XCTUnwrap(store.backupNotice?.string)
+        let copyLine = try XCTUnwrap(store.backupNotice?.message)
 
         try Data(#"{"version":2,"appearance":{"#.utf8).write(to: url)
         store.reloadFromDisk()

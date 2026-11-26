@@ -59,7 +59,7 @@ final class PinnedItemsStoreTests: XCTestCase {
         XCTAssertEqual(copies.count, 1)
         XCTAssertEqual(try Data(contentsOf: XCTUnwrap(copies.first)), original, "the original pins are gone")
         XCTAssertEqual(try cache.loadPinnedItems(userID: "u1").map(\.id), [Self.validPin.id, Self.otherPin.id])
-        XCTAssertTrue(try XCTUnwrap(store.fileNotice?.string).contains(XCTUnwrap(copies.first?.lastPathComponent)))
+        XCTAssertTrue(try XCTUnwrap(store.fileNotice?.message).contains(XCTUnwrap(copies.first?.lastPathComponent)))
     }
 
     /// A 0-byte pins file (a sync tool, a crash mid-write) is kept before the next pin is saved.
@@ -89,7 +89,7 @@ final class PinnedItemsStoreTests: XCTestCase {
         store.pin(Self.otherPin)
 
         XCTAssertEqual(store.items, [Self.otherPin])
-        XCTAssertEqual(store.fileNotice?.string, SpotiglassL10n.string("browser.pinned.notSaved"))
+        XCTAssertEqual(store.fileNotice?.message, SpotiglassL10n.string("browser.pinned.notSaved"))
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         XCTAssertEqual(try Data(contentsOf: url), original)
     }
@@ -106,7 +106,7 @@ final class PinnedItemsStoreTests: XCTestCase {
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder) }
 
         store.pin(Self.validPin)
-        XCTAssertEqual(store.fileNotice?.string, SpotiglassL10n.string("browser.pinned.saveFailed"))
+        XCTAssertEqual(store.fileNotice?.message, SpotiglassL10n.string("browser.pinned.saveFailed"))
 
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder)
         store.pin(Self.otherPin)
@@ -121,17 +121,17 @@ final class PinnedItemsStoreTests: XCTestCase {
         try Data("[{\"id\":\"podcast:1\",\"kind\":\"podcast\",\"title\":\"Show\",\"subtitle\":\"x\",\"isStale\":false}]".utf8).write(to: url)
         let store = PinnedItemsStore(cache: cache)
         store.bind(userID: "u1")
-        let copyLine = try XCTUnwrap(store.fileNotice?.string)
+        let copyLine = try XCTUnwrap(store.fileNotice?.message)
         let folder = url.deletingLastPathComponent().path
         try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder) }
 
         store.pin(Self.validPin)
-        XCTAssertEqual(store.fileNotice?.string, SpotiglassL10n.string("browser.pinned.saveFailed"))
+        XCTAssertEqual(store.fileNotice?.message, SpotiglassL10n.string("browser.pinned.saveFailed"))
 
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: folder)
         store.pin(Self.otherPin)
-        XCTAssertEqual(store.fileNotice?.string, copyLine)
+        XCTAssertEqual(store.fileNotice?.message, copyLine)
     }
 
     /// Pins made while Apple Music playlists without a picture of their own were listed
