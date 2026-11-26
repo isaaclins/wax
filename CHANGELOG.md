@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.102] - 2026-11-26
+
+### Fixed
+
+- Autoplay on Spotify now keeps playing music from the artists in your queue and your playlists when the queue runs out.
+
 ## [0.8.101] - 2026-11-26
 
 ### Fixed
