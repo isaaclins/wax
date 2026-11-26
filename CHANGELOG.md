@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.93] - 2026-11-26
+
+### Fixed
+
+- The log you attach to bug reports no longer includes your searches, songs or device IDs.
+
 ## [0.8.92] - 2026-11-26
 
 ### Fixed
