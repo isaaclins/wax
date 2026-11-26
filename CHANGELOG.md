@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.100] - 2026-11-26
+
+### Fixed
+
+- Settings saved by a newer version of Wax are no longer lost when an older version saves them.
+
 ## [0.8.99] - 2026-11-26
 
 ### Fixed
