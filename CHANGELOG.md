@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.83] - 2026-11-26
+
+### Fixed
+
+- Clicking a song in an album keeps the rest of the album queued, even when Apple Music won't start that first song.
+
 ## [0.8.82] - 2026-11-26
 
 ### Fixed
