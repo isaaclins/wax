@@ -279,6 +279,8 @@ final class TrackListTableFocus {
               event.timestamp != lastDoubleClick,
               let table = currentTable()
         else { return }
+        // On the table itself, not on something over it (a banner, a toast) that covers a row.
+        guard let hit = window.contentView?.hitTest(event.locationInWindow), hit.isDescendant(of: table) else { return }
         let point = table.convert(event.locationInWindow, from: nil)
         let row = table.row(at: point)
         // The first click of the two selected the row; the list's header and footer can't be.
@@ -450,8 +452,6 @@ private struct TrackListRows<Row: View>: View, Equatable {
     var body: some View {
         #if DEBUG
         let _ = ViewBodyTally.record("TrackListRows")
-        // Per list as well, for a test that hosts several lists one after the other.
-        let _ = rowContentKey.map { ViewBodyTally.record("TrackListRows:\($0.base)") }
         #endif
         ForEach(tracks) { track in
             // One view per song, whatever the row builder returns: a builder's view
