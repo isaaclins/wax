@@ -517,9 +517,10 @@ struct TrackOpsMenuItems: View {
         self.copyableURI = copyableURI
     }
 
-    /// The action set is intentionally inspectable so every track surface can
-    /// test the shared contract without depending on AppKit's context-menu host.
-    var menuActionKinds: Set<TrackOpsMenuAction> {
+    /// The menu's actions. The pin state and the artists each walk every target, and a menu
+    /// for a selection of thousands is built again for each selected row on screen whenever
+    /// the selection changes (#694), so the menu works them out once and hands them in.
+    private func menuActionKinds(pinState: TrackSelectionPinState, artistTargets: [ArtistTapTarget]) -> Set<TrackOpsMenuAction> {
         var actions: Set<TrackOpsMenuAction> = []
         if openArtist != nil, !artistTargets.isEmpty {
             actions.insert(.openArtist)
@@ -590,7 +591,7 @@ struct TrackOpsMenuItems: View {
         browserViewModel.likedSongsMutationRows(for: targets)
     }
 
-    private var likedSongsState: TrackSelectionLikedState {
+    private func likedSongsState(for likedSongsTargets: [TrackRowViewModel]) -> TrackSelectionLikedState {
         guard !likedSongsTargets.isEmpty else { return .unavailable }
         if sourcePlaylistID == SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID {
             // Every catalog track displayed by Liked Songs is saved already;
@@ -626,10 +627,14 @@ struct TrackOpsMenuItems: View {
     @ViewBuilder
     private var menuContent: some View {
         let playlistTargets = browserViewModel.playlistMutationRows(for: targets)
+        let likedSongsTargets = self.likedSongsTargets
         let likedSongsLabel = SpotiglassL10n.format(
             "playlist.mutation.trackLabel",
             Int64(likedSongsTargets.count)
         )
+        let artistTargets = self.artistTargets
+        let pinState = self.pinState
+        let actions = menuActionKinds(pinState: pinState, artistTargets: artistTargets)
         let destinations = browserViewModel.userOwnedPlaylistsForMenu(
             excludingPlaylistID: sourcePlaylistID
         )
@@ -641,7 +646,7 @@ struct TrackOpsMenuItems: View {
             Divider()
         }
 
-        if menuActionKinds.contains(.openArtist), let openArtist {
+        if actions.contains(.openArtist), let openArtist {
             Menu(SpotiglassL10n.string("browser.track.openArtist")) {
                 ForEach(artistTargets) { target in
                     Button(target.name) {
@@ -651,7 +656,7 @@ struct TrackOpsMenuItems: View {
             }
         }
 
-        if menuActionKinds.contains(.addToQueue), let addToQueue {
+        if actions.contains(.addToQueue), let addToQueue {
             let playableURIs = targets.compactMap { MusicPlayableURI.canonical($0.playableURI) }
             Button(SpotiglassL10n.string("browser.addToQueue")) {
                 Task {
@@ -680,7 +685,7 @@ struct TrackOpsMenuItems: View {
             EmptyView()
         }
 
-        if menuActionKinds.contains(.copyURI),
+        if actions.contains(.copyURI),
            let uri = Self.copyableSpotifyURI(copyableURI) {
             Button(SpotiglassL10n.string("queue.copyURI")) {
                 copySpotifyURI(uri)
@@ -726,7 +731,7 @@ struct TrackOpsMenuItems: View {
             .disabled(playlistTargets.isEmpty || destinations.isEmpty)
         }
 
-        if menuActionKinds.contains(.removeFromPlaylist), let sourcePlaylistID = sourcePlaylistForMove {
+        if actions.contains(.removeFromPlaylist), let sourcePlaylistID = sourcePlaylistForMove {
             let playlistName = browserViewModel.playlistsByID[sourcePlaylistID]?.name ?? ""
             Button(SpotiglassL10n.string("browser.removeFromPlaylist")) {
                 Task {
@@ -740,7 +745,7 @@ struct TrackOpsMenuItems: View {
             .disabled(playlistTargets.isEmpty)
         }
 
-        let likedSongsState = likedSongsState
+        let likedSongsState = likedSongsState(for: likedSongsTargets)
         Button(
             SpotiglassL10n.format(
                 likedSongsState == .remove
