@@ -111,6 +111,25 @@ final class SpotiglassSceneRegistry: ObservableObject {
 
     private var scenes: [SpotiglassSceneHost] = []
     private var activeSceneCancellable: AnyCancellable?
+    private var keyWindowObserver: NSObjectProtocol?
+
+    init() {
+        // Coming back from another app straight into Settings (a click on its window) makes it
+        // key without the main window resigning first: that resign already happened on the way
+        // out, while the app was inactive, and was left alone (#611).
+        keyWindowObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let window = notification.object as? NSWindow else { return }
+            MainActor.assumeIsolated { self?.windowBecameKey(window) }
+        }
+    }
+
+    deinit {
+        if let keyWindowObserver { NotificationCenter.default.removeObserver(keyWindowObserver) }
+    }
 
     /// Registers a live scene without changing which scene owns app-level
     /// commands. The activation probe promotes a scene only when its window is
@@ -135,7 +154,20 @@ final class SpotiglassSceneRegistry: ObservableObject {
 
     /// A main window stopped being key. Another main window becoming key calls `activate`
     /// right after, so this stays false only while some other window is in front.
-    func mainWindowResignedKey() {
+    ///
+    /// Switching to another app also takes the key window away, with the app already inactive
+    /// and no window of ours in front of the main one. That keeps the flag as it is: the menus
+    /// observe it, so every change rebuilds them, once on the way out and once more while the
+    /// window comes back to the front (#611).
+    func mainWindowResignedKey(appIsActive: Bool) {
+        guard appIsActive else { return }
+        if mainWindowFront.isInFront { mainWindowFront.isInFront = false }
+    }
+
+    /// Any window of the app became key. A main window calls `activate` through its probe; any
+    /// other one (Settings, the lyrics pop-out) is now in front of the main window.
+    func windowBecameKey(_ window: NSWindow) {
+        guard !SpotiglassMainWindows.contains(window) else { return }
         if mainWindowFront.isInFront { mainWindowFront.isInFront = false }
     }
 
@@ -532,7 +564,7 @@ struct RootView: View {
                             sceneHost.window = window
                             sceneRegistry.activate(sceneHost)
                         },
-                        resignKey: { sceneRegistry.mainWindowResignedKey() }
+                        resignKey: { sceneRegistry.mainWindowResignedKey(appIsActive: NSApp.isActive) }
                     )
                     .frame(width: 0, height: 0)
                 }

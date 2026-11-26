@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import ViewInspector
 import XCTest
@@ -368,6 +369,52 @@ extension SidebarShortcutTests {
         registry.activate(scene)
         XCTAssertFalse(commands.isSidebarItemEnabled)
         XCTAssertEqual(commands.sidebarItemTitle, SpotiglassL10n.string("menu.view.hideSidebar"))
+    }
+
+    /// Switching to another app and back (⌘-Tab) is what AppKit reports as the main window
+    /// resigning key while the app is already inactive, then becoming key again. Each change of
+    /// the registry rebuilds the app's scene and menus and lays the whole window out again, so
+    /// both switches used to cost Wax 50-60 ms of main thread, the one back while its window
+    /// came to the front (#611). Nothing about which window is in front changed, so nothing
+    /// may be published.
+    func testSwitchingToAnotherAppAndBackLeavesTheSceneRegistryAlone() {
+        let (manager, _) = makeManager()
+        let scene = SpotiglassSceneHost(commandPaletteManager: manager)
+        let registry = SpotiglassSceneRegistry()
+        registry.activate(scene)
+        var changes = 0
+        let subscription = registry.objectWillChange.sink { _ in changes += 1 }
+        defer { subscription.cancel() }
+
+        registry.mainWindowResignedKey(appIsActive: false)
+        XCTAssertTrue(registry.isMainWindowInFront, "no window of the app is in front of the main one")
+        registry.activate(scene)
+
+        XCTAssertEqual(changes, 0, "the app's scene would be rebuilt on every app switch")
+    }
+
+    /// Back from another app straight into Settings (a click on its window): the main window's
+    /// resign happened on the way out and was left alone, so Settings becoming key is what puts
+    /// it in front.
+    func testComingBackStraightIntoSettingsPutsSettingsInFront() {
+        let (manager, _) = makeManager()
+        let scene = SpotiglassSceneHost(commandPaletteManager: manager)
+        let registry = SpotiglassSceneRegistry()
+        let mainWindow = makeWindow(content: NSView())
+        SpotiglassMainWindows.add(mainWindow)
+        scene.window = mainWindow
+        registry.activate(scene)
+        registry.mainWindowResignedKey(appIsActive: false)
+
+        registry.windowBecameKey(mainWindow)
+        XCTAssertTrue(registry.isMainWindowInFront)
+
+        let settingsWindow = makeWindow(content: NSView())
+        NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: settingsWindow)
+        XCTAssertFalse(registry.isMainWindowInFront, "Settings is in front")
+
+        registry.activate(scene)
+        XCTAssertTrue(registry.isMainWindowInFront)
     }
 
     /// Settings answers ⌃⌘S itself, so it works with every main window closed. It leaves the
