@@ -80,8 +80,13 @@ struct ImmersiveLyricsView: View {
             placeInitialFocusIfReady()
         }
         .onChange(of: isShowing) { _, showing in
+            guard showing else {
+                // Closed, they stay built (#674), so `onDisappear` doesn't run: stop waiting for
+                // the connection here, or a song that failed offline would load in the background.
+                lyricsModel.stopWaitingForConnection()
+                return
+            }
             // Each open puts the keyboard in the lyrics, as when each open built them anew.
-            guard showing else { return }
             hasPlacedInitialFocus = false
             placeInitialFocusIfReady()
         }

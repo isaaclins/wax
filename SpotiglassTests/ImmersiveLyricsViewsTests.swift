@@ -238,6 +238,62 @@ final class ImmersiveLyricsViewsTests: XCTestCase {
         XCTAssertFalse(dismissed, "a playing song must keep the lyrics open")
     }
 
+    /// #674 with #599: closing the lyrics no longer takes them out of the window, so it must end a
+    /// wait for the connection itself. Otherwise a song that failed offline loads behind the
+    /// closed lyrics when the network comes back.
+    func testClosingLyricsStopsTheirWaitForTheConnection() async throws {
+        let settings = try ViewTestHost.makeSettingsStore()
+        let api = MockPlaybackAPI()
+        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: MockWebPlaybackCommander()))
+        let queue = QueueViewModel(
+            provider: SpotifyPlaybackProvider(playbackAPI: api),
+            playbackSession: playback,
+            pollIntervalNanoseconds: 60_000_000_000
+        )
+        let track = sampleTrack(spotifyID: "offline-\(UUID().uuidString)")
+        playback.handle(.ready(deviceID: "device-1"))
+        playback.handle(.stateChanged(track, isPaused: false, nextTracks: []))
+        let fetched = FetchedSongs()
+        let waitStarted = expectation(description: "the lyrics wait for the connection")
+        let waitEnded = expectation(description: "closing the lyrics ended the wait")
+        let lyrics = ImmersiveLyricsViewModel(
+            fetchLyrics: { track in
+                await fetched.note(track.uri)
+                throw URLError(.notConnectedToInternet)
+            },
+            connectionWait: { _ in
+                waitStarted.fulfill()
+                // Waits until cancelled: only closing the lyrics ends it here.
+                do { try await Task.sleep(nanoseconds: UInt64.max / 2) } catch { waitEnded.fulfill() }
+            }
+        )
+        let showing = LyricsShowingFlag()
+        showing.isShowing = true
+        ViewTestHost.host(
+            ClosableLyrics(showing: showing) {
+                ImmersiveLyricsView(
+                    playbackViewModel: playback,
+                    queueViewModel: queue,
+                    lyricsModel: lyrics,
+                    navigateToArtist: { _ in },
+                    navigateToAlbum: { _, _, _ in },
+                    onDismiss: {}
+                )
+            }
+            .environmentObject(settings)
+            .frame(width: 800, height: 600),
+            size: CGSize(width: 800, height: 600)
+        )
+        await fulfillment(of: [waitStarted], timeout: 10)
+        XCTAssertEqual(fetched.uris, [track.uri])
+
+        showing.isShowing = false
+        await fulfillment(of: [waitEnded], timeout: 10)
+        await lyrics.networkCameBack()
+        await AppKitTestSupport.settle(passes: 3)
+        XCTAssertEqual(fetched.uris, [track.uri], "the closed lyrics loaded their song again when the network came back")
+    }
+
     /// #438: a small repeat button sat next to the song title in the lyrics, a second copy of
     /// the player bar's. The bar stays visible under the lyrics now, so repeat lives only there.
     /// Checked for every repeat mode, since each one drew its own icon.
