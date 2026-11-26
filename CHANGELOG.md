@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.89] - 2026-11-26
+
+### Fixed
+
+- If an edit fails partway through, the app now shows which changes already went through, so your library and the screen match.
+
 ## [0.8.88] - 2026-11-26
 
 ### Fixed
