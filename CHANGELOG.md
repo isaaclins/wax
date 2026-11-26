@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.88] - 2026-11-26
+
+### Fixed
+
+- Opening or closing the queue no longer makes the sidebar and page redraw.
+
 ## [0.8.87] - 2026-11-26
 
 ### Fixed
