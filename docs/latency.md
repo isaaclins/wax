@@ -142,17 +142,19 @@ builds (load 4-25). Two things made shuffle, repeat and ⌘[ slower than seek:
   under it, the whole browser's, in the frame that showed the change: 20 ms instead of seek's 5.
   The root view now keeps the scene without observing it.
 
-Shuffle, repeat and seek are off the `known` list. Shuffle stayed at or under 40 ms checked in all
-ten runs. Repeat did in the five runs on the final code, and reached 43 ms once in the five before
-the player bar change. Seek did in those first five, and reached 45 ms once in the five on the
-final code, under load 6-18. Seek's path didn't change (its median is 24-29 ms), so that's the load.
-⌘[ is at 35-38 ms median, but its checked time still reached 42-48 ms in some runs:
+Shuffle and repeat are off the `known` list. Shuffle stayed at or under 40 ms checked in all ten
+runs, and repeat in the five on the final code (it reached 43 ms once in the five before the player
+bar change). ⌘[ is at 35-38 ms median, but its checked time still reached 42-48 ms in some runs:
 what's left is the page change itself (the browser's body runs again and draws the sidebar and the
 page a second time), the same work as ⌘F and a sidebar click. It stays listed, at 47 ms, with #675.
 
-Again on top of #675's page-change work above (2026-11-26, three runs, load 3-4, median / checked):
-shuffle 30-31 / 32-33 ms, repeat 31 / 32-34, seek 28-29 / 30-45, ⌘[ 31-40 / 39-45. ⌘[ came in under
-40 checked in one of the three, so it stays listed with #675.
+Again on top of #675's page-change work above (2026-11-26, five runs in a row, load 3-4, median /
+checked): shuffle 30-31 / 30-33 ms, repeat 30-31 / 31-34, seek 28-29 / 29-45, ⌘[ 31-40 / 38-45.
+Shuffle and repeat stayed under 40 checked in all five; ⌘[ only in two, so it stays listed with #675.
+
+Seek stays listed with #730. Its median is 24-29 ms and this work didn't change its path (it runs
+from the key monitor already), but its checked time still reaches 45 ms now and then, also in the
+in one of these five at load 3, so it isn't under the list's 40 ms yet.
 
 ## The sound (Apple Music)
 

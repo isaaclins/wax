@@ -42,7 +42,8 @@ enum MenuOnlyShortcuts {
         return nil
     }
 
-    private static func matches(_ event: NSEvent, _ item: NSMenuItem) -> Bool {
+    /// Whether `event` is the shortcut `item` shows.
+    static func matches(_ event: NSEvent, _ item: NSMenuItem) -> Bool {
         let key = item.keyEquivalent
         guard !key.isEmpty, let typed = event.charactersIgnoringModifiers, !typed.isEmpty else { return false }
         let relevant: NSEvent.ModifierFlags = [.command, .option, .control, .shift]

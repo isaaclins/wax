@@ -156,6 +156,32 @@ final class MenuKeyEquivalentTests: XCTestCase {
         }
     }
 
+    /// The key monitor matches the key the item shows, as typed on this Mac's layout. On a Swiss
+    /// German layout macOS shows Back as ⌘ö, not ⌘[: if the item kept "[" there, the key you press
+    /// would never match and ⌘[ would quietly go the slow way again (#730).
+    func testTheKeysTheMenuShowsReachTheKeyMonitorOnThisLayout() throws {
+        AppKitTestSupport.activateAppIfNeeded()
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { NSApp.mainMenu != nil }))
+        let menu = try XCTUnwrap(NSApp.mainMenu)
+        func items(in menu: NSMenu) -> [NSMenuItem] {
+            menu.items.flatMap { item in [item] + (item.submenu.map(items) ?? []) }
+        }
+        for title in MenuOnlyShortcuts.titles {
+            let item = try XCTUnwrap(
+                items(in: menu).first { $0.title == title && !$0.keyEquivalent.isEmpty },
+                "no menu item with a shortcut is titled \"\(title)\""
+            )
+            let code = try XCTUnwrap(
+                InteractionLatencyProbe.keyCode(typing: item.keyEquivalent),
+                "no key on this Mac's layout types \"\(item.keyEquivalent)\", the key \(title) shows"
+            )
+            let event = try XCTUnwrap(InteractionLatencyProbe.keyEvent(
+                code: code, item.keyEquivalentModifierMask, arrow: false, keyDown: true
+            ))
+            XCTAssertTrue(MenuOnlyShortcuts.matches(event, item), "\(title)'s key doesn't reach the key monitor")
+        }
+    }
+
     func testRepeatCycleCommandAdvancesThroughAllModes() async {
         let manager = CommandPaletteManager(keymapStore: makeStore())
         manager.playbackTransportMutationPrerequisite = { true }

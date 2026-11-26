@@ -21,6 +21,10 @@
       "issue": 704,
       "measuredMs": 53
     },
+    "playback.seek": {
+      "issue": 730,
+      "measuredMs": 46
+    },
     "queue.toggle": {
       "issue": 673,
       "measuredMs": 61
