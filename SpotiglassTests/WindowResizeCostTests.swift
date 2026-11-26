@@ -22,6 +22,9 @@ final class WindowResizeCostTests: XCTestCase {
     private static let frameKey = "NSWindow Frame SpotiglassTests.resize"
 
     private enum Page { case home, bigPlaylist }
+    /// The hosted browser's model and the lyrics controller it hands its queue to.
+    private var hostedBrowser: PlaylistBrowserViewModel?
+    private var hostedLyrics: LyricsOverlayController?
 
     /// Hosts the real browser the way the app shows it: the library loaded once, both playlists
     /// in the sidebar and, for `.bigPlaylist`, a 500-song page with its rows drawn.
@@ -39,6 +42,8 @@ final class WindowResizeCostTests: XCTestCase {
         api.topTracksHandler = { _, _ in Self.homeTracks(prefix: "top", count: Self.topTrackCount) }
         api.recentlyPlayedHandler = { _ in Self.homeTracks(prefix: "recent", count: Self.recentAlbumCount) }
         let browserVM = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
+        hostedBrowser = browserVM
+        hostedLyrics = LyricsOverlayController()
         // As the browser's own `.task` loads it, so the hosted view doesn't load it again.
         await browserVM.loadIfNeeded()
         switch page {
@@ -78,7 +83,7 @@ final class WindowResizeCostTests: XCTestCase {
             signOut: {}
         )
         .environmentObject(store)
-        .environmentObject(LyricsOverlayController())
+        .environmentObject(hostedLyrics ?? LyricsOverlayController())
         ViewBodyTally.counts = [:]
         let controller = ViewTestHost.host(view, size: CGSize(width: 1_400, height: 900))
         let window = try XCTUnwrap(controller.view.window)
@@ -386,6 +391,132 @@ final class WindowResizeCostTests: XCTestCase {
         StoredFlag.queuePanelVisible.isOn = false
         _ = limitBecomes(closedLimit)
         XCTAssertEqual(try XCTUnwrap(Self.sidebarMaximumThickness(in: content)), closedLimit, accuracy: 0.5)
+    }
+
+    /// ⌥⌘Q took 72-85 ms in a Release build (#673): the queue flag was read by the app's scene
+    /// and by the browser, so opening or closing the queue re-ran the scene, the menu bar, the
+    /// browser and from there the page, the sidebar and the player bar, though only the queue
+    /// column and the page's width change. Now the queue panel comes and goes and nothing else
+    /// re-renders.
+    func testOpeningAndClosingTheQueueReRendersOnlyTheQueueOnABigPlaylist() async throws {
+        _ = try await hostBrowser(on: .bigPlaylist)
+        await assertTogglingTheQueueReRendersOnlyTheQueue(
+            extraViews: ["PlaylistDetailContent"]
+        )
+    }
+
+    func testOpeningAndClosingTheQueueReRendersOnlyTheQueueOnHome() async throws {
+        _ = try await hostBrowser(on: .home)
+        await assertTogglingTheQueueReRendersOnlyTheQueue(
+            extraViews: ["HomeView"]
+        )
+    }
+
+    /// What the browser does when the queue opens or closes runs from the flag's change signal
+    /// now, not from a redraw of the browser (#673): the queue still starts and stops loading, and
+    /// the toolbar's Refresh still knows whether the queue is open.
+    func testOpeningAndClosingTheQueueStillStartsAndStopsLoadingIt() async throws {
+        _ = try await hostBrowser(on: .home)
+        let flag = StoredFlag.queuePanelVisible
+        flag.isOn = false
+        defer { flag.isOn = false }
+        let queue = try XCTUnwrap(hostedLyrics?.queueViewModel, "the browser never handed over its queue")
+        let browser = try XCTUnwrap(hostedBrowser)
+        for visible in [true, false, true, false] {
+            flag.isOn = visible
+            let followed = await AppKitTestSupport.settle(until: {
+                queue.isPanelVisible == visible && browser.refreshRoutingQueuePanelVisible == visible
+            })
+            XCTAssertTrue(
+                followed,
+                "with the queue \(visible ? "open" : "closed"): queue loading \(queue.isPanelVisible), Refresh sees the queue \(browser.refreshRoutingQueuePanelVisible)"
+            )
+        }
+    }
+
+    /// The window's minimum width watches the queue flag on its own (#673), so the app's scene no
+    /// longer has to: with the queue open it still keeps room for the page and the panel (#413).
+    func testWindowMinimumWidthFollowsTheQueueOpeningAndClosing() async {
+        let flag = StoredFlag.queuePanelVisible
+        flag.isOn = false
+        defer { flag.isOn = false }
+        let closed = SpotiglassApp.windowMinWidth
+        let open = SpotiglassDesign.detailAndQueueMinWidth
+        XCTAssertGreaterThan(open, closed, "opening the queue must widen the minimum for this test to mean anything")
+        let controller = ViewTestHost.host(Color.clear.modifier(QueuePanelWindowMinSize()))
+        let minimumWidth = { controller.sizeThatFits(in: .zero).width }
+        for visible in [false, true, false, true, false] {
+            flag.isOn = visible
+            let expected = visible ? open : closed
+            let followed = await AppKitTestSupport.settle(until: { abs(minimumWidth() - expected) < 0.5 })
+            XCTAssertTrue(followed, "with the queue \(visible ? "open" : "closed") the minimum width is \(minimumWidth()), not \(expected)")
+        }
+    }
+
+    private func assertTogglingTheQueueReRendersOnlyTheQueue(
+        extraViews: [String],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let flag = StoredFlag.queuePanelVisible
+        flag.isOn = false
+        defer { flag.isOn = false }
+        let panelBodies = { ViewBodyTally.counts?["QueuePanelView"] ?? 0 }
+        func toggle(_ visible: Bool) async {
+            let before = panelBodies()
+            flag.isOn = visible
+            if visible {
+                // The queue has to show each time, so a toggle that does nothing can't pass.
+                let shown = await AppKitTestSupport.settle(until: { panelBodies() > before })
+                XCTAssertTrue(shown, "the queue panel never came on screen", file: file, line: line)
+            }
+            // Every update the toggle started lands before the next press (the test host turns
+            // animations off, so the panel is fully in or out by then).
+            await AppKitTestSupport.settle()
+        }
+        // The first time the page takes the narrower width, its list measures its rows at that
+        // width once; that is not what each press costs, so it isn't counted.
+        waitUntilNothingRenders()
+        ViewBodyTally.counts = [:]
+        await toggle(true)
+        await toggle(false)
+        ViewBodyTally.counts = [:]
+        for visible in [true, false, true, false, true, false] {
+            await toggle(visible)
+        }
+        let counts = ViewBodyTally.counts ?? [:]
+        // What else drew, and at what size, so a failure on another machine says where to look.
+        let others = counts.filter { !$0.key.contains(":") }.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)x" }
+        let window = NSApp.windows.first { $0.contentView?.frame.width ?? 0 > 1_000 }
+        let context = "drew: \(others); window \(window.map { "\($0.frame.size)" } ?? "none"), screen \(NSScreen.main.map { "\($0.frame.size)" } ?? "none"), app active \(NSApp.isActive)"
+        // On GitHub's macOS 26 runner the player controls still draw with the presses while
+        // nothing above them does (#751); there only what #673 stopped is checked.
+        let controlsStayStill: Bool
+        if #available(macOS 27, *) { controlsStayStill = true } else { controlsStayStill = false }
+        for container in [
+            "PlaylistBrowserView",
+            "BrowserTransportBar",
+            "PlaylistBrowserSidebar",
+            "PlaylistsSidebarSectionContent",
+            "PlaylistBrowserMainDetailColumn",
+        ] + (controlsStayStill ? ["PlaybackControlsView"] : []) + extraViews {
+            XCTAssertNil(
+                counts[container],
+                "\(container) re-rendered \(counts[container] ?? 0) times when the queue opened and closed three times (\(context))",
+                file: file, line: line
+            )
+        }
+        // The sidebar's rows never leave the window, so none may draw. The page's rows aren't
+        // counted: the list runs every row's body whenever anything inside it updates, so their
+        // count follows whatever else the list shows (on a busy Mac every row drew once or twice
+        // on its own, nothing above them). The page and its column above them are checked, and
+        // before #673 those drew with every press.
+        let rows = counts.keys.filter { $0.hasPrefix("PlaylistListRow:") }
+        XCTAssertTrue(
+            rows.isEmpty,
+            "sidebar rows re-rendered as the queue opened and closed: \(rows.sorted().prefix(5).map { "\($0) \(counts[$0] ?? 0)x" })",
+            file: file, line: line
+        )
     }
 
     /// The playlist sidebar's widest drag as the split view controller has it.

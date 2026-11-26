@@ -25,9 +25,11 @@ struct SpotiglassMenuCommands: Commands {
     /// Playback, queue, lyrics and refresh only have a target while a Spotify
     /// session is live, so those items dim instead of silently doing nothing.
     let isSignedIn: Bool
-    /// Drives the "Show Queue" / "Hide Queue" title, read from the same
-    /// `StoredFlag.queuePanelVisible` the browser writes.
-    let isQueueVisible: Bool
+    /// Drives the "Show Queue" / "Hide Queue" title: the same flag the browser writes. Observed
+    /// here rather than in ``SpotiglassApp``, so opening or closing the queue updates the menu
+    /// alone instead of re-running the whole scene and every window's content (#673).
+    @ObservedObject var queuePanel = StoredFlag.queuePanelVisible
+    private var isQueueVisible: Bool { queuePanel.isOn }
 
     /// Every menu item targets the key main window's scene. One active-scene
     /// policy drives the menu, the palette and the lyrics overlay, so a second

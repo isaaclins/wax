@@ -18,11 +18,17 @@ struct PlaylistBrowserView: View {
     @EnvironmentObject var lyricsOverlay: LyricsOverlayController
     @Environment(\.spotiglassLocale) private var spotiglassLocale
     /// Not `@AppStorage`: that re-ran this whole body on every write to the defaults, and AppKit
-    /// writes the window frame there on each resize step (#473).
-    @ObservedObject var queuePanel = StoredFlag.queuePanelVisible
+    /// writes the window frame there on each resize step (#473). Not observed here either: the
+    /// views that show it (the queue column, its toolbar button, the sidebar's drag limit) observe
+    /// it themselves, so ⌥⌘Q doesn't re-run this body and with it the page, the sidebar and the
+    /// player bar (#673). What this view does on a change runs from `didChange`.
+    let queuePanel = StoredFlag.queuePanelVisible
     var isQueueVisible: Bool {
         get { queuePanel.isOn }
         nonmutating set { queuePanel.isOn = newValue }
+    }
+    var queueVisibleBinding: Binding<Bool> {
+        Binding(get: { queuePanel.isOn }, set: { queuePanel.isOn = $0 })
     }
     /// Best-effort scroll anchor when the playlist `List` is torn down for lyrics (playback URI match, else last row `onAppear`).
     @State var detailLastVisibleTrackID: String?
@@ -217,7 +223,7 @@ struct PlaylistBrowserView: View {
         } detail: {
             PlaylistBrowserDetailWithQueueSplit(
                 unifiedRefreshFocus: $unifiedRefreshFocus,
-                isQueueVisible: isQueueVisible
+                queuePanel: queuePanel
             ) {
                 PlaylistBrowserMainDetailColumn(
                     viewModel: viewModel,
@@ -318,18 +324,8 @@ struct PlaylistBrowserView: View {
         // to them) and trades Refresh and Disconnect for closing the lyrics: Refresh would
         // reload a page that isn't showing (#438).
         ToolbarItemGroup(placement: .automatic) {
-            Button {
-                isQueueVisible.toggle()
-            } label: {
-                Label(SpotiglassL10n.string("browser.queue"), systemImage: "list.bullet.indent")
-            }
-            .help(
-                isQueueVisible
-                    ? SpotiglassL10n.string("tooltip.toolbar.queue.hide")
-                    : SpotiglassL10n.string("tooltip.toolbar.queue.show")
-            )
-            .accessibilityHint(SpotiglassL10n.string("browser.queue.hint"))
-            .hiddenFromAccessibilityBehindPalette()
+            QueuePanelToolbarButton(queuePanel: queuePanel)
+                .hiddenFromAccessibilityBehindPalette()
 
             if lyricsOverlay.isPresented {
                 // Moves the lyrics into the small window that can stay above other apps (#439).
@@ -463,7 +459,7 @@ struct PlaylistBrowserView: View {
                     openAlbumFromTapTarget(album, artistSubtitle: artistSubtitle, artworkURL: artworkURL, origin: .reset)
                 }
             )
-            bindCommandPalette(queueVisible: $queuePanel.isOn, lyricsPresented: isLyricsPresentedBinding)
+            bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
             commandPaletteManager.dismissLyricsOverlayIfPresented = { [lyricsOverlay] in
                 guard lyricsOverlay.isPresented else { return false }
                 lyricsOverlay.dismiss()
@@ -479,10 +475,10 @@ struct PlaylistBrowserView: View {
     private var browserCommandBindings: some View {
         browserLifecycle
         .onChange(of: viewModel.sidebarSelection) { _, _ in
-            bindCommandPalette(queueVisible: $queuePanel.isOn, lyricsPresented: isLyricsPresentedBinding)
+            bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
         }
         .onChange(of: viewModel.detailState) { _, _ in
-            bindCommandPalette(queueVisible: $queuePanel.isOn, lyricsPresented: isLyricsPresentedBinding)
+            bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
             syncTrackSelectionMenuState()
         }
         .onChange(of: viewModel.prefetchAllPlaylistsProgress) { _, newValue in
@@ -525,7 +521,7 @@ struct PlaylistBrowserView: View {
             guard commandPaletteManager.isSignedIn else { return }
             syncTrackSelectionMenuState()
             syncLibraryRowOrder()
-            bindCommandPalette(queueVisible: $queuePanel.isOn, lyricsPresented: isLyricsPresentedBinding)
+            bindCommandPalette(queueVisible: queueVisibleBinding, lyricsPresented: isLyricsPresentedBinding)
         }
     }
 
@@ -534,7 +530,7 @@ struct PlaylistBrowserView: View {
         let _ = ViewBodyTally.record("PlaylistBrowserView")
         #endif
         browserCommandBindings
-        .onChange(of: isQueueVisible) { _, visible in
+        .onReceive(queuePanel.didChange) { visible in
             queueViewModel.setPanelVisible(visible)
             browserWidthSampler.commitLatestWidth()
             if !visible {

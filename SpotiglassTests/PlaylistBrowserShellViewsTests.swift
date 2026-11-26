@@ -94,7 +94,7 @@ final class PlaylistBrowserShellViewsTests: XCTestCase {
         )
         let split = PlaylistBrowserDetailWithQueueSplit(
             unifiedRefreshFocus: .constant(.mainContent),
-            isQueueVisible: false
+            queuePanel: StoredFlag(key: "queue.panel.visible", defaultValue: false, defaults: nil)
         ) {
             PlaylistBrowserMainDetailColumn(
                 viewModel: browserVM,

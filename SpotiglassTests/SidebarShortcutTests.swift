@@ -254,8 +254,7 @@ final class SidebarShortcutTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
 
         XCTAssertEqual(commands.sidebarItemTitle, SpotiglassL10n.string("menu.view.hideSidebar"))
@@ -350,8 +349,7 @@ extension SidebarShortcutTests {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: false,
-            isQueueVisible: false
+            isSignedIn: false
         )
         XCTAssertFalse(commands.isSidebarItemEnabled, "signed out, with the main window in front")
         XCTAssertEqual(commands.sidebarItemTitle, SpotiglassL10n.string("menu.view.hideSidebar"))

@@ -35,7 +35,7 @@
     },
     "queue.toggle": {
       "issue": 673,
-      "measuredMs": 77
+      "measuredMs": 61
     },
     "settings.open": {
       "issue": 676,
@@ -54,7 +54,7 @@
     "palette.type": 217,
     "palette.close": 254,
     "sidebar.toggle": 145,
-    "queue.toggle": 279,
+    "queue.toggle": 209,
     "lyrics.toggle": 547,
     "page.search": 370,
     "page.back": null,

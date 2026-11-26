@@ -30,8 +30,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
     }
 
@@ -301,8 +300,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
 
         XCTAssertFalse(commands.isLyricsToggleEnabled, "Show Lyrics with no song in the bar")
@@ -324,8 +322,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
 
         XCTAssertTrue(commands.isRefreshEnabled)
@@ -352,8 +349,7 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
 
         XCTAssertTrue(commands.isBackEnabled)
@@ -381,13 +377,42 @@ final class MenuKeyEquivalentTests: XCTestCase {
             serviceStore: MusicServiceStore(
                 storage: InMemoryMusicServiceSelectionStorage(services: [.spotify], active: .spotify)
             ),
-            isSignedIn: true,
-            isQueueVisible: false
+            isSignedIn: true
         )
 
         XCTAssertEqual(commands.lyricsItemTitle, SpotiglassL10n.string("menu.view.showLyrics"))
         scene.lyricsOverlayController.isPresented = true
         XCTAssertEqual(commands.lyricsItemTitle, SpotiglassL10n.string("menu.view.hideLyrics"))
+    }
+
+    /// The View menu's Show/Hide Queue item watches the queue flag on its own (#673). The app's
+    /// scene no longer reads the flag, so nothing else would bring the menu up to date when the
+    /// queue opens or closes: read the title off the real menu bar each time.
+    func testViewMenuQueueItemFollowsTheQueueOpeningAndClosing() async throws {
+        AppKitTestSupport.activateAppIfNeeded()
+        XCTAssertTrue(AppKitTestSupport.pumpRunLoop(until: { NSApp.mainMenu != nil }))
+        let flag = StoredFlag.queuePanelVisible
+        flag.isOn = false
+        defer { flag.isOn = false }
+        let show = SpotiglassL10n.string("menu.view.showQueue")
+        let hide = SpotiglassL10n.string("menu.view.hideQueue")
+        func titles() -> Set<String> {
+            guard let menu = NSApp.mainMenu else { return [] }
+            return Set(Self.allItems(in: menu).map(\.title)).intersection([show, hide])
+        }
+        for visible in [false, true, false, true, false] {
+            flag.isOn = visible
+            let expected: Set<String> = [visible ? hide : show]
+            let shown = await AppKitTestSupport.settle(until: { titles() == expected })
+            XCTAssertTrue(shown, "with the queue \(visible ? "open" : "closed") the View menu says \(titles().sorted())")
+        }
+    }
+
+    /// Every item, each submenu brought up to date the way AppKit does just before it opens.
+    private static func allItems(in menu: NSMenu) -> [NSMenuItem] {
+        menu.delegate?.menuNeedsUpdate?(menu)
+        menu.update()
+        return menu.items.flatMap { item in [item] + (item.submenu.map { allItems(in: $0) } ?? []) }
     }
 
     private struct MenuKeyEquivalentItem {
