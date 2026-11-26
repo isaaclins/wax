@@ -29,8 +29,8 @@ final class CommandPaletteViewModel: ObservableObject {
     @Published private(set) var sections: [(section: CommandPaletteSection, items: [CommandPaletteItem])] = []
     @Published private(set) var isLoading = false
     /// Looked up when shown, so the reason a search failed follows a language switch (#548).
-    @Published private var error: LocalizedText?
-    var errorText: String? { error?.string }
+    /// The search that failed or answered in part, reported once (#608).
+    @Published private(set) var error: DisplayError?
     @Published var selectedIndex = 0
     /// Bulk playlist-track prefetch progress, mirrored from the host browser
     /// view-model. This is scene state rather than presentation state, so it
@@ -87,7 +87,7 @@ final class CommandPaletteViewModel: ObservableObject {
     private var rateLimitCooldownUntil: Date = .distantPast
     /// What the 429 said, shown again for every keystroke inside the cooldown: those searches are
     /// skipped, and a cleared line read as "No results" (#595).
-    private var rateLimitError: LocalizedText?
+    private var rateLimitError: DisplayError?
 
     deinit {
         searchTask?.cancel()
@@ -570,7 +570,12 @@ final class CommandPaletteViewModel: ObservableObject {
             renderSectionsFromCache(trimmed: query)
             selectionToKeep = nil
             isLoading = false
-            self.error = LocalizedText(BrowsingDisplayError.partialSearch(partial.missing).message)
+            self.error = ErrorReporting.report(
+                partial.missing.underlying,
+                while: "searching from the palette (\(partial.missing.missing) missing)",
+                in: .browsing,
+                showing: .partialSearch(partial.missing)
+            )
         } catch let error as SpotifyAPIError {
             switch error {
             case let .rateLimited(retryAfter):
@@ -579,23 +584,45 @@ final class CommandPaletteViewModel: ObservableObject {
                 lastSuccessfulSongSearchQuery = nil
                 // Keep any instant local matches visible; only the catalog half failed.
                 isLoading = false
-                rateLimitError = LocalizedText(error.userMessage)
+                rateLimitError = ErrorReporting.report(
+                    error,
+                    while: "searching from the palette",
+                    in: .browsing,
+                    level: .info,
+                    showing: Self.searchFailureMessage(error)
+                )
                 self.error = rateLimitError
             default:
                 lastSuccessfulSongSearchQuery = nil
                 isLoading = false
-                self.error = LocalizedText(error.userMessage)
+                self.error = ErrorReporting.report(
+                    error,
+                    while: "searching from the palette",
+                    in: .browsing,
+                    showing: Self.searchFailureMessage(error)
+                )
             }
         } catch {
             lastSuccessfulSongSearchQuery = nil
             isLoading = false
             // Apple Music's search failures read as calm sentences, like the Search view's (#397).
-            let service = MusicServiceSelection.current
-            self.error = LocalizedText(
-                BrowsingDisplayError.appleMusic(for: error)?.message
-                    ?? MusicServiceErrorText.userMessage(for: error, service: service)
+            self.error = ErrorReporting.report(
+                error,
+                while: "searching from the palette",
+                in: .browsing,
+                showing: Self.searchFailureMessage(error)
             )
         }
+    }
+
+    /// The Search view's words for a failed search, with Spotify's own sentence for its errors:
+    /// the palette's line has room for one sentence and no details button.
+    static func searchFailureMessage(_ error: Error) -> ErrorMessage {
+        var message = PlaylistBrowserViewModel.displayError(for: error)
+        if let apiError = error as? SpotifyAPIError {
+            message.messageText = LocalizedText(apiError.userMessage)
+        }
+        return message
     }
 
     /// Paints in-memory matches (open-playlist tracks + library playlists) immediately.

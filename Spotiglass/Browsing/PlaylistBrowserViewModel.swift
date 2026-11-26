@@ -80,8 +80,7 @@ final class PlaylistBrowserViewModel: ObservableObject {
     /// User-facing toast banner published after a successful track-ops mutation
     /// ("Added 4 tracks to My Workout"). Read+set by views; auto-clears. Looked up when shown,
     /// so a toast on screen follows a language switch (#571).
-    @Published var trackMutationToastText: LocalizedText?
-    var trackMutationToast: String? { trackMutationToastText?.string }
+    @Published var trackMutationToast: ToastMessage?
     @Published var sidebarSelection: SidebarSelection?
     /// Backing model for the dedicated catalog Search surface. Owned here so the
     /// sidebar row, the `navigation.search.open` command and the palette's
@@ -247,6 +246,9 @@ final class PlaylistBrowserViewModel: ObservableObject {
         let paging: ArtistAlbumsPagingState?
         /// Top songs and saved items, from a service that has them (#658).
         var extras: MusicArtistPageExtras?
+        /// A part of the page that didn't load (its songs or extras): the page shows the rest
+        /// under a banner instead of reading as an artist with nothing (#608).
+        var partialFailure: Error?
     }
 
     struct CachedArtistSnapshot {
@@ -357,7 +359,7 @@ final class PlaylistBrowserViewModel: ObservableObject {
         playlistPendingDeletion = nil
         pendingLibraryRemoval = nil
         sidebarSelection = nil
-        trackMutationToastText = nil
+        trackMutationToast = nil
         playlistsByID = [:]
         knownPlaylistSummariesByID = [:]
         lastTracksRevalidationByID = [:]

@@ -1295,7 +1295,8 @@ final class PlaybackChromeViewsTests: XCTestCase {
             openArtist: { _ in }
         )
         ViewTestHost.host(view, size: CGSize(width: 420, height: 640))
-        XCTAssertNoThrow(try view.inspect().find(text: "Playback unavailable"))
+        // The banner leads with the title, then the sentence, in one line (#608).
+        XCTAssertNoThrow(try view.inspect().find(textWhere: { text, _ in text.hasPrefix("Playback unavailable") }))
     }
 
     func testQueuePanelRepeatOneSubtitle() async throws {

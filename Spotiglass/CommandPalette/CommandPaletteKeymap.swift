@@ -332,13 +332,31 @@ enum KeymapConflictError: LocalizedError, Equatable {
 /// original error in the settings log for diagnostics. The copy is looked up each time it is
 /// shown, so a message on screen follows a language switch (#571); the log entry is written once.
 enum CommandPaletteKeymapErrorPresenter {
-    static func text(for error: Error, source: @autoclosure @escaping () -> String, operation: String) -> LocalizedText {
-        log(error, operation: operation)
-        return LocalizedText(message(for: error, source: source()))
+    /// Logs a shortcut change that failed once and returns the line Settings shows (#608).
+    static func report(for error: Error, source: @autoclosure @escaping () -> String, operation: String) -> DisplayError {
+        ErrorReporting.report(
+            error,
+            while: "changing shortcuts (\(operation))",
+            in: .settings,
+            context: [.public("error", String(reflecting: error))],
+            showing: ErrorMessage(message: message(for: error, source: source()))
+        )
     }
 
-    static func settingsReloadFailureText(source: String) -> LocalizedText {
-        LocalizedText(SpotiglassL10n.format("keymap.error.reloadFailed", source))
+    /// The settings file didn't reload: the store logged it; the shortcuts pane names the file.
+    static func settingsReloadFailure(_ fileError: DisplayError, source: String) -> DisplayError {
+        fileError.with { $0.messageText = LocalizedText(SpotiglassL10n.format("keymap.error.reloadFailed", source)) }
+    }
+
+    /// A key a shortcut can't use (a lone modifier, an F key): the field keeps recording.
+    static func recordingUnsupported() -> DisplayError {
+        ErrorReporting.report(
+            nil,
+            while: "recording a shortcut with a key shortcuts can't use",
+            in: .settings,
+            level: .info,
+            showing: ErrorMessage(message: SpotiglassL10n.string("palette.settings.recordingUnsupported"))
+        )
     }
 
     private static func message(for error: Error, source: String) -> String {
@@ -392,12 +410,6 @@ enum CommandPaletteKeymapErrorPresenter {
         return SpotiglassL10n.format("keymap.error.location", source, path)
     }
 
-    private static func log(_ error: Error, operation: String) {
-        SpotiglassLog.error(
-            .settings,
-            "Command palette \(operation) failed: \(String(reflecting: error))"
-        )
-    }
 }
 
 extension CommandPaletteContext {

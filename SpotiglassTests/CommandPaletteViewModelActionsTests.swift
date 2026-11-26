@@ -169,7 +169,7 @@ final class CommandPaletteViewModelActionsTests: XCTestCase {
         viewModel.query = "abcd"
         viewModel.refresh()
         await viewModel.waitForSearchCompletion()
-        XCTAssertNotNil(viewModel.errorText)
+        XCTAssertNotNil(viewModel.error?.message)
         XCTAssertTrue(viewModel.sections.isEmpty)
     }
 }

@@ -146,26 +146,14 @@ struct QueuePanelView: View {
         return SpotiglassL10n.format("queue.subtitle.upNext", Int64(count))
     }
 
-    private func errorBanner(_ error: BrowsingDisplayError) -> some View {
-        VStack(alignment: .leading, spacing: SpotiglassDesign.spacingS) {
-            // The list below takes every point the panel offers, so without a fixed vertical
-            // size the banner got one line each and German sentences ended in "Prü…" (#470).
-            Text(error.title)
-                .font(.subheadline.weight(.semibold))
-                .fixedSize(horizontal: false, vertical: true)
-            Text(error.message)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Button(SpotiglassL10n.string("queue.dismiss")) {
-                queueViewModel.clearError()
-            }
-            .buttonStyle(.borderless)
-            .font(.caption)
-        }
-        .padding(SpotiglassDesign.spacingM)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: SpotiglassDesign.cornerS, style: .continuous))
+    private func errorBanner(_ error: DisplayError) -> some View {
+        // The panel has no heading for it, so the title leads the line.
+        ErrorBanner(
+            error: error,
+            showsTitle: true,
+            retry: error.canRetry ? { Task { await queueViewModel.refreshQueue() } } : nil,
+            dismiss: { queueViewModel.clearError() }
+        )
         .padding(.horizontal, SpotiglassDesign.Layout.panelMargin)
     }
 

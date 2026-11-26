@@ -14,8 +14,8 @@ struct CommandPaletteResultsCardView: View {
                     viewModel?.cancelPrefetchAllPlaylists?()
                 }
             }
-            if let errorText = viewModel.errorText {
-                Text(errorText)
+            if let error = viewModel.error {
+                Text(error.message)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, SpotiglassDesign.spacingM)
@@ -89,7 +89,7 @@ struct CommandPaletteResultsBodyView: View {
         } else if sections.isEmpty || allEmpty {
             // A failed search says so in the line above; "No results" under it would claim
             // there is nothing to find (#595).
-            if hasUserQuery, !onlyPrefix, !trimmed.isEmpty, !viewModel.isLoading, viewModel.errorText == nil {
+            if hasUserQuery, !onlyPrefix, !trimmed.isEmpty, !viewModel.isLoading, viewModel.error == nil {
                 Text(String(format: SpotiglassL10n.string("palette.noResults"), trimmed))
                     .font(.callout)
                     .foregroundStyle(.secondary)

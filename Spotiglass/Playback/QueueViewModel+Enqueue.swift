@@ -68,6 +68,23 @@ extension QueueViewModel {
         lastError = nil
     }
 
+    /// Logs a queue failure once and returns the banner for it (#608).
+    func report(
+        _ error: Error?,
+        while operation: String,
+        level: ErrorReporting.Level = .error,
+        showing message: ErrorMessage
+    ) -> DisplayError {
+        ErrorReporting.report(
+            error,
+            while: operation,
+            in: .playback,
+            context: [.public("service", provider.service.rawValue)],
+            level: level,
+            showing: message
+        )
+    }
+
     @discardableResult
     func performAddToQueue(
         uri: String,
@@ -78,32 +95,32 @@ extension QueueViewModel {
         let key = EnqueueKey(uri: uri, deviceID: deviceID)
         clearExpiredEnqueueGuards()
         if inFlightEnqueueKeys.contains(key) {
-            lastError = BrowsingDisplayError(
+            lastError = report(nil, while: "adding a song that is already being added to the queue", level: .info, showing: ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.alreadyAdding.title"),
                 message: SpotiglassL10n.string("error.queue.alreadyAdding.message"),
                 canRetry: false
-            )
+            ))
             return false
         }
         if let blockedUntil = enqueueSuccessCooldownUntil[key], blockedUntil > clock.now {
-            lastError = BrowsingDisplayError(
+            lastError = report(nil, while: "adding a song that was just queued", level: .info, showing: ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.alreadyQueued.title"),
                 message: SpotiglassL10n.string("error.queue.alreadyQueued.message"),
                 canRetry: false
-            )
+            ))
             return false
         }
         if let blockedUntil = enqueueUnknownOutcomeUntil[key], blockedUntil > clock.now {
-            lastError = BrowsingDisplayError(
+            lastError = report(nil, while: "adding a song whose last add has no answer yet", level: .info, showing: ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.statusPending.title"),
                 message: SpotiglassL10n.string("error.queue.statusPending.message"),
                 canRetry: true
-            )
+            ))
             return false
         }
         if let blockedUntil = enqueueRateLimitUntil[key], blockedUntil > clock.now {
             let remaining = clock.now.duration(to: blockedUntil).timeInterval
-            lastError = BrowsingDisplayError(
+            lastError = report(nil, while: "adding a song to the queue while rate limited", level: .info, showing: ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.rateLimited.title"),
                 message: String(
                     format: SpotiglassL10n.string("error.queue.rateLimited.message"),
@@ -111,7 +128,7 @@ extension QueueViewModel {
                 ),
                 canRetry: true,
                 diagnosticDetails: SpotifyRateLimitDisplay.rawRetryDiagnostic(seconds: remaining)
-            )
+            ))
             return false
         }
 
@@ -141,7 +158,7 @@ extension QueueViewModel {
                 enqueueUnknownOutcomeUntil[key] = clock.now.advanced(by: enqueueUnknownOutcomeCooldown)
             }
             if let mapped = Self.displayError(for: error, service: provider.service) {
-                lastError = mapped
+                lastError = report(error, while: "adding a song to the queue", showing: mapped)
             }
             return false
         }
@@ -149,19 +166,19 @@ extension QueueViewModel {
 
     /// Apple Music with nothing loaded (#396): start something first, like Play.
     private func publishNothingLoadedError() {
-        lastError = BrowsingDisplayError(
+        lastError = report(nil, while: "using the queue with nothing loaded", level: .info, showing: ErrorMessage(
             title: SpotiglassL10n.string("error.queue.nothingLoaded.title"),
             message: SpotiglassL10n.string("error.queue.nothingLoaded.message"),
             canRetry: false
-        )
+        ))
     }
 
     private func publishPlaybackUnavailableError() {
-        lastError = BrowsingDisplayError(
+        lastError = report(nil, while: "using the queue without a player", showing: ErrorMessage(
             title: SpotiglassL10n.string("error.queue.playbackUnavailable.title"),
             message: SpotiglassL10n.string("error.queue.playbackUnavailable.message"),
             canRetry: false
-        )
+        ))
     }
 
     private func scheduleRateLimitedRetry(for key: EnqueueKey, retryDelay: TimeInterval) {

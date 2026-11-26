@@ -287,7 +287,7 @@ private struct LyricsPopOutChrome<Body: View, StripLine: View>: View {
     let status: (title: String, subtitle: String)?
     /// A refused play / pause (#437): its title replaces the artist line for a moment, as on the
     /// player bar, with the reason on hover.
-    let notice: PlaybackDisplayError?
+    let notice: DisplayError?
     let controls: AnyView?
     let content: (LyricsPopOutLayout) -> Body
     let stripLine: () -> StripLine
@@ -295,7 +295,7 @@ private struct LyricsPopOutChrome<Body: View, StripLine: View>: View {
     init(
         track: PlaybackNowPlaying?,
         status: (title: String, subtitle: String)?,
-        notice: PlaybackDisplayError?,
+        notice: DisplayError?,
         controls: AnyView?,
         @ViewBuilder content: @escaping (LyricsPopOutLayout) -> Body,
         @ViewBuilder stripLine: @escaping () -> StripLine
@@ -546,7 +546,7 @@ private struct LyricsPopOutTitleBlock: View {
 private struct LyricsPopOutStripLine: View {
     let phase: ImmersiveLyricsViewModel.Phase
     let track: PlaybackNowPlaying
-    let notice: PlaybackDisplayError?
+    let notice: DisplayError?
     let positionMs: Int
 
     var body: some View {
@@ -570,7 +570,7 @@ private struct LyricsPopOutStripLine: View {
 enum LyricsPopOutStripText {
     /// Under the line: title · artist under a lyric, the artist under the title, and a refused
     /// play / pause's title in place of either for a moment (#437).
-    static func subtitle(track: PlaybackNowPlaying, lyric: String?, notice: PlaybackDisplayError?) -> String {
+    static func subtitle(track: PlaybackNowPlaying, lyric: String?, notice: DisplayError?) -> String {
         if let notice { return notice.title }
         return lyric == nil ? track.artistText : "\(track.name) · \(track.artistText)"
     }

@@ -180,15 +180,14 @@ extension PlaybackSessionViewModel {
             }
         case let .initializationError(message):
             cancelPlaybackHostConnectTimeout()
-            SpotiglassLog.error(.playback, "Spotify playback SDK initialization failed: \(message)")
             // Its error says what to do; a report held back for a press mustn't replace it (#437).
             clearPushedPlayStateExpectation()
-            setConnectionState(.error(PlaybackDisplayError(
+            showPlaybackError(nil, while: "starting the Spotify player (SDK initialization)", context: [.public("sdkMessage", message)], ErrorMessage(
                 title: SpotiglassL10n.string("error.playback.couldNotStart.title"),
                 // The SDK's text is English whatever the app's language (#470); it's in the log.
                 message: SpotiglassL10n.string("error.playback.connectionTimeout.message"),
-                recoveryAction: .reconnect
-            )))
+                action: .reconnect
+            ))
             playbackHostRecoveryTask?.cancel()
             playbackHostRecoveryTask = nil
             playbackHostRecoverySerial &+= 1
@@ -206,45 +205,41 @@ extension PlaybackSessionViewModel {
             }
         case let .authenticationError(message):
             cancelPlaybackHostConnectTimeout()
-            SpotiglassLog.error(.playback, "Spotify playback SDK authentication failed: \(message)")
             // Its error says what to do; a report held back for a press mustn't replace it (#437).
             clearPushedPlayStateExpectation()
-            setConnectionState(.error(PlaybackDisplayError(
+            showPlaybackError(nil, while: "signing the Spotify player in", context: [.public("sdkMessage", message)], ErrorMessage(
                 title: SpotiglassL10n.string("error.playback.signInAgain.title"),
                 message: SpotiglassL10n.string("error.playback.signInAgain.message"),
-                recoveryAction: .reauthenticate
-            )))
+                action: .reauthenticate
+            ))
         case let .signInPaused(message):
             cancelPlaybackHostConnectTimeout()
-            SpotiglassLog.info(.playback, "Spotify playback SDK waiting for the sign-in: \(message)")
             clearPushedPlayStateExpectation()
             // Reconnect, never "sign in again": the sign-in still works and the app starts the
             // player again by itself once it has refreshed (#593).
-            setConnectionState(.error(PlaybackDisplayError(
+            showPlaybackError(nil, while: "starting the Spotify player while the sign-in is paused", context: [.public("sdkMessage", message)], level: .info, ErrorMessage(
                 title: SpotiglassL10n.string("app.connection.paused.title"),
                 message: message,
-                recoveryAction: .reconnect
-            )))
+                action: .reconnect
+            ))
         case let .accountError(message):
             cancelPlaybackHostConnectTimeout()
-            SpotiglassLog.error(.playback, "Spotify playback SDK account error: \(message)")
             // Its error says what to do; a report held back for a press mustn't replace it (#437).
             clearPushedPlayStateExpectation()
-            setConnectionState(.error(PlaybackDisplayError(
+            showPlaybackError(nil, while: "starting the Spotify player (account)", context: [.public("sdkMessage", message)], ErrorMessage(
                 title: SpotiglassL10n.string("error.playback.premium.title"),
                 message: SpotiglassL10n.string("error.playback.premium.message"),
-                recoveryAction: nil
-            )))
+                action: nil
+            ))
         case let .playbackError(message):
             cancelPlaybackHostConnectTimeout()
-            SpotiglassLog.error(.playback, "Spotify playback SDK playback error: \(message)")
             clearPushedPlayStateExpectation()
             finishInAppCommand()
-            setConnectionState(.error(PlaybackDisplayError(
+            showPlaybackError(nil, while: "playing in the Spotify player", context: [.public("sdkMessage", message)], ErrorMessage(
                 title: SpotiglassL10n.string("error.playback.error.title"),
                 message: SpotiglassL10n.string("error.playback.spotify.failed"),
-                recoveryAction: .retryTransfer
-            )))
+                action: .retryTransfer
+            ))
         case let .log(message):
             SpotiglassLog.info(.playback, "Spotify playback SDK: \(message)")
         case .playerChanged:

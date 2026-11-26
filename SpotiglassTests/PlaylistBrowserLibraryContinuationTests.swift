@@ -144,7 +144,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
 
         XCTAssertFalse(didEnqueue)
         XCTAssertNil(cache.savedLibraryContinuation)
-        XCTAssertNil(viewModel.trackMutationToast)
+        XCTAssertNil(viewModel.trackMutationToast?.text)
     }
 
     func testCollectionFetchesOnlyMissingSourcesAndPersistsTheAggregateIndex() async {
@@ -217,7 +217,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
 
         XCTAssertFalse(didEnqueue)
         // Every source failed: that is a failure, not a library with too little music (#595).
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("library.continuation.loadFailed"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.string("library.continuation.loadFailed"))
         XCTAssertEqual(api.playlistTracksInvocationCountByID[playlist.id], 1)
         XCTAssertNil(cache.savedLibraryContinuation, "a failed collection was saved as an empty library")
     }
@@ -244,7 +244,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
             QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
         }
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("library.continuation.loadFailed"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.string("library.continuation.loadFailed"))
 
         online = true
         var enqueued: [String] = []
@@ -280,7 +280,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
 
         XCTAssertGreaterThanOrEqual(added, 3, "enough for the ordinary toast, not the short one")
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.format("library.continuation.addedLoadFailed", Int64(added))
         )
     }
@@ -327,7 +327,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
             QueueEnqueueResult(requested: uris.count, enqueued: uris.count)
         }
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.format("library.continuation.shortLoadFailed", Int64(1)))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.format("library.continuation.shortLoadFailed", Int64(1)))
         XCTAssertNil(cache.savedLibraryContinuation, "a collection with a failed source was saved as fresh")
     }
 
@@ -351,7 +351,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         }
 
         XCTAssertNil(api.playlistTracksInvocationCountByID[playlist.id])
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("library.continuation.empty"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.string("library.continuation.empty"))
     }
 
     func testContinuationReportsQueueFailureAndPartialEnqueue() async {
@@ -367,13 +367,13 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
             QueueEnqueueResult(requested: uris.count, enqueued: 0)
         }
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("library.continuation.queueFailed"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.string("library.continuation.queueFailed"))
 
         await viewModel.enqueueLibraryContinuation(from: row(seed)) { uris in
             QueueEnqueueResult(requested: uris.count, enqueued: 1)
         }
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.format("library.continuation.partial", Int64(1), Int64(3))
         )
     }
@@ -423,7 +423,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
 
         XCTAssertEqual(queued, [onlyMatch.uri])
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.format("library.continuation.short", Int64(1))
         )
     }
@@ -443,7 +443,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
 
         XCTAssertFalse(didEnqueue)
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.string("library.continuation.empty")
         )
     }
@@ -473,7 +473,7 @@ final class PlaylistBrowserLibraryContinuationTests: XCTestCase {
         }
 
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.string("library.continuation.unavailable")
         )
     }

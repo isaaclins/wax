@@ -203,6 +203,8 @@
 		TDU000000000000000000001 /* TrackDuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = TDU000000000000000000002 /* TrackDuration.swift */; };
 		SRC0000000000000000080300 /* LRUDictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080301 /* LRUDictionary.swift */; };
 		SRC0000000000000000080900 /* DiskCacheTrim.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080901 /* DiskCacheTrim.swift */; };
+		71456B93649237BE1FD13C99 /* DisplayError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34CB6DE4C3097E9A3F722DA9 /* DisplayError.swift */; };
+		281B3AFAA503F54B3EAA21E7 /* DisplayErrorTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C1B12961CB73C22A32C859 /* DisplayErrorTestSupport.swift */; };
 		RSV000000000000000000001 /* CommandPaletteReservedShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = RSV000000000000000000002 /* CommandPaletteReservedShortcuts.swift */; };
 		SBR436000000000000000001 /* CommandPaletteSidebarShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = SBR436000000000000000002 /* CommandPaletteSidebarShortcut.swift */; };
 		SBR436000000000000000003 /* SidebarShortcutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SBR436000000000000000004 /* SidebarShortcutTests.swift */; };
@@ -285,6 +287,8 @@
 		1FBDAC2EC714B59FF282B6DF /* CollectionContextMenuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF49FF88AE3A6A9C99B13F36 /* CollectionContextMenuTests.swift */; };
 		SRC0000000000000000000010 /* EqualizerPresets.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080010 /* EqualizerPresets.swift */; };
 		SRC0000000000000000000011 /* EqualizerSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080011 /* EqualizerSettingsView.swift */; };
+		3CEDB1EA6D449C819F2B691F /* ErrorReportingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C97802341F9E485AF6209FA7 /* ErrorReportingTests.swift */; };
+		47D6BD8B4BEEB98A27ACBDE5 /* ErrorSurfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69C7A85086F77ED40EC3B3D8 /* ErrorSurfaces.swift */; };
 		SRC0000000000000000000012 /* AudioEqualizerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080012 /* AudioEqualizerEngine.swift */; };
 		SRC0000000000000000000013 /* EQCoefficients.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080013 /* EQCoefficients.swift */; };
 		SRC0000000000000000000014 /* EQCoefficientPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC0000000000000000080014 /* EQCoefficientPublisher.swift */; };
@@ -721,6 +725,8 @@
 		TDU000000000000000000002 /* TrackDuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackDuration.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080301 /* LRUDictionary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LRUDictionary.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080901 /* DiskCacheTrim.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskCacheTrim.swift; sourceTree = "<group>"; };
+		34CB6DE4C3097E9A3F722DA9 /* DisplayError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayError.swift; sourceTree = "<group>"; };
+		F2C1B12961CB73C22A32C859 /* DisplayErrorTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayErrorTestSupport.swift; sourceTree = "<group>"; };
 		RSV000000000000000000002 /* CommandPaletteReservedShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteReservedShortcuts.swift; sourceTree = "<group>"; };
 		SBR436000000000000000002 /* CommandPaletteSidebarShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteSidebarShortcut.swift; sourceTree = "<group>"; };
 		SBR436000000000000000004 /* SidebarShortcutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarShortcutTests.swift; sourceTree = "<group>"; };
@@ -802,6 +808,8 @@
 		SPKL00000000000000000014 /* SparkleInfo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = SparkleInfo.plist; sourceTree = "<group>"; };
 		SRC0000000000000000080010 /* EqualizerPresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerPresets.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080011 /* EqualizerSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EqualizerSettingsView.swift; sourceTree = "<group>"; };
+		C97802341F9E485AF6209FA7 /* ErrorReportingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorReportingTests.swift; sourceTree = "<group>"; };
+		69C7A85086F77ED40EC3B3D8 /* ErrorSurfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorSurfaces.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080012 /* AudioEqualizerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEqualizerEngine.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080013 /* EQCoefficients.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EQCoefficients.swift; sourceTree = "<group>"; };
 		SRC0000000000000000080014 /* EQCoefficientPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EQCoefficientPublisher.swift; sourceTree = "<group>"; };
@@ -1085,6 +1093,7 @@
 			children = (
 				D40000000000000000000021 /* Breadcrumbs */,
 				72C82B0ECDF314D658D1466C /* CollectionContextMenu.swift */,
+				69C7A85086F77ED40EC3B3D8 /* ErrorSurfaces.swift */,
 				E60000000000000000000040 /* PlaylistBrowser */,
 				D40000000000000000000012 /* PlaylistBrowserView.swift */,
 				D40000000000000000000014 /* QueuePanelView.swift */,
@@ -1260,6 +1269,7 @@
 				TST000000000000000001012D /* MusicBrowsingProviderTests.swift */,
 				TST000000000000000001012C /* ScreenshotModeTests.swift */,
 				TST000000000000000001012B /* DetailSurfaceRegressionTests.swift */,
+				F2C1B12961CB73C22A32C859 /* DisplayErrorTestSupport.swift */,
 				TST0000000000000000010127 /* PlaylistBrowserLibraryContinuationTests.swift */,
 				TST000000000000000001012A /* LibraryContinuationRankingTests.swift */,
 				TST0000000000000000010126 /* CatalogSearchViewTests.swift */,
@@ -1284,6 +1294,7 @@
 				F73400000000000000000008 /* FullLogTests.swift */,
 				EFT000000000000000000002 /* EqualizerForwardingTargetTests.swift */,
 				EQR000000000000000000002 /* EqualizerSettingsRowTests.swift */,
+				C97802341F9E485AF6209FA7 /* ErrorReportingTests.swift */,
 				TST000000000000000001011C /* EQCoefficientPublisherTests.swift */,
 				TST000000000000000001011A /* EqualizerCoefficientTests.swift */,
 				TST0000000000000000010119 /* EqualizerPresetsTests.swift */,
@@ -1663,6 +1674,7 @@
 				582000000000000000000002 /* LegacyLoginItems.m */,
 				PRO00000000000000000000F1 /* SpotiglassLog.swift */,
 				F73400000000000000000002 /* CallLog.swift */,
+				34CB6DE4C3097E9A3F722DA9 /* DisplayError.swift */,
 				F73400000000000000000004 /* InteractionLog.swift */,
 				F73400000000000000000006 /* HangWatch.swift */,
 				SRC0000000000000000080023 /* ScreenshotMode.swift */,
@@ -1873,6 +1885,7 @@
 				TDU000000000000000000001 /* TrackDuration.swift in Sources */,
 				SRC0000000000000000080300 /* LRUDictionary.swift in Sources */,
 				SRC0000000000000000080900 /* DiskCacheTrim.swift in Sources */,
+				71456B93649237BE1FD13C99 /* DisplayError.swift in Sources */,
 				COV00000000000000000001 /* BrowserWidthCommitPolicy.swift in Sources */,
 				COV00000000000000000002 /* PlaylistBrowserPlaybackHelpers.swift in Sources */,
 				COV00000000000000000003 /* PlaylistBrowserPaletteSearchBuilder.swift in Sources */,
@@ -2097,6 +2110,7 @@
 				1E8F1A21216125058FEFB9CC /* ShelfScrollBehavior.swift in Sources */,
 				J90000000000000000000105 /* AppearanceSettingsView.swift in Sources */,
 				SRC0000000000000000000011 /* EqualizerSettingsView.swift in Sources */,
+				47D6BD8B4BEEB98A27ACBDE5 /* ErrorSurfaces.swift in Sources */,
 				SRC0000000000000000000010 /* EqualizerPresets.swift in Sources */,
 				J90000000000000000000103 /* AccountSettingsView.swift in Sources */,
 				15D23789C4F82C5741290378 /* AppBundleMigration.swift in Sources */,
@@ -2158,6 +2172,7 @@
 				TST000000000000000000012D /* MusicBrowsingProviderTests.swift in Sources */,
 				TST000000000000000000012C /* ScreenshotModeTests.swift in Sources */,
 				TST000000000000000000012B /* DetailSurfaceRegressionTests.swift in Sources */,
+				281B3AFAA503F54B3EAA21E7 /* DisplayErrorTestSupport.swift in Sources */,
 				TST0000000000000000000127 /* PlaylistBrowserLibraryContinuationTests.swift in Sources */,
 				TST000000000000000000012A /* LibraryContinuationRankingTests.swift in Sources */,
 				TST0000000000000000000126 /* CatalogSearchViewTests.swift in Sources */,
@@ -2182,6 +2197,7 @@
 				F73400000000000000000007 /* FullLogTests.swift in Sources */,
 				EFT000000000000000000001 /* EqualizerForwardingTargetTests.swift in Sources */,
 				EQR000000000000000000001 /* EqualizerSettingsRowTests.swift in Sources */,
+				3CEDB1EA6D449C819F2B691F /* ErrorReportingTests.swift in Sources */,
 				TST000000000000000000011C /* EQCoefficientPublisherTests.swift in Sources */,
 				TST000000000000000000011A /* EqualizerCoefficientTests.swift in Sources */,
 				TST0000000000000000000119 /* EqualizerPresetsTests.swift in Sources */,

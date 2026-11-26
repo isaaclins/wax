@@ -16,7 +16,7 @@ enum PlaylistBrowserPinnedSidebarPolicy {
         }
     }
 
-    static func isPermanentPinnedLoadError(_ error: BrowsingDisplayError) -> Bool {
+    static func isPermanentPinnedLoadError(_ error: DisplayError) -> Bool {
         let title = error.title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if title == "not found" || title == "access denied" || title == "playlist unavailable" {
             return true

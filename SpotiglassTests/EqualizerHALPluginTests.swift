@@ -489,7 +489,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertEqual(output.setIDs, [output.virtualID, output.originalID])
         XCTAssertEqual(output.current, output.originalID, "the sound stayed on the EQ device")
         XCTAssertFalse(engine.isEngaged)
-        XCTAssertNotNil(engine.lastError, "nothing said why the equalizer is off")
+        XCTAssertNotNil(engine.lastError?.message, "nothing said why the equalizer is off")
     }
 
     /// A live route whose router stops processing hands the sound back by itself.
@@ -513,7 +513,7 @@ final class EqualizerHALPluginTests: XCTestCase {
 
         XCTAssertEqual(output.current, output.originalID, "the sound stayed on the EQ device")
         XCTAssertFalse(engine.isEngaged)
-        XCTAssertEqual(engine.lastError, SpotiglassL10n.string("eq.error.routerStopped"))
+        XCTAssertEqual(engine.lastError?.message, SpotiglassL10n.string("eq.error.routerStopped"))
     }
 
     private struct FailingDriverInstaller: EqualizerDriverInstalling {
@@ -587,7 +587,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertEqual(output.current, output.originalID)
         XCTAssertFalse(settingsStore.settings.equalizer.enabled)
         XCTAssertFalse(engine.isEngaged)
-        XCTAssertNil(engine.lastError)
+        XCTAssertNil(engine.lastError?.message)
         XCTAssertTrue(engine.driverWasRemoved)
         XCTAssertNil(controller.currentForwardingTargetUID())
     }
@@ -623,7 +623,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertTrue(installer.removedPaths.isEmpty, "the driver was deleted under the default output")
         XCTAssertTrue(controller.isInstalled)
         XCTAssertFalse(engine.driverWasRemoved)
-        XCTAssertEqual(engine.lastError, SpotiglassL10n.string("eq.error.outputStuckOnEqualizerDevice"))
+        XCTAssertEqual(engine.lastError?.message, SpotiglassL10n.string("eq.error.outputStuckOnEqualizerDevice"))
     }
 
     /// The headphones the sound was on before the EQ were unplugged, so switching
@@ -766,7 +766,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertFalse(SpotiglassSettingsStore(fileURL: settingsStore.fileURL).settings.equalizer.enabled,
                        "the switch is off in memory but on in the settings file")
         XCTAssertEqual(output.current, output.originalID)
-        XCTAssertEqual(engine.lastError, SpotiglassL10n.string("eq.error.driverInstallationFailed"),
+        XCTAssertEqual(engine.lastError?.message, SpotiglassL10n.string("eq.error.driverInstallationFailed"),
                        "nothing said why the equalizer is off")
     }
 
@@ -797,7 +797,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertFalse(SpotiglassSettingsStore(fileURL: settingsStore.fileURL).settings.equalizer.enabled,
                        "the switch is off in memory but on in the settings file")
         XCTAssertEqual(output.current, output.originalID)
-        XCTAssertEqual(engine.lastError, SpotiglassL10n.string("eq.error.driverNotLoadedYet"),
+        XCTAssertEqual(engine.lastError?.message, SpotiglassL10n.string("eq.error.driverNotLoadedYet"),
                        "nothing said why the equalizer is off")
     }
 
@@ -845,7 +845,7 @@ final class EqualizerHALPluginTests: XCTestCase {
                       "the switch is on in memory but off in the settings file")
         XCTAssertEqual(output.current, output.virtualID)
         XCTAssertTrue(engine.isEngaged)
-        XCTAssertNotNil(engine.lastError, "nothing said why the equalizer is still on")
+        XCTAssertNotNil(engine.lastError?.message, "nothing said why the equalizer is still on")
     }
 
     /// A Mac left on the EQ device by an earlier failed run gets its sound back
@@ -896,12 +896,12 @@ final class EqualizerHALPluginTests: XCTestCase {
         let engine = AudioEqualizerEngine(pluginController: controller)
         let error = await startError(of: engine)
         XCTAssertNotNil(error)
-        XCTAssertEqual(engine.lastError, SpotiglassL10n.string("eq.error.routerTargetOpenFailed"))
+        XCTAssertEqual(engine.lastError?.message, SpotiglassL10n.string("eq.error.routerTargetOpenFailed"))
 
         try languageStore.mutate { $0.appearance.language = .german }
 
         XCTAssertEqual(
-            engine.lastError,
+            engine.lastError?.message,
             SpotiglassL10n.string("eq.error.routerTargetOpenFailed", locale: Locale(identifier: "de")),
             "The equalizer's reason stayed in the old language"
         )
@@ -949,13 +949,13 @@ final class EqualizerHALPluginTests: XCTestCase {
         )
         statusTarget = selectedUID
         viewModel.setSystemDefaultOutputDevice(selectedID)
-        await waitForRoute(of: engine) { $0 == .live(targetUID: selectedUID, errorMessage: nil) }
+        await waitForRoute(of: engine) { $0 == .live(targetUID: selectedUID, error: nil) }
 
         XCTAssertEqual(setIDs, [virtualID, virtualID])
         XCTAssertEqual(controller.currentForwardingTargetUID(), selectedUID)
         XCTAssertEqual(
             engine.routeState,
-            .live(targetUID: selectedUID, errorMessage: nil)
+            .live(targetUID: selectedUID, error: nil)
         )
 
         // A later Control Center-style notification follows the same route
@@ -966,13 +966,13 @@ final class EqualizerHALPluginTests: XCTestCase {
         macOutput.emitOutputChange()
         // The change is handled on a task of its own and the route waits off the main actor
         // (#604); wait for the route to settle on the new target however late that is.
-        await waitForRoute(of: engine) { $0 == .live(targetUID: originalUID, errorMessage: nil) }
+        await waitForRoute(of: engine) { $0 == .live(targetUID: originalUID, error: nil) }
 
         XCTAssertEqual(setIDs, [virtualID, virtualID, virtualID])
         XCTAssertEqual(controller.currentForwardingTargetUID(), originalUID)
         XCTAssertEqual(
             engine.routeState,
-            .live(targetUID: originalUID, errorMessage: nil)
+            .live(targetUID: originalUID, error: nil)
         )
         XCTAssertTrue(engine.isRunning)
     }
@@ -1122,7 +1122,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         engine.observe(settingsStore: settingsStore)
         XCTAssertEqual(
             engine.routeState,
-            .live(targetUID: originalOutputUID, errorMessage: nil)
+            .live(targetUID: originalOutputUID, error: nil)
         )
         XCTAssertEqual(routedOutputIDs, [virtualOutputID])
 
@@ -1140,7 +1140,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         )
         XCTAssertEqual(
             engine.routeState,
-            .live(targetUID: originalOutputUID, errorMessage: nil),
+            .live(targetUID: originalOutputUID, error: nil),
             "a curve reload must not restart or disable the running EQ"
         )
         XCTAssertEqual(afterReload.preampLinear, expected.preampLinear)
@@ -1313,7 +1313,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         XCTAssertTrue(rig.engine.releaseOutputForQuitAfterRouteChange { quitCanGoOn.fulfill() })
         rig.installer.letItFinish()
         try await starting.value
-        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, errorMessage: nil) }
+        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, error: nil) }
         await fulfillment(of: [quitCanGoOn], timeout: 5)
         rig.engine.releaseOutputForQuit()
 
@@ -1331,7 +1331,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         rig.viewModel.setSystemDefaultOutputDevice(rig.selectedID)
         rig.installer.letItFinish()
         try await starting.value
-        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, errorMessage: nil) }
+        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, error: nil) }
 
         XCTAssertEqual(rig.controller.currentForwardingTargetUID(), rig.selectedUID)
     }
@@ -1350,7 +1350,7 @@ final class EqualizerHALPluginTests: XCTestCase {
         // start can resume there, so it reaches the engine while the route still says "starting".
         rig.installer.letItFinish()
         try await starting.value
-        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, errorMessage: nil) }
+        await waitForRoute(of: rig.engine) { $0 == .live(targetUID: rig.selectedUID, error: nil) }
 
         XCTAssertEqual(rig.controller.currentForwardingTargetUID(), rig.selectedUID)
     }

@@ -39,7 +39,7 @@ final class TransportPollSchedulingTests: XCTestCase {
         )
         XCTAssertEqual(
             TransportPollScheduling.transportPollingKey(
-                for: .error(PlaybackDisplayError(title: "T", message: "M", recoveryAction: nil)),
+                for: .error(DisplayError.reported(ErrorMessage(title: "T", message: "M", action: nil))),
                 resolvedTrackURI: { $0 ?? "" }
             ),
             "error:T"

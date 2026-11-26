@@ -5,10 +5,16 @@ extension PlaylistBrowserViewModel {
         guard !Task.isCancelled else { return }
         guard session == detailSession else { return }
         guard let playlist = playlistsByID[playlistID] ?? knownPlaylistSummariesByID[playlistID] else {
-            detailState = .error(BrowsingDisplayError(
-                title: SpotiglassL10n.string("error.browsing.playlistUnavailable.title"),
-                message: SpotiglassL10n.string("error.browsing.playlistUnavailable.gone"),
-                canRetry: true
+            detailState = .error(ErrorReporting.report(
+                nil,
+                while: "opening a playlist that is no longer in the library",
+                in: .browsing,
+                context: [.private("playlist", playlistID)],
+                showing: ErrorMessage(
+                    title: SpotiglassL10n.string("error.browsing.playlistUnavailable.title"),
+                    message: SpotiglassL10n.string("error.browsing.playlistUnavailable.gone"),
+                    canRetry: true
+                )
             ))
             return
         }
@@ -127,11 +133,19 @@ extension PlaylistBrowserViewModel {
         } catch {
             guard session == detailSession else { return }
             if case SpotifyAPIError.forbidden = error, !playlistIsOwnedByCurrentUser(playlist) {
-                let locked = BrowsingDisplayError(
-                    title: SpotiglassL10n.string("error.browsing.followedPlaylistLocked.title"),
-                    message: SpotiglassL10n.string("error.browsing.followedPlaylistLocked.message"),
-                    canRetry: false,
-                    lockedPlaylist: LockedPlaylistInfo(playlistID: playlist.id, name: playlist.name)
+                // Spotify no longer lists the songs of playlists the user only follows: expected.
+                let locked = ErrorReporting.report(
+                    error,
+                    while: "loading a followed playlist's songs",
+                    in: .browsing,
+                    context: [.private("playlist", playlist.id)],
+                    level: .info,
+                    showing: ErrorMessage(
+                        title: SpotiglassL10n.string("error.browsing.followedPlaylistLocked.title"),
+                        message: SpotiglassL10n.string("error.browsing.followedPlaylistLocked.message"),
+                        canRetry: false,
+                        lockedPlaylist: LockedPlaylistInfo(playlistID: playlist.id, name: playlist.name)
+                    )
                 )
                 if let existingDetail = detailState.currentValue {
                     detailState = .staleCache(existingDetail, locked)
@@ -140,7 +154,11 @@ extension PlaylistBrowserViewModel {
                 }
                 return
             }
-            let displayError = Self.displayError(for: error)
+            let displayError = Self.reportedError(
+                error,
+                while: "loading playlist songs",
+                context: [.private("playlist", playlist.id)]
+            )
             if let existingDetail = detailState.currentValue {
                 detailState = .staleCache(existingDetail, displayError)
             } else {

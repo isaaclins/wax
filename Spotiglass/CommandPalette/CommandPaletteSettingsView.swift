@@ -20,7 +20,7 @@ struct CommandPaletteSettingsView: View {
     /// A failed capture still ends recording, but keeps its localized reason on
     /// the row so an unsupported key or a menu-owned chord is never silent.
     /// Looked up when shown, so a reason on screen follows a language switch (#571).
-    @State private var captureErrorByCommand: [String: LocalizedText] = [:]
+    @State private var captureErrorByCommand: [String: DisplayError] = [:]
     /// Typed into the field over the list, so a command is found by name
     /// instead of by scrolling (#541).
     @State private var searchText = ""
@@ -151,9 +151,7 @@ struct CommandPaletteSettingsView: View {
             }
 
             if let captureError = captureErrorByCommand[spec.commandID] {
-                Label(captureError.string, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                ErrorBanner(error: captureError)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, SpotiglassDesign.Layout.iconButtonSize + SpotiglassDesign.spacingM)
                     .transition(.opacity)
@@ -179,7 +177,7 @@ struct CommandPaletteSettingsView: View {
                             pendingConflictByCommand[spec.commandID] = nil
                         } catch {
                             let source = keymapStore.fileURL.path
-                            keymapStore.lastErrorText = CommandPaletteKeymapErrorPresenter.text(
+                            keymapStore.lastError = CommandPaletteKeymapErrorPresenter.report(
                                 for: error,
                                 source: source,
                                 operation: "replace shortcut"
@@ -302,9 +300,7 @@ struct CommandPaletteSettingsView: View {
                 }
 
             if let lastError = keymapStore.lastError {
-                Text(lastError)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                ErrorBanner(error: lastError)
             }
 
             // The GUI shortcut controls above apply live; this JSON editor does not,

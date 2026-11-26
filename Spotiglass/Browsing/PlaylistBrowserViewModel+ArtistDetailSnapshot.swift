@@ -30,21 +30,22 @@ extension PlaylistBrowserViewModel {
                     cacheMode: .allowStale
                 )
                 let (detailHit, albumsHit) = try await (cachedDetail, cachedAlbums)
-                let extras = try await extrasRead
-                let tracks = try await self.artistPageTracks(
+                let (extras, extrasFailure) = try await extrasRead.valueOrFailure(nil)
+                let (tracks, tracksFailure) = try await self.artistPageTracks(
                     extras: extras,
                     artistId: id,
                     artist: detailHit.value,
                     albums: albumsHit.value,
                     market: market
-                )
+                ).valueOrFailure([])
                 return ArtistDetailSnapshot(
                     artistDetail: detailHit.value,
                     albums: albumsHit.value,
                     tracks: tracks,
                     usedStaleCache: detailHit.isStale || albumsHit.isStale,
                     paging: nil,
-                    extras: extras
+                    extras: extras,
+                    partialFailure: tracksFailure ?? extrasFailure
                 )
             }
             let artistDetail = try await api.artist(id: id, cacheMode: .bypassCache)
@@ -79,14 +80,14 @@ extension PlaylistBrowserViewModel {
                 nextOffset += limit
                 nextURL = page.next
             } while nextURL != nil && pagesFetched < self.initialArtistAlbumPageCount
-            let extras = try await extrasRead
-            let resolved = try await self.artistPageTracks(
+            let (extras, extrasFailure) = try await extrasRead.valueOrFailure(nil)
+            let (resolved, tracksFailure) = try await self.artistPageTracks(
                 extras: extras,
                 artistId: id,
                 artist: artistDetail,
                 albums: albumList,
                 market: market
-            )
+            ).valueOrFailure([])
             let paging = ArtistAlbumsPagingState(
                 artistID: id,
                 includeGroups: includeGroups,
@@ -104,7 +105,8 @@ extension PlaylistBrowserViewModel {
                 tracks: resolved,
                 usedStaleCache: false,
                 paging: paging,
-                extras: extras
+                extras: extras,
+                partialFailure: tracksFailure ?? extrasFailure
             )
         }
         artistDetailLoadTasks[id] = task
@@ -114,37 +116,41 @@ extension PlaylistBrowserViewModel {
 
     /// The service's top songs when it gave them, else songs found through search or the albums.
     /// With extras (Apple Music) those songs are a stand-in, so failing to find them leaves the
-    /// page without songs rather than failing it; Spotify's page fails as before.
+    /// page without songs rather than failing it, and the failure comes back for the page's
+    /// banner (#608): an artist page that failed is not an artist with nothing. Spotify's page
+    /// fails as before.
     private func artistPageTracks(
         extras: MusicArtistPageExtras?,
         artistId: String,
         artist: MusicArtistDetail,
         albums: [MusicArtistAlbum],
         market: String?
-    ) async throws -> [MusicTrack] {
+    ) async throws -> Result<[MusicTrack], Error> {
         guard let extras else {
-            return try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market)
+            return .success(try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market))
         }
-        if !extras.topTracks.isEmpty { return extras.topTracks }
+        if !extras.topTracks.isEmpty { return .success(extras.topTracks) }
         do {
-            return try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market)
+            return .success(try await resolveArtistTracks(artistId: artistId, artist: artist, albums: albums, market: market))
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            SpotiglassLog.info(.api, "Artist page songs failed (\(SpotiglassLog.describe(error))); the page shows without them")
-            return []
+            return .failure(error)
         }
     }
 
-    /// A failed read leaves the page without top songs and saved items rather than failing it.
-    private nonisolated static func artistPageExtras(api: MusicBrowsingProvider, id: String) async throws -> MusicArtistPageExtras? {
+    /// A failed read leaves the page without top songs and saved items rather than failing it;
+    /// the failure comes back for the page's banner.
+    private nonisolated static func artistPageExtras(
+        api: MusicBrowsingProvider,
+        id: String
+    ) async throws -> Result<MusicArtistPageExtras?, Error> {
         do {
-            return try await api.artistPageExtras(id: id)
+            return .success(try await api.artistPageExtras(id: id))
         } catch is CancellationError {
             throw CancellationError()
         } catch {
-            SpotiglassLog.info(.api, "Artist page extras failed (\(SpotiglassLog.describe(error))); the page shows without them")
-            return nil
+            return .failure(error)
         }
     }
 
@@ -158,5 +164,15 @@ extension PlaylistBrowserViewModel {
             deduped.append(album)
         }
         return deduped
+    }
+}
+
+private extension Result {
+    /// The value, or `fallback` and the failure: a part of a page that didn't load.
+    func valueOrFailure(_ fallback: Success) -> (Success, Failure?) {
+        switch self {
+        case let .success(value): (value, nil)
+        case let .failure(error): (fallback, error)
+        }
     }
 }

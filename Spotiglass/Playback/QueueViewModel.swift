@@ -11,7 +11,7 @@ final class QueueViewModel: ObservableObject {
     @Published var nowPlayingItem: QueueItem?
     @Published var upcomingItems: [QueueItem] = []
     @Published var isLoading = false
-    @Published var lastError: BrowsingDisplayError?
+    @Published var lastError: DisplayError?
     /// The latest removal from the queue, while its Undo is offered (#628).
     @Published var lastRemoval: QueueRemovalReceipt?
 

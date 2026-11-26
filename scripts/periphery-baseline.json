@@ -24,14 +24,6 @@
     ]
   },
   {
-    "file": "Spotiglass/Browsing/HomeFeedModels.swift",
-    "kind": "var.instance",
-    "name": "value",
-    "hints": [
-      "unused"
-    ]
-  },
-  {
     "file": "Spotiglass/Browsing/PlaylistBrowserCommandPaletteConfiguration.swift",
     "kind": "var.instance",
     "name": "commandPaletteManager",

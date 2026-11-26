@@ -114,7 +114,7 @@ final class CommandPaletteViewModelSearchRefreshTests: XCTestCase {
         await viewModel.waitForSearchCompletion()
         XCTAssertEqual(callCount, 1, "Palette should honor cooldown and not dispatch another search immediately")
         // The skipped search must still say why: a cleared line read as "No results" (#595).
-        XCTAssertEqual(viewModel.errorText, SpotifyAPIError.rateLimited(retryAfter: 3).userMessage)
+        XCTAssertEqual(viewModel.error?.message, SpotifyAPIError.rateLimited(retryAfter: 3).userMessage)
     }
 
     func testLegacyAtPrefixSongSearchCallsProviderOnceForNormalizedQuery() async {
@@ -280,7 +280,7 @@ final class CommandPaletteViewModelSearchRefreshTests: XCTestCase {
         viewModel.refresh()
         await viewModel.waitForSearchCompletion()
 
-        XCTAssertEqual(viewModel.errorText, BrowsingDisplayError.partialSearch(missing).message)
+        XCTAssertEqual(viewModel.error?.message, ErrorMessage.partialSearch(missing).message)
         XCTAssertTrue(
             viewModel.sections.contains { $0.items.contains { $0.id == "track-saved" } },
             "the half that answered still shows"
@@ -369,7 +369,7 @@ final class CommandPaletteViewModelSearchRefreshTests: XCTestCase {
         releaseOld?.resume()
         await fulfillment(of: [oldFinished], timeout: 10)
 
-        XCTAssertNil(viewModel.errorText, "the old search's note landed on the new results")
+        XCTAssertNil(viewModel.error?.message, "the old search's note landed on the new results")
         XCTAssertFalse(viewModel.sections.contains { $0.items.contains { $0.id == "track-old" } })
         XCTAssertTrue(viewModel.sections.contains { $0.items.contains { $0.id == "track-new" } })
     }

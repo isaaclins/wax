@@ -113,11 +113,11 @@ extension PlaybackSessionViewModel {
                     // transport behind. A 401 lands here only after the API
                     // already refreshed the token once (#598): without this the
                     // bar kept the last song as playing and read it every 2 s.
-                    SpotiglassLog.error(
-                        .playback,
-                        "Player read failed endpoint=GET /v1/me/player error=\(SpotiglassLog.describe(error)); showing the error and stopping reads"
+                    showPlaybackError(
+                        error,
+                        while: "reading the player (GET /v1/me/player; reads stop)",
+                        Self.displayError(for: error, service: service)
                     )
-                    setConnectionState(.error(Self.displayError(for: error, service: service)))
                     transportTransientErrorCount = 0
                     transportRateLimitedUntil = nil
                     break

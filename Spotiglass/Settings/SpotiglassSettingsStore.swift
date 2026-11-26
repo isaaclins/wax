@@ -15,14 +15,15 @@ final class SpotiglassSettingsStore: ObservableObject {
         didSet { SpotiglassL10n.settingsDidChange(in: self) }
     }
     @Published private(set) var fileURL: URL
-    @Published var lastError: String?
+    /// The settings file couldn't be read or reloaded; the settings in use stay (#608).
+    @Published private(set) var lastError: DisplayError?
     /// Names the copy kept of a settings file that could not be fully read before it was
     /// saved over (#597). Shown above every Settings pane until dismissed.
     @Published private(set) var backupNotice: LocalizedText?
     @Published private(set) var backupURL: URL?
     /// Set while saving fails (a folder that can't be written, a full disk, a file that can't
     /// be read and so isn't replaced); the next save that works clears it.
-    @Published private(set) var saveFailure: LocalizedText?
+    @Published private(set) var saveFailure: DisplayError?
 
     private let fileManager: FileManager
     private let now: () -> Date
@@ -133,11 +134,7 @@ final class SpotiglassSettingsStore: ObservableObject {
             )
             lastError = nil
         } catch {
-            lastError = error.localizedDescription
-            SpotiglassLog.error(
-                SpotiglassLog.settings,
-                "Settings reload of \(fileURL.path) failed, keeping the settings in use: \(UnreadableFileBackup.describe(error))"
-            )
+            lastError = reportFileError(error, while: "reloading the settings file, keeping the settings in use")
         }
     }
 
@@ -494,6 +491,17 @@ final class SpotiglassSettingsStore: ObservableObject {
         )
     }
 
+    /// Logs a settings file that can't be used once and returns the note Settings shows.
+    private func reportFileError(_ error: Error, while operation: String) -> DisplayError {
+        ErrorReporting.report(
+            error,
+            while: operation,
+            in: .settings,
+            context: [.public("file", fileURL.path), .public("cause", UnreadableFileBackup.describe(error))],
+            showing: ErrorMessage(message: SpotiglassL10n.string("settings.file.reloadFailed"))
+        )
+    }
+
     private func persist(_ proposed: SpotiglassSettingsFile) throws {
         do {
             try write(proposed)
@@ -501,11 +509,13 @@ final class SpotiglassSettingsStore: ObservableObject {
             // What is on disk now is this document, so an earlier failed reload no longer applies.
             lastError = nil
         } catch {
-            SpotiglassLog.error(
-                SpotiglassLog.settings,
-                "Saving settings to \(fileURL.path) failed: \(UnreadableFileBackup.describe(error))"
+            saveFailure = ErrorReporting.report(
+                error,
+                while: "saving the settings file",
+                in: .settings,
+                context: [.public("file", fileURL.path), .public("cause", UnreadableFileBackup.describe(error))],
+                showing: ErrorMessage(message: SpotiglassL10n.string("settings.file.saveFailed"))
             )
-            saveFailure = LocalizedText(SpotiglassL10n.string("settings.file.saveFailed"), comparedByKey: "settings.file.saveFailed")
             throw error
         }
     }
@@ -573,11 +583,7 @@ final class SpotiglassSettingsStore: ObservableObject {
         } catch {
             // Unreadable, not damaged: run on defaults and leave the file alone. Every save
             // reads it first, so none replaces it until it can be read and copied.
-            SpotiglassLog.error(
-                SpotiglassLog.settings,
-                "Settings file \(fileURL.path) can't be read; using defaults without saving over it: \(UnreadableFileBackup.describe(error))"
-            )
-            lastError = error.localizedDescription
+            lastError = reportFileError(error, while: "reading the settings file, using defaults without saving over it")
             // The defaults in use are the baseline: once the file reads again, a change made
             // here is merged into what is on disk instead of the defaults replacing it.
             lastKnownDiskSettings = settings
@@ -591,7 +597,7 @@ final class SpotiglassSettingsStore: ObservableObject {
             // Nothing in it could be used. Saving the defaults keeps a copy of it first, and
             // the copy is named in Settings.
             // Until that save works (it clears this), Settings says the file can't be read.
-            lastError = error.localizedDescription
+            lastError = reportFileError(error, while: "decoding the settings file, saving defaults after a copy")
             lastKnownDiskSettings = nil
             settings = Self.bootstrapDefaults()
             try? persist(settings)

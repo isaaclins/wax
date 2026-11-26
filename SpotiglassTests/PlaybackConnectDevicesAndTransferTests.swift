@@ -1154,7 +1154,7 @@ final class PlaybackConnectDevicesAndTransferTests: XCTestCase {
         guard case let .error(displayError) = viewModel.connectionState else {
             return XCTFail("Expected .error after rate-limited retry")
         }
-        XCTAssertEqual(displayError.recoveryAction, .retryTransfer)
+        XCTAssertEqual(displayError.action, .retryTransfer)
     }
 
     func testAutomaticTransferBudgetBlocksFurtherRetriesAfterCap() async {
@@ -1183,6 +1183,6 @@ final class PlaybackConnectDevicesAndTransferTests: XCTestCase {
         guard case let .error(displayError) = viewModel.connectionState else {
             return XCTFail("Expected .error after the budget rejected the third automatic transfer")
         }
-        XCTAssertEqual(displayError.recoveryAction, .retryTransfer)
+        XCTAssertEqual(displayError.action, .retryTransfer)
     }
 }

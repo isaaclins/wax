@@ -160,7 +160,7 @@ struct CatalogSearchView: View {
                     : message
             )
         case let .error(error):
-            ErrorStateView(error: error, retry: error.canRetry ? { searchViewModel.refreshSearch() } : nil)
+            ErrorPage(error: error, retry: error.canRetry ? { searchViewModel.refreshSearch() } : nil)
         case let .loaded(results):
             resultSections(results.filtered(to: searchViewModel.category))
         case let .refreshing(results):
@@ -170,7 +170,7 @@ struct CatalogSearchView: View {
             // so cached results looked live here while the sidebar and the
             // detail column both showed a banner for the same state (#136).
             VStack(spacing: 0) {
-                StaleCacheBanner(error: error, retry: error?.canRetry == true ? { searchViewModel.refreshSearch() } : nil)
+                ErrorBanner(error: error, style: .floating, retry: error?.canRetry == true ? { searchViewModel.refreshSearch() } : nil)
                 resultSections(results.filtered(to: searchViewModel.category))
             }
         }

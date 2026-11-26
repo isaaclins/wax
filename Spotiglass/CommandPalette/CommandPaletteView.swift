@@ -244,7 +244,7 @@ struct CommandPalettePanelView: View {
     /// quick actions before typing, a loading or error state, or a "no results" line.
     private var shouldShowResults: Bool {
         if viewModel.prefetchProgress != nil { return true }
-        if !viewModel.sections.isEmpty || viewModel.isLoading || viewModel.errorText != nil { return true }
+        if !viewModel.sections.isEmpty || viewModel.isLoading || viewModel.error != nil { return true }
         let parsed = CommandPaletteScope.parse(viewModel.query)
         let stripped = parsed.query.trimmingCharacters(in: .whitespacesAndNewlines)
         if stripped.isEmpty { return false }

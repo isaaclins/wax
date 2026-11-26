@@ -87,7 +87,7 @@ final class SettingsShellViewsTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: dir.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path) }
         store.update { $0.appearance.colorScheme = .dark }
-        let saveLine = try XCTUnwrap(store.saveFailure?.string)
+        let saveLine = try XCTUnwrap(store.saveFailure?.message)
 
         let manager = CommandPaletteManager()
         let auth = AuthViewModel(

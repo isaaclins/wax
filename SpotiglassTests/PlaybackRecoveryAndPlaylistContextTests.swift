@@ -269,8 +269,8 @@ final class PlaybackRecoveryAndPlaylistContextTests: XCTestCase {
         guard case let .error(error) = viewModel.connectionState else {
             return XCTFail("Expected a connection timeout error")
         }
-        XCTAssertEqual(error, PlaybackSessionViewModel.playbackHostConnectionTimedOutError())
-        XCTAssertEqual(error.recoveryAction, .reconnect)
+        XCTAssertEqual(error, .reported(PlaybackSessionViewModel.playbackHostConnectionTimedOutError()))
+        XCTAssertEqual(error.action, .reconnect)
         XCTAssertTrue(commander.commands.contains { $0.command == .connect })
     }
 
@@ -291,7 +291,7 @@ final class PlaybackRecoveryAndPlaylistContextTests: XCTestCase {
         guard case let .error(error) = viewModel.connectionState else {
             return XCTFail("Expected a connection timeout after ignoring stale ready")
         }
-        XCTAssertEqual(error.recoveryAction, .reconnect)
+        XCTAssertEqual(error.action, .reconnect)
     }
 
     /// Retry in the bar with no device started a new player without the connect timeout that
@@ -314,8 +314,8 @@ final class PlaybackRecoveryAndPlaylistContextTests: XCTestCase {
         guard case let .error(error) = viewModel.connectionState else {
             return XCTFail("Retry without a device stayed on \(viewModel.connectionState)")
         }
-        XCTAssertEqual(error, PlaybackSessionViewModel.playbackHostConnectionTimedOutError())
-        XCTAssertNotNil(error.recoveryAction, "the error has no Retry")
+        XCTAssertEqual(error, .reported(PlaybackSessionViewModel.playbackHostConnectionTimedOutError()))
+        XCTAssertNotNil(error.action, "the error has no Retry")
     }
 
     /// The same retry when the page's connect call itself fails: it was dropped by `try?`.
@@ -334,15 +334,15 @@ final class PlaybackRecoveryAndPlaylistContextTests: XCTestCase {
         guard case let .error(error) = viewModel.connectionState else {
             return XCTFail("A failed connect on retry stayed on \(viewModel.connectionState)")
         }
-        XCTAssertNotNil(error.recoveryAction, "the error has no Retry")
+        XCTAssertNotNil(error.action, "the error has no Retry")
         XCTAssertNil(viewModel.playbackHostConnectTimeoutTask, "the timeout outlived the error")
     }
 
-    private static let retryTransferError = PlaybackDisplayError(
+    private static let retryTransferError = DisplayError.reported(ErrorMessage(
         title: "Playback error",
         message: "Moving playback here failed.",
-        recoveryAction: .retryTransfer
-    )
+        action: .retryTransfer
+    ))
 
     /// Lets the connect timeout run out on the session's stepped clock, once it is armed (#510).
     private static func endConnectTimeout(of viewModel: PlaybackSessionViewModel, on clock: ManualPlaybackClock) async {
@@ -390,7 +390,7 @@ final class PlaybackRecoveryAndPlaylistContextTests: XCTestCase {
         guard case let .error(error) = viewModel.connectionState else {
             return XCTFail("Expected the failure in the bar", file: file, line: line)
         }
-        XCTAssertEqual(error.recoveryAction, .retryTransfer, file: file, line: line)
+        XCTAssertEqual(error.action, .retryTransfer, file: file, line: line)
     }
 
     /// A Play that hits a network error, then Retry right away: the song asked for is sent
@@ -1256,7 +1256,7 @@ final class PlaybackRecoveryAndPlaylistContextTests: XCTestCase {
         XCTAssertEqual(error.title, "Spotify Premium required")
         // The SDK's English text is replaced by the app's own sentence (#470).
         XCTAssertEqual(error.message, SpotiglassL10n.string("error.playback.premium.message"))
-        XCTAssertNil(error.recoveryAction)
+        XCTAssertNil(error.action)
     }
 
     func testUnavailableDeviceStateIsExplicit() {

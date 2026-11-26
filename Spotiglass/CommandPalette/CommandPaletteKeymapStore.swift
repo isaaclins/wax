@@ -12,9 +12,9 @@ import Foundation
 final class CommandPaletteKeymapStore: ObservableObject {
     @Published private(set) var bindings: [CommandShortcut: [CommandPaletteKeyBinding]] = [:]
     @Published var editorText: String = ""
-    /// Looked up when shown, so a message on screen follows a language switch (#571).
-    @Published var lastErrorText: LocalizedText?
-    var lastError: String? { lastErrorText?.string }
+    /// The last shortcut change that failed, reported once; its text follows a language
+    /// switch (#571, #608).
+    @Published var lastError: DisplayError?
     /// Stored rows this build can't use: a key token from a newer build, a typo. They are
     /// left out of the shortcuts in use but stay in the file, so one bad row costs only
     /// itself and the next shortcut recorded doesn't delete the others (#597).
@@ -35,8 +35,8 @@ final class CommandPaletteKeymapStore: ObservableObject {
     init(settingsStore: SpotiglassSettingsStore) {
         self.settingsStore = settingsStore
         applyFromStore(settingsStore.settings.keybinds)
-        if settingsStore.lastError != nil {
-            lastErrorText = CommandPaletteKeymapErrorPresenter.settingsReloadFailureText(source: fileURL.path)
+        if let fileError = settingsStore.lastError {
+            lastError = CommandPaletteKeymapErrorPresenter.settingsReloadFailure(fileError, source: fileURL.path)
         }
         settingsCancellable = settingsStore.$settings
             .removeDuplicates { $0.keybinds == $1.keybinds }
@@ -133,7 +133,7 @@ final class CommandPaletteKeymapStore: ObservableObject {
             )
         }
         try applyNormalizedPersisting(list)
-        lastErrorText = nil
+        lastError = nil
     }
 
     func clearBinding(commandID: String) throws {
@@ -145,7 +145,7 @@ final class CommandPaletteKeymapStore: ObservableObject {
         // this command everywhere" operation exposed by the one-row settings UI.
         list.removeAll { $0.command == commandID }
         try applyNormalizedPersisting(list)
-        lastErrorText = nil
+        lastError = nil
     }
 
     private func decodedBindingsFromEditor() throws -> [CommandPaletteKeyBinding] {
@@ -215,9 +215,9 @@ final class CommandPaletteKeymapStore: ObservableObject {
         do {
             let parsed = try JSONDecoder().decode(CommandPaletteKeymapFile.self, from: Data(editorText.utf8))
             try applyNormalizedPersisting(parsed.bindings)
-            lastErrorText = nil
+            lastError = nil
         } catch {
-            lastErrorText = CommandPaletteKeymapErrorPresenter.text(
+            lastError = CommandPaletteKeymapErrorPresenter.report(
                 for: error,
                 source: SpotiglassL10n.string("palette.settings.advanced"),
                 operation: "apply"
@@ -228,20 +228,19 @@ final class CommandPaletteKeymapStore: ObservableObject {
     func reloadFromDisk() {
         settingsStore.reloadFromDisk()
         applyFromStore(settingsStore.settings.keybinds)
-        if settingsStore.lastError != nil {
-            // SpotiglassSettingsStore logs the underlying decode or I/O error. Do
-            // not forward its raw description into the command-palette UI.
-            lastErrorText = CommandPaletteKeymapErrorPresenter.settingsReloadFailureText(source: fileURL.path)
+        if let fileError = settingsStore.lastError {
+            // SpotiglassSettingsStore logged the underlying decode or I/O error.
+            lastError = CommandPaletteKeymapErrorPresenter.settingsReloadFailure(fileError, source: fileURL.path)
         }
     }
 
     func resetToDefaults() {
         do {
             try applyNormalizedPersisting(SpotiglassSettingsStore.defaultKeybinds())
-            lastErrorText = nil
+            lastError = nil
         } catch {
             let source = fileURL.path
-            lastErrorText = CommandPaletteKeymapErrorPresenter.text(
+            lastError = CommandPaletteKeymapErrorPresenter.report(
                 for: error,
                 source: source,
                 operation: "reset"
@@ -281,7 +280,7 @@ final class CommandPaletteKeymapStore: ObservableObject {
             unusableRows = unusable
         }
         // A load that worked replaces any earlier error; a failed reload sets its own after this.
-        lastErrorText = nil
+        lastError = nil
     }
 
     private static func shortcuts(of binding: CommandPaletteKeyBinding) throws -> [CommandShortcut] {

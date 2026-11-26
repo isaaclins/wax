@@ -5,7 +5,7 @@ import XCTest
 final class PlaybackSessionViewModelCoreTests: XCTestCase {
     func testDisplayErrorMapsSpotifyAPIFailures() {
         XCTAssertEqual(
-            PlaybackSessionViewModel.displayError(for: SpotifyAPIError.unauthorized).recoveryAction,
+            PlaybackSessionViewModel.displayError(for: SpotifyAPIError.unauthorized).action,
             .reauthenticate
         )
         let forbidden = PlaybackSessionViewModel.displayError(for: SpotifyAPIError.forbidden(message: "Need Premium", details: nil))
@@ -91,7 +91,7 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
         }
         XCTAssertEqual(shown.title, SpotiglassL10n.string("app.connection.paused.title"))
         XCTAssertEqual(shown.message, message)
-        XCTAssertEqual(shown.recoveryAction, .reconnect)
+        XCTAssertEqual(shown.action, .reconnect)
     }
 
     /// #470: a failure that is neither Spotify's nor a URLError (WebKit's "web content process
@@ -155,7 +155,7 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
         )
         let toast = PlaylistBrowserViewModel.describeFailure(unreadable, operation: .createPlaylist)
         XCTAssertFalse(toast.contains("Spotify"), toast)
-        XCTAssertEqual(toast, BrowsingDisplayError.appleMusic(for: unreadable)?.message)
+        XCTAssertEqual(toast, ErrorMessage.appleMusic(for: unreadable)?.message)
     }
 
     func testPlaybackToggleReadinessMatchesLocalTransportStates() {
@@ -192,7 +192,7 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
             PlaybackConnectionState.disconnected,
             .connecting,
             .unavailable("offline"),
-            .error(PlaybackDisplayError(title: "Error", message: "Failed", recoveryAction: nil))
+            .error(DisplayError.reported(ErrorMessage(title: "Error", message: "Failed", action: nil)))
         ] {
             viewModel.setConnectionState(state)
             XCTAssertFalse(viewModel.isPlaybackToggleReady, "expected unavailable state to be gated: \\(state)")
@@ -221,7 +221,7 @@ final class PlaybackSessionViewModelCoreTests: XCTestCase {
         viewModel.setConnectionState(.paused(track))
         XCTAssertEqual(viewModel.currentNowPlayingURI, "spotify:track:1")
 
-        let displayError = PlaybackDisplayError(title: "T", message: "M", recoveryAction: nil)
+        let displayError = DisplayError.reported(ErrorMessage(title: "T", message: "M", action: nil))
         viewModel.setConnectionState(.error(displayError))
         XCTAssertNil(viewModel.currentNowPlaying)
         XCTAssertEqual(viewModel.connectionStateError?.title, "T")

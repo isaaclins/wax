@@ -106,7 +106,11 @@ extension PlaylistBrowserViewModel {
                 await scheduleDetailLoad(for: selectionAfter, refreshCachedData: true, session: session)
             }
         } catch {
-            let displayError = Self.displayError(for: error)
+            let displayError = Self.reportedError(
+                error,
+                while: "loading the playlist list",
+                context: [.public("cachedRows", existingRows?.count ?? 0)]
+            )
             if let existingRows, !existingRows.isEmpty {
                 playlistState = .staleCache(existingRows, displayError)
             } else {
@@ -274,7 +278,7 @@ extension PlaylistBrowserViewModel {
         }
         guard currentUserID?.isEmpty ?? true, !profileFailureNoted else { return }
         profileFailureNoted = true
-        trackMutationToastText = LocalizedText(SpotiglassL10n.string("library.profile.loadFailed"))
+        trackMutationToast = Self.failureToast(nil, while: "loading the profile, so own playlists read as someone else's", SpotiglassL10n.string("library.profile.loadFailed"))
     }
 
     private nonisolated static func optionalProfile(_ api: any MusicBrowsingProvider) async -> MusicUserProfile? {
@@ -340,10 +344,16 @@ extension PlaylistBrowserViewModel {
         if case let .playlist(missingID) = sidebarSelection,
            playlistsByID[missingID] == nil,
            knownPlaylistSummariesByID[missingID] == nil {
-            detailState = .error(BrowsingDisplayError(
-                title: SpotiglassL10n.string("error.browsing.playlistUnavailable.title"),
-                message: SpotiglassL10n.string("error.browsing.playlistUnavailable.deleted"),
-                canRetry: true
+            detailState = .error(ErrorReporting.report(
+                nil,
+                while: "showing the selected playlist after a library refresh",
+                in: .browsing,
+                context: [.private("playlist", missingID)],
+                showing: ErrorMessage(
+                    title: SpotiglassL10n.string("error.browsing.playlistUnavailable.title"),
+                    message: SpotiglassL10n.string("error.browsing.playlistUnavailable.deleted"),
+                    canRetry: true
+                )
             ))
         }
         // Default landing surface is Home, not the first playlist.

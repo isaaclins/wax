@@ -30,7 +30,7 @@ final class PartialLibraryEditTests: XCTestCase {
         await viewModel.addRowsToPlaylist(rows, playlistID: playlist.id, playlistName: playlist.name)
 
         XCTAssertEqual(posts, 2)
-        XCTAssertEqual(viewModel.trackMutationToast, "Added 100 of 101 tracks to Road Trip. Add only the missing ones again.", "no \"try again\": that would add the first 100 twice")
+        XCTAssertEqual(viewModel.trackMutationToast?.text, "Added 100 of 101 tracks to Road Trip. Add only the missing ones again.", "no \"try again\": that would add the first 100 twice")
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 101, "the open playlist was read again")
     }
 
@@ -60,8 +60,8 @@ final class PartialLibraryEditTests: XCTestCase {
         await viewModel.moveRowsBetweenPlaylists(rows, from: source.id, to: destination.id, destinationName: destination.name)
 
         XCTAssertFalse(methods.contains("DELETE"), "nothing leaves the source when not every song reached the destination")
-        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Added 100 of 101 tracks to Destination and removed none from this playlist."), true,
-                       viewModel.trackMutationToast ?? "no note")
+        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Added 100 of 101 tracks to Destination and removed none from this playlist."), true,
+                       viewModel.trackMutationToast?.text ?? "no note")
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 101, "the open source was read again")
     }
 
@@ -86,7 +86,7 @@ final class PartialLibraryEditTests: XCTestCase {
             rows, from: SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID, to: destination.id, destinationName: destination.name
         )
 
-        XCTAssertEqual(viewModel.trackMutationToast, "Added 100 of 101 tracks to Destination. Add only the missing ones again.")
+        XCTAssertEqual(viewModel.trackMutationToast?.text, "Added 100 of 101 tracks to Destination. Add only the missing ones again.")
     }
 
     /// `DELETE /v1/playlists/X/items` answers 200, then 503: 100 of 101 songs left the playlist.
@@ -112,7 +112,7 @@ final class PartialLibraryEditTests: XCTestCase {
         await viewModel.removeRowsFromPlaylist(rows, playlistID: playlist.id, playlistName: playlist.name)
 
         XCTAssertEqual(deletes, 2)
-        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Removed 100 of 101 tracks from Road Trip."), true, viewModel.trackMutationToast ?? "no note")
+        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Removed 100 of 101 tracks from Road Trip."), true, viewModel.trackMutationToast?.text ?? "no note")
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).count, 1, "the open playlist was read again")
     }
 
@@ -133,7 +133,7 @@ final class PartialLibraryEditTests: XCTestCase {
 
         await viewModel.favoriteRows(rows)
 
-        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Added 50 of 51 tracks to Liked Songs."), true, viewModel.trackMutationToast ?? "no note")
+        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Added 50 of 51 tracks to Liked Songs."), true, viewModel.trackMutationToast?.text ?? "no note")
         XCTAssertEqual(viewModel.savedTrackStates["t0"], true)
         XCTAssertEqual(viewModel.savedTrackStates["t49"], true)
         XCTAssertNil(viewModel.savedTrackStates["t50"], "the song whose request failed is asked again")
@@ -158,7 +158,7 @@ final class PartialLibraryEditTests: XCTestCase {
         await viewModel.unfavoriteRows(rows)
 
         XCTAssertEqual(deletes, 2)
-        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Removed 50 of 51 tracks from Liked Songs."), true, viewModel.trackMutationToast ?? "no note")
+        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Removed 50 of 51 tracks from Liked Songs."), true, viewModel.trackMutationToast?.text ?? "no note")
         XCTAssertEqual(viewModel.savedTrackStates["t0"], false)
         XCTAssertEqual(viewModel.savedTrackStates["t49"], false)
         XCTAssertNil(viewModel.savedTrackStates["t50"], "the song whose request failed is asked again")
@@ -193,8 +193,8 @@ final class PartialLibraryEditTests: XCTestCase {
         XCTAssertEqual(itemPosts, 2)
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["P"])
         XCTAssertEqual(viewModel.playlistsByID["P"]?.trackCount, 100)
-        XCTAssertEqual(viewModel.trackMutationToast, "Created New Mix, but only 100 of 101 tracks could be added.",
-                       viewModel.trackMutationToast ?? "no note")
+        XCTAssertEqual(viewModel.trackMutationToast?.text, "Created New Mix, but only 100 of 101 tracks could be added.",
+                       viewModel.trackMutationToast?.text ?? "no note")
     }
 
     /// `POST /v1/me/playlists` creates P, then `POST /v1/playlists/P/items` answers 503.
@@ -221,8 +221,8 @@ final class PartialLibraryEditTests: XCTestCase {
 
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["P"])
         XCTAssertEqual(viewModel.playlistsByID["P"]?.trackCount, 0)
-        XCTAssertEqual(viewModel.trackMutationToast?.hasPrefix("Created New Mix, but its tracks couldn't be added. Add them to it again."), true,
-                       viewModel.trackMutationToast ?? "no note")
+        XCTAssertEqual(viewModel.trackMutationToast?.text.hasPrefix("Created New Mix, but its tracks couldn't be added. Add them to it again."), true,
+                       viewModel.trackMutationToast?.text ?? "no note")
     }
 
     /// One failed batch out of one changed nothing: it fails like before, with no count.

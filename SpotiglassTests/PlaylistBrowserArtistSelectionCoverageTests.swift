@@ -138,7 +138,10 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
 
         await vm.selectArtist(id: "a1")
 
-        guard case let .loaded(.artist(detail)) = vm.detailState else { return XCTFail("the page opens") }
+        // It opens with what loaded, under a banner that says a part didn't (#608).
+        guard case let .staleCache(.artist(detail), shown) = vm.detailState, shown != nil else {
+            return XCTFail("the page opens with a banner, got \(vm.detailState)")
+        }
         XCTAssertEqual(detail.tracks.map(\.id), ["album-song"])
         XCTAssertFalse(detail.hasLibrarySection)
     }
@@ -153,7 +156,10 @@ final class PlaylistBrowserArtistSelectionCoverageTests: XCTestCase {
 
         await vm.selectArtist(id: "a1")
 
-        guard case let .loaded(.artist(detail)) = vm.detailState else { return XCTFail("the page opens") }
+        // Without songs, and with a banner: a failure isn't an artist with no songs (#608).
+        guard case let .staleCache(.artist(detail), shown) = vm.detailState, shown != nil else {
+            return XCTFail("the page opens with a banner, got \(vm.detailState)")
+        }
         XCTAssertTrue(detail.tracks.isEmpty)
         XCTAssertEqual(detail.libraryTracks.map(\.id), ["saved-1"])
 

@@ -313,13 +313,13 @@ struct SpotiglassSettingsView: View {
     @ViewBuilder
     private var settingsFileNotices: some View {
         if let failure = settingsStore.saveFailure {
-            SettingsFileNotice(text: failure.string)
+            SettingsFileNotice(text: failure.message)
                 .padding(.horizontal, SpotiglassDesign.spacingL)
                 .padding(.top, SpotiglassDesign.spacingS)
         }
         // A hand edit that doesn't parse: the settings in use stay until the file reads again.
-        if settingsStore.lastError != nil {
-            SettingsFileNotice(text: SpotiglassL10n.string("settings.file.reloadFailed"))
+        if let fileError = settingsStore.lastError {
+            SettingsFileNotice(text: fileError.message)
                 .padding(.horizontal, SpotiglassDesign.spacingL)
                 .padding(.top, SpotiglassDesign.spacingS)
         }

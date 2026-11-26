@@ -44,16 +44,10 @@ final class PlaylistBrowserDisplayErrorTests: XCTestCase {
         XCTAssertEqual(PlaylistBrowserViewModel.displayError(for: notFound).message, "No such playlist")
     }
 
-    func testCachedDataCaptionStatesTheReasonWhenThereIsOne() {
-        let plain = SpotiglassL10n.string("browser.cachedData")
-        XCTAssertEqual(PlaylistsSidebarSectionHeader.cachedDataCaption(for: nil), plain)
-
+    func testForbiddenReadsAsTheSentenceNotTheReasonPhrase() {
         let apiError = SpotifyAPIError.forbidden(message: "Forbidden", details: nil)
         let error = PlaylistBrowserViewModel.displayError(for: apiError)
-        let caption = PlaylistsSidebarSectionHeader.cachedDataCaption(for: error)
-        XCTAssertNotEqual(caption, plain)
-        XCTAssertTrue(caption.contains(error.message))
-        XCTAssertFalse(caption.contains("Forbidden"))
+        XCTAssertFalse(error.message.contains("Forbidden"))
     }
 
     func testDisplayErrorFallsBackForGenericError() {
@@ -113,27 +107,30 @@ final class PlaylistBrowserDisplayErrorTests: XCTestCase {
     /// Spotify's generic fallback is unchanged.
     func testUnrecognisedErrorsNameTheServiceOnScreen() {
         struct Sample: Error {}
-        let appleMusic = BrowsingDisplayError.appleMusic(for: Sample(), service: .appleMusic)
+        let appleMusic = ErrorMessage.appleMusic(for: Sample(), service: .appleMusic)
         XCTAssertEqual(appleMusic?.title, "Apple Music couldn't load this")
         XCTAssertEqual(appleMusic?.message, SpotiglassL10n.string("error.playback.appleMusic.failed"))
 
-        let offline = BrowsingDisplayError.appleMusic(for: URLError(.notConnectedToInternet), service: .appleMusic)
+        let offline = ErrorMessage.appleMusic(for: URLError(.notConnectedToInternet), service: .appleMusic)
         XCTAssertEqual(offline?.message, "Couldn't reach Apple Music. Check your connection, then try again.")
 
-        XCTAssertNil(BrowsingDisplayError.appleMusic(for: Sample(), service: .spotify))
-        XCTAssertNil(BrowsingDisplayError.appleMusic(for: CancellationError(), service: .appleMusic))
+        XCTAssertNil(ErrorMessage.appleMusic(for: Sample(), service: .spotify))
+        XCTAssertNil(ErrorMessage.appleMusic(for: CancellationError(), service: .appleMusic))
     }
 
     /// Home sections showed only `localizedDescription` ("User not signed in").
     func testHomeSectionsShowTheAppleMusicSentence() {
         let state: HomeSectionState<[TrackRowViewModel]> = PlaylistBrowserViewModel.homeSectionState(
-            for: MusicTokenRequestError.userNotSignedIn
+            for: MusicTokenRequestError.userNotSignedIn,
+            while: "test"
         )
-        XCTAssertEqual(state, .failed(LocalizedText(SpotiglassL10n.string("appleMusic.error.signIn.message"))))
+        guard case let .failed(error) = state else { return XCTFail("Expected a failed section, got \(state)") }
+        XCTAssertEqual(error.message, SpotiglassL10n.string("appleMusic.error.signIn.message"))
 
         // Spotify's Home mapping is untouched.
         let spotify: HomeSectionState<[TrackRowViewModel]> = PlaylistBrowserViewModel.homeSectionState(
-            for: SpotifyAPIError.forbidden(message: nil, details: nil)
+            for: SpotifyAPIError.forbidden(message: nil, details: nil),
+            while: "test"
         )
         XCTAssertEqual(spotify, .unavailable)
     }

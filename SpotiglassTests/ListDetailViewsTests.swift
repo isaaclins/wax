@@ -21,8 +21,8 @@ final class ListDetailViewsTests: XCTestCase {
     }
 
     func testErrorStateView() throws {
-        let error = BrowsingDisplayError(title: "Load failed", message: "Network error", canRetry: true)
-        let view = ErrorStateView(error: error)
+        let error = DisplayError.reported(ErrorMessage(title: "Load failed", message: "Network error", canRetry: true))
+        let view = ErrorPage(error: error)
         ViewTestHost.host(view)
         XCTAssertNoThrow(try view.inspect().find(text: "Load failed"))
         XCTAssertNoThrow(try view.inspect().find(text: "Network error"))
@@ -113,13 +113,13 @@ final class ListDetailViewsTests: XCTestCase {
     /// status, a header dump and a raw JSON body, which is bug-report material,
     /// not something to open over someone who wanted a playlist (#148).
     func testDiagnosticDetailsStayBehindAButton() throws {
-        let error = BrowsingDisplayError(
+        let error = DisplayError.reported(ErrorMessage(
             title: "Load failed",
             message: "Spotify could not be reached.",
             canRetry: true,
             diagnosticDetails: "GET https://api.spotify.com/v1/me/playlists\nHTTP 403\n{\"error\":{}}"
-        )
-        let view = ErrorStateView(error: error)
+        ))
+        let view = ErrorPage(error: error)
         ViewTestHost.host(view)
 
         // The sentence is on screen; the dump is not.
@@ -130,9 +130,10 @@ final class ListDetailViewsTests: XCTestCase {
         )
     }
 
-    func testStaleCacheBanner() throws {
-        let view = StaleCacheBanner(
-            error: BrowsingDisplayError(title: "Stale", message: "Cached playlists", canRetry: false)
+    func testFloatingErrorBanner() throws {
+        let view = ErrorBanner(
+            error: DisplayError.reported(ErrorMessage(title: "Stale", message: "Cached playlists", canRetry: false)),
+            style: .floating
         )
         ViewTestHost.host(view)
         XCTAssertNoThrow(try view.inspect().find(text: "Cached playlists"))

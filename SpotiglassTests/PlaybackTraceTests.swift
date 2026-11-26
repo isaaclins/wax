@@ -273,10 +273,10 @@ final class AudioOutputTraceTests: XCTestCase {
         let target = { (uid: String) in uid == "AA-BB-CC-DD-EE-FF:output" ? "bluetooth device (bluetooth, 91) 48000 Hz" : "?" }
         XCTAssertEqual(EqualizerRouteState.disabled.logDescription(target: target), "off")
         XCTAssertEqual(EqualizerRouteState.starting(targetUID: nil).logDescription(target: target), "starting(target none)")
-        let live = EqualizerRouteState.live(targetUID: "AA-BB-CC-DD-EE-FF:output", errorMessage: nil).logDescription(target: target)
+        let live = EqualizerRouteState.live(targetUID: "AA-BB-CC-DD-EE-FF:output", error: nil).logDescription(target: target)
         XCTAssertEqual(live, "live(target bluetooth device (bluetooth, 91) 48000 Hz)")
         XCTAssertFalse(live.contains("AA-BB"))
-        XCTAssertEqual(EqualizerRouteState.failed(message: nil, isEngaged: true).logDescription(target: target), "failed(still engaged)")
-        XCTAssertEqual(EqualizerRouteState.failed(message: nil, isEngaged: false).logDescription(target: target), "failed(released)")
+        XCTAssertEqual(EqualizerRouteState.failed(error: nil, isEngaged: true).logDescription(target: target), "failed(still engaged)")
+        XCTAssertEqual(EqualizerRouteState.failed(error: nil, isEngaged: false).logDescription(target: target), "failed(released)")
     }
 }

@@ -144,7 +144,7 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
         // In an error the old command restarted the player session (while music plays, `start`
         // returns early anyway, so only this state shows whether Connect reaches the player).
         let failure = PlaybackSessionViewModel.playbackHostConnectionTimedOutError()
-        appleMusic.setConnectionState(.error(failure))
+        appleMusic.setConnectionState(.error(.reported(failure)))
         let appleMusicError = appleMusic.connectionState
         guard case .error = appleMusicError else { return XCTFail("Apple Music isn't in an error: \(appleMusicError)") }
         XCTAssertFalse(pressConnectShortcut(appleManager), "⇧⌘K is swallowed for a command that does nothing")
@@ -161,7 +161,7 @@ final class PlaylistBrowserCommandPaletteConfigurationTests: XCTestCase {
         XCTAssertTrue(paletteIDs(spotifyManager).contains(CommandPaletteCommandID.connectPlayback))
         XCTAssertTrue(spotifyMenu.isConnectPlaybackOffered)
         // ⇧⌘K after an error reloads the web player, as before.
-        spotify.setConnectionState(.error(failure))
+        spotify.setConnectionState(.error(.reported(failure)))
         XCTAssertTrue(pressConnectShortcut(spotifyManager))
         XCTAssertEqual(spotify.connectionState, .connecting)
         XCTAssertEqual(spotify.playbackHostReloadAttemptCount, 1)

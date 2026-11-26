@@ -421,7 +421,7 @@ final class PlaylistTrackReorderTests: XCTestCase {
         XCTAssertEqual(api.reorders.first?.currentTrackIDs, ["t1", "t2", "t3", "t4"])
         XCTAssertEqual(api.reorderSnapshots, ["snap-1"])
         XCTAssertEqual(shownTitles(viewModel), ["One", "Four", "Two", "Three"])
-        XCTAssertNil(viewModel.trackMutationToast)
+        XCTAssertNil(viewModel.trackMutationToast?.text)
 
         // The next edit names the playlist by the snapshot the reorder returned.
         let rows = shownRows(viewModel)
@@ -451,7 +451,7 @@ final class PlaylistTrackReorderTests: XCTestCase {
         XCTAssertEqual(shownTitles(viewModel), ["One", "Two", "Three", "Four"])
         XCTAssertEqual(shownRows(viewModel), rows)
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.format("playlist.mutation.reorderFailed", AppleMusicLibraryEditError.musicControlDenied.localizedDescription)
         )
         XCTAssertNil(viewModel.reorderingPlaylistID)
@@ -468,7 +468,7 @@ final class PlaylistTrackReorderTests: XCTestCase {
 
         // The list shows the order Music has, not the one this screen had before the drag.
         XCTAssertEqual(shownTitles(viewModel), ["Two", "One", "Three", "Four"])
-        XCTAssertNotNil(viewModel.trackMutationToast)
+        XCTAssertNotNil(viewModel.trackMutationToast?.text)
     }
 
     func testASaveSpotifyTookPartOfShowsThePlaylistAsItIsNow() async {
@@ -483,7 +483,7 @@ final class PlaylistTrackReorderTests: XCTestCase {
         XCTAssertEqual(shownTitles(viewModel), ["One", "Four", "Two", "Three"])
         XCTAssertEqual(shownRows(viewModel).map(\.listPosition), [1, 2, 3, 4])
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.format(
                 "playlist.mutation.reorderPartlySaved",
                 PlaylistBrowserViewModel.describeFailure(URLError(.notConnectedToInternet), operation: .reorderPlaylist)
@@ -613,7 +613,7 @@ final class PlaylistTrackReorderTests: XCTestCase {
 
         XCTAssertEqual(shownTitles(viewModel), ["Five", "One", "Two", "Three", "Four"])
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.format("playlist.mutation.reorderFailed", MusicPlaylistChangedElsewhere().localizedDescription)
         )
     }
@@ -641,7 +641,7 @@ final class PlaylistTrackReorderTests: XCTestCase {
         await viewModel.moveTracks(rowIDs: [shownRows(viewModel)[3].id], toOffset: 0, inPlaylist: "pl1")
 
         XCTAssertEqual(shownTitles(viewModel), ["Four", "One", "Two", "Three"])
-        XCTAssertNotNil(viewModel.trackMutationToast)
+        XCTAssertNotNil(viewModel.trackMutationToast?.text)
     }
 
     func testADropWhileTheLastOrderIsSavingDoesNothing() async {

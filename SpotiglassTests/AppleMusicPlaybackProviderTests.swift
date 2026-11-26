@@ -642,7 +642,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         )
         XCTAssertEqual(display.title, SpotiglassL10n.string("error.playback.appleMusic.explicit.title"))
         XCTAssertEqual(display.message, SpotiglassL10n.string("error.playback.appleMusic.explicit.message"))
-        XCTAssertNil(display.recoveryAction, "Reconnecting doesn't change what this Mac allows")
+        XCTAssertNil(display.action, "Reconnecting doesn't change what this Mac allows")
     }
 
     /// Songs added with Add to queue before the Mac started blocking explicit music come along
@@ -1405,7 +1405,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
             return XCTFail("Expected an error, got \(session.connectionState)")
         }
         XCTAssertEqual(displayError.message, SpotiglassL10n.string("error.playback.appleMusic.notPlayable"))
-        XCTAssertNil(displayError.recoveryAction)
+        XCTAssertNil(displayError.action)
     }
 
     /// #430: a play that MusicKit refused put "Reconnect playback / Connects Spotiglass to
@@ -1427,7 +1427,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
             return XCTFail("Expected an error, got \(appleMusic.connectionState)")
         }
         XCTAssertEqual(failedPlay.message, SpotiglassL10n.string("error.playback.appleMusic.failed"))
-        XCTAssertNil(failedPlay.recoveryAction, "Apple Music has no connection to reconnect")
+        XCTAssertNil(failedPlay.action, "Apple Music has no connection to reconnect")
 
         // The errors the session raises for any player (no device yet, a connect that timed
         // out, a raw error from a command) offer nothing either.
@@ -1437,9 +1437,9 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
             PlaybackSessionViewModel.playbackHostConnectionTimedOutError(),
             PlaybackSessionViewModel.displayError(for: CocoaError(.fileReadUnknown)),
         ] {
-            appleMusic.setConnectionState(.error(error))
+            appleMusic.setConnectionState(.error(.reported(error)))
             guard case let .error(shown) = appleMusic.connectionState else { return XCTFail("Expected an error") }
-            XCTAssertNil(shown.recoveryAction, error.message)
+            XCTAssertNil(shown.action, error.message)
             XCTAssertFalse(shown.message.contains("Reconnect"), shown.message)
             XCTAssertFalse(shown.message.contains("Spotify"), shown.message)
         }
@@ -1461,15 +1461,15 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         guard case let .error(notConnected) = spotify.connectionState else {
             return XCTFail("Expected an error, got \(spotify.connectionState)")
         }
-        XCTAssertEqual(notConnected.recoveryAction, .reconnect)
-        spotify.setConnectionState(.error(PlaybackSessionViewModel.playbackHostConnectionTimedOutError()))
+        XCTAssertEqual(notConnected.action, .reconnect)
+        spotify.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackHostConnectionTimedOutError())))
         guard case let .error(timedOut) = spotify.connectionState else { return XCTFail("Expected an error") }
-        XCTAssertEqual(timedOut.recoveryAction, .reconnect)
+        XCTAssertEqual(timedOut.action, .reconnect)
         // A command Spotify refused leaves the player connected: Retry, not Reconnect.
         let failedCommand = PlaybackSessionViewModel.displayError(for: SpotifyAPIError.network("offline"))
-        spotify.setConnectionState(.error(failedCommand))
+        spotify.setConnectionState(.error(.reported(failedCommand)))
         guard case let .error(retry) = spotify.connectionState else { return XCTFail("Expected an error") }
-        XCTAssertEqual(retry.recoveryAction, .retryTransfer)
+        XCTAssertEqual(retry.action, .retryTransfer)
     }
 
     /// #430, the other half: on main the failed command's Reconnect was the only way out of
@@ -1494,7 +1494,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
             guard case let .error(failed) = session.connectionState else {
                 return XCTFail("Expected the failed Next to show, got \(session.connectionState)")
             }
-            XCTAssertNil(failed.recoveryAction)
+            XCTAssertNil(failed.action)
             XCTAssertEqual(failed.message, SpotiglassL10n.string(messageKey))
             XCTAssertFalse(session.isTransportMutationReady, "the error is on screen for a moment")
 
@@ -1942,7 +1942,7 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         let premium = PlaybackSessionViewModel.displayError(for: SpotifyAPIError.forbidden(message: nil, details: nil))
         XCTAssertEqual(premium.title, SpotiglassL10n.string("error.playback.premium.title"))
         let expired = PlaybackSessionViewModel.displayError(for: SpotifyAPIError.unauthorized)
-        XCTAssertEqual(expired.recoveryAction, .reauthenticate)
+        XCTAssertEqual(expired.action, .reauthenticate)
         let failed = PlaybackSessionViewModel.displayError(for: SpotifyAPIError.server(statusCode: 502, message: nil, details: nil))
         // The sentence, not the error's debug text (#470).
         XCTAssertEqual(failed.message, SpotiglassL10n.string("error.spotify.serverProblem"))
@@ -1953,12 +1953,12 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
             for: MusicPlaybackError(service: .appleMusic, reason: .subscriptionRequired(message: nil))
         )
         XCTAssertEqual(subscription.title, SpotiglassL10n.string("error.playback.appleMusic.subscription.title"))
-        XCTAssertNil(subscription.recoveryAction)
+        XCTAssertNil(subscription.action)
         let permission = PlaybackSessionViewModel.displayError(
             for: MusicPlaybackError(service: .appleMusic, reason: .missingPermission)
         )
         XCTAssertEqual(permission.message, SpotiglassL10n.string("error.playback.appleMusic.permission.message"))
-        XCTAssertNotEqual(permission.recoveryAction, .reauthenticate, "Apple Music has no Spotify sign-in to repeat")
+        XCTAssertNotEqual(permission.action, .reauthenticate, "Apple Music has no Spotify sign-in to repeat")
         let queue = QueueViewModel.displayError(for: MusicPlaybackError(service: .appleMusic, reason: .missingPermission))
         XCTAssertEqual(queue?.message, SpotiglassL10n.string("error.playback.appleMusic.permission.message"))
     }
@@ -2075,11 +2075,11 @@ final class AppleMusicPlaybackProviderTests: XCTestCase {
         } catch {
             let shown = PlaybackSessionViewModel.playbackHostConnectionFailedError(for: error)
             XCTAssertEqual(shown.message, SpotiglassL10n.string("error.playback.appleMusic.permission.message"))
-            XCTAssertNil(shown.recoveryAction)
+            XCTAssertNil(shown.action)
         }
         let spotify = PlaybackSessionViewModel.playbackHostConnectionFailedError(for: URLError(.timedOut))
         XCTAssertEqual(spotify.title, SpotiglassL10n.string("error.playback.couldNotStart.title"))
-        XCTAssertEqual(spotify.recoveryAction, .reconnect)
+        XCTAssertEqual(spotify.action, .reconnect)
     }
 
     /// The header's Shuffle starts at a random song. MusicKit only shuffles what comes after

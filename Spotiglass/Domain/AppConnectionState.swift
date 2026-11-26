@@ -8,7 +8,7 @@ enum AppConnectionState: Equatable {
     case signingIn
     case signedIn(AuthenticatedSession)
     case refreshing(AuthenticatedSession?)
-    case failed(AuthDisplayError)
+    case failed(DisplayError)
     /// The saved sign-in still works, but Spotify can't be reached right now (offline, or
     /// Spotify busy). The library stays on screen and the sign-in tries again by itself (#593).
     case paused(SpotifySignInPause)

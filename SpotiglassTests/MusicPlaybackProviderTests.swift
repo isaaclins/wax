@@ -183,7 +183,7 @@ final class MusicPlaybackProviderTests: XCTestCase {
         ))
         XCTAssertEqual(session.connectionState, .ready(deviceID: "local"))
 
-        session.setConnectionState(.error(PlaybackSessionViewModel.playbackDeviceNotReadyError()))
+        session.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackDeviceNotReadyError())))
         session.start()
         XCTAssertEqual(session.connectionState, .connecting)
         provider.eventHandler?(MusicPlaybackEventEnvelope(
@@ -210,7 +210,7 @@ final class MusicPlaybackProviderTests: XCTestCase {
             event: .notReady(deviceID: "local"),
             hostGeneration: session.playbackHostGeneration
         ))
-        session.setConnectionState(.error(PlaybackSessionViewModel.playbackDeviceNotReadyError()))
+        session.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackDeviceNotReadyError())))
 
         session.start()
         ready()
@@ -229,7 +229,7 @@ final class MusicPlaybackProviderTests: XCTestCase {
             event: .ready(deviceID: "old-sdk"),
             hostGeneration: session.playbackHostGeneration
         ))
-        session.setConnectionState(.error(PlaybackSessionViewModel.playbackDeviceNotReadyError()))
+        session.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackDeviceNotReadyError())))
         session.start()
 
         provider.deliver(MusicPlaybackEventEnvelope(
@@ -595,7 +595,7 @@ final class MusicPlaybackProviderTests: XCTestCase {
             provider: provider,
             playbackHostRecoveryConnectTimeout: .milliseconds(30)
         )
-        session.setConnectionState(.error(PlaybackSessionViewModel.playbackDeviceNotReadyError()))
+        session.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackDeviceNotReadyError())))
 
         await session.attemptPlaybackHostRecovery(cause: .notReady)
 

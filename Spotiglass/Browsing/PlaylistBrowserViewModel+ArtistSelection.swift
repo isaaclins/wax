@@ -76,8 +76,7 @@ extension PlaylistBrowserViewModel {
                     canLoadMoreAlbums: refreshed.paging?.nextURL != nil,
                     extras: refreshed.extras
                 )
-                cachedArtistSnapshots[id] = CachedArtistSnapshot(snapshot: refreshed, fetchedAt: now())
-                detailState = .loaded(.artist(refreshedVM))
+                showArtistPage(refreshedVM, snapshot: refreshed, artistID: id)
                 refineLastBreadcrumbArtistLabelIfNeeded(artistID: id, resolvedName: refreshed.artistDetail.name)
                 return
             }
@@ -89,14 +88,31 @@ extension PlaylistBrowserViewModel {
                 canLoadMoreAlbums: snapshot.paging?.nextURL != nil,
                 extras: snapshot.extras
             )
-            cachedArtistSnapshots[id] = CachedArtistSnapshot(snapshot: snapshot, fetchedAt: now())
-            detailState = .loaded(.artist(vm))
+            showArtistPage(vm, snapshot: snapshot, artistID: id)
             refineLastBreadcrumbArtistLabelIfNeeded(artistID: id, resolvedName: snapshot.artistDetail.name)
         } catch is CancellationError {
             return
         } catch {
             guard session == detailSession else { return }
-            detailState = .error(Self.displayError(for: error))
+            detailState = .error(Self.reportedError(error, while: "loading the artist page", context: [.private("artist", id)]))
         }
+    }
+
+    /// A whole page is kept for next time; one with a part that didn't load shows the rest
+    /// under a banner with Retry, and is asked again next time (#608).
+    private func showArtistPage(_ page: ArtistDetailViewModel, snapshot: ArtistDetailSnapshot, artistID: String) {
+        if let failure = snapshot.partialFailure {
+            // Nothing else loaded either: the failure is the page, not "no songs, no releases".
+            let isEmpty = snapshot.tracks.isEmpty && snapshot.albums.isEmpty
+            let shown = Self.reportedError(
+                failure,
+                while: isEmpty ? "loading the artist page's songs (nothing else to show)" : "loading part of the artist page (shown without it)",
+                context: [.private("artist", artistID)]
+            )
+            detailState = isEmpty ? .error(shown) : .staleCache(.artist(page), shown)
+            return
+        }
+        cachedArtistSnapshots[artistID] = CachedArtistSnapshot(snapshot: snapshot, fetchedAt: now())
+        detailState = .loaded(.artist(page))
     }
 }

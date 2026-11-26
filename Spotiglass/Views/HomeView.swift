@@ -133,8 +133,11 @@ struct HomeView: View {
                     icon: "lock.fill",
                     text: SpotiglassL10n.string("home.section.reconnect")
                 ))
-            case let .failed(message):
-                HomeSectionNotice(style: .message(icon: "exclamationmark.triangle", text: message.string))
+            case let .failed(error):
+                ErrorBanner(error: error, retry: error.canRetry ? {
+                    Task { await viewModel.reloadHomeSections(forceRefresh: true) }
+                } : nil)
+                .frame(minHeight: SpotiglassDesign.Layout.sectionNoticeMinHeight)
             }
         }
     }
@@ -162,8 +165,11 @@ struct HomeView: View {
                     icon: "lock.fill",
                     text: SpotiglassL10n.string("home.section.reconnect")
                 ))
-            case let .failed(message):
-                HomeSectionNotice(style: .message(icon: "exclamationmark.triangle", text: message.string))
+            case let .failed(error):
+                ErrorBanner(error: error, retry: error.canRetry ? {
+                    Task { await viewModel.reloadHomeSections(forceRefresh: true) }
+                } : nil)
+                .frame(minHeight: SpotiglassDesign.Layout.sectionNoticeMinHeight)
             }
         }
     }

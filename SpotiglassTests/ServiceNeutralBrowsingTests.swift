@@ -33,12 +33,9 @@ final class ServiceNeutralBrowsingTests: XCTestCase {
             XCTAssertFalse(starting.message.contains("Spotify"), "\(error): \(starting.message)")
             let queue = QueueViewModel.displayError(for: error)
             XCTAssertFalse(queue?.message.contains("Spotify") ?? true, "\(error): \(String(describing: queue?.message))")
-            let home: HomeSectionState<[TrackRowViewModel]> = PlaylistBrowserViewModel.homeSectionState(for: error)
-            XCTAssertEqual(
-                home,
-                .failed(LocalizedText(BrowsingDisplayError.appleMusic(for: error)?.message ?? "")),
-                "\(error)"
-            )
+            let home: HomeSectionState<[TrackRowViewModel]> = PlaylistBrowserViewModel.homeSectionState(for: error, while: "test")
+            guard case let .failed(shown) = home else { return XCTFail("\(error): \(home)") }
+            XCTAssertEqual(shown.message, ErrorMessage.appleMusic(for: error)?.message, "\(error)")
         }
         XCTAssertEqual(
             PlaybackSessionViewModel.displayError(for: URLError(.timedOut)).message,
@@ -95,7 +92,7 @@ final class ServiceNeutralBrowsingTests: XCTestCase {
             )
 
             await viewModel.favoriteRows([row])
-            XCTAssertEqual(viewModel.trackMutationToast, unsupported, "\(service)")
+            XCTAssertEqual(viewModel.trackMutationToast?.text, unsupported, "\(service)")
 
             do {
                 try await viewModel.api.deletePlaylist(playlistID: "p1")

@@ -106,7 +106,9 @@ struct PlaylistBrowserSidebar: View {
             }
             .overlay(alignment: .bottom) {
                 if case let .staleCache(_, error) = viewModel.playlistState {
-                    StaleCacheBanner(error: error)
+                    ErrorBanner(error: error, style: .floating, retry: error?.canRetry == false ? nil : {
+                        Task { await viewModel.refreshPlaylists(trigger: .userInitiated) }
+                    })
                 } else if case .refreshing = viewModel.playlistState {
                     ProgressView(SpotiglassL10n.string("browser.refreshingPlaylists"))
                         .controlSize(.small)

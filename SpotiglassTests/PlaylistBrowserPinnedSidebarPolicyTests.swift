@@ -6,17 +6,17 @@ final class PlaylistBrowserPinnedSidebarPolicyTests: XCTestCase {
     func testPermanentPinnedLoadErrorTitles() {
         XCTAssertTrue(
             PlaylistBrowserPinnedSidebarPolicy.isPermanentPinnedLoadError(
-                BrowsingDisplayError(title: "Not Found", message: "x", canRetry: false)
+                DisplayError.reported(ErrorMessage(title: "Not Found", message: "x", canRetry: false))
             )
         )
         XCTAssertTrue(
             PlaylistBrowserPinnedSidebarPolicy.isPermanentPinnedLoadError(
-                BrowsingDisplayError(title: "Access Denied", message: "x", canRetry: false)
+                DisplayError.reported(ErrorMessage(title: "Access Denied", message: "x", canRetry: false))
             )
         )
         XCTAssertFalse(
             PlaylistBrowserPinnedSidebarPolicy.isPermanentPinnedLoadError(
-                BrowsingDisplayError(title: "Offline", message: "x", canRetry: true)
+                DisplayError.reported(ErrorMessage(title: "Offline", message: "x", canRetry: true))
             )
         )
     }
@@ -24,16 +24,16 @@ final class PlaylistBrowserPinnedSidebarPolicyTests: XCTestCase {
     func testPermanentPinnedLoadErrorMessagePhrases() {
         XCTAssertTrue(
             PlaylistBrowserPinnedSidebarPolicy.isPermanentPinnedLoadError(
-                BrowsingDisplayError(title: "Error", message: "Playlist is no longer accessible.", canRetry: false)
+                DisplayError.reported(ErrorMessage(title: "Error", message: "Playlist is no longer accessible.", canRetry: false))
             )
         )
     }
 
     func testItemShouldBeMarkedStaleForErrorAndStaleCache() {
-        let err = BrowsingDisplayError(title: "Not Found", message: "gone", canRetry: false)
+        let err = DisplayError.reported(ErrorMessage(title: "Not Found", message: "gone", canRetry: false))
         XCTAssertTrue(PlaylistBrowserPinnedSidebarPolicy.itemShouldBeMarkedStale(for: .error(err)))
 
-        let transient = BrowsingDisplayError(title: "Offline", message: "retry", canRetry: true)
+        let transient = DisplayError.reported(ErrorMessage(title: "Offline", message: "retry", canRetry: true))
         XCTAssertFalse(PlaylistBrowserPinnedSidebarPolicy.itemShouldBeMarkedStale(for: .error(transient)))
 
         let cachedDetail = BrowsingDetailContent.playlist(PlaylistDetailViewModel(
