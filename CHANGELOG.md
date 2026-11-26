@@ -2,6 +2,12 @@
 
 Wax was called Spotiglass until November 2026. Entries from before the rename use the old name.
 
+## [0.8.86] - 2026-11-26
+
+### Fixed
+
+- You can remove the equalizer driver now, and your Mac's sound no longer gets stuck on a device that plays nothing.
+
 ## [0.8.85] - 2026-11-26
 
 ### Fixed
