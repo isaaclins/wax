@@ -161,6 +161,43 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
         XCTAssertEqual(opened, "bad-bunny")
     }
 
+    /// A queue row past the songs whose artists are read ahead comes with the credit text only
+    /// (#639). Every link it offers opens one of the song's artists, never "Tyler", who is
+    /// someone else; the queue and the lyrics view's "Next in Queue" both show these links.
+    func testQueueRowWithoutArtistIDsNeverOpensAPieceOfAnArtistsName() async {
+        let track = MusicTrack(
+            id: "1",
+            name: "See You Again",
+            artists: ["Tyler, The Creator & Kali Uchis"],
+            artistRefs: [],
+            albumArtworkURL: nil,
+            albumName: nil,
+            albumID: nil,
+            durationMilliseconds: 180_000,
+            isExplicit: false,
+            isPlayable: true,
+            linkedFromID: nil,
+            uri: "music:song:2"
+        )
+        let row = QueueItem.from(queueItem: .track(track))
+        XCTAssertEqual(row.artistTapTargets.map(\.name), ["Tyler, The Creator & Kali Uchis"])
+        var opened: [String] = []
+        for target in row.artistTapTargets {
+            await PlaylistBrowserTapTargetNavigation.openArtist(
+                target,
+                origin: .extend,
+                selectArtist: { id, _, _ in opened.append(id) },
+                resolveArtistID: { name in
+                    try await PlaylistBrowserTapTargetResolver.resolveArtistID(forName: name) { query, _ in
+                        Self.catalogSearch(query)
+                    }
+                },
+                showFailure: { XCTFail("unexpected failure \($0.message)") }
+            )
+        }
+        XCTAssertEqual(opened, ["tyler-tc"])
+    }
+
     /// With the song's own artists, each is its own link with its ID: no search at all.
     func testNowPlayingWithTheSongsArtistsLinksEachByID() {
         let track = MusicTrack(
