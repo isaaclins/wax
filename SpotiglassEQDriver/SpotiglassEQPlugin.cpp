@@ -46,6 +46,7 @@
 
 #include "EQClock.h"
 #include "EQDeviceState.h"
+#include "EQVolume.h"
 #include "EQCoefficientReader.h"
 #include "EQRouter.h"
 #include "SpotiglassEQDSP.h"
@@ -122,20 +123,16 @@ struct PluginState {
     // The published router is the fallback (#606), not a target the app asked for.
     std::atomic<bool> routerIsFallback{false};
 
-    // Last scalar (0..1) the OS / user set on the master volume control.
-    // The control mirrors-through to the EQRouter target device's
-    // VolumeScalar, but we cache here so reads remain stable while the
-    // router is in the middle of a swap (target file change) or null.
-    std::atomic<Float32> cachedVolumeScalar{1.0f};
-
-    // Pending write slot drained by the volume mirror worker. SetPropertyData
-    // (called from inside coreaudiod servicing the HAL property dispatch)
-    // must not call AudioObjectSetPropertyData on the target device inline —
-    // doing so re-enters coreaudiod from coreaudiod and the slider goes
-    // inert. Instead, SetPropertyData stages the desired scalar here and a
-    // detached worker performs the cross-device write off the dispatch path.
-    std::atomic<Float32> pendingVolumeWrite{1.0f};
-    std::atomic<bool> hasPendingVolumeWrite{false};
+    // The master volume control's level and where it goes: forwarded to the
+    // EQRouter target's VolumeScalar, or applied in the render path when the
+    // target can't take it (#605, EQVolume.h). SetPropertyData (called from
+    // inside coreaudiod servicing the HAL property dispatch) must not call
+    // AudioObjectSetPropertyData on the target inline: that re-enters
+    // coreaudiod from coreaudiod and the slider goes inert. It stages the
+    // write and the volume mirror worker forwards it.
+    EQVolume volume;
+    // The render path's software volume. Render thread only, reset by StartIO.
+    EQGainRamp gainRamp;
 };
 
 PluginState gPlugin;
@@ -384,6 +381,13 @@ OSStatus DoIOOperation(AudioServerPlugInDriverRef /*self*/,
         // Leaving this cycle unfiltered is safer than shifting every band.
         EQDSP_Reset(&gPlugin.dsp);
     }
+    // A target without a settable volume gets the level applied here (#605).
+    gPlugin.gainRamp.apply(
+        static_cast<float*>(ioMainBuffer),
+        ioBufferFrameSize,
+        gPlugin.volume.renderGain(),
+        expectedRate
+    );
     // Forward the post-EQ stereo buffer to the previous real default output
     // so the user actually hears the result. EQRouter_Push is lock-free and
     // drops oldest frames if the consumer's IOProc falls behind, so it's
@@ -513,58 +517,49 @@ void* TargetWatcherMain(void* /*unused*/) {
 // another app calling SetVolume). On change, it publishes a
 // `PropertiesChanged` so HAL clients refresh their cached read.
 //
+// A target whose master volume isn't settable, or one whose write or read
+// fails, gets the level in software instead (EQVolume::tick, #605): many USB
+// DACs and HDMI / DisplayPort monitors have no volume of their own.
+//
 // This MUST be off the HAL property dispatch path — calling
 // AudioObjectSet/GetPropertyData on the target from inside SetPropertyData
 // recursively re-enters coreaudiod and the menu-bar slider stays inert.
+struct CoreAudioVolumeTarget {
+    AudioObjectID device;
+    AudioObjectPropertyAddress addr{
+        kAudioDevicePropertyVolumeScalar,
+        kAudioObjectPropertyScopeOutput,
+        kAudioObjectPropertyElementMain
+    };
+
+    uint32_t id() const { return device; }
+    bool settable() {
+        if (!AudioObjectHasProperty(device, &addr)) return false;
+        Boolean isSettable = false;
+        return AudioObjectIsPropertySettable(device, &addr, &isSettable) == noErr && isSettable;
+    }
+    bool set(float value) {
+        return AudioObjectSetPropertyData(device, &addr, 0, nullptr, sizeof(value), &value) == noErr;
+    }
+    bool get(float& value) {
+        UInt32 size = sizeof(value);
+        return AudioObjectGetPropertyData(device, &addr, 0, nullptr, &size, &value) == noErr
+            && size == sizeof(value);
+    }
+};
+
 void* VolumeMirrorMain(void* /*unused*/) {
-    Float32 lastObserved = -1.0f;
     while (true) {
         struct timespec ts = {0, 150 * 1000 * 1000}; // 150ms
         nanosleep(&ts, nullptr);
 
         RouterLease routerLease;
         if (!routerLease) continue;
-        const AudioObjectID target = EQRouter_TargetDevice(routerLease.get());
-        if (target == kAudioObjectUnknown) continue;
+        CoreAudioVolumeTarget target{EQRouter_TargetDevice(routerLease.get())};
+        if (target.device == kAudioObjectUnknown) continue;
+        if (!gPlugin.volume.tick(target)) continue;
 
-        AudioObjectPropertyAddress addr = {
-            kAudioDevicePropertyVolumeScalar,
-            kAudioObjectPropertyScopeOutput,
-            kAudioObjectPropertyElementMain
-        };
-
-        // 1) Drain a pending write before sampling — otherwise the read
-        //    races the write and we'd briefly observe the stale hardware
-        //    value, snap the cache back, and flicker the slider.
-        if (gPlugin.hasPendingVolumeWrite.exchange(false, std::memory_order_acq_rel)) {
-            Float32 want = gPlugin.pendingVolumeWrite.load(std::memory_order_acquire);
-            if (want < 0.0f) want = 0.0f;
-            if (want > 1.0f) want = 1.0f;
-            (void)AudioObjectSetPropertyData(
-                target, &addr, 0, nullptr, sizeof(want), &want
-            );
-        }
-
-        // 2) Sample the target so external volume changes (keyboard F11/F12,
-        //    System Settings slider on the target device) reflect on our
-        //    virtual device's slider.
-        Float32 fresh = 0.0f;
-        UInt32 size = sizeof(fresh);
-        const OSStatus status = AudioObjectGetPropertyData(
-            target, &addr, 0, nullptr, &size, &fresh
-        );
-        if (status != noErr || size != sizeof(fresh)) continue;
-        if (fresh < 0.0f) fresh = 0.0f;
-        if (fresh > 1.0f) fresh = 1.0f;
-
-        const Float32 prior = gPlugin.cachedVolumeScalar.load(std::memory_order_acquire);
-        if (fabsf(fresh - prior) < 0.0005f) {
-            lastObserved = fresh;
-            continue;
-        }
-        gPlugin.cachedVolumeScalar.store(fresh, std::memory_order_release);
-
-        if (gPlugin.host && gPlugin.host->PropertiesChanged && fabsf(fresh - lastObserved) > 0.0005f) {
+        if (gPlugin.host && gPlugin.host->PropertiesChanged) {
             const AudioObjectPropertyAddress changed[2] = {
                 { kAudioLevelControlPropertyScalarValue,
                   kAudioObjectPropertyScopeGlobal,
@@ -577,7 +572,6 @@ void* VolumeMirrorMain(void* /*unused*/) {
                 gPlugin.host, kVolumeControlObjectID, 2, changed
             );
         }
-        lastObserved = fresh;
     }
     return nullptr;
 }
@@ -665,6 +659,7 @@ OSStatus StartIO(AudioServerPlugInDriverRef /*self*/,
 #endif
     }
     EQDSP_Reset(&gPlugin.dsp);
+    gPlugin.gainRamp.reset();
     gPlugin.ioRunning = true;
     gPlugin.ioAccepting.store(true, std::memory_order_seq_cst);
     gPlugin.ioStartHostTime = mach_absolute_time();
@@ -1275,12 +1270,12 @@ OSStatus GetPropertyData(AudioServerPlugInDriverRef self, AudioObjectID objectID
                 // dispatcher — calling AudioObjectGetPropertyData on another
                 // device here would re-enter coreaudiod from coreaudiod and
                 // leave the slider inert (CMD path frozen on the recursive
-                // call). Worker keeps `cachedVolumeScalar` fresh.
-                const Float32 cached = gPlugin.cachedVolumeScalar.load(std::memory_order_acquire);
+                // call). Worker keeps `volume.level` fresh.
+                const Float32 cached = gPlugin.volume.level.load(std::memory_order_acquire);
                 return putFloat32(cached);
             }
             case kAudioLevelControlPropertyDecibelValue: {
-                const Float32 cached = gPlugin.cachedVolumeScalar.load(std::memory_order_acquire);
+                const Float32 cached = gPlugin.volume.level.load(std::memory_order_acquire);
                 return putFloat32(ScalarToDB(cached));
             }
             case kAudioLevelControlPropertyDecibelRange: {
@@ -1355,9 +1350,7 @@ OSStatus SetPropertyData(AudioServerPlugInDriverRef self, AudioObjectID objectID
         // HAL property dispatcher (coreaudiod calling coreaudiod) and the
         // menu-bar slider would stay inert. The worker thread issues the
         // cross-device write off the dispatch path.
-        gPlugin.cachedVolumeScalar.store(scalar, std::memory_order_release);
-        gPlugin.pendingVolumeWrite.store(scalar, std::memory_order_release);
-        gPlugin.hasPendingVolumeWrite.store(true, std::memory_order_release);
+        gPlugin.volume.userSets(scalar);
         // Notify HAL clients (menu-bar volume slider, System Settings) that
         // both flavours of the value just changed so the UI redraws.
         if (gPlugin.host && gPlugin.host->PropertiesChanged) {

@@ -10,6 +10,7 @@
 #include "../EQClock.h"
 #include "../EQDeviceState.h"
 #include "../EQRouter.h"
+#include "../EQVolume.h"
 
 #include <atomic>
 #include <cstdio>
@@ -557,6 +558,189 @@ void testTheEQDeviceFollowsEveryCommonOutputRate() {
            "a rate the EQ device can't run at leaves it alone");
 }
 
+
+// MARK: - Master volume (#605)
+
+// A device behind the EQ, as the volume mirror worker sees it.
+struct FakeVolumeTarget {
+    uint32_t device = 7;
+    bool isSettable = true;
+    bool setWorks = true;
+    bool getWorks = true;
+    float hardware = 1.0f;
+    int sets = 0;
+
+    uint32_t id() const { return device; }
+    bool settable() { return isSettable; }
+    bool set(float value) {
+        sets += 1;
+        if (!setWorks) return false;
+        hardware = value;
+        return true;
+    }
+    bool get(float& value) {
+        if (!getWorks) return false;
+        value = hardware;
+        return true;
+    }
+};
+
+// Plays `seconds` of a full-scale stereo signal through the render path's
+// volume and returns the last left sample.
+float PlayThroughVolume(EQGainRamp& ramp, const EQVolume& volume, float seconds,
+                        uint32_t rate = 48000, uint32_t bufferFrames = 512) {
+    std::vector<float> buffer(bufferFrames * 2);
+    uint32_t left = static_cast<uint32_t>(seconds * rate);
+    float last = 0.0f;
+    while (left > 0) {
+        const uint32_t frames = left < bufferFrames ? left : bufferFrames;
+        for (auto& sample : buffer) sample = 1.0f;
+        ramp.apply(buffer.data(), frames, volume.renderGain(), rate);
+        last = buffer[2 * (frames - 1)];
+        left -= frames;
+    }
+    return last;
+}
+
+void testAUSBDACWithoutAVolumeGetsTheLevelInSoftware() {
+    // The issue's DAC: no settable master volume; a write and a read both fail.
+    FakeVolumeTarget dac;
+    dac.isSettable = false;
+    dac.setWorks = false;
+    dac.getWorks = false;
+    EQVolume volume;
+    EQGainRamp ramp;
+
+    PlayThroughVolume(ramp, volume, 0.05f);
+    volume.userSets(0.1f);
+    expect(!volume.tick(dac), "the slider keeps the level I set");
+    expect(volume.software.load(), "a target without a volume gets it in software");
+    expectEqual(volume.level.load(), 0.1f, "the level stays at what I set");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 0.1f, "the music plays at 10 %");
+}
+
+void testAFailedForwardSwitchesToSoftwareVolume() {
+    // Claims a settable volume and reads back, until a write fails and the
+    // read-back with it.
+    FakeVolumeTarget monitor;
+    EQVolume volume;
+    EQGainRamp ramp;
+
+    volume.tick(monitor);
+    expect(!volume.software.load(), "a settable target is forwarded to at first");
+    monitor.setWorks = false;
+    monitor.getWorks = false;
+    volume.userSets(0.2f);
+    volume.tick(monitor);
+    expect(monitor.sets == 1, "the level was forwarded once");
+    expect(volume.software.load(), "the failed forward switches to software volume");
+    expectEqual(volume.level.load(), 0.2f, "the level stays at what I set");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 0.2f, "the music plays at 20 %");
+
+    volume.userSets(0.5f);
+    volume.tick(monitor);
+    expect(monitor.sets == 1, "nothing more is forwarded to a target that refused");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 0.5f, "the next change applies in software too");
+}
+
+void testAFailedReadBackSwitchesToSoftwareVolume() {
+    FakeVolumeTarget target;
+    target.getWorks = false;
+    EQVolume volume;
+    EQGainRamp ramp;
+
+    volume.userSets(0.3f);
+    volume.tick(target);
+    expect(volume.software.load(), "a target whose level can't be read back gets it in software");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 0.3f, "the music plays at 30 %");
+}
+
+void testASettableTargetKeepsForwardingAtFullScale() {
+    FakeVolumeTarget speakers;
+    speakers.hardware = 0.7f;
+    EQVolume volume;
+    EQGainRamp ramp;
+
+    expect(volume.tick(speakers), "the target's own level is picked up");
+    expectEqual(volume.level.load(), 0.7f, "the slider shows the target's level");
+
+    volume.userSets(0.25f);
+    expect(!volume.tick(speakers), "a forwarded write that reads back the same changes nothing");
+    expectEqual(speakers.hardware, 0.25f, "the level is forwarded to the target");
+    expect(!volume.software.load(), "a target that takes the volume is not attenuated twice");
+    expectEqual(PlayThroughVolume(ramp, volume, 0.05f), 1.0f, "samples leave the EQ at full scale");
+
+    speakers.hardware = 0.6f;  // the keyboard's volume keys on the target itself
+    expect(volume.tick(speakers), "a change on the target reaches the slider");
+    expectEqual(volume.level.load(), 0.6f, "the slider follows the target");
+}
+
+void testSwitchingTargetsDecidesTheModeAgain() {
+    FakeVolumeTarget dac;
+    dac.isSettable = false;
+    dac.setWorks = false;
+    dac.getWorks = false;
+    FakeVolumeTarget speakers;
+    speakers.device = 8;
+    speakers.hardware = 0.4f;
+    EQVolume volume;
+
+    volume.userSets(0.2f);
+    volume.tick(dac);
+    expect(volume.software.load(), "the DAC gets software volume");
+    volume.tick(speakers);
+    expect(!volume.software.load(), "speakers with their own volume are forwarded to again");
+    expectEqual(volume.renderGain(), 1.0f, "and the software volume is lifted");
+    volume.tick(dac);
+    expect(volume.software.load(), "back on the DAC the level applies in software again");
+}
+
+void testVolumeChangesRampWithoutAClick() {
+    FakeVolumeTarget dac;
+    dac.isSettable = false;
+    EQVolume volume;
+    EQGainRamp ramp;
+    const uint32_t rate = 48000;
+
+    volume.userSets(0.8f);
+    volume.tick(dac);
+    PlayThroughVolume(ramp, volume, 0.05f, rate);
+    volume.userSets(0.05f);
+
+    std::vector<float> buffer(256 * 2, 1.0f);
+    const float maxStep = 1.0f / (EQGainRamp::kRampSeconds * rate) + 1e-6f;
+    float previous = 0.8f;
+    bool smooth = true;
+    float last = 0.0f;
+    for (int cycle = 0; cycle < 4; ++cycle) {
+        for (auto& sample : buffer) sample = 1.0f;
+        ramp.apply(buffer.data(), 256, volume.renderGain(), rate);
+        for (uint32_t i = 0; i < 256; ++i) {
+            if (std::fabs(buffer[2 * i] - previous) > maxStep) smooth = false;
+            if (buffer[2 * i] != buffer[2 * i + 1]) smooth = false;
+            previous = buffer[2 * i];
+        }
+        last = previous;
+    }
+    expect(smooth, "no sample-to-sample jump larger than the ramp allows");
+    expectEqual(last, 0.05f, "the ramp lands on the new level within ~10 ms");
+}
+
+void testPlaybackStartsAtTheLevelWithoutAFade() {
+    FakeVolumeTarget dac;
+    dac.isSettable = false;
+    EQVolume volume;
+    EQGainRamp ramp;
+
+    PlayThroughVolume(ramp, volume, 0.05f);  // last song played at full volume
+    volume.userSets(0.1f);
+    volume.tick(dac);
+    ramp.reset();  // StartIO
+    std::vector<float> buffer(2, 1.0f);
+    ramp.apply(buffer.data(), 1, volume.renderGain(), 48000);
+    expectEqual(buffer[0], 0.1f, "the first sample after StartIO is already at 10 %");
+}
+
 }  // namespace
 
 // MARK: - Fallback target (#606)
@@ -652,6 +836,14 @@ int main() {
     testWithoutABuiltInOutputAnotherPlayableOneIsChosen();
     testTheEQDeviceIsNeverItsOwnFallback();
     testTheFallbackReportsReadyWhenTheAppAsksForItsDevice();
+
+    testAUSBDACWithoutAVolumeGetsTheLevelInSoftware();
+    testAFailedForwardSwitchesToSoftwareVolume();
+    testAFailedReadBackSwitchesToSoftwareVolume();
+    testASettableTargetKeepsForwardingAtFullScale();
+    testSwitchingTargetsDecidesTheModeAgain();
+    testVolumeChangesRampWithoutAClick();
+    testPlaybackStartsAtTheLevelWithoutAFade();
 
     if (gFailures == 0) {
         std::printf("driver router tests: all checks passed\n");

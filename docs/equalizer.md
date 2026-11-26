@@ -230,9 +230,12 @@ Three ways to expose a working slider:
 
 ### Decision
 
-**Mirror to the EQRouter target's `kAudioDevicePropertyVolumeScalar`** for
-both reads and writes, with a local atomic cache as fallback. No DSP-side
-attenuation in v1.
+**Hybrid.** Mirror to the EQRouter target's `kAudioDevicePropertyVolumeScalar`
+for both reads and writes when the target has a settable master volume.
+When it has none (many USB DACs, monitors over HDMI or DisplayPort), or a
+forwarded write or its read-back fails, the driver applies the level itself
+in `DoIOOperation`, post-EQ, with a ~10 ms ramp so a change never clicks
+(#605, `EQVolume.h`). The mode is decided again whenever the target changes.
 
 ### Reason
 
@@ -244,8 +247,10 @@ sync with the user's actual loudness and avoids double-attenuation
 gives the property handlers a stable answer when the EQRouter is mid-swap
 or when the target temporarily refuses a read.
 
-The IO callback intentionally stays out of the volume path so the realtime
-thread budget remains untouched.
+Until #605 the IO callback stayed out of the volume path, so on a target
+without its own volume the slider moved while the music stayed at full
+level. The software path is one multiply per sample and only runs while the
+level is below full scale.
 
 ### Layout
 
@@ -261,13 +266,13 @@ The control is published via the device's `kAudioObjectPropertyControlList`
 
 ### Consequences
 
-- **Pro:** Menu-bar slider works immediately. No syscalls or vDSP work
-  inside `DoIOOperation`.
+- **Pro:** Menu-bar slider works immediately, and always changes what you hear.
+  No syscalls inside `DoIOOperation`.
 - **Pro:** Slider tracks downstream hardware-side changes (e.g. user
-  presses physical headphone volume button) via `ReadTargetVolumeOrCached`.
-- **Con:** Targets that don't expose `VolumeScalar` make the slider a
-  no-op cache. A future ADR can lift the slider's value into a DSP
-  attenuation post-EQ for those cases without changing the slider model.
+  presses physical headphone volume button) via the volume mirror worker.
+- **Con:** A target that refused one write stays on software volume until
+  the EQ forwards to another device. Its own hardware level then stays where
+  it was.
 - **Con:** The control reports a single channel-master scalar — no
   per-channel or balance control yet. Acceptable for the EQ use case.
 
