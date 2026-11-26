@@ -44,6 +44,9 @@ final class SpotiglassSettingsStore: ObservableObject {
     /// merely because some event happened after a local write.
     private var lastOwnWriteData: Data?
 
+    /// Keys a newer build wrote that this build doesn't read; every save writes them back (#627).
+    private let unknownKeys = UnknownJSONKeys()
+
     init(fileManager: FileManager = .default, fileURL customFileURL: URL? = nil, now: @escaping () -> Date = Date.init) {
         self.fileManager = fileManager
         self.now = now
@@ -536,7 +539,13 @@ final class SpotiglassSettingsStore: ObservableObject {
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
-        let data = try encoder.encode(merge.settings)
+        let kept = unknownKeys.carry(
+            from: currentSnapshot?.data,
+            into: try encoder.encode(merge.settings),
+            schema: SpotiglassSettingsFile.jsonKeySchema,
+            encoder: encoder
+        )
+        let data = kept.data
         if let currentSnapshot {
             try preserveBeforeOverwriting(currentSnapshot)
         }
@@ -553,6 +562,13 @@ final class SpotiglassSettingsStore: ObservableObject {
         settings = merge.settings
         lastError = nil
 
+        let newlyKept = unknownKeys.namesToLog(kept.carried)
+        if !newlyKept.isEmpty {
+            SpotiglassLog.info(
+                SpotiglassLog.settings,
+                "Settings file \(fileURL.path) has keys this version doesn't read; kept them unchanged: \(newlyKept.joined(separator: ", "))."
+            )
+        }
         if !merge.conflicts.isEmpty {
             SpotiglassLog.info(
                 SpotiglassLog.settings,
