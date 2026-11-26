@@ -173,8 +173,10 @@ final class PlayPauseRenderScopeTests: XCTestCase {
         let browser = try XCTUnwrap(hostedBrowser)
         let changed = await bodies { browser.sidebarSelection = .search }
         XCTAssertNotNil(changed["PlaylistBrowserView"], "the page change never ran the browser's body")
+        // Only the bar's own body tells whether the page change reached it. The controls inside it
+        // also watch the player, which is still connecting here and may publish at any moment:
+        // on a slow runner one of those landed during the page change and counted as a redraw.
         XCTAssertNil(changed["BrowserTransportBar"], "the player bar ran again for a page change")
-        XCTAssertNil(changed["PlaybackControlsView"], "the player bar ran again for a page change")
     }
 
     /// The bar counts as unchanged across page changes (#730), but not across the lyrics opening:
