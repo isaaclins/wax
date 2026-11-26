@@ -340,7 +340,8 @@ struct PlaybackControlsView: View {
     /// controls redrew with each press though nothing in them changed (#751). The bar builds this
     /// view again when the lyrics open or close.
     private let isLyricsPresented: Bool
-    private let setLyricsPresented: (Bool) -> Void
+    /// Opens the lyrics when they're closed and closes them when they're open, read at the press.
+    private let toggleLyrics: () -> Void
     let openArtist: (ArtistTapTarget) -> Void
     /// Set while the bar shows the other service's player because that is what you hear (#396):
     /// the bar says which service plays, and its artists, which belong to the other library,
@@ -358,7 +359,7 @@ struct PlaybackControlsView: View {
     ) {
         _viewModel = ObservedObject(wrappedValue: viewModel)
         self.isLyricsPresented = isLyricsPresented.wrappedValue
-        setLyricsPresented = { isLyricsPresented.wrappedValue = $0 }
+        toggleLyrics = { isLyricsPresented.wrappedValue.toggle() }
         self.openArtist = openArtist
         self.otherService = otherService
         self.trace = trace
@@ -534,7 +535,7 @@ struct PlaybackControlsView: View {
                                 width: PlaybackTransportLayoutPolicy.nowPlayingArtworkSize,
                                 height: PlaybackTransportLayoutPolicy.nowPlayingArtworkSize
                             ),
-                            action: { setLyricsPresented(!isLyricsPresented) }
+                            action: toggleLyrics
                         ) {
                             EmptyView()
                         }
@@ -600,7 +601,7 @@ struct PlaybackControlsView: View {
             accessibilityLabel: SpotiglassL10n.string("playback.controls.lyrics"),
             accessibilityHint: lyricsButtonHint,
             size: SpotiglassDesign.Layout.iconButtonFrame,
-            action: { setLyricsPresented(!isLyricsPresented) }
+            action: toggleLyrics
         ) {
             Image(systemName: "music.note.list")
                 .foregroundStyle(
