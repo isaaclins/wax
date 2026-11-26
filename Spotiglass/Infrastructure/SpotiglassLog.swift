@@ -636,12 +636,14 @@ enum BugReportLogCopy {
         }
 
         /// Names that builds before #603 wrote without quotes: a palette search, the song that
-        /// came on in Apple Music, the album search behind a pin and Autoplay's artist search.
+        /// came on in Apple Music, the album search behind a pin and Autoplay's artist search, in
+        /// a call's start and end line and in the running calls a hang lists. `(?m)`: a piece
+        /// holds many lines, and each line's end counts.
         private static let unquotedNames: [NSRegularExpression?] = [
-            pattern(#"palette search '(.*?)'(?= provider| answered|$)"#),
+            pattern(#"(?m)palette search '(.*?)'(?= provider| answered|$)"#),
             pattern(#"current entry -> \S+ "(.*?)"(?: by (.*?))? (?=\(position )"#),
-            pattern(#"album search for a pin \((?!“)(.*) / (.*?)\)(?= done| failed| \(after|$)"#),
-            pattern(#"autoplay artist search \((?!“)(.*?)\)(?= done| failed| \(after|$)"#),
+            pattern(#"(?m)album search for a pin \((?!“)(.*?) / (.*?)\)(?= done| failed| \(after| \(#\d|;|$)"#),
+            pattern(#"(?m)autoplay artist search \((?!“)(.*?)\)(?= done| failed| \(after| \(#\d|;|$)"#),
         ]
         /// “…”: ``SpotiglassLog/personal(_:)``, control and window names in interaction lines.
         private static let quoted = pattern(#"“[^“”\n]*”"#)

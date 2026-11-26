@@ -266,15 +266,24 @@ final class SpotiglassLogTests: XCTestCase {
             "2026-11-25T15:17:03.000Z [INFO] [playback] player current entry -> b7aXaLAhy::5GlvfRUeI \"Let It Happen\" by Tame Impala (position 9 of 440): after play",
             "2026-11-25T15:17:04.000Z [INFO] [calls] → #7 MusicKit album search for a pin (Currents / Tame Impala) (after interaction #3 click on button “Pin”)",
             "2026-11-25T15:17:05.000Z [INFO] [calls] ← #8 MusicKit autoplay artist search (Pond) done after 120.4 ms",
+            "2026-11-25T15:17:06.000Z [INFO] [calls] → #9 MusicKit autoplay artist search (Khruangbin)",
+            "2026-11-25T15:17:06.100Z [INFO] [calls] → #10 MusicKit album search for a pin (Lonerism / Tame Impala)",
+            "2026-11-25T15:17:08.000Z [ERROR] [performance] MAIN THREAD BLOCKED for 2000.0 ms; calls running: MusicKit album search for a pin (Innerspeaker / Tame Impala) (#10, 1.9 s); MusicKit autoplay artist search (Melody's Echo Chamber) (#9, 2.0 s)",
+            "2026-11-25T15:17:09.000Z [INFO] [playback] player status paused -> playing at 0:00.0",
         ]
         try Data((older.joined(separator: "\n") + "\n").utf8).write(to: directory.appendingPathComponent(FileLogSink.previousFileName))
         let destination = directory.appendingPathComponent("report.txt")
         try BugReportLogCopy.write(from: directory, to: destination, keeping: ["Pin"])
         let copy = try String(contentsOf: destination, encoding: .utf8)
-        for personal in ["bad bunny", "Let It Happen", "Tame Impala", "Currents", "Pond"] {
+        for personal in [
+            "bad bunny", "Let It Happen", "Tame Impala", "Currents", "Pond", "Khruangbin", "Lonerism", "Innerspeaker", "Melody's Echo Chamber",
+        ] {
             XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
         }
-        for kept in ["provider 412ms", "answered in part", "(position 9 of 440): after play", "button “Pin”", "done after 120.4 ms"] {
+        for kept in [
+            "provider 412ms", "answered in part", "(position 9 of 440): after play", "button “Pin”", "done after 120.4 ms",
+            "(#10, 1.9 s); MusicKit autoplay artist search (“#", "(#9, 2.0 s)", "player status paused -> playing",
+        ] {
             XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
         }
     }
