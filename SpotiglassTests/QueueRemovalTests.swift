@@ -79,6 +79,22 @@ final class QueueRemovalTests: XCTestCase {
         XCTAssertNil(h.queue.lastRemoval, "nothing left to undo")
     }
 
+    /// Undo pressed twice for the same removal (#608): the second has nothing to put back. That
+    /// failure is logged once, and the panel reads the queue again instead of guessing.
+    func testASecondUndoOfTheSameRemovalIsLoggedAndTheQueueReadAgain() async throws {
+        let h = try await playing(songs)
+        let receiptResult = await h.queue.removeItems(withIDs: ids(h, [songs[2]]))
+        let receipt = try XCTUnwrap(receiptResult)
+        await h.queue.undoRemoval(receipt)
+
+        await h.queue.undoRemoval(receipt)
+
+        XCTAssertEqual(h.player.upcomingURIs, Array(songs.dropFirst()), "the song is back once, not twice")
+        XCTAssertEqual(h.queue.upcomingItems.map(\.uri), Array(songs.dropFirst()))
+        let logged = try SpotiglassLogReader.lines(containing: "putting removed songs back in the queue failed")
+        XCTAssertFalse(logged.isEmpty, "the failed undo reaches the log")
+    }
+
     /// Clear takes out everything after the current song (also what the panel doesn't list), the
     /// current song keeps playing, and Undo brings it all back.
     func testClearRemovesEverythingAfterTheCurrentSongAndUndoBringsItBack() async throws {
