@@ -8,7 +8,9 @@ import QuartzCore
 ///
 /// Inputs are real events: keys and clicks are posted to the app's own event queue, so they go
 /// through the same local key monitors, menu key equivalents and hit testing as a press on the
-/// keyboard or trackpad. The window server step before that is left out.
+/// keyboard or trackpad. The window server step before that is left out. Keys are made from a
+/// Core Graphics event, as the keyboard's are: SwiftUI's menu bar items ignore a key made with
+/// `NSEvent.keyEvent` (#677).
 ///
 /// The end of an interaction is the first Core Animation commit after which the state the screen
 /// draws from has changed (the player says playing, the palette is open, the list has scrolled).
@@ -239,7 +241,7 @@ final class InteractionLatencyProbe {
                     return await probe.waitUntil { $0.browser?.sidebarSelection == .search && $0.browser?.canNavigateBack == true }
                 },
                 start: { probe in
-                    probe.press(.leftBracket, [.command])
+                    guard probe.pressMenuShortcut(titled: SpotiglassL10n.string("menu.view.back")) else { return nil }
                     return { probe.browser?.sidebarSelection != .search }
                 }
             ),
@@ -508,7 +510,7 @@ final class InteractionLatencyProbe {
     // MARK: - Input
 
     enum Key {
-        case space, escape, delete, rightArrow, leftArrow, leftBracket, comma, k, m, s, q, l, f, r
+        case space, escape, delete, rightArrow, leftArrow, comma, k, m, s, q, l, f, r
 
         var code: UInt16 {
             switch self {
@@ -517,7 +519,6 @@ final class InteractionLatencyProbe {
             case .delete: 51
             case .rightArrow: 124
             case .leftArrow: 123
-            case .leftBracket: 33
             case .comma: 43
             case .k: 40
             case .m: 46
@@ -536,7 +537,6 @@ final class InteractionLatencyProbe {
             case .delete: "\u{7F}"
             case .rightArrow: String(Character(UnicodeScalar(NSRightArrowFunctionKey)!))
             case .leftArrow: String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!))
-            case .leftBracket: "["
             case .comma: ","
             case .k: "k"
             case .m: "m"
@@ -552,24 +552,69 @@ final class InteractionLatencyProbe {
     }
 
     private func press(_ key: Key, _ modifiers: NSEvent.ModifierFlags = []) {
-        guard let window = NSApp.keyWindow ?? window else { return }
-        var flags = modifiers
-        if key.isArrow { flags.formUnion([.function, .numericPad]) }
+        press(code: Self.keyCode(for: key), modifiers, arrow: key.isArrow)
+    }
+
+    /// Presses the shortcut the menu bar shows for the item titled `title`. macOS moves a
+    /// shortcut whose character the keyboard layout can't type to another key: on a Swiss German
+    /// layout Back's ⌘[ is ⌘ö, so pressing the key code of `[` (`ü` there) did nothing (#677).
+    private func pressMenuShortcut(titled title: String) -> Bool {
+        func find(in menu: NSMenu) -> NSMenuItem? {
+            for item in menu.items {
+                if item.title == title, !item.keyEquivalent.isEmpty { return item }
+                if let found = item.submenu.flatMap(find) { return found }
+            }
+            return nil
+        }
+        guard let item = NSApp.mainMenu.flatMap(find), let code = Self.keyCode(typing: item.keyEquivalent) else {
+            return false
+        }
+        press(code: code, item.keyEquivalentModifierMask, arrow: false)
+        return true
+    }
+
+    private func press(code: UInt16, _ modifiers: NSEvent.ModifierFlags, arrow: Bool) {
+        guard NSApp.keyWindow ?? window != nil else { return }
         inputSentAt = inputSentAt ?? CACurrentMediaTime()
-        for type in [NSEvent.EventType.keyDown, .keyUp] {
-            guard let event = NSEvent.keyEvent(
-                with: type,
-                location: .zero,
-                modifierFlags: flags,
-                timestamp: ProcessInfo.processInfo.systemUptime,
-                windowNumber: window.windowNumber,
-                context: nil,
-                characters: key.characters,
-                charactersIgnoringModifiers: key.characters,
-                isARepeat: false,
-                keyCode: key.code
-            ) else { continue }
+        for keyDown in [true, false] {
+            guard let event = Self.keyEvent(code: code, modifiers, arrow: arrow, keyDown: keyDown) else { continue }
             NSApp.postEvent(event, atStart: false)
+        }
+    }
+
+    /// A key event as the keyboard makes it: built from a Core Graphics event, which SwiftUI's menu
+    /// bar items need to answer their shortcut. One made with `NSEvent.keyEvent` reaches the key
+    /// monitors and the views, but the menu bar finds its item switched off and swallows it, so
+    /// ⌥⌘S, ⌥⌘R, ⌘→ and ⌘[ never did anything (#677). Its characters come from the keyboard
+    /// layout, as a real press's do; setting them by hand makes the menu bar ignore it too.
+    static func keyEvent(code: UInt16, _ modifiers: NSEvent.ModifierFlags, arrow: Bool, keyDown: Bool) -> NSEvent? {
+        guard let event = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: keyDown) else { return nil }
+        var flags: CGEventFlags = []
+        if modifiers.contains(.command) { flags.insert(.maskCommand) }
+        if modifiers.contains(.option) { flags.insert(.maskAlternate) }
+        if modifiers.contains(.shift) { flags.insert(.maskShift) }
+        if modifiers.contains(.control) { flags.insert(.maskControl) }
+        if arrow { flags.formUnion([.maskSecondaryFn, .maskNumericPad]) }
+        event.flags = flags
+        return NSEvent(cgEvent: event)
+    }
+
+    /// The key that types `key`'s character on this Mac's layout (`m` is not on the same key
+    /// everywhere), or its US key code for the keys every layout has in one place.
+    static func keyCode(for key: Key) -> UInt16 {
+        switch key {
+        case .space, .escape, .delete, .rightArrow, .leftArrow: key.code
+        default: keyCode(typing: key.characters) ?? key.code
+        }
+    }
+
+    /// The key code that types `character` without modifiers on this Mac's keyboard layout.
+    static func keyCode(typing character: String) -> UInt16? {
+        let wanted = character.lowercased()
+        return (0..<UInt16(128)).first { code in
+            // Shift, ⌘ and the other modifier keys make a flags-changed event, which has no characters.
+            guard let event = keyEvent(code: code, [], arrow: false, keyDown: true), event.type == .keyDown else { return false }
+            return event.charactersIgnoringModifiers == wanted
         }
     }
 

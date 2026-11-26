@@ -421,6 +421,11 @@ final class MenuKeyEquivalentTests: XCTestCase {
         let modifiers: NSEvent.ModifierFlags
     }
 
+    private static let systemEditActions: Set<Selector> = [
+        NSSelectorFromString("startDictation:"),
+        #selector(NSApplication.orderFrontCharacterPalette(_:)),
+    ]
+
     /// Walks the menu tree, skipping the Services submenu. macOS populates that
     /// one from whatever other apps are installed on the running machine, and
     /// those items bring their own key equivalents (Terminal alone contributes
@@ -432,6 +437,11 @@ final class MenuKeyEquivalentTests: XCTestCase {
     ) -> [MenuKeyEquivalentItem] {
         menu.items.flatMap { item in
             guard item.submenu !== NSApp.servicesMenu else { return [MenuKeyEquivalentItem]() }
+            // AppKit adds Start Dictation… and Emoji & Symbols to the Edit menu itself, each with a
+            // hidden twin; once the menu has been updated (opened, or after a change since #677)
+            // the pair share one shortcut. The hidden twin is the system's; the visible item is
+            // still checked against the app's own shortcuts.
+            if item.isHidden, let action = item.action, Self.systemEditActions.contains(action) { return [] }
             let path = parentPath.isEmpty ? item.title : "\(parentPath) > \(item.title)"
             let current = item.keyEquivalent.isEmpty
                 ? []

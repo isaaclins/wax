@@ -6,8 +6,8 @@
       "measuredMs": 123
     },
     "page.back": {
-      "issue": 677,
-      "measuredMs": null
+      "issue": 730,
+      "measuredMs": 63
     },
     "page.search": {
       "issue": 675,
@@ -22,16 +22,16 @@
       "measuredMs": 53
     },
     "playback.repeat": {
-      "issue": 677,
-      "measuredMs": null
+      "issue": 730,
+      "measuredMs": 60
     },
     "playback.seek": {
-      "issue": 677,
-      "measuredMs": null
+      "issue": 730,
+      "measuredMs": 46
     },
     "playback.shuffle": {
-      "issue": 677,
-      "measuredMs": null
+      "issue": 730,
+      "measuredMs": 59
     },
     "queue.toggle": {
       "issue": 673,
@@ -47,9 +47,9 @@
     "playback.toggle.click": 80,
     "playback.next": null,
     "playback.previous": null,
-    "playback.seek": null,
-    "playback.shuffle": null,
-    "playback.repeat": null,
+    "playback.seek": 41,
+    "playback.shuffle": 52,
+    "playback.repeat": 59,
     "palette.open": 291,
     "palette.type": 217,
     "palette.close": 254,
@@ -57,7 +57,7 @@
     "queue.toggle": 209,
     "lyrics.toggle": 547,
     "page.search": 370,
-    "page.back": null,
+    "page.back": 79,
     "page.sidebarClick": null,
     "list.scroll": 37,
     "settings.open": 303,
