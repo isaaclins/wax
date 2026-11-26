@@ -47,7 +47,7 @@ final class AppConnectionStateTests: XCTestCase {
     }
 
     func testFailedCopy() {
-        let state = AppConnectionState.failed(AuthDisplayError(message: "Token expired"))
+        let state = AppConnectionState.failed(DisplayError.reported(ErrorMessage(message: "Token expired")))
         XCTAssertEqual(state.title, "Spotify sign-in needs attention")
         XCTAssertEqual(state.message, "Token expired")
         XCTAssertFalse(state.isConnectedOrRefreshing)

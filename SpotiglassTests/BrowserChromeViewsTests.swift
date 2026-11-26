@@ -454,7 +454,7 @@ final class BrowserWindowTitleTests: XCTestCase {
         return view.convert(view.bounds, to: nil)
     }
 
-    private func hostBrowser(_ viewModel: PlaylistBrowserViewModel) -> NSWindow {
+    private func hostBrowser(_ viewModel: PlaylistBrowserViewModel) throws -> NSWindow {
         AppKitTestSupport.activateAppIfNeeded()
         let store = PinnedItemsStore(cache: InMemoryPinnedItemsCache())
         store.bind(userID: "u1")
@@ -468,6 +468,7 @@ final class BrowserWindowTitleTests: XCTestCase {
         )
         .environmentObject(store)
         .environmentObject(LyricsOverlayController())
+        .environmentObject(try ViewTestHost.makeSettingsStore())
         .defaultAppStorage(ViewTestHost.appStorageDefaults)
         // RootView gives every screen this flexible space (#515); the real bar has it too.
         .toolbar { ToolbarSpacer(.flexible) }
@@ -506,7 +507,7 @@ final class BrowserWindowTitleTests: XCTestCase {
         let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await viewModel.load()
         await viewModel.selectSidebar(.home)
-        let window = hostBrowser(viewModel)
+        let window = try hostBrowser(viewModel)
         let home = ViewTestHost.localizedString("browser.home")
         let size = window.frame.size
 
@@ -546,7 +547,7 @@ final class BrowserWindowTitleTests: XCTestCase {
         let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await viewModel.load()
         await viewModel.selectSidebar(.playlist("p1"))
-        let window = hostBrowser(viewModel)
+        let window = try hostBrowser(viewModel)
         let playlistQueue = try XCTUnwrap(queueButtonFrame(in: window))
 
         await viewModel.selectSidebar(.home)
@@ -576,7 +577,7 @@ final class BrowserWindowTitleTests: XCTestCase {
         let viewModel = PlaylistBrowserViewModel(api: api, cache: MockBrowsingCache())
         await viewModel.load()
         await viewModel.selectSidebar(.home)
-        let window = hostBrowser(viewModel)
+        let window = try hostBrowser(viewModel)
         XCTAssertEqual(window.title, ViewTestHost.localizedString("browser.home"))
 
         // A pinned track selects its row while it starts playing, with Home still on screen.

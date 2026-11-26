@@ -24,14 +24,6 @@
     ]
   },
   {
-    "file": "Spotiglass/Browsing/HomeFeedModels.swift",
-    "kind": "var.instance",
-    "name": "value",
-    "hints": [
-      "unused"
-    ]
-  },
-  {
     "file": "Spotiglass/Browsing/PlaylistBrowserCommandPaletteConfiguration.swift",
     "kind": "var.instance",
     "name": "commandPaletteManager",
@@ -163,14 +155,6 @@
     "file": "Spotiglass/Playback/SpotifyPlaybackBridge.swift",
     "kind": "var.parameter",
     "name": "body",
-    "hints": [
-      "unused"
-    ]
-  },
-  {
-    "file": "Spotiglass/Services/SpotifyAPIClient+Search.swift",
-    "kind": "function.method.instance",
-    "name": "searchTracks(query:limit:)",
     "hints": [
       "unused"
     ]

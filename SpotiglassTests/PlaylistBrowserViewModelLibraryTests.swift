@@ -435,7 +435,7 @@ final class PlaylistBrowserViewModelLibraryTests: XCTestCase {
 
         await viewModel.unfavoriteRows([rows[0]])
 
-        XCTAssertEqual(viewModel.trackMutationToast, "Offline")
+        XCTAssertEqual(viewModel.trackMutationToast?.text, "Offline")
         XCTAssertEqual(
             cache.cachedTracks[SpotiglassSidebarLibrary.likedSongsVirtualPlaylistID]?.map(\.id),
             ["liked-visible", "liked-remaining"]
@@ -535,7 +535,7 @@ final class PlaylistBrowserViewModelLibraryTests: XCTestCase {
             destinationName: destination.name
         )
 
-        XCTAssertTrue(viewModel.trackMutationToast?.contains("both playlists") == true)
+        XCTAssertTrue(viewModel.trackMutationToast?.text.contains("both playlists") == true)
         XCTAssertEqual(api.playlistTracksInvocationCountByID[source.id], 1)
         XCTAssertNil(cache.cachedTracks[destination.id])
         XCTAssertEqual(PlaylistBrowsingTestFixtures.playlistTracks(viewModel.detailState).map(\.id), ["move-track"])
@@ -596,7 +596,7 @@ final class PlaylistBrowserViewModelLibraryTests: XCTestCase {
 
         XCTAssertTrue(api.saveTracksCalls.isEmpty)
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.string("playlist.mutation.likedSongsRequiresReconnect")
         )
     }
@@ -674,7 +674,7 @@ final class PlaylistBrowserViewModelLibraryTests: XCTestCase {
         await viewModel.favoriteRows([row])
 
         XCTAssertEqual(
-            viewModel.trackMutationToast,
+            viewModel.trackMutationToast?.text,
             SpotiglassL10n.string("playlist.mutation.noEligibleTracks")
         )
         XCTAssertTrue(api.saveTracksCalls.isEmpty)
@@ -907,7 +907,7 @@ final class PlaylistBrowserViewModelLibraryTests: XCTestCase {
         } else {
             XCTFail("Expected reverted playlist detail")
         }
-        XCTAssertEqual(viewModel.trackMutationToast, "Offline")
+        XCTAssertEqual(viewModel.trackMutationToast?.text, "Offline")
     }
 
     /// A failed rename of a playlist without a name puts the blank name back, not the stand-in it
@@ -934,7 +934,7 @@ final class PlaylistBrowserViewModelLibraryTests: XCTestCase {
         XCTAssertEqual(viewModel.playlistsByID[playlist.id]?.nameAsSent, "")
         XCTAssertEqual(viewModel.playlistsByID[playlist.id]?.isUnnamed, true)
         XCTAssertEqual(viewModel.playlistState.currentValue?.first?.isUnnamed, true)
-        XCTAssertEqual(viewModel.trackMutationToast, "Offline")
+        XCTAssertEqual(viewModel.trackMutationToast?.text, "Offline")
     }
 
     /// The rename field starts with the stand-in a nameless playlist shows; confirming it unchanged
@@ -1013,12 +1013,12 @@ final class PlaylistBrowserViewModelLibraryTests: XCTestCase {
 
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.title), ["One", "Two", "Three"])
         XCTAssertNil(viewModel.currentUserID)
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("library.profile.loadFailed"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.string("library.profile.loadFailed"))
 
-        viewModel.trackMutationToastText = nil
+        viewModel.trackMutationToast = nil
         await viewModel.refreshPlaylists(trigger: .automatic)
         XCTAssertEqual(api.currentUserPlaylistsCallCount, 2)
-        XCTAssertNil(viewModel.trackMutationToast, "the same failure isn't announced again")
+        XCTAssertNil(viewModel.trackMutationToast?.text, "the same failure isn't announced again")
     }
 }
 

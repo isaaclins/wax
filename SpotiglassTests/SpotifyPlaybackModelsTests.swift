@@ -56,10 +56,10 @@ final class SpotifyPlaybackModelsTests: XCTestCase {
     }
 
     func testPlaybackDisplayErrorEqualityIgnoresID() {
-        let a = PlaybackDisplayError(title: "T", message: "M", recoveryAction: .reconnect)
-        let b = PlaybackDisplayError(title: "T", message: "M", recoveryAction: .reconnect)
+        let a = DisplayError.reported(ErrorMessage(title: "T", message: "M", action: .reconnect))
+        let b = DisplayError.reported(ErrorMessage(title: "T", message: "M", action: .reconnect))
         XCTAssertEqual(a, b)
-        XCTAssertNotEqual(a, PlaybackDisplayError(title: "X", message: "M", recoveryAction: nil))
+        XCTAssertNotEqual(a, DisplayError.reported(ErrorMessage(title: "X", message: "M", action: nil)))
     }
 
     func testArtistTapTargetStableID() {

@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 struct EmptyStateView: View {
@@ -18,85 +17,5 @@ struct EmptyStateView: View {
         .padding(SpotiglassDesign.spacingL)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
-    }
-}
-
-struct ErrorStateView: View {
-    let error: BrowsingDisplayError
-    /// Loads what failed again; without it the view only explains the failure.
-    var retry: (() -> Void)?
-    @State private var isShowingDiagnosticAlert = false
-
-    var body: some View {
-        VStack(spacing: SpotiglassDesign.spacingM) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-
-            Text(error.title)
-                .font(.title3.weight(.semibold))
-
-            Text(error.message)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: SpotiglassDesign.Layout.messageMaxWidth)
-
-            if let retry {
-                Button(SpotiglassL10n.string("browser.retry"), action: retry)
-            }
-
-            // The details are a request line, a status, a header dump and a raw
-            // JSON body. That is for a bug report, not for someone who wanted a
-            // playlist, so it waits behind a button instead of opening itself
-            // over the window (#148).
-            if let diagnosticDetails = error.diagnosticDetails {
-                Button(SpotiglassL10n.string("browser.showDetails")) {
-                    isShowingDiagnosticAlert = true
-                }
-                .buttonStyle(.link)
-                .help(SpotiglassL10n.string("browser.showDetails.hint"))
-                .alert(error.title, isPresented: $isShowingDiagnosticAlert) {
-                    Button(SpotiglassL10n.string("browser.copyError")) {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(diagnosticDetails, forType: .string)
-                    }
-                    Button(SpotiglassL10n.string("browser.ok"), role: .cancel) {}
-                } message: {
-                    Text(SpotiglassL10n.string("browser.diagnostics.message"))
-                }
-            }
-        }
-        .padding(SpotiglassDesign.spacingL)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .contain)
-    }
-}
-
-struct StaleCacheBanner: View {
-    let error: BrowsingDisplayError?
-    /// Loads what is missing again; without it the banner only explains.
-    var retry: (() -> Void)?
-
-    private var message: String {
-        error?.message ?? SpotiglassL10n.format("browser.cachedFallback", MusicServiceSelection.current.displayName)
-    }
-
-    var body: some View {
-        HStack(spacing: SpotiglassDesign.spacingS) {
-            Text(message)
-                .multilineTextAlignment(.center)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-                .help(message)
-            if let retry {
-                Button(SpotiglassL10n.string("browser.retry"), action: retry)
-                    .buttonStyle(.link)
-            }
-        }
-        .font(.caption)
-        .padding(SpotiglassDesign.spacingS)
-        .background(.background, in: Capsule())
-        .padding(SpotiglassDesign.spacingM)
     }
 }

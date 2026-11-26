@@ -150,8 +150,8 @@ enum HomeSectionState<Value: Equatable>: Equatable {
     case loading
     case loaded(Value)
     case unavailable
-    /// Looked up when shown, so a failed section follows a language switch (#548).
-    case failed(LocalizedText)
+    /// Reported when it failed; its text is looked up when shown (#548, #608).
+    case failed(DisplayError)
 
     var value: Value? {
         if case let .loaded(value) = self { return value }

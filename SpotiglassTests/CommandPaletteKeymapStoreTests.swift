@@ -157,7 +157,7 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         }
         """
         store.applyEditorText()
-        XCTAssertNil(store.lastError)
+        XCTAssertNil(store.lastError?.message)
 
         let rows = try JSONDecoder()
             .decode(CommandPaletteKeymapFile.self, from: Data(store.editorText.utf8))
@@ -193,7 +193,7 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         }
         """
         store.applyEditorText()
-        XCTAssertNil(store.lastError)
+        XCTAssertNil(store.lastError?.message)
 
         let rebound = try CommandShortcut(keystroke: "shift-cmd-9")
         try store.setBinding(
@@ -256,7 +256,7 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         """
         store.applyEditorText()
 
-        XCTAssertNotNil(store.lastError, "an invalid keystroke must be reported")
+        XCTAssertNotNil(store.lastError?.message, "an invalid keystroke must be reported")
         let after = try JSONDecoder().decode(SpotiglassSettingsFile.self, from: Data(contentsOf: url)).keybinds
         XCTAssertEqual(after, before, "nothing may be written until every row validates")
     }
@@ -275,14 +275,14 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         store.applyEditorText()
 
         XCTAssertEqual(
-            store.lastError,
+            store.lastError?.message,
             SpotiglassL10n.format(
                 "keymap.error.invalidJSON",
                 SpotiglassL10n.string("palette.settings.advanced")
             )
         )
-        XCTAssertFalse(store.lastError?.contains("dataCorrupted") == true)
-        XCTAssertFalse(store.lastError?.contains("not valid JSON") == true)
+        XCTAssertFalse(store.lastError?.message.contains("dataCorrupted") == true)
+        XCTAssertFalse(store.lastError?.message.contains("not valid JSON") == true)
     }
 
     func testApplyEditorTextNamesMissingValueAndJSONLocation() throws {
@@ -299,7 +299,7 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         let source = SpotiglassL10n.string("palette.settings.advanced")
         let location = SpotiglassL10n.format("keymap.error.location", source, "bindings[0].command")
         XCTAssertEqual(
-            store.lastError,
+            store.lastError?.message,
             SpotiglassL10n.format("keymap.error.missingValue", location)
         )
     }
@@ -314,11 +314,11 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
 
         try Data(#"{"version":2,"keybinds":["#.utf8).write(to: url)
         store.reloadFromDisk()
-        XCTAssertNotNil(store.lastError)
+        XCTAssertNotNil(store.lastError?.message)
 
         try good.write(to: url)
         store.reloadFromDisk()
-        XCTAssertNil(store.lastError)
+        XCTAssertNil(store.lastError?.message)
         XCTAssertNil(settingsStore.lastError)
     }
 
@@ -349,7 +349,7 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
 
         XCTAssertEqual(store.primaryShortcut(for: CommandPaletteCommandID.toggleQueue), try CommandShortcut(keystroke: "shift-cmd-8"))
         XCTAssertEqual(store.unusableRows, [fromNewerBuild])
-        XCTAssertNotNil(store.unusableRowsText)
+        XCTAssertNotNil(store.unusableRowsNotice)
         // One row reads as one, not "1 saved shortcuts".
         for (language, one, other) in [
             ("en", "One saved shortcut", "2 saved shortcuts"),
@@ -371,11 +371,15 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         XCTAssertTrue(saved.contains(custom), "the custom shortcut is gone")
         XCTAssertTrue(saved.contains(fromNewerBuild), "the newer build's row is gone")
         XCTAssertTrue(saved.contains { $0.command == CommandPaletteCommandID.openSettings && $0.keystrokes == ["shift-cmd-9"] })
-        XCTAssertNotNil(store.unusableRowsText, "the notice stays while the row does")
+        XCTAssertNotNil(store.unusableRowsNotice, "the notice stays while the row does")
 
         try store.clearBinding(commandID: CommandPaletteCommandID.openSettings)
         let afterClear = try JSONDecoder().decode(SpotiglassSettingsFile.self, from: try Data(contentsOf: url)).keybinds
         XCTAssertEqual(afterClear, [custom, fromNewerBuild])
+        // Shown and logged through one report, once: two saves later the same row is not logged again (#608).
+        let logged = try SpotiglassLogReader.lines(containing: url.path).filter { $0.contains("reading shortcut rows") }
+        XCTAssertEqual(logged.count, 1, "\(logged)")
+        XCTAssertTrue(logged.first?.contains("keys [\"cmd-unknown\"]") == true, "\(logged)")
     }
 
     /// A new row typed into the advanced editor is still checked: only rows that were already
@@ -389,7 +393,7 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         store.editorText = #"{"bindings":[{"keystrokes":["cmd-unknown"],"command":"custom.command","when":"always"}]}"#
         store.applyEditorText()
 
-        XCTAssertNotNil(store.lastError)
+        XCTAssertNotNil(store.lastError?.message)
         XCTAssertEqual(try Data(contentsOf: url), before)
     }
 
@@ -405,9 +409,9 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         store.reloadFromDisk()
 
         XCTAssertEqual(
-            store.lastError,
+            store.lastError?.message,
             SpotiglassL10n.format("keymap.error.reloadFailed", url.path)
         )
-        XCTAssertFalse(store.lastError?.contains("dataCorrupted") == true)
+        XCTAssertFalse(store.lastError?.message.contains("dataCorrupted") == true)
     }
 }

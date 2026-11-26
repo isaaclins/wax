@@ -42,8 +42,6 @@ enum PlaylistDetailHeaderPinning {
 struct PlaylistDetailContent: View {
     let detail: PlaylistDetailViewModel
     var currentUserID: String?
-    @Binding var pendingScrollRestoreTrackID: String?
-    let onTrackEnteredViewportApproximation: (String) -> Void
     let playURI: (String) -> Void
     /// Each row reads from here whether it is the playing one, so play/pause and a new track
     /// re-render only the rows that change, not this view and every row (#422).
@@ -81,8 +79,6 @@ struct PlaylistDetailContent: View {
     init(
         detail: PlaylistDetailViewModel,
         currentUserID: String? = nil,
-        pendingScrollRestoreTrackID: Binding<String?>,
-        onTrackEnteredViewportApproximation: @escaping (String) -> Void,
         playURI: @escaping (String) -> Void,
         playback: TrackRowPlaybackSource,
         togglePlayPause: @escaping () -> Void,
@@ -97,8 +93,6 @@ struct PlaylistDetailContent: View {
     ) {
         self.detail = detail
         self.currentUserID = currentUserID
-        _pendingScrollRestoreTrackID = pendingScrollRestoreTrackID
-        self.onTrackEnteredViewportApproximation = onTrackEnteredViewportApproximation
         self.playURI = playURI
         self.playback = playback
         self.togglePlayPause = togglePlayPause
@@ -212,8 +206,6 @@ struct PlaylistDetailContent: View {
                                 )
                             }
                         },
-                        pendingScrollRestoreTrackID: $pendingScrollRestoreTrackID,
-                        onFirstVisibleTrackChanged: onTrackEnteredViewportApproximation,
                         playSelection: { selectedIDs in
                             // Play the first selected row in list order, so a
                             // multi-row selection has a defined result.

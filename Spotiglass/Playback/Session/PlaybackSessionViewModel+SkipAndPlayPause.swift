@@ -235,10 +235,12 @@ extension PlaybackSessionViewModel {
         // A later press, or a play started after it, decides what is shown.
         guard request.serial == playPauseRequestSerial,
               request.serial > playPauseSupersededThrough else { return }
-        SpotiglassLog.error(.playback, "togglePlayPause refused: \(error.localizedDescription)")
         // An error that says what to do (sign in again, Premium) came meanwhile: it stays.
-        if case .error = connectionState { return }
-        let displayError = Self.displayError(for: error, service: service)
+        if case .error = connectionState {
+            SpotiglassLog.error(.playback, "togglePlayPause refused: \(SpotiglassLog.describe(error)); the error already shown stays")
+            return
+        }
+        let displayError = reportPlaybackError(error, while: "playing or pausing", Self.displayError(for: error, service: service))
         localCommandExpectsPlaying = nil
         clearPushedPlayStateExpectation()
         guard Self.playPauseRefusalGoesBack(error) else {
@@ -247,7 +249,7 @@ extension PlaybackSessionViewModel {
         }
         let playerState = request.usesInAppPlayer ? pageReportedPlayState : playPauseConfirmedState
         setConnectionState(playerState ?? request.stateBefore)
-        showRefusedPlayPause(refusedPlayPauseLine(for: error, displayError: displayError, shouldPause: request.shouldPause))
+        showRefusedPlayPause(displayError.with { $0 = refusedPlayPauseLine(for: error, displayError: displayError, shouldPause: request.shouldPause) })
     }
 
     private func sendReadPlayerCommand(_ request: PlayPauseRequest, deviceID: String) async throws {
@@ -289,9 +291,9 @@ extension PlaybackSessionViewModel {
     /// limit's are already sentences.
     private func refusedPlayPauseLine(
         for error: Error,
-        displayError: PlaybackDisplayError,
+        displayError: DisplayError,
         shouldPause: Bool
-    ) -> PlaybackDisplayError {
+    ) -> ErrorMessage {
         let playbackError = MusicPlaybackError.from(error)
         let keepsServiceMessage: Bool
         switch (playbackError?.service, playbackError?.reason) {
@@ -301,7 +303,7 @@ extension PlaybackSessionViewModel {
             keepsServiceMessage = false
         }
         let isAppleMusic = service == .appleMusic
-        return PlaybackDisplayError(
+        return ErrorMessage(
             title: SpotiglassL10n.string(shouldPause ? "playback.refused.pause" : "playback.refused.play"),
             // Looked up when shown, so it follows a language switch (#548).
             message: keepsServiceMessage
@@ -309,7 +311,7 @@ extension PlaybackSessionViewModel {
                 : isAppleMusic
                     ? SpotiglassL10n.string("error.playback.appleMusic.failed")
                     : SpotiglassL10n.string("error.playback.spotify.failed"),
-            recoveryAction: nil
+            action: nil
         )
     }
 
@@ -325,7 +327,7 @@ extension PlaybackSessionViewModel {
         }
     }
 
-    private func showRefusedPlayPause(_ error: PlaybackDisplayError) {
+    private func showRefusedPlayPause(_ error: DisplayError) {
         refusedPlayPauseClearTask?.cancel()
         refusedPlayPause = error
         refusedPlayPauseClearTask = Task { @MainActor [weak self] in
@@ -750,7 +752,7 @@ extension PlaybackSessionViewModel {
         }
         guard let commandDeviceID else {
             endSkipPreview()
-            setConnectionState(.error(Self.playbackDeviceReconnectRequiredError()))
+            showPlaybackError(nil, while: "skipping with no player device", Self.playbackDeviceReconnectRequiredError())
             return false
         }
         do {

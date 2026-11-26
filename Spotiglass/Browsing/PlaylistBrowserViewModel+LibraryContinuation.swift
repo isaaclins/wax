@@ -25,7 +25,7 @@ extension PlaylistBrowserViewModel {
     ) async {
         guard !Task.isCancelled else { return }
         guard let seed = row.spotifyTrackForPinning() else {
-            trackMutationToastText = LocalizedText(SpotiglassL10n.string("library.continuation.unavailable"))
+            trackMutationToast = Self.failureToast(nil, while: "queueing more like a song that can't seed it", level: .info, SpotiglassL10n.string("library.continuation.unavailable"))
             return
         }
         let generation = libraryContinuationGeneration
@@ -41,7 +41,7 @@ extension PlaylistBrowserViewModel {
             // Each failed source was logged as it failed; this is what the listener is told.
             SpotiglassLog.info(.browsing, "Library continuation: nothing loaded, nothing queued")
             guard generation == libraryContinuationGeneration, !Task.isCancelled else { return }
-            trackMutationToastText = LocalizedText(SpotiglassL10n.string("library.continuation.loadFailed"))
+            trackMutationToast = Self.failureToast(error, while: "loading the library to continue from", SpotiglassL10n.string("library.continuation.loadFailed"))
             return
         }
         guard generation == libraryContinuationGeneration, !Task.isCancelled else { return }
@@ -52,9 +52,9 @@ extension PlaylistBrowserViewModel {
         )
         guard !continuation.isEmpty else {
             // With sources that didn't load, "too little music" would be a guess: say what happened.
-            trackMutationToastText = LocalizedText(SpotiglassL10n.string(
+            trackMutationToast = .done(LocalizedText(SpotiglassL10n.string(
                 collection.sourcesFailed ? "library.continuation.loadFailed" : "library.continuation.empty"
-            ))
+            )))
             return
         }
 
@@ -65,25 +65,25 @@ extension PlaylistBrowserViewModel {
             // QueueViewModel normally publishes its own detailed playback error.
             // Keep a localized browser message as a visible fallback for queue
             // implementations that cannot provide one.
-            trackMutationToastText = LocalizedText(SpotiglassL10n.string("library.continuation.queueFailed"))
+            trackMutationToast = Self.failureToast(nil, while: "queueing the library continuation", SpotiglassL10n.string("library.continuation.queueFailed"))
             return
         }
         if result.enqueued < result.requested {
-            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
+            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
                 "library.continuation.partial",
                 Int64(result.enqueued),
                 Int64(result.requested)
-            ))
+            )))
         } else if continuation.count < LibraryContinuationPolicy.minimumUsefulLength {
-            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
+            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
                 collection.sourcesFailed ? "library.continuation.shortLoadFailed" : "library.continuation.short",
                 Int64(continuation.count)
-            ))
+            )))
         } else {
-            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
+            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
                 collection.sourcesFailed ? "library.continuation.addedLoadFailed" : "library.continuation.added",
                 Int64(result.enqueued)
-            ))
+            )))
         }
     }
 

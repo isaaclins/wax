@@ -146,26 +146,17 @@ struct QueuePanelView: View {
         return SpotiglassL10n.format("queue.subtitle.upNext", Int64(count))
     }
 
-    private func errorBanner(_ error: BrowsingDisplayError) -> some View {
-        VStack(alignment: .leading, spacing: SpotiglassDesign.spacingS) {
-            // The list below takes every point the panel offers, so without a fixed vertical
-            // size the banner got one line each and German sentences ended in "Prü…" (#470).
-            Text(error.title)
-                .font(.subheadline.weight(.semibold))
-                .fixedSize(horizontal: false, vertical: true)
-            Text(error.message)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Button(SpotiglassL10n.string("queue.dismiss")) {
-                queueViewModel.clearError()
-            }
-            .buttonStyle(.borderless)
-            .font(.caption)
-        }
-        .padding(SpotiglassDesign.spacingM)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: SpotiglassDesign.cornerS, style: .continuous))
+    private func errorBanner(_ error: DisplayError) -> some View {
+        // The panel has no heading for it, so the title leads the line.
+        ErrorBanner(
+            error: error,
+            showsTitle: true,
+            // Retry reads the queue again, so it is offered only when reading it failed.
+            retry: error.canRetry && queueViewModel.lastErrorCameFromRefresh
+                ? { Task { await queueViewModel.refreshQueue() } }
+                : nil,
+            dismiss: { queueViewModel.clearError() }
+        )
         .padding(.horizontal, SpotiglassDesign.Layout.panelMargin)
     }
 
@@ -356,7 +347,20 @@ struct QueueAutoplayButton: View {
             }
             .accessibilityLabel(SpotiglassL10n.string("queue.autoplay.label"))
             .accessibilityValue(SpotiglassL10n.string(autoplay.isEnabled ? "queue.autoplay.on" : "queue.autoplay.off"))
-            .help(SpotiglassL10n.string(autoplay.isEnabled ? "queue.autoplay.help.on" : "queue.autoplay.help.off"))
+            .help(SpotiglassL10n.string(Self.helpKey(isEnabled: autoplay.isEnabled, service: autoplay.service)))
+        }
+    }
+}
+
+extension QueueAutoplayButton {
+    /// Spotify's Autoplay says what it is built from, since it can't use Spotify's own
+    /// suggestions, and where its songs go (#617).
+    static func helpKey(isEnabled: Bool, service: MusicService?) -> String {
+        switch (service == .spotify, isEnabled) {
+        case (true, true): "queue.autoplay.help.on.spotify"
+        case (true, false): "queue.autoplay.help.off.spotify"
+        case (false, true): "queue.autoplay.help.on"
+        case (false, false): "queue.autoplay.help.off"
         }
     }
 }
@@ -367,7 +371,7 @@ struct QueueAutoplayStatusLine: View {
     @ObservedObject var autoplay: QueueAutoplay
 
     var body: some View {
-        if let key = Self.key(for: autoplay.status), autoplay.isEnabled {
+        if let key = Self.key(for: autoplay.status, service: autoplay.service), autoplay.isEnabled {
             let text = SpotiglassL10n.string(key)
             Text(text)
                 .font(.caption)
@@ -378,10 +382,10 @@ struct QueueAutoplayStatusLine: View {
         }
     }
 
-    static func key(for status: QueueAutoplay.Status) -> String? {
+    static func key(for status: QueueAutoplay.Status, service: MusicService? = nil) -> String? {
         switch status {
         case .off: nil
-        case .on: "queue.autoplay.status.on"
+        case .on: service == .spotify ? "queue.autoplay.status.on.spotify" : "queue.autoplay.status.on"
         case .finding: "queue.autoplay.status.finding"
         case .noMatches: "queue.autoplay.status.noMatches"
         case .failed: "queue.autoplay.status.failed"

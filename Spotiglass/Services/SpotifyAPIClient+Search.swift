@@ -36,17 +36,20 @@ extension SpotifyAPIClient {
     }
 
     /// Track-only search (`GET /v1/search` with `type=track`). `limit` is capped at **10** per Spotify’s search endpoint.
-    func searchTracks(query: String, limit: Int = 50) async throws -> [MusicTrack] {
+    /// With a `market` (`from_token` for the listener's own country) each song says whether it plays there.
+    func searchTracks(query: String, limit: Int = 50, market: String? = nil) async throws -> [MusicTrack] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [] }
         let capped = min(max(1, limit), 10)
+        var queryItems = [
+            URLQueryItem(name: "q", value: trimmed),
+            URLQueryItem(name: "type", value: "track"),
+            URLQueryItem(name: "limit", value: String(capped))
+        ]
+        if let market { queryItems.append(URLQueryItem(name: "market", value: market)) }
         let dto: SpotifySearchResponseDTO = try await send(
             path: "/v1/search",
-            queryItems: [
-                URLQueryItem(name: "q", value: trimmed),
-                URLQueryItem(name: "type", value: "track"),
-                URLQueryItem(name: "limit", value: String(capped))
-            ]
+            queryItems: queryItems
         )
         return dto.domainModel().tracks
     }

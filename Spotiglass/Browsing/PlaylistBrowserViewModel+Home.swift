@@ -95,7 +95,7 @@ extension PlaylistBrowserViewModel {
             return
         } catch {
             guard generation == homeFeedGeneration else { return }
-            homeRecentlyPlayed = Self.homeSectionState(for: error)
+            homeRecentlyPlayed = Self.homeSectionState(for: error, while: "loading Home's recently played")
         }
     }
 
@@ -124,7 +124,7 @@ extension PlaylistBrowserViewModel {
             return
         } catch {
             guard generation == homeFeedGeneration else { return }
-            homeTopTracks = Self.homeSectionState(for: error)
+            homeTopTracks = Self.homeSectionState(for: error, while: "loading Home's top tracks")
         }
     }
 
@@ -132,20 +132,22 @@ extension PlaylistBrowserViewModel {
     /// degrade to `.unavailable` (inline reconnect hint) rather than `.failed`,
     /// so accounts authorized before the home-feed scopes were added aren't
     /// shown a scary error.
-    static func homeSectionState<Value>(for error: Error) -> HomeSectionState<Value> {
+    static func homeSectionState<Value>(for error: Error, while operation: String) -> HomeSectionState<Value> {
         if let apiError = error as? SpotifyAPIError {
             switch apiError {
             case .insufficientScope, .forbidden:
+                // A sign-in from before the Home scopes: the section asks for a reconnect.
+                SpotiglassLog.info(.browsing, "\(operation) needs a reconnect: \(SpotiglassLog.describe(error))")
                 return .unavailable
             default:
-                return .failed(LocalizedText(apiError.userMessage))
+                break
             }
         }
-        if let appleMusicError = BrowsingDisplayError.appleMusic(for: error) {
-            return .failed(LocalizedText(appleMusicError.message))
+        var message = displayError(for: error)
+        // A Home row has room for one sentence: Spotify's own, as before.
+        if let apiError = error as? SpotifyAPIError {
+            message.messageText = LocalizedText(apiError.userMessage)
         }
-        // The service it failed on, not the one selected when the section is shown.
-        let service = MusicServiceSelection.current
-        return .failed(LocalizedText(MusicServiceErrorText.userMessage(for: error, service: service)))
+        return .failed(ErrorReporting.report(error, while: operation, in: .browsing, showing: message))
     }
 }

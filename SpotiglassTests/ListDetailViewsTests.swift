@@ -21,11 +21,79 @@ final class ListDetailViewsTests: XCTestCase {
     }
 
     func testErrorStateView() throws {
-        let error = BrowsingDisplayError(title: "Load failed", message: "Network error", canRetry: true)
-        let view = ErrorStateView(error: error)
+        let error = DisplayError.reported(ErrorMessage(title: "Load failed", message: "Network error", canRetry: true))
+        let view = ErrorPage(error: error)
         ViewTestHost.host(view)
         XCTAssertNoThrow(try view.inspect().find(text: "Load failed"))
         XCTAssertNoThrow(try view.inspect().find(text: "Network error"))
+    }
+
+    /// The page offers Retry when asking again can help, and the details behind a button (#608).
+    func testErrorPageRetriesAndKeepsDetailsBehindAButton() throws {
+        var retried = false
+        let error = DisplayError.reported(ErrorMessage(
+            title: "Load failed",
+            message: "Network error",
+            canRetry: true,
+            diagnosticDetails: "GET /v1/me/playlists HTTP 503"
+        ))
+        let view = ErrorPage(error: error, retry: { retried = true })
+        ViewTestHost.host(view)
+        try view.inspect().find(button: SpotiglassL10n.string("browser.retry")).tap()
+        XCTAssertTrue(retried)
+        XCTAssertNoThrow(try view.inspect().find(button: SpotiglassL10n.string("browser.showDetails")).tap())
+    }
+
+    /// The queue's banner: title first, then Retry and Dismiss as links after the sentence.
+    func testInlineBannerLeadsWithItsTitleAndOffersRetryAndDismiss() throws {
+        var retried = false
+        var dismissed = false
+        let error = DisplayError.reported(ErrorMessage(title: "Queue update failed", message: "Try again in a moment.", canRetry: true))
+        let view = ErrorBanner(error: error, showsTitle: true, retry: { retried = true }, dismiss: { dismissed = true })
+        ViewTestHost.host(view)
+        try view.inspect().find(button: SpotiglassL10n.string("browser.retry")).tap()
+        try view.inspect().find(button: SpotiglassL10n.string("queue.dismiss")).tap()
+        XCTAssertTrue(retried)
+        XCTAssertTrue(dismissed)
+    }
+
+    /// Cached data with no error of its own says it is from before, and can be asked again.
+    func testFloatingBannerWithoutAnErrorSaysTheDataIsCached() throws {
+        var retried = false
+        let view = ErrorBanner(error: nil, style: .floating, retry: { retried = true })
+        ViewTestHost.host(view)
+        XCTAssertNoThrow(try view.inspect().find(
+            text: SpotiglassL10n.format("browser.cachedFallback", MusicServiceSelection.current.displayName)
+        ))
+        try view.inspect().find(button: SpotiglassL10n.string("browser.retry")).tap()
+        XCTAssertTrue(retried)
+    }
+
+    /// A notice with its own buttons (the settings file's kept copy) uses the banner's line.
+    func testBannerLineShowsItsSentenceAndItsOwnActions() throws {
+        var revealed = false
+        let view = BannerLine("Kept a copy of the settings file.") {
+            Button("Show in Finder") { revealed = true }
+        }
+        ViewTestHost.host(view)
+        XCTAssertNoThrow(try view.inspect().find(text: "Kept a copy of the settings file."))
+        try view.inspect().find(button: "Show in Finder").tap()
+        XCTAssertTrue(revealed)
+    }
+
+    /// A toast says what an action did; a failed one carries the reported message.
+    func testToastSaysWhatHappenedAndMarksAFailure() throws {
+        let done = ToastMessage.done(LocalizedText("Added 2 songs"))
+        let failed = ToastMessage.failed(DisplayError.reported(ErrorMessage(message: "Couldn't add the songs.")))
+        XCTAssertEqual(done.text, "Added 2 songs")
+        XCTAssertFalse(done.isFailure)
+        XCTAssertEqual(failed.text, "Couldn't add the songs.")
+        XCTAssertTrue(failed.isFailure)
+
+        let view = Color.clear.frame(width: 400, height: 200).toast(.constant(failed))
+        ViewTestHost.host(view)
+        XCTAssertNoThrow(try view.inspect().find(text: "Couldn't add the songs."))
+        XCTAssertNoThrow(try ErrorToast(message: done).inspect().find(text: "Added 2 songs"))
     }
 
     func testTrackRowPlaybackActionUsesCurrentTransportState() {
@@ -113,13 +181,13 @@ final class ListDetailViewsTests: XCTestCase {
     /// status, a header dump and a raw JSON body, which is bug-report material,
     /// not something to open over someone who wanted a playlist (#148).
     func testDiagnosticDetailsStayBehindAButton() throws {
-        let error = BrowsingDisplayError(
+        let error = DisplayError.reported(ErrorMessage(
             title: "Load failed",
             message: "Spotify could not be reached.",
             canRetry: true,
             diagnosticDetails: "GET https://api.spotify.com/v1/me/playlists\nHTTP 403\n{\"error\":{}}"
-        )
-        let view = ErrorStateView(error: error)
+        ))
+        let view = ErrorPage(error: error)
         ViewTestHost.host(view)
 
         // The sentence is on screen; the dump is not.
@@ -130,9 +198,10 @@ final class ListDetailViewsTests: XCTestCase {
         )
     }
 
-    func testStaleCacheBanner() throws {
-        let view = StaleCacheBanner(
-            error: BrowsingDisplayError(title: "Stale", message: "Cached playlists", canRetry: false)
+    func testFloatingErrorBanner() throws {
+        let view = ErrorBanner(
+            error: DisplayError.reported(ErrorMessage(title: "Stale", message: "Cached playlists", canRetry: false)),
+            style: .floating
         )
         ViewTestHost.host(view)
         XCTAssertNoThrow(try view.inspect().find(text: "Cached playlists"))
@@ -475,13 +544,10 @@ final class ListDetailViewsTests: XCTestCase {
         let tracks = (1 ... 24).map { index in
             trackRow(id: "vt\(index)", title: "Track \(index)", explicit: false, listPosition: index)
         }
-        var restoreID: String?
         var selection: Set<String> = []
         let view = trackListView(
             tracks: tracks,
-            selection: Binding(get: { selection }, set: { selection = $0 }),
-            pendingScrollRestoreTrackID: Binding(get: { restoreID }, set: { restoreID = $0 }),
-            onFirstVisibleTrackChanged: { _ in }
+            selection: Binding(get: { selection }, set: { selection = $0 })
         )
         .frame(width: 640, height: 400)
         .environmentObject(store)
@@ -498,13 +564,10 @@ final class ListDetailViewsTests: XCTestCase {
         let tracks = (1 ... 1000).map { index in
             trackRow(id: "perf\(index)", title: "Track \(index)", explicit: false, listPosition: index)
         }
-        var restoreID: String?
         var selection: Set<String> = []
         let view = trackListView(
             tracks: tracks,
-            selection: Binding(get: { selection }, set: { selection = $0 }),
-            pendingScrollRestoreTrackID: Binding(get: { restoreID }, set: { restoreID = $0 }),
-            onFirstVisibleTrackChanged: { _ in }
+            selection: Binding(get: { selection }, set: { selection = $0 })
         )
         .frame(width: 800, height: 600)
         .environmentObject(store)
@@ -529,123 +592,6 @@ final class ListDetailViewsTests: XCTestCase {
         )
     }
 
-    func testTrackListViewReportsTopmostVisibleTrackWhileScrolling() throws {
-        let store = pinnedStore()
-        let tracks = (1 ... 400).map { index in
-            trackRow(id: "sc\(index)", title: "Track \(index)", explicit: false, listPosition: index)
-        }
-        var reported: [String] = []
-        var restoreID: String?
-        var selection: Set<String> = []
-        let view = trackListView(
-            tracks: tracks,
-            selection: Binding(get: { selection }, set: { selection = $0 }),
-            pendingScrollRestoreTrackID: Binding(get: { restoreID }, set: { restoreID = $0 }),
-            onFirstVisibleTrackChanged: { reported.append($0) }
-        )
-        .frame(width: 800, height: 600)
-        .environmentObject(store)
-        let controller = ViewTestHost.host(view, size: CGSize(width: 800, height: 600))
-        let scrollView = try XCTUnwrap(
-            Self.firstScrollView(in: controller.view),
-            "List should be hosted inside an NSScrollView"
-        )
-        XCTAssertGreaterThan(
-            scrollView.contentView.bounds.height,
-            0,
-            "a collapsed clip view would make the scroll assertions meaningless"
-        )
-        XCTAssertEqual(reported.last, "sc1", "an unscrolled list sits on its first track")
-
-        scrollView.contentView.scroll(to: NSPoint(x: 0, y: TrackListRow.listRowHeight * 40))
-        scrollView.reflectScrolledClipView(scrollView.contentView)
-        scrollView.displayIfNeeded()
-        // The rows that scrolled into view report themselves as they appear, however late a busy
-        // machine lays them out; then let the rest of that pass land before comparing.
-        XCTAssertTrue(
-            AppKitTestSupport.pumpRunLoop(until: { reported.last != "sc1" }),
-            "the list never reported a new topmost track after scrolling"
-        )
-        AppKitTestSupport.settle()
-
-        let table = try XCTUnwrap(scrollView.documentView as? NSTableView)
-        let topmostVisibleRow = table.rows(in: table.visibleRect).location
-        XCTAssertGreaterThan(topmostVisibleRow, 0, "the list should have scrolled off the first row")
-
-        let reportedID = try XCTUnwrap(reported.last)
-        let reportedRow = try XCTUnwrap(tracks.firstIndex { $0.id == reportedID })
-        // NSTableView keeps a row of realization margin above the clip view, so
-        // the reported row is allowed to sit just above the first visible one.
-        // Anything wider than that means the report stopped tracking the table.
-        XCTAssertLessThanOrEqual(
-            abs(reportedRow - topmostVisibleRow),
-            2,
-            "reported row \(reportedRow) drifted from the table's topmost visible row \(topmostVisibleRow)"
-        )
-    }
-
-    func testTrackListViewScrollsToPendingRestoreTrackAndClearsIt() async throws {
-        let store = pinnedStore()
-        let tracks = (1 ... 400).map { index in
-            trackRow(id: "rs\(index)", title: "Track \(index)", explicit: false, listPosition: index)
-        }
-        let recorder = ScrollRestoreRecorder()
-        let view = TrackListScrollRestoreHarness(
-            tracks: tracks,
-            targetTrackID: "rs300",
-            recorder: recorder
-        )
-        .frame(width: 800, height: 600)
-        .environmentObject(store)
-        let controller = ViewTestHost.host(view, size: CGSize(width: 800, height: 600))
-        // the pending restore binding should be cleared after the list handles the request
-        await recorder.restoreCleared.wait()
-
-        let scrollView = try XCTUnwrap(
-            Self.firstScrollView(in: controller.view),
-            "List should be hosted inside an NSScrollView"
-        )
-        let table = try XCTUnwrap(scrollView.documentView as? NSTableView)
-        let visibleRows = table.rows(in: table.visibleRect)
-        XCTAssertTrue(
-            NSLocationInRange(299, visibleRows),
-            "restoring track 300 should have brought row 300 on screen, visible rows were \(visibleRows)"
-        )
-        XCTAssertTrue(recorder.wasCleared, "the pending restore binding should be cleared after scrolling")
-    }
-
-    // MARK: - First-visible row selection
-
-    private func visibilityRows(_ ids: [String]) -> [TrackRowViewModel] {
-        ids.enumerated().map { index, id in
-            let track = MusicTrack(
-                id: id, name: id, artists: ["Artist"], albumArtworkURL: nil, durationMilliseconds: 1000,
-                isExplicit: false, isPlayable: true, linkedFromID: nil, uri: "spotify:track:\(id)"
-            )
-            return TrackRowViewModel(MusicPlaylistTrackItem(id: id, content: .track(track)), listPosition: index + 1)
-        }
-    }
-
-    private func firstVisible(_ ids: [String], realized: Set<String>) -> String? {
-        TrackListVisibility.firstVisibleTrackID(realized: realized, positions: TrackListVisibility.positions(of: visibilityRows(ids)))
-    }
-
-    func testFirstVisibleTrackIDPicksTheTopmostRealizedRow() {
-        XCTAssertEqual(firstVisible(["x", "a", "b", "l"], realized: ["l", "a", "b"]), "a")
-        XCTAssertEqual(firstVisible(["x", "a", "b", "l"], realized: ["l"]), "l")
-    }
-
-    func testFirstVisibleTrackIDFollowsRowsDraggedToANewSpot() {
-        // A was the top row; dragged to the end it keeps its identity and doesn't appear again.
-        let realized: Set<String> = ["a", "b", "c"]
-        XCTAssertEqual(firstVisible(["a", "b", "c"], realized: realized), "a")
-        XCTAssertEqual(firstVisible(["b", "c", "a"], realized: realized), "b")
-    }
-
-    func testFirstVisibleTrackIDIsNilWhenNothingIsVisible() {
-        XCTAssertNil(firstVisible(["a"], realized: []))
-    }
-
     // MARK: - Playlist detail
 
     func testPlaylistDetailContentHeaderAndTracks() throws {
@@ -657,11 +603,8 @@ final class ListDetailViewsTests: XCTestCase {
             PlaylistBrowsingTestFixtures.track(id: "pt2")
         ])
         let detail = PlaylistDetailViewModel(playlist: playlist, tracks: tracks)
-        var restoreID: String?
         let view = PlaylistDetailContent(
             detail: detail,
-            pendingScrollRestoreTrackID: Binding(get: { restoreID }, set: { restoreID = $0 }),
-            onTrackEnteredViewportApproximation: { _ in },
             playURI: { _ in },
             playback: .nothingPlaying,
             togglePlayPause: {},
@@ -684,11 +627,8 @@ final class ListDetailViewsTests: XCTestCase {
             PlaylistBrowsingTestFixtures.playlist(id: "empty", name: "Empty List")
         )
         let detail = PlaylistDetailViewModel(playlist: playlist, tracks: [])
-        var restoreID: String?
         let view = PlaylistDetailContent(
             detail: detail,
-            pendingScrollRestoreTrackID: Binding(get: { restoreID }, set: { restoreID = $0 }),
-            onTrackEnteredViewportApproximation: { _ in },
             playURI: { _ in },
             playback: .nothingPlaying,
             togglePlayPause: {},
@@ -708,11 +648,8 @@ final class ListDetailViewsTests: XCTestCase {
     func testPlaylistDetailContentLikedSongsHeader() throws {
         let liked = PlaylistRowViewModel(likedSongsOwnerDisplay: "You", totalTrackCount: 42, artworkURL: nil)
         let detail = PlaylistDetailViewModel(playlist: liked, tracks: [])
-        var restoreID: String?
         let view = PlaylistDetailContent(
             detail: detail,
-            pendingScrollRestoreTrackID: Binding(get: { restoreID }, set: { restoreID = $0 }),
-            onTrackEnteredViewportApproximation: { _ in },
             playURI: { _ in },
             playback: .nothingPlaying,
             togglePlayPause: {},
@@ -978,16 +915,12 @@ private extension ListDetailViewsTests {
 
     func trackListView(
         tracks: [TrackRowViewModel],
-        selection: Binding<Set<String>>,
-        pendingScrollRestoreTrackID: Binding<String?>,
-        onFirstVisibleTrackChanged: @escaping (String) -> Void
+        selection: Binding<Set<String>>
     ) -> TrackListView<TrackListRow> {
         TrackListView(
             tracks: tracks,
             selection: selection,
-            rowBuilder: { track, _ in TrackListTestRows.row(for: track) },
-            pendingScrollRestoreTrackID: pendingScrollRestoreTrackID,
-            onFirstVisibleTrackChanged: onFirstVisibleTrackChanged
+            rowBuilder: { track, _ in TrackListTestRows.row(for: track) }
         )
     }
 
@@ -1014,48 +947,6 @@ enum TrackListTestRows {
             openArtist: { _ in },
             drawsRowHighlights: false
         )
-    }
-}
-
-@MainActor
-final class ScrollRestoreRecorder: ObservableObject {
-    let listMounted = AsyncSignal()
-    let restoreCleared = AsyncSignal()
-    var wasCleared = false
-}
-
-/// Drives `pendingScrollRestoreTrackID` from inside the view tree, because the
-/// binding has to change *after* the list is on screen for the restore to run.
-private struct TrackListScrollRestoreHarness: View {
-    let tracks: [TrackRowViewModel]
-    let targetTrackID: String
-    let recorder: ScrollRestoreRecorder
-
-    @State private var pending: String?
-    @State private var selection: Set<String> = []
-
-    var body: some View {
-        TrackListView(
-            tracks: tracks,
-            selection: $selection,
-            rowBuilder: { track, _ in TrackListTestRows.row(for: track) },
-            pendingScrollRestoreTrackID: Binding(
-                get: { pending },
-                set: { newValue in
-                    if newValue == nil, pending != nil {
-                        recorder.wasCleared = true
-                        recorder.restoreCleared.signal()
-                    }
-                    pending = newValue
-                }
-            ),
-            onFirstVisibleTrackChanged: { _ in recorder.listMounted.signal() }
-        )
-        .frame(width: 800, height: 600)
-        .task {
-            await recorder.listMounted.wait()
-            pending = targetTrackID
-        }
     }
 }
 

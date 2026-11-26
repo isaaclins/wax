@@ -179,11 +179,11 @@ extension PlaybackSessionViewModel {
         }
     }
 
-    private func failSeek(_ intent: PlaybackSeekIntent, with error: PlaybackDisplayError) {
+    private func failSeek(_ intent: PlaybackSeekIntent, with message: ErrorMessage) {
         guard intent.owner == seekOwnershipKey else { return }
         clearPendingSeek()
         failedSeekOwnershipKey = intent.owner
-        setConnectionState(.error(error))
+        showPlaybackError(nil, while: "seeking with no player device", message)
     }
 
     private func normalizedSeekMilliseconds(_ milliseconds: Int) -> Int {

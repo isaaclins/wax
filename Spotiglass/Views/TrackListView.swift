@@ -19,11 +19,11 @@ import SwiftUI
 struct TrackListView<Row: View>: View {
     let tracks: [TrackRowViewModel]
     /// The browser view model's selection set as the page handed it in, which stays the source
-    /// of truth every context menu action reads, and how to change it. Neither this nor
-    /// `pendingScrollRestoreTrackID` is kept as a `Binding`: a binding into a view model tells
+    /// of truth every context menu action reads, and how to change it. It isn't kept as a
+    /// `Binding`: a binding into a view model tells
     /// SwiftUI it changed every time SwiftUI looks, and on macOS 26 opening or closing the queue
     /// makes SwiftUI look at this view, so the list ran every row it holds with each press
-    /// though nothing in them changed (#751). The page builds this view again when either changes.
+    /// though nothing in them changed (#751). The page builds this view again when it changes.
     private let selection: Set<String>
     /// The page's selection binding, handed to the list in the body: it reads the selection live,
     /// so a click the table makes is read back before the page has built this view again. It is
@@ -36,13 +36,6 @@ struct TrackListView<Row: View>: View {
     let headerContent: AnyView?
     /// Optional content rendered below the track rows in the native list.
     let footerContent: AnyView?
-    /// Set externally (e.g. when lyrics dismiss) to a track id; the list scrolls
-    /// that row to the middle of the viewport, then clears it.
-    private let pendingScrollRestoreTrackID: String?
-    private let clearPendingScrollRestore: () -> Void
-    /// Fires with the id of the topmost visible row whenever it changes; powers
-    /// the "remember last visible track" behavior used for scroll restore.
-    let onFirstVisibleTrackChanged: (String) -> Void
     /// Plays the selected rows. Arrow keys already moved the selection, but
     /// nothing consumed Return, so a keyboard user could highlight a track and
     /// never start it (#122).
@@ -68,8 +61,6 @@ struct TrackListView<Row: View>: View {
         tracks: [TrackRowViewModel],
         selection: Binding<Set<String>>,
         rowBuilder: @escaping (TrackRowViewModel, Bool) -> Row,
-        pendingScrollRestoreTrackID: Binding<String?>,
-        onFirstVisibleTrackChanged: @escaping (String) -> Void,
         playSelection: ((Set<String>) -> Void)? = nil,
         moveRows: ((IndexSet, Int) -> Void)? = nil,
         rowActions: TrackListRowActions? = nil,
@@ -83,19 +74,15 @@ struct TrackListView<Row: View>: View {
         self.rowBuilder = rowBuilder
         self.headerContent = headerContent
         self.footerContent = footerContent
-        self.pendingScrollRestoreTrackID = pendingScrollRestoreTrackID.wrappedValue
-        clearPendingScrollRestore = { pendingScrollRestoreTrackID.wrappedValue = nil }
-        self.onFirstVisibleTrackChanged = onFirstVisibleTrackChanged
         self.playSelection = playSelection
         self.moveRows = moveRows
         self.rowActions = rowActions
         self.rowContentKey = rowContentKey
     }
 
-    /// Deliberately a reference type rather than stored-in-state values. Rows
-    /// report every time the table realizes or drops one, and keeping that in
-    /// view state would invalidate the body on each report, re-walking the whole
-    /// track array to redraw nothing. Nobody observes this bookkeeping.
+    /// A reference type rather than state: the counter moves on as the body runs, and the rows
+    /// report as they come on screen and leave; keeping either in view state would run the body
+    /// again for it. Nobody observes them.
     @State private var realizedRows = TrackListRealizedRows()
     /// The selection as the rows read it. A row follows it by itself, so a click builds again
     /// only the rows it selects or leaves, not the list of all of them (#689).
@@ -105,7 +92,8 @@ struct TrackListView<Row: View>: View {
     /// The list selects through its own click recognizer, which doesn't focus the table, even
     /// with no gesture on the rows. A new selection focuses it, from AppKit: SwiftUI's focus state
     /// still said "focused" after the keyboard had gone elsewhere through AppKit, and then the
-    /// table never got it back (#689).
+    /// table never got it back (#689). Holding no SwiftUI focus state also keeps the keyboard's
+    /// moves in the window (the lyrics taking it and giving it back) from running this view (#674).
     @State private var tableFocus = TrackListTableFocus()
 
     var body: some View {
@@ -119,60 +107,45 @@ struct TrackListView<Row: View>: View {
         // handed the table both at once: the table waited for a mouse-up that had already come,
         // and the next click only ended that wait instead of selecting its row (#689).
         let _ = tableFocus.onDoubleClick = doubleClickAction
-        ScrollViewReader { proxy in
-            List(selection: liveSelection()) {
-                if let headerContent {
-                    headerContent
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
-                }
+        List(selection: liveSelection()) {
+            if let headerContent {
+                headerContent
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+            }
 
-                // Its own view, so an update of this one that leaves the rows as they were (the
-                // table runs it on about every frame of a scroll) doesn't walk all of them.
-                TrackListRows(
-                    tracks: tracks,
-                    tracksGeneration: tracksGeneration,
-                    selectionFeed: selectionFeed,
-                    rowContentKey: rowContentKey,
-                    rowBuilder: rowBuilder,
-                    moveRows: moveRows,
-                    setRowRealized: { setRowRealized($0, track: $1) }
-                )
+            // Its own view, so an update of this one that leaves the rows as they were (the
+            // table runs it on about every frame of a scroll) doesn't walk all of them.
+            TrackListRows(
+                tracks: tracks,
+                tracksGeneration: tracksGeneration,
+                selectionFeed: selectionFeed,
+                rowContentKey: rowContentKey,
+                rowBuilder: rowBuilder,
+                moveRows: moveRows,
+                setRowRealized: { setRowRealized($0, track: $1) }
+            )
 
-                if let footerContent {
-                    footerContent
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
-                }
+            if let footerContent {
+                footerContent
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
             }
-            .listStyle(.inset)
-            .environment(\.defaultMinListRowHeight, TrackListRow.listRowHeight)
-            .background(TrackListTableFocus.Probe(focus: tableFocus))
-            .onChange(of: selection) {
-                if !selection.isEmpty { tableFocus.focusTable() }
-                selectionFeed.announce()
-            }
-            // The table's own menu, not each row's: a row's menu was built on every mouse-down to
-            // find out whether the row wanted the click (#689).
-            .modifier(TrackListRowActionsModifier(tracks: tracks, actions: rowActions))
-            .onKeyPress(.return) {
-                guard let playSelection, !selection.isEmpty else { return .ignored }
-                playSelection(selection)
-                return .handled
-            }
-            // Rows that change places (a reorder) don't appear again, so the topmost one is
-            // worked out anew from the rows' new order.
-            .onChange(of: tracks, initial: true) {
-                realizedRows.positionByTrackID = TrackListVisibility.positions(of: tracks)
-                reportFirstVisibleTrack()
-            }
-            .onChange(of: pendingScrollRestoreTrackID) { _, newValue in
-                guard let id = newValue else { return }
-                if tracks.contains(where: { $0.id == id }) {
-                    proxy.scrollTo(id, anchor: .center)
-                }
-                clearPendingScrollRestore()
-            }
+        }
+        .listStyle(.inset)
+        .environment(\.defaultMinListRowHeight, TrackListRow.listRowHeight)
+        .background(TrackListTableFocus.Probe(focus: tableFocus))
+        .onChange(of: selection) {
+            if !selection.isEmpty { tableFocus.focusTable() }
+            selectionFeed.announce()
+        }
+        // The table's own menu, not each row's: a row's menu was built on every mouse-down to
+        // find out whether the row wanted the click (#689).
+        .modifier(TrackListRowActionsModifier(tracks: tracks, actions: rowActions))
+        .onKeyPress(.return) {
+            guard let playSelection, !selection.isEmpty else { return .ignored }
+            playSelection(selection)
+            return .handled
         }
     }
 
@@ -189,12 +162,11 @@ struct TrackListView<Row: View>: View {
 
     private func setRowRealized(_ isRealized: Bool, track: TrackRowViewModel) {
         if isRealized {
-            realizedRows.trackIDs.insert(track.id)
+            realizedRows.rowsOnScreen[track.id] = track
             prepareMenus()
         } else {
-            realizedRows.trackIDs.remove(track.id)
+            realizedRows.rowsOnScreen[track.id] = nil
         }
-        reportFirstVisibleTrack()
     }
 
     /// Hands the rows on screen to ``TrackListRowActions/prepareMenus`` when new ones came, once
@@ -204,24 +176,10 @@ struct TrackListView<Row: View>: View {
         let realizedRows = realizedRows
         guard !realizedRows.isPreparingMenus else { return }
         realizedRows.isPreparingMenus = true
-        let tracks = tracks
         DispatchQueue.main.async {
             realizedRows.isPreparingMenus = false
-            let rows = realizedRows.trackIDs
-                .compactMap { id in realizedRows.positionByTrackID[id].map { (id, $0) } }
-                .filter { id, index in tracks.indices.contains(index) && tracks[index].id == id }
-                .sorted { $0.1 < $1.1 }
-                .map { tracks[$0.1] }
-            prepare(rows)
+            prepare(Array(realizedRows.rowsOnScreen.values))
         }
-    }
-
-    private func reportFirstVisibleTrack() {
-        guard let id = TrackListVisibility.firstVisibleTrackID(realized: realizedRows.trackIDs, positions: realizedRows.positionByTrackID),
-              id != realizedRows.lastReportedFirstVisibleTrackID
-        else { return }
-        realizedRows.lastReportedFirstVisibleTrackID = id
-        onFirstVisibleTrackChanged(id)
     }
 }
 
@@ -335,18 +293,13 @@ final class TrackListTableFocus {
     }
 }
 
-/// Ids of the rows the table currently has realized. A table only realizes what
-/// it draws, so this stays about a viewport deep however long the playlist is.
-/// Kept by id, not row number: a row dragged to a new spot keeps its identity and
-/// doesn't appear again, so a number recorded for it would go stale (#543).
+/// The rows the table currently has realized, for their menus (#689). A table only realizes
+/// what it draws, so this stays about a viewport deep however long the playlist is.
 @MainActor
 final class TrackListRealizedRows {
-    var trackIDs: Set<String> = []
+    var rowsOnScreen: [String: TrackRowViewModel] = [:]
     /// Whether the rows on screen are about to be handed to the menu preparation.
     var isPreparingMenus = false
-    /// Each row's place in the list, built again when the rows change.
-    var positionByTrackID: [String: Int] = [:]
-    var lastReportedFirstVisibleTrackID: String?
 
     /// A counter that moves on when the list's rows change, so a row can tell they did without
     /// comparing all of them.
@@ -480,15 +433,10 @@ private struct TrackListRows<Row: View>: View, Equatable {
                 trailing: SpotiglassDesign.Layout.insetListContentInset
             ))
             .tag(track.id)
-            // Row lifecycle is what tells us where the list is. Deriving
-            // it from the scroll offset instead reads the wrong row,
-            // because NSTableView estimates the height of rows it has
-            // not measured yet, so a jump down a long playlist leaves
-            // the offset covering more rows than the arithmetic thinks.
-            // onScrollVisibilityChange would be the precise answer but
-            // it never fires inside a macOS List, so this settles for the
-            // table's realized rows, which run one row wide of the
-            // visible ones. The consumer wants an approximation.
+            // The table's realized rows, which run one row wide of the visible ones: their menus
+            // get what they show from the network before one opens (#689).
+            // onScrollVisibilityChange would be the precise answer but it never fires inside a
+            // macOS List.
             .onAppear { setRowRealized(true, track) }
             .onDisappear { setRowRealized(false, track) }
         }
@@ -535,20 +483,6 @@ private struct TrackListRowSlot<Row: View>: View, Equatable {
         lhs.key.list != nil && lhs.key == rhs.key
     }
 }
-
-/// Picks the topmost row out of the rows the table currently has on hand, by
-/// their places in the list as it is now. Only the realized rows are looked at,
-/// about a viewport of them, however long the list.
-enum TrackListVisibility {
-    static func positions(of tracks: [TrackRowViewModel]) -> [String: Int] {
-        Dictionary(tracks.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { first, _ in first })
-    }
-
-    static func firstVisibleTrackID(realized: Set<String>, positions: [String: Int]) -> String? {
-        realized.min { (positions[$0] ?? .max, $0) < (positions[$1] ?? .max, $1) }
-    }
-}
-
 
 /// Shows `content` with a binding to the detail selection, and runs it again when the
 /// selection changes (#655). The binding is to the selection itself: one through the browser

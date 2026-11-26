@@ -335,7 +335,7 @@ struct AppearanceSettings: Codable, Equatable {
         }
     }
 
-    private enum CodingKeys: String, CodingKey {
+    private enum CodingKeys: String, CodingKey, CaseIterable {
         case language
         case colorScheme
         case lyricsTextSize
@@ -363,7 +363,7 @@ struct CommandPaletteSettings: Codable, Equatable {
         )
     }
 
-    private enum CodingKeys: String, CodingKey {
+    private enum CodingKeys: String, CodingKey, CaseIterable {
         case backdropBlur
     }
 }
@@ -473,7 +473,7 @@ struct SpotiglassSettingsFile: Codable, Equatable {
         )
     }
 
-    private enum CodingKeys: String, CodingKey {
+    private enum CodingKeys: String, CodingKey, CaseIterable {
         case version
         case keybinds
         case seededKeybindCommands
@@ -594,7 +594,7 @@ struct EqualizerSettings: Codable, Equatable {
         min(max(value, preampRangeDB.lowerBound), preampRangeDB.upperBound)
     }
 
-    private enum CodingKeys: String, CodingKey {
+    private enum CodingKeys: String, CodingKey, CaseIterable {
         case enabled
         case preamp
         case bands
@@ -645,11 +645,45 @@ struct EqualizerPreset: Codable, Equatable, Identifiable, Hashable {
         }
     }
 
-    private enum CodingKeys: String, CodingKey {
+    private enum CodingKeys: String, CodingKey, CaseIterable {
         case name
         case preamp
         case bands
     }
 
     static let flatName = "Flat"
+}
+
+extension SpotiglassSettingsFile {
+    /// The keys this build reads; a save writes every other key back unchanged (#627).
+    static let jsonKeySchema = JSONKeySchema(
+        known: Set(CodingKeys.allCases.map(\.stringValue)),
+        objects: [
+            CodingKeys.appearance.stringValue: AppearanceSettings.jsonKeySchema,
+            CodingKeys.commandPalette.stringValue: CommandPaletteSettings.jsonKeySchema,
+            CodingKeys.equalizer.stringValue: EqualizerSettings.jsonKeySchema,
+        ],
+        // A keybind has no identity to match a row by, so a newer build's field in one is logged as dropped.
+        rows: [CodingKeys.keybinds.stringValue: JSONRowSchema(row: CommandPaletteKeyBinding.jsonKeySchema, idKey: nil)]
+    )
+}
+
+extension AppearanceSettings {
+    static let jsonKeySchema = JSONKeySchema(known: Set(CodingKeys.allCases.map(\.stringValue)))
+}
+
+extension CommandPaletteSettings {
+    static let jsonKeySchema = JSONKeySchema(known: Set(CodingKeys.allCases.map(\.stringValue)))
+}
+
+extension EqualizerSettings {
+    /// User presets are matched by name, the identity the app gives them.
+    static let jsonKeySchema = JSONKeySchema(
+        known: Set(CodingKeys.allCases.map(\.stringValue)),
+        rows: [CodingKeys.userPresets.stringValue: JSONRowSchema(row: EqualizerPreset.jsonKeySchema, idKey: "name")]
+    )
+}
+
+extension EqualizerPreset {
+    static let jsonKeySchema = JSONKeySchema(known: Set(CodingKeys.allCases.map(\.stringValue)))
 }

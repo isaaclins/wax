@@ -19,13 +19,14 @@ final class QueueAutoplayTests: XCTestCase {
 
     private func makeHarness(
         fillTarget: Int = 8,
-        now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now }
+        now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now },
+        autoplaySource: (any QueueAutoplaySource)? = nil
     ) -> Harness {
         let player = ScriptedAppleMusicPlayer()
         let provider = AppleMusicPlaybackProvider(player: player)
         let source = SampleAutoplaySource()
         let autoplay = QueueAutoplay(
-            source: source,
+            source: autoplaySource ?? source,
             flag: StoredFlag(key: "test.autoplay", defaultValue: false, defaults: nil),
             fillTarget: fillTarget,
             now: now,
@@ -404,6 +405,34 @@ final class QueueAutoplayTests: XCTestCase {
         }
         XCTAssertFalse(QueueAutoplay.isPlainFailure(QueueAutoplayNoPlayer()))
         XCTAssertFalse(QueueAutoplay.isPlainFailure(URLError(.notConnectedToInternet)))
+    }
+
+    /// Offline, Autoplay's catalog search fails with an error that prints its whole request: the
+    /// URL with the searched artist and the headers with the user token (#631). The catalog read's
+    /// own line has the error's domain and code; Autoplay's line says what it did, without the
+    /// raw error, and no line holds the token.
+    func testAFailedCatalogReadIsLoggedOnceAndAutoplaySaysWhatItDid() async throws {
+        let artist = "Offline Artist \(UUID().uuidString)"
+        let h = makeHarness(autoplaySource: AppleMusicAutoplaySource(catalog: OfflineAutoplayCatalog()))
+        let before = try SpotiglassLogReader.lines(containing: "Autoplay added nothing").count
+        // One song and nothing after it, so the artist searched for is this song's.
+        try await h.provider.play(.items(uris: [seeds[0]], startURI: nil), deviceID: deviceID)
+        h.autoplay.nowPlayingChanged(QueueAutoplaySeed(uri: seeds[0], title: "Song", artists: [artist]))
+        h.autoplay.setEnabled(true)
+        await h.autoplay.settle()
+        XCTAssertEqual(h.autoplay.status, .failed)
+
+        let lines = try SpotiglassLogReader.lines(containing: artist)
+        let failed = try XCTUnwrap(lines.first { $0.contains("[ERROR] [calls] ← #") }, "\(lines)")
+        XCTAssertTrue(failed.contains("MusicKit autoplay artist search"), failed)
+        XCTAssertTrue(failed.contains("NSURLErrorDomain -1009"), failed)
+        XCTAssertEqual(lines.filter { $0.contains("[ERROR]") }.count, 1, "the failure is logged once: \(lines)")
+        XCTAssertFalse(lines.contains { $0.contains("[playback]") }, "Autoplay's line has no raw error: \(lines)")
+        XCTAssertEqual(
+            try SpotiglassLogReader.lines(containing: "Autoplay added nothing: its suggestions didn't load; the next song tries again").count,
+            before + 1
+        )
+        XCTAssertTrue(try SpotiglassLogReader.lines(containing: OfflineAutoplayCatalog.userToken).isEmpty)
     }
 
     /// When the player refuses a song, the next one is chosen against the artist that really
@@ -812,6 +841,38 @@ final class SampleAutoplayCatalog: AppleMusicAutoplayCatalog, @unchecked Sendabl
             artists[id].map {
                 AppleMusicAutoplayCatalogArtist(id: $0.id, similarArtistIDs: includeSimilar ? $0.similarArtistIDs : [], topSongs: $0.topSongs)
             }
+        }
+    }
+}
+
+/// Autoplay's catalog reads offline, through the same logged read as the real ones: the error
+/// prints its request like `MusicDataRequest.Error` does, URL, searched name and headers.
+final class OfflineAutoplayCatalog: AppleMusicAutoplayCatalog, @unchecked Sendable {
+    static let userToken = "AmUserTok631"
+
+    /// Offline, and printing itself with its whole request as `MusicDataRequest.Error` does.
+    private struct RequestFailed: Error, CustomNSError, CustomStringConvertible {
+        static let errorDomain = NSURLErrorDomain
+        let url: String
+        var errorCode: Int { NSURLErrorNotConnectedToInternet }
+        var description: String {
+            #"request failed: GET \#(url) ["Music-User-Token": "\#(OfflineAutoplayCatalog.userToken)"]"#
+        }
+    }
+
+    private func offline(_ url: String) -> Error { RequestFailed(url: url) }
+
+    func autoplayArtistMatches(named name: String, limit: Int) async throws -> [AppleMusicAutoplayArtistMatch] {
+        let url = "https://api.music.apple.com/v1/catalog/ch/search?term=\(name)&types=artists&limit=\(limit)"
+        return try await MusicKitContentSource.logged("autoplay artist search (\(SpotiglassLog.personal(name)))") {
+            () async throws -> [AppleMusicAutoplayArtistMatch] in throw self.offline(url)
+        }
+    }
+
+    func autoplayArtists(ids: [String], includeSimilar: Bool) async throws -> [AppleMusicAutoplayCatalogArtist] {
+        let url = "https://api.music.apple.com/v1/catalog/ch/artists?ids=\(ids.joined(separator: ","))"
+        return try await MusicKitContentSource.logged("autoplay artists read (\(ids.count) ids)") {
+            () async throws -> [AppleMusicAutoplayCatalogArtist] in throw self.offline(url)
         }
     }
 }

@@ -1,10 +1,6 @@
 {
   "_comment": "known: interactions over 50 ms on a Mac today, each with the issue that fixes it (#656) and its checked time when it was listed (measuredMs, null: never showed within 3 s); remove an entry when its fix lands. ci: every interaction's median on GitHub's macOS runner, which is 2-4 times slower than a Mac (null: never shows there); set it from the CI job's report when a change makes one faster, with room for the runner's swings (docs/latency.md). The rules are in scripts/latency_gate.py and docs/latency.md.",
   "known": {
-    "lyrics.toggle": {
-      "issue": 674,
-      "measuredMs": 123
-    },
     "page.back": {
       "issue": 730,
       "measuredMs": 63
@@ -55,7 +51,7 @@
     "palette.close": 254,
     "sidebar.toggle": 145,
     "queue.toggle": 209,
-    "lyrics.toggle": 547,
+    "lyrics.toggle": 48,
     "page.search": 104,
     "page.back": 79,
     "page.sidebarClick": null,

@@ -119,10 +119,6 @@ struct PlaylistBrowserMainDetailColumn: View {
     /// Queue orchestration owned by the browser shell and shared by every track
     /// surface's context menu.
     let onRequestLibraryContinuation: ((TrackRowViewModel) -> Void)?
-    @EnvironmentObject private var lyricsOverlay: LyricsOverlayController
-
-    @Binding var pendingPlaylistListScrollRestoreID: String?
-    @Binding var detailLastVisibleTrackID: String?
 
     let hasPlaybackDevice: Bool
 
@@ -130,8 +126,6 @@ struct PlaylistBrowserMainDetailColumn: View {
         viewModel: PlaylistBrowserViewModel,
         playbackViewModel: PlaybackSessionViewModel,
         queueViewModel: QueueViewModel,
-        pendingPlaylistListScrollRestoreID: Binding<String?>,
-        detailLastVisibleTrackID: Binding<String?>,
         hasPlaybackDevice: Bool,
         onRequestCreatePlaylist: (([TrackRowViewModel]) -> Void)? = nil,
         onRequestLibraryContinuation: ((TrackRowViewModel) -> Void)? = nil
@@ -141,8 +135,6 @@ struct PlaylistBrowserMainDetailColumn: View {
         self.queueViewModel = queueViewModel
         self.onRequestCreatePlaylist = onRequestCreatePlaylist
         self.onRequestLibraryContinuation = onRequestLibraryContinuation
-        _pendingPlaylistListScrollRestoreID = pendingPlaylistListScrollRestoreID
-        _detailLastVisibleTrackID = detailLastVisibleTrackID
         self.hasPlaybackDevice = hasPlaybackDevice
     }
 
@@ -156,42 +148,41 @@ struct PlaylistBrowserMainDetailColumn: View {
                 ProgressView(SpotiglassL10n.string("browser.loadingDetail"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case let .loaded(content), let .refreshing(content), let .staleCache(content, _):
+                // The page stays built under the lyrics, hidden by the browser (`HiddenUnderLyrics`):
+                // swapping it out for an empty view built the page and every song row on screen
+                // again each time the lyrics closed (#674).
                 Group {
-                    if lyricsOverlay.isPresented {
-                        Color.clear
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .accessibilityHidden(true)
-                    } else {
-                        switch content {
-                        case .home:
-                            HomeView(
-                                viewModel: viewModel,
-                                playbackViewModel: playbackViewModel,
-                                queueViewModel: queueViewModel,
-                                hasPlaybackDevice: hasPlaybackDevice,
-                                onRequestCreatePlaylist: onRequestCreatePlaylist,
-                                onRequestLibraryContinuation: onRequestLibraryContinuation
-                            )
-                        case .search:
-                            CatalogSearchView(
-                                viewModel: viewModel,
-                                searchViewModel: viewModel.catalogSearch,
-                                playbackViewModel: playbackViewModel,
-                                queueViewModel: queueViewModel,
-                                hasPlaybackDevice: hasPlaybackDevice,
-                                onRequestCreatePlaylist: onRequestCreatePlaylist,
-                                onRequestLibraryContinuation: onRequestLibraryContinuation
-                            )
-                        case let .playlist(detail):
-                            playlistDetailView(detail)
-                        case let .artist(detail):
-                            artistDetailView(detail)
-                        }
+                    switch content {
+                    case .home:
+                        HomeView(
+                            viewModel: viewModel,
+                            playbackViewModel: playbackViewModel,
+                            queueViewModel: queueViewModel,
+                            hasPlaybackDevice: hasPlaybackDevice,
+                            onRequestCreatePlaylist: onRequestCreatePlaylist,
+                            onRequestLibraryContinuation: onRequestLibraryContinuation
+                        )
+                    case .search:
+                        CatalogSearchView(
+                            viewModel: viewModel,
+                            searchViewModel: viewModel.catalogSearch,
+                            playbackViewModel: playbackViewModel,
+                            queueViewModel: queueViewModel,
+                            hasPlaybackDevice: hasPlaybackDevice,
+                            onRequestCreatePlaylist: onRequestCreatePlaylist,
+                            onRequestLibraryContinuation: onRequestLibraryContinuation
+                        )
+                    case let .playlist(detail):
+                        playlistDetailView(detail)
+                    case let .artist(detail):
+                        artistDetailView(detail)
                     }
                 }
                 .overlay(alignment: .bottom) {
                     if case let .staleCache(_, error) = viewModel.detailState {
-                        StaleCacheBanner(error: error)
+                        ErrorBanner(error: error, style: .floating, retry: error?.canRetry == false ? nil : {
+                            Task { await viewModel.retryFailedDetail() }
+                        })
                     } else if case .refreshing = viewModel.detailState {
                         ProgressView(SpotiglassL10n.string("browser.refreshingDetail"))
                             .controlSize(.small)
@@ -200,40 +191,24 @@ struct PlaylistBrowserMainDetailColumn: View {
                             .padding(SpotiglassDesign.spacingM)
                     }
                 }
-                .overlay(alignment: .bottom) {
-                    if let toast = viewModel.trackMutationToast {
-                        Text(toast)
-                            .font(.callout.weight(.medium))
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, SpotiglassDesign.spacingM)
-                            .padding(.vertical, SpotiglassDesign.spacingS)
-                            .background(.regularMaterial, in: Capsule())
-                            .padding(.bottom, SpotiglassDesign.spacingL)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                            .task(id: toast) {
-                                try? await Task.sleep(nanoseconds: 2_400_000_000)
-                                if viewModel.trackMutationToast == toast {
-                                    viewModel.trackMutationToastText = nil
-                                }
-                            }
-                    }
-                }
             case let .empty(text):
                 let message = text.string
                 EmptyStateView(title: SpotiglassL10n.string("browser.noTracks.title"), message: message)
             case let .error(error):
                 if let locked = error.lockedPlaylist {
-                    FollowedPlaylistLockedView(info: locked, playbackViewModel: playbackViewModel)
+                    FollowedPlaylistLockedView(error: error, info: locked, playbackViewModel: playbackViewModel)
                 } else {
                     // The page that failed is asked again from here (#465), when asking
                     // again can help: not for "Sign in again" or "Access denied".
-                    ErrorStateView(error: error, retry: error.canRetry ? {
+                    ErrorPage(error: error, retry: error.canRetry ? {
                         Task { await viewModel.retryFailedDetail() }
                     } : nil)
                 }
             }
         }
+        // Over every state, loading and errors included: a toast set while the page loads
+        // used to wait for the rows and show up late (#608).
+        .toast($viewModel.trackMutationToast)
     }
 
     private func playlistDetailView(_ detail: PlaylistDetailViewModel) -> some View {
@@ -241,8 +216,6 @@ struct PlaylistBrowserMainDetailColumn: View {
         return PlaylistDetailContent(
             detail: detail,
             currentUserID: viewModel.currentUserID,
-            pendingScrollRestoreTrackID: $pendingPlaylistListScrollRestoreID,
-            onTrackEnteredViewportApproximation: { detailLastVisibleTrackID = $0 },
             playURI: { uri in
                 Task {
                     guard let playing = await viewModel.detailForPlayback(

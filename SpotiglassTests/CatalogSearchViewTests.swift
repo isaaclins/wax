@@ -561,7 +561,7 @@ final class CatalogSearchViewTests: XCTestCase {
         XCTAssertEqual(error?.canRetry, true)
         XCTAssertEqual(
             error?.message,
-            BrowsingDisplayError.partialSearch(
+            ErrorMessage.partialSearch(
                 MusicSearchPartialFailure(results: loaded, missing: .catalog, underlying: URLError(.notConnectedToInternet))
             ).message
         )
@@ -613,7 +613,7 @@ final class CatalogSearchViewTests: XCTestCase {
         guard case let .staleCache(_, error) = viewModel.state else {
             return XCTFail("the note went away while the library is still missing: \(viewModel.state)")
         }
-        XCTAssertEqual(error?.message, BrowsingDisplayError.partialSearch(missing).message)
+        XCTAssertEqual(error?.message, ErrorMessage.partialSearch(missing).message)
     }
 }
 

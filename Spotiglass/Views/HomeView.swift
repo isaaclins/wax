@@ -56,8 +56,6 @@ struct HomeView: View {
                 rowBuilder: { track, isSelected in
                     marks.row(for: track) { mark in topTrackRow(track, mark: mark, isSelected: isSelected, in: tracks) }
                 },
-                pendingScrollRestoreTrackID: .constant(nil),
-                onFirstVisibleTrackChanged: { _ in },
                 playSelection: { selectedIDs in
                     guard let uri = tracks.first(where: { selectedIDs.contains($0.id) })?.playableURI else { return }
                     play(uri, in: tracks)
@@ -157,8 +155,11 @@ struct HomeView: View {
                     icon: "lock.fill",
                     text: SpotiglassL10n.string("home.section.reconnect")
                 ))
-            case let .failed(message):
-                HomeSectionNotice(style: .message(icon: "exclamationmark.triangle", text: message.string))
+            case let .failed(error):
+                ErrorBanner(error: error, retry: error.canRetry ? {
+                    Task { await viewModel.reloadHomeSections(forceRefresh: true) }
+                } : nil)
+                .frame(minHeight: SpotiglassDesign.Layout.sectionNoticeMinHeight)
             }
         }
     }
@@ -186,8 +187,11 @@ struct HomeView: View {
                     icon: "lock.fill",
                     text: SpotiglassL10n.string("home.section.reconnect")
                 ))
-            case let .failed(message):
-                HomeSectionNotice(style: .message(icon: "exclamationmark.triangle", text: message.string))
+            case let .failed(error):
+                ErrorBanner(error: error, retry: error.canRetry ? {
+                    Task { await viewModel.reloadHomeSections(forceRefresh: true) }
+                } : nil)
+                .frame(minHeight: SpotiglassDesign.Layout.sectionNoticeMinHeight)
             }
         }
     }

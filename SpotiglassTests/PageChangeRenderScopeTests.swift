@@ -87,8 +87,10 @@ final class PageChangeRenderScopeTests: XCTestCase {
         watch("canMutateRepeat", palette.$canMutateRepeat)
         watch("prefetchProgress", palette.$prefetchProgress)
         watch("availableSearchCategories", palette.viewModel.$availableSearchCategories)
-        // The scene observes the lyrics as well: every page change closes them.
-        watch("lyrics.isPresented", lyrics.$isPresented)
+        // The lyrics as well: every page change closes them. The lyrics' layer observes the one,
+        // the menus the other (#674).
+        watch("lyrics.presentation", lyrics.presentation.$isPresented)
+        watch("lyrics.chromePresentation", lyrics.chromePresentation.$isPresented)
         ViewBodyTally.counts = [:]
         await change()
         await AppKitTestSupport.settle()

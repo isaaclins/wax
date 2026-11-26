@@ -11,8 +11,7 @@ extension PlaybackSessionViewModel {
         }
         onWillStartPlayback?()
         guard let commandDeviceID else {
-            SpotiglassLog.error(.playback, "play(uri:) aborted: no command device. uri=\(uri)")
-            setConnectionState(.error(Self.playbackDeviceNotReadyError()))
+            showPlaybackError(nil, while: "playing a song with no player device", context: [.private("uri", uri)], Self.playbackDeviceNotReadyError())
             return
         }
 
@@ -76,7 +75,7 @@ extension PlaybackSessionViewModel {
         }
         onWillStartPlayback?()
         guard let commandDeviceID else {
-            setConnectionState(.error(Self.playbackDeviceNotReadyError()))
+            showPlaybackError(nil, while: "playing a context with no player device", context: [.private("context", contextURI)], Self.playbackDeviceNotReadyError())
             return
         }
 
@@ -131,8 +130,7 @@ extension PlaybackSessionViewModel {
         }
         onWillStartPlayback?()
         guard let commandDeviceID else {
-            SpotiglassLog.error(.playback, "playFromPlaylist aborted: no command device. clickedURI=\(clickedURI)")
-            setConnectionState(.error(Self.playbackDeviceNotReadyError()))
+            showPlaybackError(nil, while: "playing from a list with no player device", context: [.private("uri", clickedURI)], Self.playbackDeviceNotReadyError())
             return
         }
 

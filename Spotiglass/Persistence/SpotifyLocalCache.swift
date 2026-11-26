@@ -43,6 +43,7 @@ struct SpotifyLocalCache {
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let fileManager: FileManager
+    private let unknownPinKeys = UnknownJSONKeys()
 
     init(rootDirectory: URL? = nil, fileManager: FileManager = .default) throws {
         self.fileManager = fileManager
@@ -200,8 +201,26 @@ struct SpotifyLocalCache {
     /// Persist the per-account pinned-items list. The file lives under
     /// `pinned/<userID>.json` so multiple Spotify accounts on the same Mac
     /// keep their pins isolated.
+    /// A field a newer build added to a pin is written back unchanged (#627).
     func savePinnedItems(_ items: [PinnedItem], userID: String) throws {
-        try write(items, to: pinnedURL(userID: userID))
+        let url = pinnedURL(userID: userID)
+        let previous = fileManager.fileExists(atPath: url.path) ? try Data(contentsOf: url) : nil
+        let kept = unknownPinKeys.carryRows(
+            from: previous,
+            into: try encoder.encode(items),
+            rowSchema: PinnedItem.jsonKeySchema,
+            idKey: "id",
+            encoder: encoder
+        )
+        try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try kept.data.write(to: url, options: [.atomic])
+        let newlyKept = unknownPinKeys.namesToLog(kept.carried)
+        if !newlyKept.isEmpty {
+            SpotiglassLog.info(
+                SpotiglassLog.pinning,
+                "Pins in \(url.path) have fields this version doesn't read; kept them unchanged: \(newlyKept.joined(separator: ", "))."
+            )
+        }
     }
 
     func loadPinnedItems(userID: String) throws -> [PinnedItem] {

@@ -25,9 +25,10 @@ struct ImmersiveLyricsLyricsPhaseColumn: View {
                     .tint(.white)
                     .foregroundStyle(.white.opacity(0.85))
                     .frame(maxWidth: .infinity, minHeight: SpotiglassDesign.Layout.lyricsStatusMinHeight, alignment: .center)
-            case let .failed(message):
+            case let .failed(error):
+                // The lyrics column's page error, in the column's own white type.
                 VStack(alignment: .leading, spacing: SpotiglassDesign.spacingS) {
-                    Text(message.string)
+                    Text(error.message)
                         .font(.body)
                         .foregroundStyle(.white.opacity(0.9))
                     if let track = currentTrack {

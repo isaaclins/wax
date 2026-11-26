@@ -30,10 +30,6 @@ struct PlaylistBrowserView: View {
     var queueVisibleBinding: Binding<Bool> {
         Binding(get: { queuePanel.isOn }, set: { queuePanel.isOn = $0 })
     }
-    /// Best-effort scroll anchor when the playlist `List` is torn down for lyrics (playback URI match, else last row `onAppear`).
-    @State var detailLastVisibleTrackID: String?
-    /// When lyrics opens we snapshot here; when the playlist list remounts, `ScrollViewReader` scrolls to this id then clears it.
-    @State var pendingPlaylistListScrollRestoreID: String?
     /// Drives only the **playlist** sidebar (leading column). Queue visibility is separate — see `PlaylistBrowserDetailWithQueueSplit` below.
     /// Shown is `.all`, the value this two-column split view writes back by itself: setting
     /// `.doubleColumn` made it write `.all` straight after, so the whole browser rendered twice
@@ -157,24 +153,20 @@ struct PlaylistBrowserView: View {
         return SpotiglassL10n.format("browser.disconnect.hint.switch", next.displayName)
     }
 
-    /// Where you are, Home at the root unless nothing is selected. With the lyrics open that is the lyrics, not the page
-    /// underneath them (#438).
-    private var windowTitle: String {
-        if lyricsOverlay.isPresented {
-            return SpotiglassL10n.string("playback.controls.lyrics")
-        }
-        return BrowserToolbarPresentation.windowTitle(
+    /// Where you are, Home at the root unless nothing is selected. With the lyrics open the window
+    /// is named after them instead (``LyricsAwareWindowTitle``, #438).
+    private var pageWindowTitle: String {
+        BrowserToolbarPresentation.windowTitle(
             for: viewModel.breadcrumbPath,
             selection: viewModel.sidebarSelection,
             locale: spotiglassLocale
         )
     }
 
-    /// The window keeps its name (`windowTitle`) everywhere; only the bar above Home, which
-    /// has its own greeting, shows none (#495).
-    private var showsTitleInToolbar: Bool {
-        lyricsOverlay.isPresented
-            || BrowserToolbarPresentation.showsTitleInToolbar(for: viewModel.breadcrumbPath)
+    /// The window keeps its name (`pageWindowTitle`) everywhere; only the bar above Home, which
+    /// has its own greeting, shows none (#495). The lyrics always show theirs.
+    private var pageShowsTitleInToolbar: Bool {
+        BrowserToolbarPresentation.showsTitleInToolbar(for: viewModel.breadcrumbPath)
     }
 
     // The browser body is split into sequential stages on purpose. As one
@@ -192,7 +184,7 @@ struct PlaylistBrowserView: View {
                 retryPinnedBinding: {
                     Task { await bindPinnedStoreToCurrentUser() }
                 },
-                pinnedFileNotice: pinnedStore.fileNotice?.string,
+                pinnedFileNotice: pinnedStore.fileNotice,
                 likedSongsStubRow: likedSongsStubRow,
                 playlistSummaryFromRow: playlistSummaryFromRow,
                 onLibraryAppear: { syncLibraryRowOrder() },
@@ -229,8 +221,6 @@ struct PlaylistBrowserView: View {
                     viewModel: viewModel,
                     playbackViewModel: playbackViewModel,
                     queueViewModel: queueViewModel,
-                    pendingPlaylistListScrollRestoreID: $pendingPlaylistListScrollRestoreID,
-                    detailLastVisibleTrackID: $detailLastVisibleTrackID,
                     hasPlaybackDevice: hasPlaybackDevice,
                     onRequestCreatePlaylist: requestCreatePlaylist,
                     onRequestLibraryContinuation: requestLibraryContinuation
@@ -238,8 +228,10 @@ struct PlaylistBrowserView: View {
                 .modifier(PlayerBarClearance(barHeight: playerBarHeight))
                 // The page is covered while the lyrics are open: VoiceOver, Tab and the
                 // page's own shortcuts must not reach rows you can't see.
-                .disabled(lyricsOverlay.isPresented)
-                .accessibilityHidden(lyricsOverlay.isPresented)
+                .modifier(HiddenUnderLyrics(
+                    presentation: lyricsOverlay.presentation,
+                    chromePresentation: lyricsOverlay.chromePresentation
+                ))
                 // Lyrics take the place of the page in this column only, so the sidebar,
                 // the queue and the player bar below stay as on every other screen (#438).
                 .overlay {
@@ -268,10 +260,20 @@ struct PlaylistBrowserView: View {
             // landed before the sidebar button or after Refresh. Back keeps its leading place
             // (#495).
             .toolbar {
-                if !showsTitleInToolbar {
-                    ToolbarSpacer(.flexible)
-                }
-                browserToolbarItems
+                BrowserToolbarItems(
+                    presentation: lyricsOverlay.chromePresentation,
+                    viewModel: viewModel,
+                    queuePanel: queuePanel,
+                    pageShowsTitle: pageShowsTitleInToolbar,
+                    canDisconnect: canDisconnect,
+                    disconnectHint: Self.disconnectHint(switchingTo: disconnectSwitchesTo),
+                    confirmDisconnect: { isConfirmingDisconnect = true },
+                    popOutLyrics: { [commandPaletteManager] in
+                        commandPaletteManager.execute(commandID: CommandPaletteCommandID.popOutLyrics)
+                    },
+                    closeLyrics: { [lyricsOverlay] in lyricsOverlay.dismiss() },
+                    refreshButton: unifiedRefreshToolbarButton
+                )
             }
         }
         // The bar floats over the bottom of the columns instead of taking a row of its own
@@ -287,8 +289,8 @@ struct PlaylistBrowserView: View {
                 case .live:
                     BrowserTransportBar(
                         playbackViewModel: playbackViewModel,
+                        lyricsPresentation: lyricsOverlay.chromePresentation,
                         isLyricsPresented: isLyricsPresentedBinding,
-                        isLyricsShown: lyricsOverlay.isPresented,
                         openArtist: { target in
                             openArtistFromTapTarget(target)
                         }
@@ -303,72 +305,8 @@ struct PlaylistBrowserView: View {
         .scrollEdgeEffectStyle(.soft, for: .bottom)
     }
 
-    @ToolbarContentBuilder
-    private var browserToolbarItems: some ToolbarContent {
-        if let progress = viewModel.prefetchAllPlaylistsProgress {
-            ToolbarItem(placement: .automatic) {
-                PlaylistBrowserPrefetchProgressToolbarItem(progress: progress) {
-                    Task { await viewModel.toggleBulkPlaylistTrackPrefetch() }
-                }
-                .hiddenFromAccessibilityBehindPalette()
-            }
-        }
-        // Only once there is somewhere to go back to, like Music: at the
-        // root a dimmed chevron would sit beside the title doing nothing.
-        // Back belongs to the page under the lyrics, so it leaves with that page (#438).
-        if !lyricsOverlay.isPresented, viewModel.canNavigateBack {
-            ToolbarItem(placement: .navigation) {
-                NavigationToolbarChrome(viewModel: viewModel)
-                    .hiddenFromAccessibilityBehindPalette()
-            }
-        }
-        // With the lyrics open the bar keeps what still applies (the queue panel stays next
-        // to them) and trades Refresh and Disconnect for closing the lyrics: Refresh would
-        // reload a page that isn't showing (#438).
-        ToolbarItemGroup(placement: .automatic) {
-            QueuePanelToolbarButton(queuePanel: queuePanel)
-                .hiddenFromAccessibilityBehindPalette()
-
-            if lyricsOverlay.isPresented {
-                // Moves the lyrics into the small window that can stay above other apps (#439).
-                Button {
-                    commandPaletteManager.execute(commandID: CommandPaletteCommandID.popOutLyrics)
-                } label: {
-                    Label(SpotiglassL10n.string("lyrics.popOut.button"), systemImage: "pip.enter")
-                }
-                .help(SpotiglassL10n.string("lyrics.popOut.button.help"))
-                .hiddenFromAccessibilityBehindPalette()
-
-                Button {
-                    lyricsOverlay.dismiss()
-                } label: {
-                    Label(SpotiglassL10n.string("browser.closeLyrics"), systemImage: "xmark")
-                }
-                .help(SpotiglassL10n.string("browser.closeLyrics"))
-                .accessibilityHint(SpotiglassL10n.string("browser.closeLyrics.hint"))
-                .hiddenFromAccessibilityBehindPalette()
-            } else if canDisconnect {
-                Button {
-                    isConfirmingDisconnect = true
-                } label: {
-                    Label(SpotiglassL10n.string("browser.disconnect"), systemImage: "rectangle.portrait.and.arrow.right")
-                }
-                .help(SpotiglassL10n.string("browser.disconnect"))
-                .accessibilityHint(Self.disconnectHint(switchingTo: disconnectSwitchesTo))
-                .hiddenFromAccessibilityBehindPalette()
-            }
-        }
-        if !lyricsOverlay.isPresented {
-            ToolbarItem(placement: .primaryAction) {
-                unifiedRefreshToolbarButton
-                    .hiddenFromAccessibilityBehindPalette()
-            }
-        }
-    }
-
     private var browserChrome: some View {
         browserSplitLayout
-        .animation(.easeOut(duration: 0.22), value: lyricsOverlay.isPresented)
         .animation(.easeOut(duration: 0.2), value: viewModel.canNavigateBack)
         // Measure the width the window offers, not the split view's own width. Below the
         // sidebar + detail minimums the split view keeps its minimum and overflows the window,
@@ -392,8 +330,11 @@ struct PlaylistBrowserView: View {
         // correctly named (#161). The title is the current location rather than
         // the app name; the back button names the place before it (#443). Home keeps
         // that name for the window but shows none in the bar (#495).
-        .navigationTitle(windowTitle)
-        .toolbar(removing: showsTitleInToolbar ? nil : .title)
+        .modifier(LyricsAwareWindowTitle(
+            presentation: lyricsOverlay.chromePresentation,
+            pageTitle: pageWindowTitle,
+            pageShowsTitle: pageShowsTitleInToolbar
+        ))
         .alert(
             SpotiglassL10n.string("browser.disconnect.confirm.title"),
             isPresented: $isConfirmingDisconnect
@@ -575,8 +516,10 @@ struct PlaylistBrowserView: View {
         .onChange(of: unifiedRefreshFocus) { _, _ in
             syncUnifiedRefreshRoutingToViewModel()
         }
-        .onChange(of: lyricsOverlay.isPresented) { _, _ in
-            syncUnifiedRefreshRoutingToViewModel()
+        // A subscription, not `onChange`: reading the lyrics' state here would run this body on
+        // every ⌥⌘L (#674). It reports the new value before it is stored.
+        .onReceive(lyricsOverlay.presentation.$isPresented.removeDuplicates()) { presented in
+            syncUnifiedRefreshRoutingToViewModel(lyricsPresented: presented)
         }
         // The sidebar, the queue and the player bar stay usable next to the lyrics, so you can
         // go somewhere else while they are open (a sidebar row, an artist link, Back). The new
@@ -685,14 +628,16 @@ struct PlayerBarClearance: ViewModifier {
 /// The binding and `openArtist` read and act on the live browser, so a kept copy works the same.
 private struct BrowserTransportBar: View, Equatable {
     @ObservedObject var playbackViewModel: PlaybackSessionViewModel
+    /// The Lyrics buttons show whether they are open and follow that themselves (#674).
+    let lyricsPresentation: LyricsPresentationState
     let isLyricsPresented: Binding<Bool>
-    /// What `isLyricsPresented` reads now: the bar's lyrics button shows it.
-    let isLyricsShown: Bool
     let openArtist: (ArtistTapTarget) -> Void
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         MainActor.assumeIsolated {
-            lhs.playbackViewModel === rhs.playbackViewModel && lhs.isLyricsShown == rhs.isLyricsShown
+            // Not whether the lyrics show: the bar's Lyrics buttons follow that through
+            // `lyricsPresentation`, and the browser no longer runs when they open (#674).
+            lhs.playbackViewModel === rhs.playbackViewModel
         }
     }
 
@@ -707,6 +652,7 @@ private struct BrowserTransportBar: View, Equatable {
             viewModel: transport,
             isLyricsPresented: isLyricsPresented,
             openArtist: openArtist,
+            lyricsPresentation: lyricsPresentation,
             otherService: transport === playbackViewModel ? nil : transport.service
         )
     }

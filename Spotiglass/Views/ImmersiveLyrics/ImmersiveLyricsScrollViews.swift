@@ -140,6 +140,21 @@ extension EnvironmentValues {
     }
 }
 
+private struct LyricsAreShowingKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    /// `false` while the lyrics in the main window are closed. They stay built under the page
+    /// so they open within 50 ms (#674), and meanwhile they follow no playback position, load no
+    /// lyrics or queue, start no timing hold and take no keyboard focus. The backdrop still loads
+    /// each song's artwork, so it is there when they open.
+    var lyricsAreShowing: Bool {
+        get { self[LyricsAreShowingKey.self] }
+        set { self[LyricsAreShowingKey.self] = newValue }
+    }
+}
+
 private struct LyricsListFocusModifier: ViewModifier {
     let focus: FocusState<Bool>.Binding?
 
@@ -220,6 +235,7 @@ struct ImmersiveLyricsScrollCore<ID: Hashable, Content: View>: View {
     @State private var controller = LyricsAutoCenterController()
     @State private var scrolledID: ID?
     @Environment(\.lyricsListFocus) private var listFocus
+    @Environment(\.lyricsAreShowing) private var isShowing
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -246,6 +262,13 @@ struct ImmersiveLyricsScrollCore<ID: Hashable, Content: View>: View {
                 .onChange(of: isHolding) { _, _ in
                     controller.engageImmediately()
                     centerOn(activeID, animated: !reduceMotion)
+                }
+                // The lyrics stay built while closed (#674); opened again, they start on the
+                // current line, as they did when each open built them anew.
+                .onChange(of: isShowing) { _, showing in
+                    guard showing else { return }
+                    controller.engageImmediately()
+                    scrolledID = activeID
                 }
                 .onChange(of: controller.isAutoCentering) { _, engaged in
                     guard engaged else { return }

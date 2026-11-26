@@ -13,7 +13,7 @@ final class PlaylistBrowserTapTargetNavigationTests: XCTestCase {
                 XCTFail("search should not run")
                 return nil
             },
-            showFailure: { XCTFail("unexpected failure \($0.string)") }
+            showFailure: { XCTFail("unexpected failure \($0.message)") }
         )
         XCTAssertEqual(selected?.0, "artist-1")
         XCTAssertEqual(selected?.2, "Artist")
@@ -29,7 +29,7 @@ final class PlaylistBrowserTapTargetNavigationTests: XCTestCase {
                 XCTAssertEqual(name, "Taylor")
                 return "resolved"
             },
-            showFailure: { XCTFail("unexpected failure \($0.string)") }
+            showFailure: { XCTFail("unexpected failure \($0.message)") }
         )
         XCTAssertEqual(selectedID, "resolved")
     }
@@ -49,7 +49,7 @@ final class PlaylistBrowserTapTargetNavigationTests: XCTestCase {
                 XCTFail("search should not run")
                 return nil
             },
-            showFailure: { XCTFail("unexpected failure \($0.string)") }
+            showFailure: { XCTFail("unexpected failure \($0.message)") }
         )
         XCTAssertEqual(selected?.0, "alb-1")
         XCTAssertEqual(selected?.3, art)
@@ -68,7 +68,7 @@ final class PlaylistBrowserTapTargetNavigationTests: XCTestCase {
                 XCTAssertEqual(hint, "Taylor Swift")
                 return "alb-resolved"
             },
-            showFailure: { XCTFail("unexpected failure \($0.string)") }
+            showFailure: { XCTFail("unexpected failure \($0.message)") }
         )
         XCTAssertEqual(selectedID, "alb-resolved")
     }
@@ -82,7 +82,7 @@ final class PlaylistBrowserTapTargetNavigationTests: XCTestCase {
             origin: .reset,
             selectArtist: { _, _, _ in selected = true },
             resolveArtistID: { _ in throw URLError(.notConnectedToInternet) },
-            showFailure: { shown = $0.string }
+            showFailure: { shown = $0.message }
         )
         XCTAssertFalse(selected)
         XCTAssertEqual(shown, SpotiglassL10n.format("browser.tapTarget.openFailed", "Taylor"))
@@ -97,7 +97,7 @@ final class PlaylistBrowserTapTargetNavigationTests: XCTestCase {
             origin: .reset,
             selectAlbum: { _, _, _, _, _ in XCTFail("nothing to open") },
             resolveAlbumID: { _, _ in throw URLError(.timedOut) },
-            showFailure: { shown = $0.string }
+            showFailure: { shown = $0.message }
         )
         XCTAssertEqual(shown, SpotiglassL10n.format("browser.tapTarget.openFailed", "Midnights"))
     }
@@ -108,7 +108,7 @@ final class PlaylistBrowserTapTargetNavigationTests: XCTestCase {
             origin: .reset,
             selectArtist: { _, _, _ in XCTFail("nothing to open") },
             resolveArtistID: { _ in throw CancellationError() },
-            showFailure: { XCTFail("a cancelled lookup said \($0.string)") }
+            showFailure: { XCTFail("a cancelled lookup said \($0.message)") }
         )
     }
 }

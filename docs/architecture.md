@@ -132,8 +132,38 @@ Refactor in progress:
 
 ## Logging
 
-`SpotiglassLog` (`os.Logger` categories) is used in App, Pinning, Settings, Persistence,
-and Domain. Auth, Services, Playback session, and Views adopt logging incrementally.
+`SpotiglassLog` (`os.Logger` categories plus the log file) is the one logger. Values from
+someone's library go into a line through `SpotiglassLog.personal(_:)` (or `LogField.private`,
+see Errors), so the copy saved for a bug report replaces them (#603).
+
+## Errors
+
+A failure reaches the screen and the log through one call
+([`DisplayError.swift`](../Spotiglass/Infrastructure/DisplayError.swift), #608):
+
+```swift
+detailState = .error(ErrorReporting.report(
+    error, while: "loading playlist songs", in: .browsing,
+    context: [.private("playlist", id)],
+    showing: Self.displayError(for: error)   // an ErrorMessage: title, message, action, details
+))
+```
+
+- A feature maps an error to an `ErrorMessage` (the words, and Retry or another way out).
+- `report` writes one line, `<operation> failed: <error>; shown "<title>" [fields]`, and
+  returns the `DisplayError` to show. Only `report` makes one, so nothing is shown without
+  a log line. `.info` is for failures the app expects (a rate limit it waits out).
+- Views and view models keep the `DisplayError`, never the text: it follows a language switch.
+- It is shown one of three ways (`Views/ErrorSurfaces.swift`): `ErrorPage` when nothing could
+  load, `ErrorBanner` over stale or partial data or a setting that didn't take, and a toast
+  (`ToastMessage.failed`) for a one-off action. Empty states are only for real emptiness.
+  The player bar's status line and the lyrics column keep their own look and take the same
+  `DisplayError`. The Apple Music permission page explains the access state itself; it isn't
+  a failure the app reports. A notice that follows a reported failure with its own buttons
+  (the copy kept of a settings file) uses `BannerLine`, the banner's layout.
+- `scripts/audit-error-handling.sh` (run by `make test` and CI) fails on a view or model that
+  holds an error as `String` or `LocalizedText`, and on a `catch` that neither reports, logs
+  nor rethrows.
 
 ## Tests
 

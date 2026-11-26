@@ -198,7 +198,8 @@ final class PlaylistBrowserHomeFeedTests: XCTestCase {
                 signOut: {}
             )
             .environmentObject(store)
-            .environmentObject(LyricsOverlayController()),
+            .environmentObject(LyricsOverlayController())
+            .environmentObject(try ViewTestHost.makeSettingsStore()),
             size: CGSize(width: 1_200, height: 800)
         )
 

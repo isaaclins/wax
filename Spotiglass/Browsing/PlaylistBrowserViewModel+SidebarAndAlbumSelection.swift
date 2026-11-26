@@ -155,7 +155,7 @@ extension PlaylistBrowserViewModel {
             return
         } catch {
             guard session == detailSession else { return }
-            detailState = .error(Self.displayError(for: error))
+            detailState = .error(Self.reportedError(error, while: "loading an album", context: [.private("album", id)]))
         }
     }
 }

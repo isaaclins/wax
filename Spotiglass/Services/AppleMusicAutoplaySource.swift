@@ -89,33 +89,11 @@ final class AppleMusicAutoplaySource: QueueAutoplaySource {
 
     // MARK: - Pure parts
 
-    struct WeightedArtist: Equatable {
-        let name: String
-        /// The service's artist ID when it is a catalog ID (numeric).
-        var idHint: String?
-        var weight: Double
-    }
+    typealias WeightedArtist = QueueAutoplayArtistWeights.WeightedArtist
 
-    /// The recent queue's artists, most weighted first; each song's weight goes to its first
-    /// artist, who leads the song.
+    /// The recent queue's artists, most weighted first, with catalog IDs (numeric) as hints.
     static func artistWeights(_ seeds: [QueueAutoplaySeed]) -> [WeightedArtist] {
-        var artists: [WeightedArtist] = []
-        for seed in seeds {
-            guard let name = seed.artists.first?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
-                continue
-            }
-            let key = QueueAutoplayIdentity.normalized(name)
-            let hint = seed.artistIDs.first.flatMap { isCatalogID($0) ? $0 : nil }
-            if let index = artists.firstIndex(where: { QueueAutoplayIdentity.normalized($0.name) == key }) {
-                artists[index].weight += seed.weight
-                if artists[index].idHint == nil { artists[index].idHint = hint }
-            } else {
-                artists.append(WeightedArtist(name: name, idHint: hint, weight: seed.weight))
-            }
-        }
-        return artists.enumerated()
-            .sorted { $0.element.weight != $1.element.weight ? $0.element.weight > $1.element.weight : $0.offset < $1.offset }
-            .map(\.element)
+        QueueAutoplayArtistWeights.weights(seeds, idHint: isCatalogID)
     }
 
     /// Each song's score is the sum over the recent artists that lead to it: a similar

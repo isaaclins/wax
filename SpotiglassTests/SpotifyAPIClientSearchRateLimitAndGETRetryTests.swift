@@ -120,6 +120,43 @@ final class SpotifyAPIClientSearchRateLimitAndGETRetryTests: XCTestCase {
         )
     }
 
+    /// Spotify Autoplay's search asks for the listener's market, so a song that doesn't play in
+    /// their country comes back marked and is never queued (#617).
+    func testSearchTracksWithMarketMarksSongsThatDontPlayThere() async throws {
+        let httpClient = QueueHTTPClient([
+            .json("""
+            {
+              "tracks": {
+                "items": [
+                  {
+                    "type": "track",
+                    "id": "track-1",
+                    "name": "Elsewhere",
+                    "artists": [{ "name": "A" }],
+                    "album": { "images": [] },
+                    "duration_ms": 1000,
+                    "explicit": false,
+                    "is_playable": false,
+                    "uri": "spotify:track:track-1"
+                  }
+                ]
+              }
+            }
+            """)
+        ])
+        let client = SpotifyAPIClient(tokenProvider: StaticSpotifyAccessTokenProvider(token: "token"), httpClient: httpClient)
+
+        let tracks = try await client.searchTracks(query: "artist:\"A\"", limit: 10, market: "from_token")
+
+        XCTAssertEqual(
+            httpClient.requests.first?.url?.absoluteString,
+            "https://api.spotify.com/v1/search?q=artist:%22A%22&type=track&limit=10&market=from_token"
+        )
+        XCTAssertEqual(tracks.first?.isPlayable, false)
+        let candidates = tracks.map { QueueAutoplayCandidate(track: $0, score: 1) }
+        XCTAssertEqual(QueueAutoplayRanking.ordered(candidates, excluded: []), [])
+    }
+
     func testSearchSecondCallUsesGETResponseCacheSingleHTTPRequest() async throws {
         let searchJSON = """
             {

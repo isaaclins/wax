@@ -78,7 +78,7 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 | `palette.close` | Esc closes the palette | 72 → 37 | 78 → 46 | #671 |
 | `sidebar.toggle` | ⌘S hides or shows the sidebar | 81 → 43 | 83 → 43 | #672 |
 | `queue.toggle` | ⌥⌘Q opens or closes the queue | 72 → 52† | 77 → 61† | #673 |
-| `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 114 | 123 | #674 |
+| `lyrics.toggle` | ⌥⌘L opens or closes the lyrics | 37 | 40 | fixed in #674 (was 114 / 123)‡ |
 | `page.search` | ⌘F opens Search | 86 | 89 | #675 |
 | `page.back` | ⌘[ goes back a page | 41-62 | 45-63 | #730 (was never) |
 | `page.sidebarClick` | Click a playlist in the sidebar | 60 | 66 | #675 |
@@ -89,6 +89,9 @@ in ms. These are the "before": the probe changes no behaviour. Each fix adds its
 † After #673's first part (median 52, checked 61 on a busy Mac): closing takes 36-47 ms, opening
 50-61 ms. Opening still builds the queue's list in its first frame; the rest of the window no
 longer redraws.
+‡ The middle of five runs at a load average of 3-7 (medians 34-39 ms, checked 36-48 ms). Opening
+takes 33-52 ms, the first one too: the lyrics are built a second after the window shows and kept,
+hidden and paused, while they are closed. Closing takes 28-52 ms.
 \* Run on its own; after the palette had been opened and closed 8 times, the letters never reached
 the field: ⌘K while the panel was still fading out brought that panel back without focusing its
 field. "→" is the time after #671, measured on 2026-11-25 in the same full run.

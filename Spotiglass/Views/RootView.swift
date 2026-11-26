@@ -36,18 +36,16 @@ final class SpotiglassSceneHost: ObservableObject {
 
     init(commandPaletteManager: CommandPaletteManager) {
         self.commandPaletteManager = commandPaletteManager
-        self.lyricsOverlayController = LyricsOverlayController()
+        self.lyricsOverlayController = LyricsOverlayController(buildsLyricsAhead: true)
 
         commandPaletteManager.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
             .store(in: &childCancellables)
-        lyricsOverlayController.objectWillChange
-            .sink { [weak self] _ in
-                self?.objectWillChange.send()
-            }
-            .store(in: &childCancellables)
+        // The lyrics opening or closing is not passed on: this host is the root view's state
+        // object, so passing it on ran the whole window's views again on every ⌥⌘L (#674). The
+        // menus follow the lyrics through ``SpotiglassSceneRegistry``.
     }
 
     /// Clears all scene-local presentation state and callbacks before the scene
@@ -110,7 +108,7 @@ final class SpotiglassSceneRegistry: ObservableObject {
     let mainWindowFront = MainWindowFront()
 
     private var scenes: [SpotiglassSceneHost] = []
-    private var activeSceneCancellable: AnyCancellable?
+    private var activeSceneCancellables: Set<AnyCancellable> = []
 
     /// Registers a live scene without changing which scene owns app-level
     /// commands. The activation probe promotes a scene only when its window is
@@ -172,13 +170,18 @@ final class SpotiglassSceneRegistry: ObservableObject {
         if activeScene == nil, scene == nil { return }
         if let activeScene, let scene, activeScene === scene { return }
 
-        activeSceneCancellable?.cancel()
+        activeSceneCancellables = []
         activeScene = scene
         guard let scene else { return }
-        activeSceneCancellable = scene.objectWillChange
-            .sink { [weak self] _ in
-                self?.forwardAfterThisFrame()
-            }
+        // The scene's palette, and the lyrics opening or closing: Show/Hide Lyrics and the items
+        // dimmed while they are open (#438) read both.
+        for publisher in [scene.objectWillChange, scene.lyricsOverlayController.chromePresentation.objectWillChange] {
+            publisher
+                .sink { [weak self] _ in
+                    self?.forwardAfterThisFrame()
+                }
+                .store(in: &activeSceneCancellables)
+        }
     }
 
     private var forwardIsScheduled = false
@@ -780,17 +783,9 @@ struct RootView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
             }
-        case .failed:
-            VStack(alignment: .center, spacing: SpotiglassDesign.spacingXS) {
-                Label(viewModel.state.title, systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline.weight(.medium))
-                    .symbolRenderingMode(.hierarchical)
-                Text(viewModel.state.message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
-            }
+        case let .failed(error):
+            ErrorBanner(error: error, showsTitle: true)
+                .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
         case .signedIn, .refreshing, .paused:
             EmptyView()
         }

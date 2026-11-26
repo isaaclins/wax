@@ -486,7 +486,7 @@ final class LyricsPopOutTests: XCTestCase {
         XCTAssertEqual(text(.ready(.unsyncedPlain(["One", "Two"])), at: 45_000), "Two")
         XCTAssertEqual(text(.ready(.synced([])), at: 0), "Song")
         XCTAssertEqual(text(.loading, at: 0), "Song")
-        XCTAssertEqual(text(.failed("No lyrics"), at: 0), "Song")
+        XCTAssertEqual(text(.failed(.reported(ErrorMessage(message: "No lyrics"))), at: 0), "Song")
         XCTAssertEqual(text(.ready(.instrumental), at: 0), SpotiglassL10n.string("lyrics.instrumental"))
 
     }
@@ -710,7 +710,7 @@ final class LyricsPopOutTests: XCTestCase {
     /// a refused pause that ends in an error shows the error, and only an idle player gets the
     /// hint to play something.
     func testWithNoSongTheWindowSaysWhatThePlayerBarSays() {
-        let expired = PlaybackDisplayError(title: "Spotify sign-in expired", message: "Sign in again to keep playing.", recoveryAction: nil)
+        let expired = DisplayError.reported(ErrorMessage(title: "Spotify sign-in expired", message: "Sign in again to keep playing.", action: nil))
         XCTAssertEqual(
             LyricsPopOutContent.of(.error(expired)),
             .status(title: "Spotify sign-in expired", subtitle: "Sign in again to keep playing.", invitesPlay: false)
@@ -747,7 +747,7 @@ final class LyricsPopOutTests: XCTestCase {
             name: "Midnight City", artists: ["M83"], albumName: nil, albumID: nil, albumArtURL: nil,
             durationMilliseconds: 240_000, positionMilliseconds: 1_000, uri: "spotify:track:1"
         )
-        let refused = PlaybackDisplayError(title: "Couldn't pause", message: "Spotify didn't answer.", recoveryAction: nil)
+        let refused = DisplayError.reported(ErrorMessage(title: "Couldn't pause", message: "Spotify didn't answer.", action: nil))
         XCTAssertEqual(LyricsPopOutStripText.subtitle(track: song, lyric: "First line", notice: refused), "Couldn't pause")
         XCTAssertEqual(LyricsPopOutStripText.subtitle(track: song, lyric: "First line", notice: nil), "Midnight City · M83")
         XCTAssertEqual(LyricsPopOutStripText.subtitle(track: song, lyric: nil, notice: nil), "M83")
@@ -932,7 +932,7 @@ final class LyricsPopOutTests: XCTestCase {
         XCTAssertEqual(lines(.transferring(deviceID: "d")), [l("playback.controls.state.transferring.title"), l("playback.controls.state.transferring.subtitle")])
         XCTAssertEqual(lines(.paused(nil)), [l("playback.controls.state.paused.title"), l("playback.controls.state.paused.subtitle")])
         XCTAssertEqual(lines(.unavailable("No subscription.")), [l("playback.controls.state.unavailable.title"), "No subscription."])
-        let error = PlaybackDisplayError(title: "Couldn't play", message: "Try again.", recoveryAction: nil)
+        let error = DisplayError.reported(ErrorMessage(title: "Couldn't play", message: "Try again.", action: nil))
         XCTAssertEqual(lines(.error(error)), ["Couldn't play", "Try again."])
         let song = PlaybackNowPlaying(
             name: "Midnight City", artists: ["M83"], albumName: nil, albumID: nil, albumArtURL: nil,

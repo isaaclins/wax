@@ -111,6 +111,41 @@ final class SpotifyLocalCacheTests: XCTestCase {
         XCTAssertEqual(try cache.loadPinnedItems(userID: "userA"), [])
     }
 
+    /// #627: a field a newer build added to a pin is still there after a pin change here.
+    func testPinFieldsWrittenByANewerBuildSurviveTheNextPinChange() throws {
+        let (cache, root) = try makeCache()
+        let kept = PinnedItem(
+            id: "playlist:abc", kind: .playlist, title: "T", subtitle: "S",
+            artworkURL: nil, spotifyURI: "spotify:playlist:abc", isStale: false
+        )
+        let removed = PinnedItem(
+            id: "album:gone", kind: .album, title: "A", subtitle: "S",
+            artworkURL: nil, spotifyURI: "spotify:album:gone", isStale: false
+        )
+        try cache.savePinnedItems([kept, removed], userID: "userA")
+        let url = root.appendingPathComponent("pinned/userA.json")
+        var rows = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        rows[0]["pinnedFolder"] = "Workout"
+        rows[1]["pinnedFolder"] = "Old"
+        try JSONSerialization.data(withJSONObject: rows).write(to: url)
+
+        let added = PinnedItem(
+            id: PinnedItem.likedSongsID, kind: .likedSongs, title: "Liked", subtitle: "x",
+            artworkURL: nil, spotifyURI: nil, isStale: false
+        )
+        var renamed = kept
+        renamed.title = "Renamed"
+        try cache.savePinnedItems([added, renamed], userID: "userA")
+
+        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
+        XCTAssertEqual(saved.count, 2)
+        XCTAssertNil(saved[0]["pinnedFolder"])
+        XCTAssertEqual(saved[1]["id"] as? String, "playlist:abc")
+        XCTAssertEqual(saved[1]["pinnedFolder"] as? String, "Workout")
+        XCTAssertEqual(saved[1]["title"] as? String, "Renamed")
+        XCTAssertEqual(try cache.loadPinnedItems(userID: "userA"), [added, renamed])
+    }
+
     func testPinnedItemsUserIDIsFileSafeForFunkyCharacters() throws {
         let (cache, _) = try makeCache()
         // Slashes and unicode must not escape the pinned/ directory.

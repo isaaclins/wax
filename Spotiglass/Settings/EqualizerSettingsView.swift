@@ -10,7 +10,7 @@ struct EqualizerSettingsView: View {
 
     @State private var pendingSavePresetName: String = ""
     @State private var isPresentingSaveSheet: Bool = false
-    @State private var saveSheetError: String?
+    @State private var saveSheetError: DisplayError?
     @State private var isConfirmingDriverRemoval = false
 
     var body: some View {
@@ -90,7 +90,15 @@ struct EqualizerSettingsView: View {
                         pendingSavePresetName = ""
                         saveSheetError = nil
                     } catch {
-                        saveSheetError = error.localizedDescription
+                        // A name the presets can't take: the sheet says why and stays open.
+                        saveSheetError = ErrorReporting.report(
+                            error,
+                            while: "saving an equalizer preset",
+                            in: .settings,
+                            level: .info,
+                            showing: ErrorMessage(message: (error as? LocalizedError)?.errorDescription
+                                ?? SpotiglassL10n.string("error.browsing.generic.title"))
+                        )
                     }
                 }
             )
@@ -108,12 +116,8 @@ struct EqualizerSettingsView: View {
                 .toggleStyle(.switch)
                 .disabled(engine.isRemovingDriver)
 
-            if let lastError = engine.lastError, !lastError.isEmpty {
-                Label(lastError, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+            if let lastError = engine.lastError, !lastError.message.isEmpty {
+                ErrorBanner(error: lastError)
 
                 // Only the user can grant this, and only in System Settings,
                 // so the pane offers the trip there instead of naming a path.
@@ -672,7 +676,7 @@ private struct CenterOriginGainFader: View {
 
 private struct SavePresetSheet: View {
     @Binding var name: String
-    @Binding var error: String?
+    @Binding var error: DisplayError?
     let onCancel: () -> Void
     let onSave: (String) -> Void
 
@@ -690,9 +694,7 @@ private struct SavePresetSheet: View {
                 .onSubmit { onSave(name) }
 
             if let error {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
+                ErrorBanner(error: error)
             }
 
             HStack {

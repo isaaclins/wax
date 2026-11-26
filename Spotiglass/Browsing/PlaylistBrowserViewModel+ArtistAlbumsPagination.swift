@@ -83,7 +83,11 @@ extension PlaylistBrowserViewModel {
             paging.isLoading = false
             currentArtistAlbumsPaging = paging
             guard ownsArtistDetailSurface(session: session, artistID: artistID) else { return }
-            detailState = .staleCache(.artist(detail), Self.displayError(for: error))
+            detailState = .staleCache(.artist(detail), Self.reportedError(
+                error,
+                while: "loading more artist albums",
+                context: [.private("artist", artistID)]
+            ))
         }
     }
 

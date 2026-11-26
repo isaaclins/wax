@@ -106,7 +106,7 @@ struct SpotiglassApp: App {
         // Built lazily (after NSApp exists). Apple Music plays through MusicKit's own player:
         // no Web Playback SDK page, created only once Apple Music is on screen.
         let playbackHosts = SpotiglassPlaybackHosts(
-            spotify: SpotiglassPlaybackHost(tokenProvider: authVM, equalizerEngine: equalizer),
+            spotify: SpotiglassPlaybackHost(tokenProvider: authVM, catalogTokenProvider: authVM, equalizerEngine: equalizer),
             makeAppleMusic: {
                 SpotiglassPlaybackHost(provider: AppleMusicPlaybackProvider(), equalizerEngine: equalizer)
             }

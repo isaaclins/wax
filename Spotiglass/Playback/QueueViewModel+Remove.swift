@@ -48,6 +48,7 @@ extension QueueViewModel {
             // The session ended meanwhile: there is no queue to put them back into.
         } catch {
             lastError = Self.displayError(for: error, service: provider.service)
+                .map { report(error, while: "putting removed songs back in the queue", showing: $0) }
         }
         await queueEdited()
     }
@@ -77,6 +78,7 @@ extension QueueViewModel {
             return nil
         } catch {
             lastError = Self.displayError(for: error, service: provider.service)
+                .map { report(error, while: "removing songs from the queue", showing: $0) }
             await queueEdited()
             return nil
         }

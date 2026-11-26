@@ -259,6 +259,110 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.settings, onDisk)
     }
 
+    /// #627: a newer build's keys (top level and inside `appearance`) survive a change made here.
+    func testKeysWrittenByANewerBuildSurviveAChangeMadeHere() throws {
+        let url = makeTempFileURL()
+        var newer = try Self.jsonObject(JSONEncoder().encode(SpotiglassSettingsStore.bootstrapDefaults()))
+        newer["playbackCrossfade"] = ["enabled": true, "seconds": 6]
+        var appearance = try XCTUnwrap(newer["appearance"] as? [String: Any])
+        appearance["sidebarDensity"] = "compact"
+        newer["appearance"] = appearance
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: newer, options: [.sortedKeys]).write(to: url)
+
+        let store = SpotiglassSettingsStore(fileURL: url)
+        try store.mutate { $0.appearance.colorScheme = .dark }
+        try store.mutate { $0.commandPalette.backdropBlur = false }
+
+        let onDisk = try Self.jsonObject(Data(contentsOf: url))
+        XCTAssertEqual(onDisk["playbackCrossfade"] as? [String: AnyHashable], ["enabled": true, "seconds": 6])
+        let savedAppearance = try XCTUnwrap(onDisk["appearance"] as? [String: Any])
+        XCTAssertEqual(savedAppearance["sidebarDensity"] as? String, "compact")
+        XCTAssertEqual(savedAppearance["colorScheme"] as? String, "dark")
+        XCTAssertEqual((onDisk["commandPalette"] as? [String: Any])?["backdropBlur"] as? Bool, false)
+        XCTAssertEqual(store.settings.appearance.colorScheme, .dark)
+        // Kept in place, not only in a copy, so the newer build still finds them.
+        XCTAssertTrue(UnreadableFileBackup.copies(of: url).isEmpty)
+    }
+
+    /// #627: a newer build's field in a user EQ preset stays with the preset of the same name, and a
+    /// field in a keybind row, which has no identity to match by, is named as dropped.
+    func testRowFieldsWrittenByANewerBuildAreKeptByNameOrNamedAsDropped() throws {
+        let url = makeTempFileURL()
+        var file = SpotiglassSettingsStore.bootstrapDefaults()
+        file.equalizer.userPresets = [
+            EqualizerPreset(name: "Night", bands: Array(repeating: 1, count: EqualizerSettings.bandCount)),
+            EqualizerPreset(name: "Car", bands: Array(repeating: 2, count: EqualizerSettings.bandCount)),
+        ]
+        var json = try Self.jsonObject(JSONEncoder().encode(file))
+        var equalizer = try XCTUnwrap(json["equalizer"] as? [String: Any])
+        var presets = try XCTUnwrap(equalizer["userPresets"] as? [[String: Any]])
+        presets[1]["loudness"] = true
+        equalizer["userPresets"] = presets
+        json["equalizer"] = equalizer
+        var keybinds = try XCTUnwrap(json["keybinds"] as? [[String: Any]])
+        XCTAssertFalse(keybinds.isEmpty)
+        keybinds[0]["repeatWhileHeld"] = true
+        json["keybinds"] = keybinds
+        let previous = try JSONSerialization.data(withJSONObject: json)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try previous.write(to: url)
+
+        let store = SpotiglassSettingsStore(fileURL: url)
+        try store.mutate { $0.equalizer.userPresets.reverse() }
+
+        let onDisk = try Self.jsonObject(Data(contentsOf: url))
+        let savedPresets = try XCTUnwrap((onDisk["equalizer"] as? [String: Any])?["userPresets"] as? [[String: Any]])
+        XCTAssertEqual(savedPresets.map { $0["name"] as? String }, ["Car", "Night"])
+        XCTAssertEqual(savedPresets[0]["loudness"] as? Bool, true)
+        XCTAssertNil(savedPresets[1]["loudness"])
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
+        let result = UnknownJSONKeys().carry(
+            from: previous,
+            into: try encoder.encode(store.settings),
+            schema: SpotiglassSettingsFile.jsonKeySchema,
+            encoder: encoder
+        )
+        XCTAssertEqual(result.carried, ["equalizer.userPresets[Car].loudness"])
+        XCTAssertEqual(result.dropped, ["keybinds[].repeatWhileHeld"])
+    }
+
+    /// A key this build knows and clears (an optional set to nil) stays cleared: only unknown keys
+    /// come back from the previous file.
+    func testAKnownSettingClearedHereIsNotBroughtBackFromThePreviousFile() throws {
+        let url = makeTempFileURL()
+        var file = SpotiglassSettingsStore.bootstrapDefaults()
+        file.equalizer.forwardingTargetUID = "speaker-1"
+        var json = try Self.jsonObject(JSONEncoder().encode(file))
+        json["newerKey"] = 1
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: json).write(to: url)
+
+        let store = SpotiglassSettingsStore(fileURL: url)
+        try store.mutate { $0.equalizer.forwardingTargetUID = nil }
+
+        let onDisk = try Self.jsonObject(Data(contentsOf: url))
+        XCTAssertNil((onDisk["equalizer"] as? [String: Any])?["forwardingTargetUID"])
+        XCTAssertEqual(onDisk["newerKey"] as? Int, 1)
+    }
+
+    /// With nothing to keep, the saved bytes are exactly what the encoder writes.
+    func testAFileWithOnlyKnownKeysIsSavedExactlyAsEncoded() throws {
+        let url = makeTempFileURL()
+        let store = SpotiglassSettingsStore(fileURL: url)
+        try store.mutate { $0.appearance.lyricsTextScale = 1.3 }
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
+        XCTAssertEqual(try Data(contentsOf: url), try encoder.encode(store.settings))
+    }
+
+    private static func jsonObject(_ data: Data) throws -> [String: Any] {
+        try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
     func testUpdateAppearanceColorSchemePersistsAtomically() throws {
         let url = makeTempFileURL()
         let store = SpotiglassSettingsStore(fileURL: url)
@@ -325,7 +429,7 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         let recovered = try JSONDecoder().decode(SpotiglassSettingsFile.self, from: try Data(contentsOf: url))
         XCTAssertEqual(recovered.version, SpotiglassSettingsFile.currentVersion)
         XCTAssertEqual(store.backupURL, copies.first)
-        XCTAssertTrue(try XCTUnwrap(store.backupNotice?.string).contains(XCTUnwrap(copies.first?.lastPathComponent)))
+        XCTAssertTrue(try XCTUnwrap(store.backupNotice?.message).contains(XCTUnwrap(copies.first?.lastPathComponent)))
     }
 
     /// A hand edit with a syntax error while the app runs: the reload keeps the settings in use,

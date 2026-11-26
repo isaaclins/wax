@@ -246,7 +246,12 @@ final class CatalogSearchViewModel: ObservableObject {
             cachedResults = merged
             if let cachedPartial {
                 // The half that didn't answer is still missing: the note stays.
-                state = .staleCache(merged, BrowsingDisplayError.partialSearch(cachedPartial))
+                state = .staleCache(merged, ErrorReporting.report(
+                    cachedPartial.underlying,
+                    while: "searching the \(cachedPartial.missing) (cached)",
+                    in: .browsing,
+                    showing: .partialSearch(cachedPartial)
+                ))
             } else {
                 state = merged.isEmpty
                     ? .empty(LocalizedText(SpotiglassL10n.format("search.empty.noResults", queryToLoad)))
@@ -256,7 +261,11 @@ final class CatalogSearchViewModel: ObservableObject {
             return
         } catch {
             guard generation == searchGeneration, !Task.isCancelled else { return }
-            state = .staleCache(existingResults, PlaylistBrowserViewModel.displayError(for: error))
+            state = .staleCache(existingResults, PlaylistBrowserViewModel.reportedError(
+                error,
+                while: "loading more search results",
+                context: [.public("offset", offset)]
+            ))
         }
     }
 
@@ -375,7 +384,12 @@ final class CatalogSearchViewModel: ObservableObject {
                 // Half the search answered (#595): its rows show under a note with Retry, and
                 // Load More still pages the half that answered. Marked partial, so a pill
                 // switch or the same query asks the service again.
-                state = .staleCache(merged, BrowsingDisplayError.partialSearch(partialFailure))
+                state = .staleCache(merged, ErrorReporting.report(
+                    partialFailure.underlying,
+                    while: "searching the \(partialFailure.missing)",
+                    in: .browsing,
+                    showing: .partialSearch(partialFailure)
+                ))
                 return
             }
             state = merged.isEmpty
@@ -386,7 +400,7 @@ final class CatalogSearchViewModel: ObservableObject {
         } catch {
             guard generation == searchGeneration, !Task.isCancelled else { return }
             resetCache()
-            state = .error(PlaylistBrowserViewModel.displayError(for: error))
+            state = .error(PlaylistBrowserViewModel.reportedError(error, while: "searching"))
         }
     }
 

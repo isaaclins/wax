@@ -128,12 +128,13 @@ extension PlaybackSessionViewModel {
                 )
             } catch {
                 guard self.ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
-                SpotiglassLog.error(
-                    .playback,
-                    "Spotify playback SDK connect command failed generation=\(generation.rawValue) error=\(error.localizedDescription)"
-                )
                 self.cancelPlaybackHostConnectTimeout()
-                self.setConnectionState(.error(Self.playbackHostConnectionFailedError(for: error, service: self.service)))
+                self.showPlaybackError(
+                    error,
+                    while: "connecting the player",
+                    context: [.public("generation", generation.rawValue)],
+                    Self.playbackHostConnectionFailedError(for: error, service: self.service)
+                )
             }
         }
         schedulePlaybackHostConnectTimeout(generation: generation)
@@ -162,14 +163,15 @@ extension PlaybackSessionViewModel {
                   self.connectionState == .connecting
             else { return }
 
-            SpotiglassLog.error(
-                .playback,
-                "Spotify playback SDK connect timed out generation=\(generation.rawValue) after \(Self.durationSeconds(self.playbackHostConnectTimeout))s"
-            )
             self.playbackHostConnectTimeoutTask = nil
             self.playbackHostConnectTask?.cancel()
             self.playbackHostConnectTask = nil
-            self.setConnectionState(.error(Self.playbackHostConnectionTimedOutError()))
+            self.showPlaybackError(
+                nil,
+                while: "connecting the player (timed out after \(Self.durationSeconds(self.playbackHostConnectTimeout))s)",
+                context: [.public("generation", generation.rawValue)],
+                Self.playbackHostConnectionTimedOutError()
+            )
         }
     }
 
@@ -271,7 +273,7 @@ extension PlaybackSessionViewModel {
         await failedCommand.resend(self)
     }
 
-    /// Retries Spotify “transfer playback” to this device after API or transport failures that set `recoveryAction` to `.retryTransfer`.
+    /// Retries Spotify “transfer playback” to this device after API or transport failures that set `action` to `.retryTransfer`.
     /// If no device ID is known, falls back to `start()` (full Web Playback SDK reconnect).
     func retryPlaybackTransfer() async {
         let generation = playbackHostGeneration
@@ -306,7 +308,7 @@ extension PlaybackSessionViewModel {
             noteLocalPlaybackMutation()
         } catch {
             guard ownsPlaybackHostGeneration(generation), !Task.isCancelled else { return }
-            setConnectionState(.error(Self.displayError(for: error, service: service)))
+            showPlaybackError(error, while: "retrying the move of playback to this Mac", Self.displayError(for: error, service: service))
         }
     }
 
