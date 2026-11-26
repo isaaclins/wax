@@ -180,6 +180,92 @@ final class SpotiglassLogTests: XCTestCase {
         let current = try String(contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
         XCTAssertTrue(current.contains("last words"))
     }
+
+    // MARK: - The copy for a bug report (#603)
+
+    /// Lines as a real session writes them: a palette search, a play from a playlist on Apple
+    /// Music, a Spotify Connect transfer, a failed request whose URL carries the search and the
+    /// user, a click on a song row, a key typed into the search field and an error from outside
+    /// with a line break in it.
+    func testTheBugReportCopyLeavesOutWhatIsPersonalAndKeepsWhatExplainsAFailure() throws {
+        let sink = FileLogSink(directory: { self.directory })
+        sink.boot()
+        let deviceID = "8e1b2a6f0c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f"
+        let lines: [(String, String, String)] = [
+            ("INFO", "api", "palette search \(SpotiglassLog.personal("tame impala let it happen")) provider 412ms"),
+            ("INFO", "playback", "playFromPlaylist entry clickedURI=applemusic:song:4651336237147474264 playlistID=-1718416633700638354 playableCount=440 currentURI=<nil> hasTransferred=false"),
+            ("INFO", "playback", "send setQueue entries=440 startingAt=entry 69022FF1-C55C-4807-9D44-AB5C2C770DCD"),
+            ("INFO", "playback", "player current entry -> b7aXaLAhy::5GlvfRUeI (position 9 of 440): after play (0.28 s after the last command)"),
+            ("INFO", "playback", "performTransfer deviceID=\(deviceID) play=true origin=palette"),
+            ("INFO", "playback", "play(uri:) entry uri=spotify:track:6rqhFgbbKwnb9MLmUQDhG6 deviceID=\(deviceID)"),
+            ("ERROR", "api", "Spotify API failure: GET https://api.spotify.com/v1/search?q=tame%20impala&type=track HTTP 401, headers and body: \(SpotiglassLog.personal("Response body:\n{\"error\":{\"status\":401,\"message\":\"The access token expired\"}}"))"),
+            ("ERROR", "api", "Spotify GET /v1/users/isaac.lins/playlists failed: NSURLErrorDomain -1009: The Internet connection appears to be offline."),
+            ("INFO", "interaction", "#12 click in window “Wax” row 3 of 40 on cell “Let It Happen” in row; first frame after 6.1 ms"),
+            ("INFO", "interaction", "#13 key T in window “Wax” on focus NSTextView; first frame after 4.0 ms"),
+            ("INFO", "interaction", "#14 shortcut ⌘K in window “Wax” on button “Next”; first frame after 3.2 ms"),
+            ("INFO", "persistence", "Cache folder /Users/isaac/Library/Caches/Spotiglass unreadable"),
+            ("ERROR", "auth", "Sign-in failed: access_denied\n2026-11-25T16:00:00.000Z [INFO] [auth] Signed in"),
+        ]
+        for (level, category, message) in lines {
+            sink.write(level: level, category: category, message: message, synchronously: true)
+        }
+        let full = try String(contentsOf: directory.appendingPathComponent(FileLogSink.currentFileName), encoding: .utf8)
+        // The log on the Mac keeps everything (#734).
+        XCTAssertTrue(full.contains("tame impala let it happen"))
+        XCTAssertTrue(full.contains("4651336237147474264"))
+        // An outside text with a newline stays on its own line and can't fake one.
+        XCTAssertFalse(full.contains("\n2026-11-25T16:00:00.000Z [INFO] [auth] Signed in"))
+        XCTAssertTrue(full.contains("access_denied\\n2026-11-25T16:00:00.000Z"))
+
+        let destination = directory.appendingPathComponent("report.txt")
+        try BugReportLogCopy.write(from: directory, to: destination, keeping: ["Wax", "Next"])
+        let copy = try String(contentsOf: destination, encoding: .utf8)
+
+        for personal in [
+            "tame impala", "tame%20impala", "Let It Happen", "isaac.lins", "/Users/isaac/",
+            "4651336237147474264", "1718416633700638354", "69022FF1-C55C-4807-9D44-AB5C2C770DCD",
+            "b7aXaLAhy::5GlvfRUeI", deviceID, "6rqhFgbbKwnb9MLmUQDhG6", "The access token expired", "key T",
+        ] {
+            XCTAssertFalse(copy.contains(personal), "\(personal) is in the copy:\n\(copy)")
+        }
+        for kept in [
+            "[ERROR] [api]", "HTTP 401", "NSURLErrorDomain -1009", "provider 412ms", "playableCount=440",
+            "position 9 of 440", "first frame after 6.1 ms", "row 3 of 40", "button “Next”", "window “Wax”",
+            "shortcut ⌘K", "/v1/search?<query>", "applemusic:song:#", "spotify:track:#", "currentURI=<nil>",
+            "/Users/<user>/Library/Caches", "access_denied",
+        ] {
+            XCTAssertTrue(copy.contains(kept), "\(kept) is missing from the copy:\n\(copy)")
+        }
+        // The same device is the same stand-in in both lines, so the story still reads.
+        let standIns = copy.split(separator: "\n").filter { $0.contains("deviceID=") }.compactMap { line in
+            line.range(of: #"deviceID=#[0-9a-f]{6}"#, options: .regularExpression).map { String(line[$0]) }
+        }
+        XCTAssertEqual(standIns.count, 2)
+        XCTAssertEqual(Set(standIns).count, 1)
+    }
+
+    func testTheCopyTakesThePreviousSessionFirst() throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for (name, text) in [
+            (FileLogSink.currentFileName, "this session\n"),
+            (FileLogSink.previousFileName, "previous session\n"),
+            (FileLogSink.previousEarlierFileName, "previous session, first part\n"),
+        ] {
+            try Data(text.utf8).write(to: directory.appendingPathComponent(name))
+        }
+        let destination = directory.appendingPathComponent("report.txt")
+        try BugReportLogCopy.write(from: directory, to: destination, keeping: [])
+        let copy = try String(contentsOf: destination, encoding: .utf8)
+        let order = ["previous session, first part", "previous session\n", "this session"].map { copy.range(of: $0)?.lowerBound }
+        XCTAssertFalse(order.contains(nil), copy)
+        XCTAssertEqual(order.compactMap { $0 }, order.compactMap { $0 }.sorted())
+    }
+
+    /// Controls keep their names in the copy because they are Wax's own words.
+    func testTheAppsOwnWordsAreKept() {
+        let words = BugReportLogCopy.appWords(bundle: Bundle(for: FileLogSink.self))
+        XCTAssertTrue(words.contains("Reveal in Finder"), "\(words.count) words")
+    }
 }
 
 /// Reads the app's log file for tests that check a failure reached it.

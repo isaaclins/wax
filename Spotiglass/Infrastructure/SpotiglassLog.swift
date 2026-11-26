@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import os
 
@@ -17,9 +18,12 @@ import os
 ///
 /// The log holds everything Wax does (#734): every interaction (`interaction`), every call out
 /// of the app (`calls`), every player change, the sound path, artwork and hangs (`performance`).
-/// It stays on the user's Mac until they send it. Never log tokens, cookies, passwords, refresh
-/// credentials or raw OAuth callbacks: ``redactSecrets(_:)`` takes them out of anything that may
-/// carry one (a URL, an error).
+/// It stays on the user's Mac. What goes into a public bug report is the copy Settings saves
+/// (``BugReportLogCopy``), with searches, names, IDs and addresses replaced by stand-ins; text a
+/// person typed or that names something of theirs goes into a line through ``personal(_:)``, so
+/// the copy knows to replace it. The unified log gets every message as private (#603). Never log
+/// tokens, cookies, passwords, refresh credentials or raw OAuth callbacks: ``redactSecrets(_:)``
+/// takes them out of anything that may carry one (a URL, an error).
 enum SpotiglassLog {
     enum Category: String, CaseIterable {
         case auth, api, playback, browsing, pinning, settings, persistence
@@ -107,20 +111,27 @@ enum SpotiglassLog {
     }
 
     static func debug(_ category: Category, _ message: String) {
-        osLoggers[category]?.debug("\(message, privacy: .public)")
+        osLoggers[category]?.debug("\(message, privacy: .private)")
         FileLogSink.shared.write(level: "DEBUG", category: category.rawValue, message: message)
     }
 
     /// Errors are written before this returns: they are the lines a crash right after
     /// must not lose.
     static func error(_ category: Category, _ message: String) {
-        osLoggers[category]?.error("\(message, privacy: .public)")
+        osLoggers[category]?.error("\(message, privacy: .private)")
         FileLogSink.shared.write(level: "ERROR", category: category.rawValue, message: message, synchronously: true)
     }
 
     static func info(_ category: Category, _ message: String) {
-        osLoggers[category]?.info("\(message, privacy: .public)")
+        osLoggers[category]?.info("\(message, privacy: .private)")
         FileLogSink.shared.write(level: "INFO", category: category.rawValue, message: message)
+    }
+
+    /// `text` in the log's quotes, “like this”: a search, a name, a response body. The full log
+    /// keeps it as it is; the bug-report copy replaces everything in these quotes that isn't one
+    /// of Wax's own words (#603).
+    static func personal(_ text: String) -> String {
+        "“\(text.replacingOccurrences(of: "“", with: "\"").replacingOccurrences(of: "”", with: "\""))”"
     }
 
     /// An error with everything that explains it (#734): its domain, code and description, the
@@ -337,7 +348,30 @@ final class FileLogSink {
     }
 
     private static func line(level: String, category: String, message: String) -> String {
-        "\(formatter.string(from: Date())) [\(level)] [\(category)] \(message)\n"
+        "\(formatter.string(from: Date())) [\(level)] [\(category)] \(oneLine(message))\n"
+    }
+
+    /// Every entry is one line: a newline or other control character in a message (a response
+    /// body, an error from outside) is written escaped, so it can't start a line of its own that
+    /// looks like Wax wrote it (#603, #594).
+    static func oneLine(_ message: String) -> String {
+        guard message.unicodeScalars.contains(where: { $0.properties.generalCategory == .control }) else { return message }
+        var result = ""
+        result.reserveCapacity(message.utf8.count + 8)
+        for scalar in message.unicodeScalars {
+            switch scalar {
+            case "\n": result += "\\n"
+            case "\r": result += "\\r"
+            case "\t": result += "\\t"
+            default:
+                if scalar.properties.generalCategory == .control {
+                    result += "\\u{\(String(scalar.value, radix: 16))}"
+                } else {
+                    result.unicodeScalars.append(scalar)
+                }
+            }
+        }
+        return result
     }
 
     /// Opens `url` for appending (creating it when missing). Says in Console when it can't.
@@ -411,5 +445,166 @@ final class FileLogSink {
         }
         holdsPreviousSession = false
         _ = open(url, header: header)
+    }
+}
+
+/// The log as it goes into a public bug report (#603). The log on the Mac keeps everything Wax
+/// does (#734); this copy keeps what explains a failure (levels, categories, times, status and
+/// error codes, counts, Wax's own words) and replaces what belongs to the person: text in the
+/// log's quotes (``SpotiglassLog/personal(_:)``: searches, names, bodies), song, album, playlist,
+/// library and queue IDs, Connect and other device IDs, the query of every address, the user in
+/// a Spotify path, typed keys and the home folder's name. Each value gets a stand-in like
+/// `#3f2a9c` that is the same everywhere in one copy, so "the player went from #3f2a9c to
+/// #9c1d04" still reads; a new copy uses new stand-ins, so two reports can't be matched up.
+enum BugReportLogCopy {
+    /// The log files in the order they were written: the previous session, then this one.
+    static func sourceFiles(in folder: URL) -> [URL] {
+        [FileLogSink.previousEarlierFileName, FileLogSink.previousFileName, FileLogSink.earlierFileName, FileLogSink.currentFileName]
+            .map { folder.appendingPathComponent($0) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    /// Writes the cleaned copy of every log file in `folder` to `destination`.
+    static func write(from folder: URL, to destination: URL, keeping ownWords: Set<String> = appWords()) throws {
+        var cleaner = Cleaner(ownWords: ownWords)
+        var output = "=== Wax log for a bug report, saved \(ISO8601DateFormatter().string(from: Date())). Searches, names, IDs and addresses are replaced by stand-ins like #3f2a9c. ===\n"
+        for file in sourceFiles(in: folder) {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            output += "=== \(file.lastPathComponent) ===\n"
+            output += cleaner.clean(text)
+            if !text.hasSuffix("\n") { output += "\n" }
+        }
+        try Data(output.utf8).write(to: destination, options: .atomic)
+    }
+
+    /// Every word and sentence Wax itself shows, in every language it ships: a control named
+    /// “Next” or “Shuffle” stays readable in the copy, a song or playlist name doesn't.
+    static func appWords(bundle: Bundle = .main) -> Set<String> {
+        var words: Set<String> = [AppMetadata.displayName, "Wax", "Settings"]
+        for localization in bundle.localizations {
+            for table in ["Localizable", "InfoPlist"] {
+                guard let url = bundle.url(forResource: table, withExtension: "strings", subdirectory: nil, localization: localization),
+                      let strings = NSDictionary(contentsOf: url) as? [String: String] else { continue }
+                words.formUnion(strings.values)
+            }
+        }
+        return words
+    }
+
+    struct Cleaner {
+        let ownWords: Set<String>
+        /// Random for each copy, so a stand-in can't be worked back to a value by trying names.
+        private let salt = Data((0 ..< 16).map { _ in UInt8.random(in: 0 ... 255) })
+        private var standIns: [String: String] = [:]
+
+        init(ownWords: Set<String>) {
+            self.ownWords = ownWords
+        }
+
+        mutating func clean(_ text: String) -> String {
+            var result = text
+            // Quotes first: what's inside them is replaced as a whole, before the shape rules
+            // below could take pieces of it.
+            result = replace(Self.quoted, in: result) { cleaner, match in
+                let inner = String(match.dropFirst().dropLast())
+                if inner.isEmpty || cleaner.ownWords.contains(inner) { return match }
+                return "“\(cleaner.standIn(inner))”"
+            }
+            result = replace(Self.homeFolder, in: result) { _, _ in "/Users/<user>" }
+            result = replace(Self.query, in: result) { _, match in
+                // Whatever came before the `?` (the end of a path) stays.
+                (match.first == "?" ? "" : String(match.prefix(1))) + "?<query>"
+            }
+            result = replace(Self.serviceURI, in: result) { cleaner, match in
+                let parts = match.split(separator: ":", maxSplits: 2).map(String.init)
+                return "\(parts[0]):\(parts[1]):\(cleaner.standIn(parts[2]))"
+            }
+            result = replace(Self.spotifyUser, in: result) { cleaner, match in
+                "/users/\(cleaner.standIn(String(match.dropFirst("/users/".count))))"
+            }
+            result = replace(Self.identifierValue, in: result) { cleaner, match in
+                guard let equals = match.firstIndex(of: "=") else { return match }
+                let key = match[..<equals]
+                let value = String(match[match.index(after: equals)...])
+                // A service URI already carries its stand-in (`applemusic:song:#3f2a9c`) and keeps its kind.
+                if ["<nil>", "nil", "none", "?"].contains(value) || cleaner.isStandIn(value) || value.contains(":#") { return match }
+                return "\(key)=\(cleaner.standIn(value))"
+            }
+            for shape in Self.identifierShapes {
+                result = replace(shape, in: result) { cleaner, match in
+                    cleaner.isStandIn(match) ? match : cleaner.standIn(match)
+                }
+            }
+            result = replace(Self.typedKey, in: result) { _, _ in "key ·" }
+            return result
+        }
+
+        private mutating func standIn(_ value: String) -> String {
+            if let known = standIns[value] { return known }
+            var data = salt
+            data.append(Data(value.utf8))
+            let digest = SHA256.hash(data: data)
+            let standIn = "#" + digest.prefix(3).map { String(format: "%02x", $0) }.joined()
+            standIns[value] = standIn
+            return standIn
+        }
+
+        private func isStandIn(_ value: String) -> Bool {
+            value.count == 7 && value.first == "#"
+        }
+
+        private mutating func replace(
+            _ pattern: NSRegularExpression?,
+            in text: String,
+            with replacement: (inout Cleaner, String) -> String
+        ) -> String {
+            guard let pattern else { return text }
+            let source = text as NSString
+            var result = ""
+            var last = 0
+            for match in pattern.matches(in: text, range: NSRange(location: 0, length: source.length)) {
+                let range = match.range
+                result += source.substring(with: NSRange(location: last, length: range.location - last))
+                result += replacement(&self, source.substring(with: range))
+                last = range.location + range.length
+            }
+            guard last > 0 else { return text }
+            result += source.substring(from: last)
+            return result
+        }
+
+        private static func pattern(_ text: String) -> NSRegularExpression? {
+            // try?: constant patterns; a broken one leaves its value in and the copy test fails.
+            try? NSRegularExpression(pattern: text)
+        }
+
+        /// “…”: ``SpotiglassLog/personal(_:)``, control and window names in interaction lines.
+        private static let quoted = pattern(#"“[^“”\n]*”"#)
+        private static let homeFolder = pattern(#"/Users/[^/\s"'”]+"#)
+        /// A query: `?q=night&type=track` after an address or path.
+        private static let query = pattern(#"[^\s]?\?[A-Za-z_][\w.\[\]-]*=[^\s"'”)]*"#)
+        /// `spotify:track:6rqhFgbbKwnb9MLmUQDhG6`, `applemusic:song:4651336237147474264`.
+        private static let serviceURI = pattern(#"\b(?:spotify|applemusic):[a-z]+:[^\s,;)'"\]]+"#)
+        /// `/v1/users/<name>/playlists`: a Spotify user ID is often the person's name.
+        private static let spotifyUser = pattern(#"/users/[^/\s?"'”)]+"#)
+        /// `deviceID=…`, `playlistID=…`, `clickedURI=…`, `uid=…`: every value of a key that names an identifier.
+        private static let identifierValue = pattern(#"\b(?:\w*(?:ID|Id|URI|Uri|UID|Uid)|id|uri|uid|\w+_id)=[^\s,;)\]"'”]+"#)
+        private static let identifierShapes: [NSRegularExpression?] = [
+            // UUIDs: queue entries, sessions.
+            pattern(#"\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\b"#),
+            // MusicKit queue entry IDs, `b7aXaLAhy::5GlvfRUeI`.
+            pattern(#"\b\w+::\w+\b"#),
+            // MusicKit library and catalog IDs: `i.KoJeg8VC4v3Bo`, `p.QvDQE5RIVbzOel`, `pl.u-…`.
+            pattern(#"\b(?:i|l|p|pl|r|ra)\.[A-Za-z0-9_-]{6,}\b"#),
+            // Long hex: Spotify Connect device IDs, hashes.
+            pattern(#"\b[0-9a-fA-F]{24,}\b"#),
+            // Spotify's base-62 IDs, always 22 letters and digits with at least one digit.
+            pattern(#"\b(?=[0-9A-Za-z]*\d)[0-9A-Za-z]{22}\b"#),
+            // Catalog and persistent IDs: nine or more digits.
+            pattern(#"(?<![\w.:])-?\d{9,}\b"#),
+        ]
+        /// `key A` in an interaction line: a letter or digit typed into a field. Shortcuts and
+        /// named keys (`shortcut ⌘F`, `key Return`) stay.
+        private static let typedKey = pattern(#"\bkey [^\s;](?=[\s;]|$)"#)
     }
 }

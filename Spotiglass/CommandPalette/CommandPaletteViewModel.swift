@@ -542,7 +542,7 @@ final class CommandPaletteViewModel: ObservableObject {
             // Always fetch the full multi-type result set; the category is a display filter.
             let providerStart = Date()
             let searchResults = try await searchProvider(query, .all)
-            SpotiglassLog.info(.api, "palette search '\(query)' provider \(Int(Date().timeIntervalSince(providerStart) * 1000))ms")
+            SpotiglassLog.info(.api, "palette search \(SpotiglassLog.personal(query)) provider \(Int(Date().timeIntervalSince(providerStart) * 1000))ms")
             try Task.checkCancellation()
             cachedResults = searchResults
             cachedResultsArePartial = false
@@ -557,12 +557,12 @@ final class CommandPaletteViewModel: ObservableObject {
         } catch let partial as CommandPalettePartialSearchFailure {
             // A newer search replaced this one: its answer must not overwrite the newer rows.
             guard !Task.isCancelled else {
-                SpotiglassLog.debug(.api, "palette search '\(query)' answered in part after a newer search started")
+                SpotiglassLog.debug(.api, "palette search \(SpotiglassLog.personal(query)) answered in part after a newer search started")
                 return
             }
             // What did load shows, with a line for what didn't. Not marked as a finished search,
             // so the same query, the next keystroke or a pill switch asks again (#595).
-            SpotiglassLog.debug(.api, "palette search '\(query)' answered in part")
+            SpotiglassLog.debug(.api, "palette search \(SpotiglassLog.personal(query)) answered in part")
             cachedResults = partial.results
             cachedResultsArePartial = true
             cachedResultsQuery = query

@@ -466,7 +466,7 @@ struct SpotifyPlaybackAPI: SpotifyPlaybackControlling {
         }
 
         let queryString = queryItems.map { "\($0.name)=\($0.value ?? "")" }.joined(separator: "&")
-        SpotiglassLog.info(.api, "Spotify \(method) \(path)\(queryString.isEmpty ? "" : "?\(queryString)") body=\(bodyPreview)")
+        SpotiglassLog.info(.api, "Spotify \(method) \(path)\(queryString.isEmpty ? "" : "?\(queryString)") body=\(bodyPreview.isEmpty ? "" : SpotiglassLog.personal(bodyPreview))")
         var (data, response) = try await performSend(request: request, method: method, path: path)
         if response.statusCode == 401 {
             let refreshedToken = try await refreshedTokenAfterUnauthorized(accessToken, method: method, path: path)
