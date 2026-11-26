@@ -356,8 +356,12 @@ extension QueueAutoplayButton {
     /// Spotify's Autoplay says what it is built from, since it can't use Spotify's own
     /// suggestions, and where its songs go (#617).
     static func helpKey(isEnabled: Bool, service: MusicService?) -> String {
-        let key = isEnabled ? "queue.autoplay.help.on" : "queue.autoplay.help.off"
-        return service == .spotify ? key + ".spotify" : key
+        switch (service == .spotify, isEnabled) {
+        case (true, true): "queue.autoplay.help.on.spotify"
+        case (true, false): "queue.autoplay.help.off.spotify"
+        case (false, true): "queue.autoplay.help.on"
+        case (false, false): "queue.autoplay.help.off"
+        }
     }
 }
 

@@ -158,7 +158,11 @@ final class SpotifyAutoplaySource: QueueAutoplaySource {
         if let library, let libraryReadAt, libraryReadAt.duration(to: now()) < Self.libraryMaxAge {
             return library
         }
-        let index = SpotifyAutoplayLibraryIndex(playlists: await catalog.autoplayLibraryPlaylists())
+        let playlists = await catalog.autoplayLibraryPlaylists()
+        // Indexing a big library is real work: it stays off the main thread.
+        let index = await Task.detached(priority: .utility) {
+            SpotifyAutoplayLibraryIndex(playlists: playlists)
+        }.value
         library = index
         libraryReadAt = now()
         return index
@@ -202,6 +206,8 @@ struct SpotifyAutoplayLibraryIndex: Equatable {
 
     /// Normalized artist names in each playlist.
     private let playlistArtists: [Set<String>]
+    /// The playlists each artist is in, by index into ``playlistArtists``.
+    private let playlistsByArtist: [String: [Int]]
     private let nameByKey: [String: String]
     private let tracksByArtistKey: [String: [MusicTrack]]
 
@@ -227,7 +233,12 @@ struct SpotifyAutoplayLibraryIndex: Equatable {
             }
             if !artists.isEmpty { playlistArtists.append(artists) }
         }
+        var playlistsByArtist: [String: [Int]] = [:]
+        for (index, artists) in playlistArtists.enumerated() {
+            for artist in artists { playlistsByArtist[artist, default: []].append(index) }
+        }
         self.playlistArtists = playlistArtists
+        self.playlistsByArtist = playlistsByArtist
         self.nameByKey = nameByKey
         self.tracksByArtistKey = tracksByArtistKey
     }
@@ -236,8 +247,8 @@ struct SpotifyAutoplayLibraryIndex: Equatable {
     func relatedArtists(of name: String) -> [RelatedArtist] {
         let key = QueueAutoplayIdentity.normalized(name)
         var shared: [String: Int] = [:]
-        for artists in playlistArtists where artists.contains(key) {
-            for other in artists where other != key { shared[other, default: 0] += 1 }
+        for index in playlistsByArtist[key] ?? [] {
+            for other in playlistArtists[index] where other != key { shared[other, default: 0] += 1 }
         }
         guard let most = shared.values.max() else { return [] }
         return shared
@@ -261,7 +272,12 @@ struct SpotifyAutoplayReads: SpotifyAutoplayCatalog, @unchecked Sendable {
 
     func autoplayTracks(byArtistNamed name: String) async throws -> [MusicTrack] {
         let quoted = name.replacingOccurrences(of: "\"", with: "")
-        return try await api.searchTracks(query: "artist:\"\(quoted)\"", limit: SpotifyAutoplaySource.songsPerArtist)
+        // from_token: Spotify then says which songs play in the listener's country.
+        return try await api.searchTracks(
+            query: "artist:\"\(quoted)\"",
+            limit: SpotifyAutoplaySource.songsPerArtist,
+            market: "from_token"
+        )
     }
 
     func autoplayLibraryPlaylists() async -> [[MusicTrack]] {
