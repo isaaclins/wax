@@ -153,8 +153,9 @@ final class ActiveLoopbackOAuthListener {
         return try await Task.detached(priority: .userInitiated) {
             while true {
                 // After close() a dropped read lands back here: the listening descriptor is
-                // closed and its number may already belong to another socket, so never accept
-                // on it again.
+                // closed and its number may already belong to another socket, so don't accept on
+                // it again. close() can still land between this check and accept(); the lock
+                // can't be held across a blocking accept(), and that window was there before.
                 guard !self.isClosed else {
                     throw self.endedError
                 }
@@ -180,7 +181,7 @@ final class ActiveLoopbackOAuthListener {
                 guard count > 0 else {
                     // A connection that sends nothing (a browser's speculative connection, or a
                     // client that gave up) must not hold the listener: drop it and take the next.
-                    // close() also lands here, and the next accept() then fails (#771).
+                    // close() also lands here, and the check at the top of the loop ends it (#771).
                     continue
                 }
                 guard let request = String(bytes: buffer.prefix(count), encoding: .utf8),
