@@ -365,6 +365,15 @@ enum AfterThisFrame {
 /// open or close (#674); ``presentation`` is what to observe.
 @MainActor
 final class LyricsOverlayController: ObservableObject {
+    /// Builds the lyrics, hidden, a second after the window shows, so even the first ⌥⌘L only
+    /// shows them (#674). The app's window turns it on; a controller made without it builds them
+    /// on the first open, which is all a view test that never opens them needs.
+    let buildsLyricsAhead: Bool
+
+    init(buildsLyricsAhead: Bool = false) {
+        self.buildsLyricsAhead = buildsLyricsAhead
+    }
+
     /// The lyrics themselves and the page under them: they change in the frame that answers ⌥⌘L.
     let presentation = LyricsPresentationState()
     /// What frames them (the toolbar's items, the window's name, the player bar's Lyrics buttons,
@@ -532,6 +541,7 @@ struct LyricsOverlayLayer: View {
         // Built a moment after the window shows rather than with it, so the window's own first
         // frame doesn't wait for lyrics nobody asked for yet.
         .task {
+            guard lyricsOverlay.buildsLyricsAhead else { return }
             // try?: it only throws when cancelled, because the layer left the window.
             try? await Task.sleep(for: Self.buildDelay)
             if !Task.isCancelled, !isBuilt { isBuilt = true }

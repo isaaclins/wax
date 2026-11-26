@@ -288,7 +288,7 @@ final class WindowResizeCostTests: XCTestCase {
     /// bar; closing built the page and its rows from scratch. Only the lyrics layer, the toolbar,
     /// the window's name and the bar's Lyrics buttons change; nothing else may run.
     func testOpeningAndClosingTheLyricsReRendersNothingElse() async throws {
-        let lyrics = LyricsOverlayController()
+        let lyrics = LyricsOverlayController(buildsLyricsAhead: true)
         let window = try await hostBrowser(on: .bigPlaylist, lyrics: lyrics)
         XCTAssertNotNil(lyrics.lyricsModel, "the browser never attached the lyrics")
         let lyricsTitle = SpotiglassL10n.string("playback.controls.lyrics")

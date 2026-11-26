@@ -36,7 +36,7 @@ final class SpotiglassSceneHost: ObservableObject {
 
     init(commandPaletteManager: CommandPaletteManager) {
         self.commandPaletteManager = commandPaletteManager
-        self.lyricsOverlayController = LyricsOverlayController()
+        self.lyricsOverlayController = LyricsOverlayController(buildsLyricsAhead: true)
 
         commandPaletteManager.objectWillChange
             .sink { [weak self] _ in
