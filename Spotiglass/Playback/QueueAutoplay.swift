@@ -64,13 +64,27 @@ protocol QueueAutoplayPlayer: AnyObject {
 /// What is queued after the current song. Spotify's queue also holds podcast episodes: they
 /// steer nothing, but they are still ahead, so a song added then would play before them.
 struct QueueAutoplayUpcoming: Equatable {
-    var tracks: [MusicTrack]
-    /// Every item ahead, songs and episodes.
-    var itemCount: Int
+    /// Every item ahead, songs and episodes, in the order they play.
+    var items: [MusicPlaybackItem]
 
-    init(tracks: [MusicTrack], itemCount: Int? = nil) {
-        self.tracks = tracks
-        self.itemCount = itemCount ?? tracks.count
+    init(items: [MusicPlaybackItem]) {
+        self.items = items
+    }
+
+    var tracks: [MusicTrack] {
+        items.compactMap { item in
+            if case let .track(track) = item { return track }
+            return nil
+        }
+    }
+
+    /// Right after a song change Spotify can still answer with the queue from before it, which
+    /// lists the song that just started first. That song is playing, not ahead.
+    func withoutPlaying(_ playingKeys: Set<String>) -> QueueAutoplayUpcoming {
+        guard case let .track(first) = items.first,
+            !QueueAutoplayIdentity.keys(first).isDisjoint(with: playingKeys)
+        else { return self }
+        return QueueAutoplayUpcoming(items: Array(items.dropFirst()))
     }
 }
 
@@ -540,9 +554,9 @@ final class QueueAutoplay: ObservableObject {
             let upcoming: [MusicTrack]
             let itemsAhead: Int
             do {
-                let queued = try await player.autoplayUpcoming()
+                let queued = try await player.autoplayUpcoming().withoutPlaying(currentKeys)
                 upcoming = queued.tracks
-                itemsAhead = queued.itemCount
+                itemsAhead = queued.items.count
             } catch {
                 guard !Task.isCancelled else { return }
                 status = .failed
@@ -711,12 +725,7 @@ final class ProviderQueueAutoplayPlayer: QueueAutoplayPlayer {
     }
 
     func autoplayUpcoming() async throws -> QueueAutoplayUpcoming {
-        let queue = try await provider.fetchQueue().queue
-        let tracks = queue.compactMap { item -> MusicTrack? in
-            if case let .track(track) = item { return track }
-            return nil
-        }
-        return QueueAutoplayUpcoming(tracks: tracks, itemCount: queue.count)
+        QueueAutoplayUpcoming(items: try await provider.fetchQueue().queue)
     }
 
     func autoplayAppend(_ track: MusicTrack, isWanted: @escaping @MainActor () -> Bool) async throws {

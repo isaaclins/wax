@@ -181,8 +181,9 @@ final class SpotifyAutoplaySource: QueueAutoplaySource {
                 searchedTracks[key] = Self.songsLed(by: artist.name, in: found)
             } catch let SpotifyAPIError.rateLimited(retryAfter) {
                 // The songs from the playlists still go on; searches wait.
-                let pause = retryAfter.map { Duration.milliseconds(Int64($0 * 1000)) } ?? Self.rateLimitPause
-                searchesPausedUntil = now().advanced(by: max(pause, Self.rateLimitPause))
+                let asked = retryAfter.map { Duration.milliseconds(Int64($0 * 1000)) } ?? Self.rateLimitPause
+                let pause = max(asked, Self.rateLimitPause)
+                searchesPausedUntil = now().advanced(by: pause)
                 SpotiglassLog.info(.playback, "Spotify Autoplay: searches pause for \(pause) after a 429")
                 return
             } catch is CancellationError {

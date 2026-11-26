@@ -57,6 +57,24 @@ final class SpotifyAutoplayTests: XCTestCase {
         XCTAssertEqual(h.queue.addsAheadOfOtherSongs, 0)
     }
 
+    /// Spotify's queue read lags the song change: on the album's last song it still lists that
+    /// song ahead. It is the one playing, so a song is still added and playback goes on.
+    func testAQueueReadFromBeforeTheSongChangeStillAddsOnTheLastSong() async throws {
+        let h = makeHarness()
+        h.queue.play([Self.track("album-1", artist: "Seed Artist"), Self.track("album-2", artist: "Seed Artist")])
+        try await h.notePlaying()
+        h.autoplay.setEnabled(true)
+        await h.autoplay.settle()
+        XCTAssertEqual(h.queue.appended, [])
+
+        h.queue.staleReads = 1
+        try await h.next()
+
+        XCTAssertEqual(h.queue.current?.uri, "spotify:track:album-2")
+        XCTAssertEqual(h.queue.appended.count, 1, "the last song plays: one song is added after it")
+        XCTAssertEqual(h.queue.addsAheadOfOtherSongs, 0)
+    }
+
     /// Turning Autoplay off stops the adds and leaves what it queued.
     func testTurningOffStopsAddingOnSpotify() async throws {
         let h = makeHarness()
@@ -227,7 +245,6 @@ final class SpotifyAutoplayTests: XCTestCase {
     }
 
     // MARK: - Harness
-    // MARK: - Harness
 
     @MainActor
     private struct Harness {
@@ -293,6 +310,10 @@ final class SpotifyLikeQueue: QueueAutoplayPlayer {
     private var context: [MusicTrack] = []
     /// Podcast episodes left in the context after its songs.
     private var contextEpisodes = 0
+    /// Reads that still answer with the queue from before the last song change, as Spotify's
+    /// Web API can right after one: the song now playing is listed first.
+    var staleReads = 0
+    private var previousRead: [MusicPlaybackItem] = []
     private(set) var appended: [String] = []
     /// Adds that went in while the context still had songs ahead: they cut ahead of them.
     private(set) var addsAheadOfOtherSongs = 0
@@ -309,6 +330,7 @@ final class SpotifyLikeQueue: QueueAutoplayPlayer {
     }
 
     func advance() {
+        previousRead = aheadNow
         if !userQueue.isEmpty {
             current = userQueue.removeFirst()
         } else if !context.isEmpty {
@@ -319,8 +341,21 @@ final class SpotifyLikeQueue: QueueAutoplayPlayer {
     }
 
     func autoplayUpcoming() async throws -> QueueAutoplayUpcoming {
-        let tracks = userQueue + context
-        return QueueAutoplayUpcoming(tracks: tracks, itemCount: tracks.count + contextEpisodes)
+        if staleReads > 0 {
+            staleReads -= 1
+            return QueueAutoplayUpcoming(items: previousRead)
+        }
+        return QueueAutoplayUpcoming(items: aheadNow)
+    }
+
+    private var aheadNow: [MusicPlaybackItem] {
+        let episodes = (0..<contextEpisodes).map { index in
+            MusicPlaybackItem.episode(MusicEpisode(
+                id: "ep-\(index)", name: "Episode \(index)", showName: "Show", artworkURL: nil,
+                durationMilliseconds: 1_000_000, isPlayable: true, uri: "spotify:episode:ep-\(index)"
+            ))
+        }
+        return (userQueue + context).map { .track($0) } + episodes
     }
 
     func autoplayAppend(_ track: MusicTrack, isWanted: @escaping @MainActor () -> Bool) async throws {
