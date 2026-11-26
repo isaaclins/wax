@@ -372,25 +372,27 @@ extension SidebarShortcutTests {
     }
 
     /// Switching to another app and back (⌘-Tab) is what AppKit reports as the main window
-    /// resigning key while the app is already inactive, then becoming key again. Each change of
-    /// the registry rebuilds the app's scene and menus and lays the whole window out again, so
-    /// both switches used to cost Wax 50-60 ms of main thread, the one back while its window
-    /// came to the front (#611). Nothing about which window is in front changed, so nothing
-    /// may be published.
+    /// resigning key while the app is already inactive, then becoming key again. The menus
+    /// observe whether a main window is in front, so each change rebuilds them, once on the way
+    /// out and once more while the window comes back to the front (#611). Nothing about which
+    /// window is in front changed, so nothing may be published.
     func testSwitchingToAnotherAppAndBackLeavesTheSceneRegistryAlone() {
         let (manager, _) = makeManager()
         let scene = SpotiglassSceneHost(commandPaletteManager: manager)
         let registry = SpotiglassSceneRegistry()
         registry.activate(scene)
         var changes = 0
-        let subscription = registry.objectWillChange.sink { _ in changes += 1 }
-        defer { subscription.cancel() }
+        let subscriptions = [
+            registry.objectWillChange.sink { _ in changes += 1 },
+            registry.mainWindowFront.objectWillChange.sink { _ in changes += 1 },
+        ]
+        defer { subscriptions.forEach { $0.cancel() } }
 
         registry.mainWindowResignedKey(appIsActive: false)
-        XCTAssertTrue(registry.isMainWindowInFront, "no window of the app is in front of the main one")
+        XCTAssertTrue(registry.mainWindowFront.isInFront, "no window of the app is in front of the main one")
         registry.activate(scene)
 
-        XCTAssertEqual(changes, 0, "the app's scene would be rebuilt on every app switch")
+        XCTAssertEqual(changes, 0, "the menus would be rebuilt on every app switch")
     }
 
     /// Back from another app straight into Settings (a click on its window): the main window's
@@ -407,14 +409,14 @@ extension SidebarShortcutTests {
         registry.mainWindowResignedKey(appIsActive: false)
 
         registry.windowBecameKey(mainWindow)
-        XCTAssertTrue(registry.isMainWindowInFront)
+        XCTAssertTrue(registry.mainWindowFront.isInFront)
 
         let settingsWindow = makeWindow(content: NSView())
         NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: settingsWindow)
-        XCTAssertFalse(registry.isMainWindowInFront, "Settings is in front")
+        XCTAssertFalse(registry.mainWindowFront.isInFront, "Settings is in front")
 
         registry.activate(scene)
-        XCTAssertTrue(registry.isMainWindowInFront)
+        XCTAssertTrue(registry.mainWindowFront.isInFront)
     }
 
     /// Settings answers ⌃⌘S itself, so it works with every main window closed. It leaves the

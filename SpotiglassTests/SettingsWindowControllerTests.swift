@@ -193,7 +193,7 @@ final class SettingsWindowControllerTests: XCTestCase {
             frontWatch.cancel()
         }
 
-        registry.mainWindowResignedKey()
+        registry.mainWindowResignedKey(appIsActive: true)
 
         XCTAssertFalse(registry.mainWindowFront.isInFront)
         XCTAssertEqual(frontChanges, 1, "the View menu still hears it")
