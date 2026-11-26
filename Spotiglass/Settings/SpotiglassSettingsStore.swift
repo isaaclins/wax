@@ -569,6 +569,13 @@ final class SpotiglassSettingsStore: ObservableObject {
                 "Settings file \(fileURL.path) has keys this version doesn't read; kept them unchanged: \(newlyKept.joined(separator: ", "))."
             )
         }
+        let newlyDropped = unknownKeys.namesToLog(kept.dropped)
+        if !newlyDropped.isEmpty {
+            SpotiglassLog.info(
+                SpotiglassLog.settings,
+                "Settings file \(fileURL.path) has keys this version doesn't read in rows it can't match; they were not kept: \(newlyDropped.joined(separator: ", "))."
+            )
+        }
         if !merge.conflicts.isEmpty {
             SpotiglassLog.info(
                 SpotiglassLog.settings,

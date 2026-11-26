@@ -285,6 +285,50 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         XCTAssertTrue(UnreadableFileBackup.copies(of: url).isEmpty)
     }
 
+    /// #627: a newer build's field in a user EQ preset stays with the preset of the same name, and a
+    /// field in a keybind row, which has no identity to match by, is named as dropped.
+    func testRowFieldsWrittenByANewerBuildAreKeptByNameOrNamedAsDropped() throws {
+        let url = makeTempFileURL()
+        var file = SpotiglassSettingsStore.bootstrapDefaults()
+        file.equalizer.userPresets = [
+            EqualizerPreset(name: "Night", bands: Array(repeating: 1, count: EqualizerSettings.bandCount)),
+            EqualizerPreset(name: "Car", bands: Array(repeating: 2, count: EqualizerSettings.bandCount)),
+        ]
+        var json = try Self.jsonObject(JSONEncoder().encode(file))
+        var equalizer = try XCTUnwrap(json["equalizer"] as? [String: Any])
+        var presets = try XCTUnwrap(equalizer["userPresets"] as? [[String: Any]])
+        presets[1]["loudness"] = true
+        equalizer["userPresets"] = presets
+        json["equalizer"] = equalizer
+        var keybinds = try XCTUnwrap(json["keybinds"] as? [[String: Any]])
+        XCTAssertFalse(keybinds.isEmpty)
+        keybinds[0]["repeatWhileHeld"] = true
+        json["keybinds"] = keybinds
+        let previous = try JSONSerialization.data(withJSONObject: json)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try previous.write(to: url)
+
+        let store = SpotiglassSettingsStore(fileURL: url)
+        try store.mutate { $0.equalizer.userPresets.reverse() }
+
+        let onDisk = try Self.jsonObject(Data(contentsOf: url))
+        let savedPresets = try XCTUnwrap((onDisk["equalizer"] as? [String: Any])?["userPresets"] as? [[String: Any]])
+        XCTAssertEqual(savedPresets.map { $0["name"] as? String }, ["Car", "Night"])
+        XCTAssertEqual(savedPresets[0]["loudness"] as? Bool, true)
+        XCTAssertNil(savedPresets[1]["loudness"])
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .prettyPrinted]
+        let result = UnknownJSONKeys().carry(
+            from: previous,
+            into: try encoder.encode(store.settings),
+            schema: SpotiglassSettingsFile.jsonKeySchema,
+            encoder: encoder
+        )
+        XCTAssertEqual(result.carried, ["equalizer.userPresets[Car].loudness"])
+        XCTAssertEqual(result.dropped, ["keybinds[].repeatWhileHeld"])
+    }
+
     /// A key this build knows and clears (an optional set to nil) stays cleared: only unknown keys
     /// come back from the previous file.
     func testAKnownSettingClearedHereIsNotBroughtBackFromThePreviousFile() throws {

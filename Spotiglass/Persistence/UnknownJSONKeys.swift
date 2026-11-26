@@ -1,10 +1,27 @@
 import Foundation
 
 /// The keys this build reads at one level of a JSON document, and the same for the objects
-/// nested under some of them.
+/// and arrays of rows nested under some of them.
 struct JSONKeySchema {
     var known: Set<String>
     var objects: [String: JSONKeySchema] = [:]
+    var rows: [String: JSONRowSchema] = [:]
+}
+
+/// The keys of each row in a JSON array. Rows with the same `idKey` value keep the unknown keys
+/// of the previous row; without an `idKey` a row has no identity, so its unknown keys can't be put
+/// back and are reported as dropped instead.
+struct JSONRowSchema {
+    var row: JSONKeySchema
+    var idKey: String?
+}
+
+/// What a save keeps of the previous file: the bytes to write and the dotted names of the keys
+/// that were written back (`carried`) or could not be (`dropped`).
+struct UnknownJSONKeysResult {
+    var data: Data
+    var carried: [String] = []
+    var dropped: [String] = []
 }
 
 /// Keeps the keys a newer build wrote when this build saves the same file (#627).
@@ -19,20 +36,20 @@ final class UnknownJSONKeys: @unchecked Sendable {
 
     init() {}
 
-    /// `encoded` with every key of `previous` that `schema` doesn't know put back, and the dotted
-    /// names of those keys. Returns `encoded` untouched when there is nothing to carry.
+    /// `encoded` with every key of `previous` that `schema` doesn't know put back. Returns
+    /// `encoded` untouched when there is nothing to carry.
     func carry(
         from previous: Data?,
         into encoded: Data,
         schema: JSONKeySchema,
         encoder: JSONEncoder
-    ) -> (data: Data, carried: [String]) {
+    ) -> UnknownJSONKeysResult {
         guard case let .object(old)? = Self.parse(previous), case let .object(new)? = Self.parse(encoded) else {
-            return (encoded, [])
+            return UnknownJSONKeysResult(data: encoded)
         }
-        var carried: [String] = []
-        let merged = Self.merge(old: old, into: new, schema: schema, path: "", carried: &carried)
-        return finish(merged: .object(merged), encoded: encoded, carried: carried, encoder: encoder)
+        var result = UnknownJSONKeysResult(data: encoded)
+        let merged = Self.merge(old: old, into: new, schema: schema, path: "", result: &result)
+        return finish(merged: .object(merged), result: result, encoder: encoder)
     }
 
     /// The same for a JSON array of rows: each row keeps the unknown keys of the previous row with
@@ -43,22 +60,15 @@ final class UnknownJSONKeys: @unchecked Sendable {
         rowSchema: JSONKeySchema,
         idKey: String,
         encoder: JSONEncoder
-    ) -> (data: Data, carried: [String]) {
+    ) -> UnknownJSONKeysResult {
         guard case let .array(oldRows)? = Self.parse(previous), case let .array(newRows)? = Self.parse(encoded) else {
-            return (encoded, [])
+            return UnknownJSONKeysResult(data: encoded)
         }
-        var oldByID: [String: [String: JSONValue]] = [:]
-        for case let .object(row) in oldRows {
-            if case let .string(id)? = row[idKey], oldByID[id] == nil { oldByID[id] = row }
-        }
-        var carried: [String] = []
-        let merged = newRows.map { row -> JSONValue in
-            guard case let .object(newRow) = row, case let .string(id)? = newRow[idKey], let oldRow = oldByID[id] else {
-                return row
-            }
-            return .object(Self.merge(old: oldRow, into: newRow, schema: rowSchema, path: "[\(id)]", carried: &carried))
-        }
-        return finish(merged: .array(merged), encoded: encoded, carried: carried, encoder: encoder)
+        var result = UnknownJSONKeysResult(data: encoded)
+        let merged = Self.mergeRows(
+            old: oldRows, into: newRows, schema: JSONRowSchema(row: rowSchema, idKey: idKey), path: "", result: &result
+        )
+        return finish(merged: .array(merged), result: result, encoder: encoder)
     }
 
     /// The names in `names` not logged before by this instance, so each key is logged once.
@@ -76,10 +86,13 @@ final class UnknownJSONKeys: @unchecked Sendable {
         return try? JSONDecoder().decode(JSONValue.self, from: data)
     }
 
-    private func finish(merged: JSONValue, encoded: Data, carried: [String], encoder: JSONEncoder) -> (data: Data, carried: [String]) {
+    private func finish(merged: JSONValue, result: UnknownJSONKeysResult, encoder: JSONEncoder) -> UnknownJSONKeysResult {
+        guard !result.carried.isEmpty else { return result }
         // try?: JSON that was just decoded always encodes; if it didn't, saving what this build knows still works.
-        guard !carried.isEmpty, let data = try? encoder.encode(merged) else { return (encoded, []) }
-        return (data, carried)
+        guard let data = try? encoder.encode(merged) else {
+            return UnknownJSONKeysResult(data: result.data, dropped: result.dropped + result.carried)
+        }
+        return UnknownJSONKeysResult(data: data, carried: result.carried, dropped: result.dropped)
     }
 
     private static func merge(
@@ -87,21 +100,53 @@ final class UnknownJSONKeys: @unchecked Sendable {
         into new: [String: JSONValue],
         schema: JSONKeySchema,
         path: String,
-        carried: inout [String]
+        result: inout UnknownJSONKeysResult
     ) -> [String: JSONValue] {
-        var result = new
+        var merged = new
         for (key, value) in old.sorted(by: { $0.key < $1.key }) {
             let name = path.isEmpty ? key : "\(path).\(key)"
             if !schema.known.contains(key) {
-                guard result[key] == nil else { continue }
-                result[key] = value
-                carried.append(name)
+                guard merged[key] == nil else { continue }
+                merged[key] = value
+                result.carried.append(name)
             } else if let nested = schema.objects[key],
                       case let .object(oldObject) = value,
-                      case let .object(newObject)? = result[key] {
-                result[key] = .object(merge(old: oldObject, into: newObject, schema: nested, path: name, carried: &carried))
+                      case let .object(newObject)? = merged[key] {
+                merged[key] = .object(merge(old: oldObject, into: newObject, schema: nested, path: name, result: &result))
+            } else if let rows = schema.rows[key],
+                      case let .array(oldRows) = value,
+                      case let .array(newRows)? = merged[key] {
+                merged[key] = .array(mergeRows(old: oldRows, into: newRows, schema: rows, path: name, result: &result))
             }
         }
-        return result
+        return merged
+    }
+
+    private static func mergeRows(
+        old: [JSONValue],
+        into new: [JSONValue],
+        schema: JSONRowSchema,
+        path: String,
+        result: inout UnknownJSONKeysResult
+    ) -> [JSONValue] {
+        guard let idKey = schema.idKey else {
+            // No identity to match a row by: name the keys that can't be put back.
+            var names: Set<String> = []
+            for case let .object(row) in old {
+                for key in row.keys where !schema.row.known.contains(key) { names.insert("\(path)[].\(key)") }
+            }
+            result.dropped.append(contentsOf: names.sorted())
+            return new
+        }
+        var oldByID: [String: [String: JSONValue]] = [:]
+        for case let .object(row) in old {
+            if case let .string(id)? = row[idKey], oldByID[id] == nil { oldByID[id] = row }
+        }
+        return new.map { row -> JSONValue in
+            guard case let .object(newRow) = row, case let .string(id)? = newRow[idKey], let oldRow = oldByID[id] else {
+                return row
+            }
+            return .object(merge(old: oldRow, into: newRow, schema: schema.row, path: "\(path)[\(id)]", result: &result))
+        }
     }
 }

@@ -645,7 +645,7 @@ struct EqualizerPreset: Codable, Equatable, Identifiable, Hashable {
         }
     }
 
-    private enum CodingKeys: String, CodingKey {
+    private enum CodingKeys: String, CodingKey, CaseIterable {
         case name
         case preamp
         case bands
@@ -662,7 +662,9 @@ extension SpotiglassSettingsFile {
             CodingKeys.appearance.stringValue: AppearanceSettings.jsonKeySchema,
             CodingKeys.commandPalette.stringValue: CommandPaletteSettings.jsonKeySchema,
             CodingKeys.equalizer.stringValue: EqualizerSettings.jsonKeySchema,
-        ]
+        ],
+        // A keybind has no identity to match a row by, so a newer build's field in one is logged as dropped.
+        rows: [CodingKeys.keybinds.stringValue: JSONRowSchema(row: CommandPaletteKeyBinding.jsonKeySchema, idKey: nil)]
     )
 }
 
@@ -675,5 +677,13 @@ extension CommandPaletteSettings {
 }
 
 extension EqualizerSettings {
+    /// User presets are matched by name, the identity the app gives them.
+    static let jsonKeySchema = JSONKeySchema(
+        known: Set(CodingKeys.allCases.map(\.stringValue)),
+        rows: [CodingKeys.userPresets.stringValue: JSONRowSchema(row: EqualizerPreset.jsonKeySchema, idKey: "name")]
+    )
+}
+
+extension EqualizerPreset {
     static let jsonKeySchema = JSONKeySchema(known: Set(CodingKeys.allCases.map(\.stringValue)))
 }
