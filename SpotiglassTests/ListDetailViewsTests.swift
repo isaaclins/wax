@@ -21,11 +21,79 @@ final class ListDetailViewsTests: XCTestCase {
     }
 
     func testErrorStateView() throws {
-        let error = BrowsingDisplayError(title: "Load failed", message: "Network error", canRetry: true)
-        let view = ErrorStateView(error: error)
+        let error = DisplayError.reported(ErrorMessage(title: "Load failed", message: "Network error", canRetry: true))
+        let view = ErrorPage(error: error)
         ViewTestHost.host(view)
         XCTAssertNoThrow(try view.inspect().find(text: "Load failed"))
         XCTAssertNoThrow(try view.inspect().find(text: "Network error"))
+    }
+
+    /// The page offers Retry when asking again can help, and the details behind a button (#608).
+    func testErrorPageRetriesAndKeepsDetailsBehindAButton() throws {
+        var retried = false
+        let error = DisplayError.reported(ErrorMessage(
+            title: "Load failed",
+            message: "Network error",
+            canRetry: true,
+            diagnosticDetails: "GET /v1/me/playlists HTTP 503"
+        ))
+        let view = ErrorPage(error: error, retry: { retried = true })
+        ViewTestHost.host(view)
+        try view.inspect().find(button: SpotiglassL10n.string("browser.retry")).tap()
+        XCTAssertTrue(retried)
+        XCTAssertNoThrow(try view.inspect().find(button: SpotiglassL10n.string("browser.showDetails")).tap())
+    }
+
+    /// The queue's banner: title first, then Retry and Dismiss as links after the sentence.
+    func testInlineBannerLeadsWithItsTitleAndOffersRetryAndDismiss() throws {
+        var retried = false
+        var dismissed = false
+        let error = DisplayError.reported(ErrorMessage(title: "Queue update failed", message: "Try again in a moment.", canRetry: true))
+        let view = ErrorBanner(error: error, showsTitle: true, retry: { retried = true }, dismiss: { dismissed = true })
+        ViewTestHost.host(view)
+        try view.inspect().find(button: SpotiglassL10n.string("browser.retry")).tap()
+        try view.inspect().find(button: SpotiglassL10n.string("queue.dismiss")).tap()
+        XCTAssertTrue(retried)
+        XCTAssertTrue(dismissed)
+    }
+
+    /// Cached data with no error of its own says it is from before, and can be asked again.
+    func testFloatingBannerWithoutAnErrorSaysTheDataIsCached() throws {
+        var retried = false
+        let view = ErrorBanner(error: nil, style: .floating, retry: { retried = true })
+        ViewTestHost.host(view)
+        XCTAssertNoThrow(try view.inspect().find(
+            text: SpotiglassL10n.format("browser.cachedFallback", MusicServiceSelection.current.displayName)
+        ))
+        try view.inspect().find(button: SpotiglassL10n.string("browser.retry")).tap()
+        XCTAssertTrue(retried)
+    }
+
+    /// A notice with its own buttons (the settings file's kept copy) uses the banner's line.
+    func testBannerLineShowsItsSentenceAndItsOwnActions() throws {
+        var revealed = false
+        let view = BannerLine("Kept a copy of the settings file.") {
+            Button("Show in Finder") { revealed = true }
+        }
+        ViewTestHost.host(view)
+        XCTAssertNoThrow(try view.inspect().find(text: "Kept a copy of the settings file."))
+        try view.inspect().find(button: "Show in Finder").tap()
+        XCTAssertTrue(revealed)
+    }
+
+    /// A toast says what an action did; a failed one carries the reported message.
+    func testToastSaysWhatHappenedAndMarksAFailure() throws {
+        let done = ToastMessage.done(LocalizedText("Added 2 songs"))
+        let failed = ToastMessage.failed(DisplayError.reported(ErrorMessage(message: "Couldn't add the songs.")))
+        XCTAssertEqual(done.text, "Added 2 songs")
+        XCTAssertFalse(done.isFailure)
+        XCTAssertEqual(failed.text, "Couldn't add the songs.")
+        XCTAssertTrue(failed.isFailure)
+
+        let view = Color.clear.frame(width: 400, height: 200).toast(.constant(failed))
+        ViewTestHost.host(view)
+        XCTAssertNoThrow(try view.inspect().find(text: "Couldn't add the songs."))
+        XCTAssertNoThrow(try ErrorToast(message: done).inspect().find(text: "Added 2 songs"))
     }
 
     func testTrackRowPlaybackActionUsesCurrentTransportState() {
@@ -113,13 +181,13 @@ final class ListDetailViewsTests: XCTestCase {
     /// status, a header dump and a raw JSON body, which is bug-report material,
     /// not something to open over someone who wanted a playlist (#148).
     func testDiagnosticDetailsStayBehindAButton() throws {
-        let error = BrowsingDisplayError(
+        let error = DisplayError.reported(ErrorMessage(
             title: "Load failed",
             message: "Spotify could not be reached.",
             canRetry: true,
             diagnosticDetails: "GET https://api.spotify.com/v1/me/playlists\nHTTP 403\n{\"error\":{}}"
-        )
-        let view = ErrorStateView(error: error)
+        ))
+        let view = ErrorPage(error: error)
         ViewTestHost.host(view)
 
         // The sentence is on screen; the dump is not.
@@ -130,9 +198,10 @@ final class ListDetailViewsTests: XCTestCase {
         )
     }
 
-    func testStaleCacheBanner() throws {
-        let view = StaleCacheBanner(
-            error: BrowsingDisplayError(title: "Stale", message: "Cached playlists", canRetry: false)
+    func testFloatingErrorBanner() throws {
+        let view = ErrorBanner(
+            error: DisplayError.reported(ErrorMessage(title: "Stale", message: "Cached playlists", canRetry: false)),
+            style: .floating
         )
         ViewTestHost.host(view)
         XCTAssertNoThrow(try view.inspect().find(text: "Cached playlists"))

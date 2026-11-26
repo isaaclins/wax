@@ -440,7 +440,7 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
         vm.query = "radioh"
         vm.refresh()
         await vm.waitForSearchCompletion()
-        XCTAssertNotNil(vm.errorText)
+        XCTAssertNotNil(vm.error?.message)
         let body = CommandPaletteResultsBodyView(viewModel: vm, accessibilityReduceMotion: true)
         ViewTestHost.host(body, size: CGSize(width: 700, height: 400))
         XCTAssertThrowsError(try body.inspect().find(text: "No results for \"radioh\""))
@@ -560,7 +560,7 @@ final class CommandPaletteViewsBatchTests: XCTestCase {
         vm.query = "ab"
         vm.refresh()
         await vm.waitForSearchCompletion()
-        XCTAssertNotNil(vm.errorText)
+        XCTAssertNotNil(vm.error?.message)
         ViewTestHost.host(host, size: CGSize(width: 700, height: 420))
         XCTAssertNoThrow(try host.inspect())
     }

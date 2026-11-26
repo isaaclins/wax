@@ -45,6 +45,7 @@ Every interaction responds within 50 ms, and a PR that touches one shows its mea
 ## Errors
 
 Errors are never dropped silently: a `catch` logs with `SpotiglassLog` or rethrows, and a `try?` explains itself on the same line or the line above with `// try?: <why losing the error is fine>`.
+A failure the user sees goes through `ErrorReporting.report`, which logs it once and returns the `DisplayError` to show as a page, a banner or a toast ([architecture](docs/architecture.md#errors)); views and view models never hold an error as text.
 `scripts/audit-error-handling.sh` (run by `make test` and CI) checks this plus print logging, blocking waits, `localizedDescription` on screen and ignored Core Audio statuses; when you fix a site it lists, `--update-baseline` removes it from `scripts/error-handling-baseline.json`.
 
 ## Adding a new test file

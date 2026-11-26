@@ -3,9 +3,9 @@ import XCTest
 
 final class BrowsingLoadStateTests: XCTestCase {
     func testBrowsingDisplayErrorEqualityIgnoresID() {
-        let a = BrowsingDisplayError(title: "T", message: "M", canRetry: true, diagnosticDetails: "d")
-        let b = BrowsingDisplayError(title: "T", message: "M", canRetry: true, diagnosticDetails: "d")
-        let c = BrowsingDisplayError(title: "Other", message: "M", canRetry: true, diagnosticDetails: "d")
+        let a = DisplayError.reported(ErrorMessage(title: "T", message: "M", canRetry: true, diagnosticDetails: "d"))
+        let b = DisplayError.reported(ErrorMessage(title: "T", message: "M", canRetry: true, diagnosticDetails: "d"))
+        let c = DisplayError.reported(ErrorMessage(title: "Other", message: "M", canRetry: true, diagnosticDetails: "d"))
 
         XCTAssertEqual(a, b)
         XCTAssertNotEqual(a, c)
@@ -18,7 +18,7 @@ final class BrowsingLoadStateTests: XCTestCase {
         XCTAssertEqual(BrowsingLoadState<String>.staleCache("stale", nil).currentValue, "stale")
         XCTAssertEqual(BrowsingLoadState<String>.refreshing("refreshing").currentValue, "refreshing")
         XCTAssertNil(BrowsingLoadState<String>.error(
-            BrowsingDisplayError(title: "E", message: "m", canRetry: false)
+            DisplayError.reported(ErrorMessage(title: "E", message: "m", canRetry: false))
         ).currentValue)
     }
 }

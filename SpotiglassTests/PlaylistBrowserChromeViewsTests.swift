@@ -22,16 +22,13 @@ final class PlaylistBrowserChromeViewsTests: XCTestCase {
         let stale = PlaylistsSidebarSectionHeader(
             playlistState: .staleCache(
                 [],
-                BrowsingDisplayError(title: "Stale", message: "Cached", canRetry: true)
+                DisplayError.reported(ErrorMessage(title: "Stale", message: "Cached", canRetry: true))
             )
         )
         ViewTestHost.host(stale)
-        XCTAssertNoThrow(try stale.inspect().find(text: "Showing cached data. Cached"))
-
-        XCTAssertEqual(
-            PlaylistsSidebarSectionHeader.cachedDataCaption(for: nil),
-            "Showing cached data"
-        )
+        // Why the list is from before is the banner's job; the header doesn't repeat it (#608).
+        XCTAssertNoThrow(try stale.inspect().find(text: "Showing cached data"))
+        XCTAssertThrowsError(try stale.inspect().find(text: "Showing cached data. Cached"))
     }
 
     func testLibraryHomeSidebarRow() throws {
@@ -107,7 +104,7 @@ final class PlaylistBrowserChromeViewsTests: XCTestCase {
         XCTAssertNoThrow(try loading.inspect().find(text: "Loading playlists..."))
 
         let error = PlaylistsSidebarSectionContent(
-            playlistState: .error(BrowsingDisplayError(title: "Oops", message: "Fail", canRetry: true)),
+            playlistState: .error(DisplayError.reported(ErrorMessage(title: "Oops", message: "Fail", canRetry: true))),
             likedSongsStubRow: liked,
             viewModel: browserVM,
             playbackViewModel: playbackVM,

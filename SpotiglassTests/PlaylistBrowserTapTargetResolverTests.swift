@@ -155,7 +155,7 @@ final class PlaylistBrowserTapTargetResolverTests: XCTestCase {
                         Self.catalogSearch(query)
                     }
                 },
-                showFailure: { XCTFail("unexpected failure \($0.string)") }
+                showFailure: { XCTFail("unexpected failure \($0.message)") }
             )
         }
         XCTAssertEqual(opened, "bad-bunny")

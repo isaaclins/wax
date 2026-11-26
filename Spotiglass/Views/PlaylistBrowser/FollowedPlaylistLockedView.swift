@@ -5,25 +5,13 @@ import SwiftUI
 /// playlist with HTTP 403. The listing is gone, but the user can still play the
 /// whole playlist in-app or open it in Spotify.
 struct FollowedPlaylistLockedView: View {
+    let error: DisplayError
     let info: LockedPlaylistInfo
     /// Only its Play button uses the session, so it doesn't observe it (#422).
     let playbackViewModel: PlaybackSessionViewModel
 
     var body: some View {
-        VStack(spacing: SpotiglassDesign.spacingM) {
-            Image(systemName: "lock")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-
-            Text(SpotiglassL10n.string("error.browsing.followedPlaylistLocked.title"))
-                .font(.title3.weight(.semibold))
-
-            Text(SpotiglassL10n.string("error.browsing.followedPlaylistLocked.message"))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: SpotiglassDesign.Layout.messageMaxWidth)
-
+        ErrorPage(error: error, systemImage: "lock") {
             HStack(spacing: SpotiglassDesign.spacingM) {
                 Button {
                     Task { await playbackViewModel.play(contextURI: info.contextURI) }
@@ -41,8 +29,5 @@ struct FollowedPlaylistLockedView: View {
                 .buttonStyle(.bordered)
             }
         }
-        .padding(SpotiglassDesign.spacingL)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .contain)
     }
 }

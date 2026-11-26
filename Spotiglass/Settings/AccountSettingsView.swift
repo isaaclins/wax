@@ -48,10 +48,11 @@ struct AccountSettingsView: View {
                 }
                 if let reconnectFailure = viewModel.reconnectFailure {
                     // The reconnect didn't finish, but nothing was lost: say so calmly (#593).
-                    Text(SpotiglassL10n.format("settings.account.reconnectFailed", reconnectFailure.message))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    ErrorBanner(error: reconnectFailure.with { message in
+                        message.messageText = LocalizedText(
+                            SpotiglassL10n.format("settings.account.reconnectFailed", reconnectFailure.message)
+                        )
+                    })
                 }
                 // When signed in, Status already says so. The token expiry that
                 // used to sit here told the user nothing they could act on and

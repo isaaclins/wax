@@ -1242,6 +1242,29 @@ final class QueuePanelTests: XCTestCase {
 
 
 extension QueuePanelTests {
+    /// #608: the banner's Retry reads the queue again. A failed add would not be repeated by
+    /// it, so only a failed read offers it.
+    func testOnlyAFailedQueueReadOffersTheBannersRetry() async throws {
+        let api = QueueTestPlaybackAPI()
+        let playback = PlaybackSessionViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api, webCommander: StubWebPlaybackCommander()))
+        playback.handle(.ready(deviceID: "device-1"))
+        let queue = QueueViewModel(provider: SpotifyPlaybackProvider(playbackAPI: api), playbackSession: playback)
+        queue.setPanelVisible(true)
+
+        api.errorToThrow = URLError(.networkConnectionLost)
+        await queue.refreshQueue()
+        XCTAssertEqual(queue.lastError?.canRetry, true)
+        XCTAssertTrue(queue.lastErrorCameFromRefresh, "a failed read is repeated by reading again")
+
+        api.errorToThrow = nil
+        api.addToQueueErrors = [URLError(.networkConnectionLost)]
+        await queue.addToQueue(uri: "spotify:track:retry")
+        XCTAssertEqual(queue.lastError?.canRetry, true)
+        XCTAssertFalse(queue.lastErrorCameFromRefresh, "reading the queue again doesn't add the song")
+    }
+}
+
+extension QueuePanelTests {
     /// #470: SpotifyPlaybackAPI decodes the queue itself, so a body it can't read threw a bare
     /// DecodingError whose text ("The data couldn't be read ...") follows the Mac's language.
     func testUnreadableQueueResponseFollowsTheAppLanguage() async throws {

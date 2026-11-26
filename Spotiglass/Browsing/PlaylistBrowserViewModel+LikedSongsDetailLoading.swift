@@ -194,7 +194,7 @@ extension PlaylistBrowserViewModel {
         } catch {
             guard session == detailSession,
                   mutationGeneration == likedSongsMutationGeneration else { return }
-            let displayError = Self.displayError(for: error)
+            let displayError = Self.reportedError(error, while: "loading Liked Songs")
             if let existingDetail = detailState.currentValue {
                 detailState = .staleCache(existingDetail, displayError)
             } else {

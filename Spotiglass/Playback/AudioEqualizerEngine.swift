@@ -28,9 +28,10 @@ import Foundation
 enum EqualizerRouteState: Equatable {
     case disabled
     case starting(targetUID: String?)
-    /// The messages are looked up when shown, so they follow a language switch (#571).
-    case live(targetUID: String, errorMessage: LocalizedText?)
-    case failed(message: LocalizedText?, isEngaged: Bool)
+    /// The errors are reported when they happen and looked up when shown, so they follow a
+    /// language switch (#571, #608).
+    case live(targetUID: String, error: DisplayError?)
+    case failed(error: DisplayError?, isEngaged: Bool)
 
     var isLive: Bool {
         if case .live = self { return true }
@@ -57,7 +58,7 @@ enum EqualizerRouteState: Equatable {
         switch self {
         case .disabled: "off"
         case let .starting(targetUID): "starting(target \(targetUID.map(target) ?? "none"))"
-        case let .live(targetUID, errorMessage): "live(target \(target(targetUID))\(errorMessage == nil ? "" : ", with error"))"
+        case let .live(targetUID, error): "live(target \(target(targetUID))\(error == nil ? "" : ", with error"))"
         case let .failed(_, isEngaged): "failed(\(isEngaged ? "still engaged" : "released"))"
         }
     }
@@ -73,10 +74,10 @@ enum EqualizerRouteState: Equatable {
         }
     }
 
-    var errorMessage: String? {
+    var error: DisplayError? {
         switch self {
-        case let .live(_, errorMessage): return errorMessage?.string
-        case let .failed(message, _): return message?.string
+        case let .live(_, error): return error
+        case let .failed(error, _): return error
         case .disabled, .starting: return nil
         }
     }
@@ -111,7 +112,7 @@ final class AudioEqualizerEngine: ObservableObject {
     /// Compatibility projections used by existing settings/playback surfaces.
     /// They intentionally derive from ``routeState`` rather than storing a
     /// second interpretation of whether the route is active.
-    var lastError: String? { routeState.errorMessage }
+    var lastError: DisplayError? { routeState.error }
     var isRunning: Bool { routeState.isLive }
     var isEngaged: Bool { routeState.isEngaged }
 
@@ -285,13 +286,12 @@ final class AudioEqualizerEngine: ObservableObject {
                 try controller.enable(preferredForwardingUID: forwardingTargetUID)
             }
             requiresBackgroundApproval = false
-            routeState = .live(targetUID: targetUID, errorMessage: nil)
+            routeState = .live(targetUID: targetUID, error: nil)
             publishCoefficients()
         } catch {
-            recordFailure(error)
             requiresBackgroundApproval = Self.isBackgroundApprovalFailure(error)
             routeState = .failed(
-                message: userFacingErrorText(for: error),
+                error: reportFailure(error, while: "turning the equalizer on"),
                 isEngaged: false
             )
             throw error
@@ -313,23 +313,14 @@ final class AudioEqualizerEngine: ObservableObject {
             // Keep the active state until the controller confirms that the
             // system default output was restored. This is the recovery path
             // for a failed transactional disable.
-            recordFailure(error)
+            let shown = reportFailure(error, while: "turning the equalizer off")
             switch stateBeforeStop {
             case let .live(targetUID, _):
-                routeState = .live(
-                    targetUID: targetUID,
-                    errorMessage: userFacingErrorText(for: error)
-                )
+                routeState = .live(targetUID: targetUID, error: shown)
             case let .failed(_, isEngaged):
-                routeState = .failed(
-                    message: userFacingErrorText(for: error),
-                    isEngaged: isEngaged
-                )
+                routeState = .failed(error: shown, isEngaged: isEngaged)
             default:
-                routeState = .failed(
-                    message: userFacingErrorText(for: error),
-                    isEngaged: false
-                )
+                routeState = .failed(error: shown, isEngaged: false)
             }
             throw error
         }
@@ -415,10 +406,9 @@ final class AudioEqualizerEngine: ObservableObject {
             SpotiglassLog.info(.playback, "Equalizer driver removed")
             return
         }
-        recordFailure(error)
         requiresBackgroundApproval = Self.isBackgroundApprovalFailure(error)
         routeState = .failed(
-            message: userFacingErrorText(for: error),
+            error: reportFailure(error, while: "removing the equalizer driver"),
             isEngaged: pluginController.outputIsOnEqualizerDevice
         )
     }
@@ -505,7 +495,7 @@ final class AudioEqualizerEngine: ObservableObject {
         let controller = pluginController
         do {
             let targetUID = try await onRouteQueue { try controller.setForwardingTargetAndWait(uid: uid) }
-            routeState = .live(targetUID: targetUID, errorMessage: nil)
+            routeState = .live(targetUID: targetUID, error: nil)
         } catch {
             turnOffAfterRouteFailure(error)
         }
@@ -531,7 +521,7 @@ final class AudioEqualizerEngine: ObservableObject {
             let targetUID = try await onRouteQueue {
                 try controller.routeEqualizerThroughOutputDevice(outputDeviceID)
             }
-            routeState = .live(targetUID: targetUID, errorMessage: nil)
+            routeState = .live(targetUID: targetUID, error: nil)
         } catch {
             turnOffAfterRouteFailure(error)
         }
@@ -575,10 +565,15 @@ final class AudioEqualizerEngine: ObservableObject {
         guard consecutiveBrokenRouteReadings >= 2 else { return }
         consecutiveBrokenRouteReadings = 0
         let released = pluginController.releaseOutputFromEqualizerDevice(fallbackUID: targetUID)
-        let message = LocalizedText(SpotiglassL10n.string("eq.error.routerStopped"))
-        SpotiglassLog.error(.playback, "Equalizer route to \(AudioOutputTrace.describe(uid: targetUID)) stopped processing; output restored: \(released)")
+        let shown = ErrorReporting.report(
+            nil,
+            while: "routing sound through the equalizer (it stopped processing)",
+            in: .playback,
+            context: [.public("target", AudioOutputTrace.describe(uid: targetUID)), .public("outputRestored", released)],
+            showing: ErrorMessage(message: SpotiglassL10n.string("eq.error.routerStopped"))
+        )
         // Still engaged when the output could not be moved, so a later stop retries it.
-        routeState = .failed(message: message, isEngaged: !released)
+        routeState = .failed(error: shown, isEngaged: !released)
         if released, let observedSettingsStore { putPersistedSwitchBack(in: observedSettingsStore) }
     }
 
@@ -593,9 +588,11 @@ final class AudioEqualizerEngine: ObservableObject {
         // The controller has already tried to take the output off the EQ
         // device. If it did, the equalizer is off and the line says why; if
         // not, it stays engaged so a later stop retries the restore.
-        recordFailure(error)
         let stillOnEqualizerDevice = pluginController.outputIsOnEqualizerDevice
-        routeState = .failed(message: userFacingErrorText(for: error), isEngaged: stillOnEqualizerDevice)
+        routeState = .failed(
+            error: reportFailure(error, while: "changing the equalizer's route"),
+            isEngaged: stillOnEqualizerDevice
+        )
         // A failed forwarding-target change arrives here from inside a settings change.
         if !stillOnEqualizerDevice, let observedSettingsStore {
             putPersistedSwitchBack(in: observedSettingsStore)
@@ -680,20 +677,27 @@ final class AudioEqualizerEngine: ObservableObject {
         return false
     }
 
-    /// The error is kept, not its sentence, so the line follows a language switch (#571).
-    private func userFacingErrorText(for error: Error) -> LocalizedText? {
-        LocalizedText(error.localizedDescription)
-    }
-
-    private func recordFailure(_ error: Error) {
-        // The OSStatus, the bundle name and helper diagnostics are kept off the
-        // settings pane, so the log is where a bug report picks them up (#186).
-        if let pluginError = error as? EqualizerHALPluginError,
-           let details = pluginError.diagnosticDetails {
-            SpotiglassLog.error(.playback, details)
+    /// Logs an equalizer failure once and returns the line Settings shows (#608). The OSStatus,
+    /// the bundle name and helper diagnostics are kept off the settings pane, so the log is
+    /// where a bug report picks them up (#186). The error is kept, not its sentence, so the
+    /// line follows a language switch (#571).
+    private func reportFailure(_ error: Error, while operation: String) -> DisplayError {
+        var details: String?
+        if let pluginError = error as? EqualizerHALPluginError {
+            details = pluginError.diagnosticDetails
         } else if let installError = error as? EqualizerDriverInstallError {
-            SpotiglassLog.error(.playback, installError.diagnosticDetails)
+            details = installError.diagnosticDetails
         }
+        return ErrorReporting.report(
+            error,
+            while: operation,
+            in: .playback,
+            context: details.map { [.public("details", $0)] } ?? [],
+            // The equalizer's own errors are sentences in the app's language; anything else
+            // gets the general one, not a raw system sentence.
+            showing: ErrorMessage(message: (error as? LocalizedError)?.errorDescription
+                ?? SpotiglassL10n.string("eq.error.coreAudioStatus"))
+        )
     }
 
     private func publishCoefficients() {

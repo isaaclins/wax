@@ -780,17 +780,9 @@ struct RootView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
             }
-        case .failed:
-            VStack(alignment: .center, spacing: SpotiglassDesign.spacingXS) {
-                Label(viewModel.state.title, systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline.weight(.medium))
-                    .symbolRenderingMode(.hierarchical)
-                Text(viewModel.state.message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
-            }
+        case let .failed(error):
+            ErrorBanner(error: error, showsTitle: true)
+                .frame(maxWidth: SpotiglassDesign.Layout.paragraphMaxWidth)
         case .signedIn, .refreshing, .paused:
             EmptyView()
         }

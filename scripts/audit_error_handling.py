@@ -22,6 +22,10 @@ Rules (each finding prints as `path:line: [rule] message`):
                     a listener.
   ignored-status    No `(void)` on a Core Audio call that returns an OSStatus in
                     the driver, and no `_ = Audio...(` in Swift.
+  string-error      No `String` or `LocalizedText` property named *error* or
+                    *failure* in a file with a view, an ObservableObject or an
+                    @Observable model: a failure on screen is a `DisplayError`
+                    from `ErrorReporting.report`, which logs it (#608).
 
 Sites that existed when the audit went in are listed in
 scripts/error-handling-baseline.json by file, rule and line text (not line
@@ -57,6 +61,7 @@ MESSAGES = {
     'blocking-wait': 'blocking sleep or wait; the main thread must never block',
     'localized-text': 'localizedDescription outside a SpotiglassLog call; show a sentence written for the listener',
     'ignored-status': 'OSStatus from a Core Audio call is thrown away; check it and log on failure',
+    'string-error': 'error held as text; keep the DisplayError that ErrorReporting.report returns (docs/architecture.md, Errors)',
 }
 
 
@@ -236,6 +241,9 @@ HANDS_ON = re.compile(
     r'|\bthrow\b'                # rethrown or mapped
     r'|\bthrowing\s*:'           # continuation.resume(throwing:)
     r'|\.failure\s*\('           # handed on as a Result
+    # reported: ErrorReporting.report and the features' wrappers around it (#608)
+    r'|\b(?:report|reportedError|reportFailure|reportFileError|reportPlaybackError'
+    r'|showPlaybackError|failureToast)\s*\('
 )
 
 
@@ -326,6 +334,25 @@ def rule_blocking(code):
         yield line_of(code, m.start())
 
 
+
+
+# A stored or computed instance property named for an error or failure that holds
+# text. `errorDescription` is LocalizedError's own, and statics are constants.
+STRING_ERROR = re.compile(
+    r'^[ \t]*(?:@\w+(?:\([^)\n]*\))?\s+)*'
+    r'(?:(?:private|fileprivate|internal|public)(?:\(set\))?\s+)*'
+    r'(?:var|let)\s+(\w*(?:[Ee]rror|[Ff]ailure)\w*)\s*:\s*(?:String|LocalizedText)\b',
+    re.M)
+UI_TYPE = re.compile(r':\s*(?:some\s+)?View\b|\bObservableObject\b|@Observable\b')
+
+
+def rule_string_error(code):
+    if not UI_TYPE.search(code):
+        return
+    for m in STRING_ERROR.finditer(code):
+        if m.group(1) == 'errorDescription':
+            continue
+        yield line_of(code, m.start(1))
 
 
 def rule_localized(code):
@@ -430,6 +457,7 @@ def scan(root):
             if top == APP_DIR:
                 add('blocking-wait', relp, raw_lines, rule_blocking(code))
                 add('localized-text', relp, raw_lines, rule_localized(code))
+                add('string-error', relp, raw_lines, rule_string_error(code))
 
     for relp, path in files_under(root, DRIVER_DIR, C_SUFFIXES):
         src = path.read_text(encoding='utf-8', errors='replace')

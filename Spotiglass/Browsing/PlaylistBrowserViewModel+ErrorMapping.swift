@@ -13,44 +13,53 @@ extension PlaylistBrowserViewModel {
         return parts.isEmpty ? nil : parts.joined(separator: "\n")
     }
 
-    static func displayError(for error: Error) -> BrowsingDisplayError {
+    /// Logs a browsing failure once and returns what the page, banner or toast shows (#608).
+    static func reportedError(
+        _ error: Error,
+        while operation: String,
+        context: [LogField] = []
+    ) -> DisplayError {
+        ErrorReporting.report(error, while: operation, in: .browsing, context: context, showing: displayError(for: error))
+    }
+
+    static func displayError(for error: Error) -> ErrorMessage {
         if let apiError = error as? SpotifyAPIError {
             switch apiError {
             case .unauthorized:
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string("error.browsing.signInAgain.title"),
                     message: SpotiglassL10n.string("error.browsing.signInAgain.message"),
                     canRetry: false
                 )
             case .insufficientScope:
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string("error.browsing.reconnect.title"),
                     message: SpotiglassL10n.string("error.browsing.reconnect.message"),
                     canRetry: false,
                     diagnosticDetails: apiError.diagnosticDetails
                 )
             case let .forbidden(message, details):
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string("error.browsing.accessDenied.title"),
                     message: SpotiglassL10n.string("error.browsing.accessDenied.message"),
                     canRetry: false,
                     diagnosticDetails: serverDiagnostics(message, details)
                 )
             case let .rateLimited(retryAfter):
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string("error.browsing.rateLimited.title"),
                     message: String(format: SpotiglassL10n.string("error.browsing.rateLimited.message"), SpotifyRateLimitDisplay.retryAfterClause(seconds: retryAfter)),
                     canRetry: true,
                     diagnosticDetails: SpotifyRateLimitDisplay.rawRetryDiagnostic(seconds: retryAfter)
                 )
             case let .notFound(message):
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string("error.browsing.notFound.title"),
                     message: message ?? SpotiglassL10n.string("error.browsing.notFound.message"),
                     canRetry: true
                 )
             case let .network(message):
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string(
                         SpotifyAPIError.isUnusableAnswerMessage(SpotiglassL10n.inAppLanguage(message))
                             ? "error.browsing.generic.title"
@@ -61,27 +70,27 @@ extension PlaylistBrowserViewModel {
                     canRetry: true
                 )
             case .decoding:
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string("error.browsing.decoding.title"),
                     message: apiError.userMessage,
                     canRetry: true
                 )
             case let .badRequest(message, _):
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string("error.browsing.badRequest.title"),
                     message: message ?? SpotiglassL10n.string("error.browsing.badRequest.message"),
                     canRetry: false,
                     diagnosticDetails: apiError.diagnosticDetails
                 )
             case let .server(_, message, _):
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string("error.browsing.server.title"),
                     message: message ?? SpotiglassL10n.string("error.browsing.server.message"),
                     canRetry: true,
                     diagnosticDetails: apiError.diagnosticDetails
                 )
             case let .invalidRequest(message):
-                return BrowsingDisplayError(
+                return ErrorMessage(
                     title: SpotiglassL10n.string("error.browsing.invalidRequest.title"),
                     message: message,
                     canRetry: false
@@ -90,7 +99,7 @@ extension PlaylistBrowserViewModel {
         }
 
         if let unsupported = error as? MusicBrowsingError {
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.browsing.generic.title"),
                 message: unsupported.localizedDescription,
                 canRetry: false,
@@ -98,13 +107,13 @@ extension PlaylistBrowserViewModel {
             )
         }
 
-        if let appleMusicError = BrowsingDisplayError.appleMusic(for: error) {
+        if let appleMusicError = ErrorMessage.appleMusic(for: error) {
             return appleMusicError
         }
 
         // The service it failed on, not the one selected when the error is shown.
         let service = MusicServiceSelection.current
-        return BrowsingDisplayError(
+        return ErrorMessage(
             title: SpotiglassL10n.string("error.browsing.generic.title"),
             message: MusicServiceErrorText.userMessage(for: error, service: service),
             canRetry: true

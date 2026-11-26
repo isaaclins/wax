@@ -84,8 +84,8 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
     /// Apple Music access that is off, or an Apple Music sign-in that lapsed, as the browser and
     /// the player bar say it.
     func testAppleMusicAccessErrorsFollowALanguageSwitch() throws {
-        let accessOff = try XCTUnwrap(BrowsingDisplayError.appleMusic(for: MusicTokenRequestError.permissionDenied, service: .appleMusic))
-        let signedOut = try XCTUnwrap(BrowsingDisplayError.appleMusic(for: MusicTokenRequestError.userNotSignedIn, service: .appleMusic))
+        let accessOff = try XCTUnwrap(ErrorMessage.appleMusic(for: MusicTokenRequestError.permissionDenied, service: .appleMusic))
+        let signedOut = try XCTUnwrap(ErrorMessage.appleMusic(for: MusicTokenRequestError.userNotSignedIn, service: .appleMusic))
         let playing = PlaybackSessionViewModel.displayError(
             for: MusicPlaybackError(service: .appleMusic, reason: .missingPermission, detail: "denied"),
             service: .appleMusic
@@ -105,9 +105,9 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
     /// The bar swaps in "isn't ready yet", which was resolved once and kept.
     func testAReplacedPlaybackErrorFollowsALanguageSwitch() throws {
         let playback = PlaybackSessionViewModel(provider: ReadOnlyStatePlaybackProvider())
-        playback.setConnectionState(.error(PlaybackSessionViewModel.playbackDeviceReconnectRequiredError()))
+        playback.setConnectionState(.error(.reported(PlaybackSessionViewModel.playbackDeviceReconnectRequiredError())))
         guard case let .error(shown) = playback.connectionState else { return XCTFail("Expected an error") }
-        XCTAssertNil(shown.recoveryAction)
+        XCTAssertNil(shown.action)
 
         try switchToGerman()
 
@@ -126,11 +126,11 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         palette.query = "abcd"
         palette.refresh()
         await palette.waitForSearchCompletion()
-        XCTAssertEqual(palette.errorText, SpotiglassL10n.string("error.spotify.serverProblem", locale: Locale(identifier: "en")))
+        XCTAssertEqual(palette.error?.message, SpotiglassL10n.string("error.spotify.serverProblem", locale: Locale(identifier: "en")))
 
         try switchToGerman()
 
-        XCTAssertEqual(palette.errorText, inGerman("error.spotify.serverProblem"), "The palette's error stayed in the old language")
+        XCTAssertEqual(palette.error?.message, inGerman("error.spotify.serverProblem"), "The palette's error stayed in the old language")
     }
 
     /// Settings › Keyboard: a keymap that didn't apply. A key that can't be recorded is covered by
@@ -139,12 +139,12 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         let keymap = CommandPaletteKeymapStore(settingsStore: store)
         keymap.editorText = "{ not json"
         keymap.applyEditorText()
-        let english = try XCTUnwrap(keymap.lastError)
+        let english = try XCTUnwrap(keymap.lastError?.message)
         XCTAssertTrue(english.contains(SpotiglassL10n.string("palette.settings.advanced", locale: Locale(identifier: "en"))))
 
         try switchToGerman()
 
-        let shown = try XCTUnwrap(keymap.lastError)
+        let shown = try XCTUnwrap(keymap.lastError?.message)
         XCTAssertNotEqual(shown, english, "The keymap error stayed in the old language")
         XCTAssertTrue(shown.contains(inGerman("palette.settings.advanced")), "The keymap error named its source in the old language")
     }
@@ -158,13 +158,13 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
             isExplicit: false, isPlayable: true, linkedFromID: nil, uri: "spotify:track:t"
         )
         await browser.addRowsToPlaylist([TrackRowViewModel(topTrack: track, listPosition: 1)], playlistID: "p", playlistName: "Mix")
-        let english = try XCTUnwrap(browser.trackMutationToast)
+        let english = try XCTUnwrap(browser.trackMutationToast?.text)
 
         try switchToGerman()
 
-        XCTAssertNotEqual(browser.trackMutationToast, english, "The note stayed in the old language")
+        XCTAssertNotEqual(browser.trackMutationToast?.text, english, "The note stayed in the old language")
         XCTAssertEqual(
-            browser.trackMutationToast,
+            browser.trackMutationToast?.text,
             String(format: inGerman("playlist.mutation.addedToPlaylist"), Int64(1), "Mix")
         )
     }
@@ -189,7 +189,7 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         try switchToGerman()
 
         XCTAssertEqual(
-            browser.trackMutationToast,
+            browser.trackMutationToast?.text,
             String(format: inGerman("playlist.mutation.addedToPlaylist"), Int64(1), UnnamedMusicItem.playlist.placeholder(locale: german)),
             "The playlist's stand-in in the note stayed in the old language"
         )
@@ -224,12 +224,12 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
         await browser.loadSavedAlbumState(for: "al")
         // The album page's title, as the page shows it in English.
         await browser.toggleAlbumInLibrary(albumID: "al", albumName: UnnamedMusicItem.album.placeholder)
-        XCTAssertNotNil(browser.trackMutationToast)
+        XCTAssertNotNil(browser.trackMutationToast?.text)
 
         try switchToGerman()
 
         XCTAssertEqual(
-            browser.trackMutationToast,
+            browser.trackMutationToast?.text,
             String(format: inGerman("playlist.mutation.addedAlbum"), UnnamedMusicItem.album.placeholder(locale: german)),
             "The album's stand-in in the note stayed in the old language"
         )
@@ -319,20 +319,20 @@ final class StoredMessagesLanguageSwitchTests: XCTestCase {
     func testAMenuOwnedChordsMessageFollowsALanguageSwitch() throws {
         let keymap = CommandPaletteKeymapStore(settingsStore: store)
         let chord = try CommandShortcut(keystroke: "cmd-left")
-        var shown: LocalizedText?
+        var shown: DisplayError?
         XCTAssertThrowsError(
             try keymap.setBinding(commandID: CommandPaletteCommandID.openSettings, shortcut: chord, replaceConflicting: false)
         ) { error in
-            shown = CommandPaletteKeymapErrorPresenter.text(for: error, source: "keymap", operation: "test")
+            shown = CommandPaletteKeymapErrorPresenter.report(for: error, source: "keymap", operation: "test")
         }
         let message = try XCTUnwrap(shown)
-        XCTAssertTrue(message.string.contains("Seek Backward"))
+        XCTAssertTrue(message.message.contains("Seek Backward"))
 
         try switchToGerman()
 
         XCTAssertTrue(
-            message.string.contains(inGerman("menu.playback.seekBackward")),
-            "The menu item in \(message.string) stayed in the old language"
+            message.message.contains(inGerman("menu.playback.seekBackward")),
+            "The menu item in \(message.message) stayed in the old language"
         )
     }
 

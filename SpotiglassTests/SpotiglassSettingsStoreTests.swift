@@ -325,7 +325,7 @@ final class SpotiglassSettingsStoreTests: XCTestCase {
         let recovered = try JSONDecoder().decode(SpotiglassSettingsFile.self, from: try Data(contentsOf: url))
         XCTAssertEqual(recovered.version, SpotiglassSettingsFile.currentVersion)
         XCTAssertEqual(store.backupURL, copies.first)
-        XCTAssertTrue(try XCTUnwrap(store.backupNotice?.string).contains(XCTUnwrap(copies.first?.lastPathComponent)))
+        XCTAssertTrue(try XCTUnwrap(store.backupNotice?.message).contains(XCTUnwrap(copies.first?.lastPathComponent)))
     }
 
     /// A hand edit with a syntax error while the app runs: the reload keeps the settings in use,

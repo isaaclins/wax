@@ -84,7 +84,7 @@ extension PlaylistBrowserViewModel {
     func removeRowsFromPlaylist(_ rows: [TrackRowViewModel], playlistID: String, playlistName: String) async {
         let removals = playlistTrackRemovals(for: rows)
         guard !removals.isEmpty else {
-            trackMutationToastText = LocalizedText(SpotiglassL10n.string("playlist.mutation.noEligibleTracks"))
+            trackMutationToast = .done(LocalizedText(SpotiglassL10n.string("playlist.mutation.noEligibleTracks")))
             return
         }
         let count = removals.reduce(0) { $0 + $1.positions.count }
@@ -99,11 +99,11 @@ extension PlaylistBrowserViewModel {
             adjustSidebarTrackCountAfterEdit(playlistID: playlistID, by: -count)
             await refreshCurrentPlaylistMutationDetail(for: [playlistID])
             let name = shownPlaylistName(playlistID: playlistID, given: playlistName)
-            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
+            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
                 "playlist.mutation.removedFromPlaylist",
                 Int64(count),
                 name.string
-            ))
+            )))
         } catch let partial as MusicLibraryPartialEditError {
             // The songs that went stay gone; the playlist shows what it has now (#596).
             logPartialEdit(partial, playlistID: playlistID)
@@ -112,7 +112,7 @@ extension PlaylistBrowserViewModel {
             adjustSidebarTrackCountAfterEdit(playlistID: playlistID, by: -partial.completed)
             await refreshCurrentPlaylistMutationDetail(for: [playlistID])
             let name = shownPlaylistName(playlistID: playlistID, given: playlistName)
-            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
+            trackMutationToast = Self.failureToast(partial, while: "removing songs from a playlist", SpotiglassL10n.format(
                 "playlist.mutation.partialRemoveFromPlaylist",
                 Int64(partial.completed),
                 Int64(partial.total),
@@ -120,7 +120,7 @@ extension PlaylistBrowserViewModel {
                 Self.describeFailure(partial.underlying, operation: .removeFromPlaylist)
             ))
         } catch {
-            trackMutationToastText = Self.failureText(error, operation: .removeFromPlaylist)
+            trackMutationToast = Self.failureToast(error, operation: .removeFromPlaylist)
         }
     }
 
@@ -197,14 +197,14 @@ extension PlaylistBrowserViewModel {
                 await showServiceOrder(playlistID: playlistID)
             }
             let service = MusicServiceSelection.current
-            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
+            trackMutationToast = Self.failureToast(partial, while: "reordering a playlist", SpotiglassL10n.format(
                 "playlist.mutation.reorderPartlySaved",
                 Self.describeFailure(partial.underlying, operation: .reorderPlaylist, service: service)
             ))
         } catch {
             await putBack(shown, replacing: reordered, playlistID: playlistID)
             let service = MusicServiceSelection.current
-            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
+            trackMutationToast = Self.failureToast(error, while: "reordering a playlist", SpotiglassL10n.format(
                 "playlist.mutation.reorderFailed",
                 (error as? MusicPlaylistChangedElsewhere)?.localizedDescription
                     ?? Self.describeFailure(error, operation: .reorderPlaylist, service: service)
@@ -312,7 +312,7 @@ extension PlaylistBrowserViewModel {
         do {
             try await api.deletePlaylist(playlistID: summary.id)
         } catch {
-            trackMutationToastText = Self.failureText(error, operation: .deletePlaylist)
+            trackMutationToast = Self.failureToast(error, operation: .deletePlaylist)
             return
         }
         removeSidebarPlaylist(id: summary.id)
@@ -320,7 +320,7 @@ extension PlaylistBrowserViewModel {
             await selectSidebar(.home)
         }
         forgetDeletedPlaylist(id: summary.id)
-        trackMutationToastText = LocalizedText(SpotiglassL10n.format("playlist.mutation.deletedPlaylist", summary.name))
+        trackMutationToast = .done(LocalizedText(SpotiglassL10n.format("playlist.mutation.deletedPlaylist", summary.name)))
     }
 
     /// Keeps the sidebar's "N tracks" in step with an edit, instead of the count the playlist
@@ -412,13 +412,13 @@ extension PlaylistBrowserViewModel {
             if isSaved { recountPlaylistTracksAfterLibraryRemoval() }
             await refreshLikedSongsDetailAfterMutation()
             // A nameless album's stand-in is said in the language the note is read in (#571).
-            trackMutationToastText = LocalizedText(SpotiglassL10n.format(
+            trackMutationToast = .done(LocalizedText(SpotiglassL10n.format(
                 isSaved ? "playlist.mutation.removedAlbum" : "playlist.mutation.addedAlbum",
                 UnnamedMusicItem.displayName(albumName, kind: .album)
-            ))
+            )))
         } catch {
             savedAlbumStates[albumID] = isSaved
-            trackMutationToastText = Self.failureText(error, operation: .saveAlbum)
+            trackMutationToast = Self.failureToast(error, operation: .saveAlbum)
         }
     }
 

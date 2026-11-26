@@ -940,7 +940,7 @@ struct PlaybackControlsView: View {
                 .controlSize(.small)
                 .accessibilityLabel(SpotiglassL10n.string("playback.controls.connecting"))
         case let .error(error):
-            switch error.recoveryAction {
+            switch error.action {
             case .reconnect:
                 recoveryButton(
                     title: SpotiglassL10n.string("playback.controls.reconnect"),
@@ -949,7 +949,7 @@ struct PlaybackControlsView: View {
                     accessibilityHint: SpotiglassL10n.string("playback.controls.reconnect.sdk.hint"),
                     action: { viewModel.start() }
                 )
-            case .retryTransfer:
+            case .retryTransfer, .retry:
                 recoveryButton(
                     title: SpotiglassL10n.string("playback.controls.retry"),
                     systemImage: "arrow.clockwise",
@@ -1164,9 +1164,9 @@ struct PlaybackControlsView: View {
         case .unavailable: viewModel.canReconnectPlayer ? "unavailable" : "transport"
         case .connecting: "connecting"
         case let .error(error):
-            switch error.recoveryAction {
+            switch error.action {
             case .reconnect: "error.reconnect"
-            case .retryTransfer: "error.retry"
+            case .retryTransfer, .retry: "error.retry"
             case .reauthenticate: "error.reauthenticate"
             case .none: "error.passive"
             }

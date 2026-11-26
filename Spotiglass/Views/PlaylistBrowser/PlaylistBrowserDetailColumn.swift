@@ -191,7 +191,9 @@ struct PlaylistBrowserMainDetailColumn: View {
                 }
                 .overlay(alignment: .bottom) {
                     if case let .staleCache(_, error) = viewModel.detailState {
-                        StaleCacheBanner(error: error)
+                        ErrorBanner(error: error, style: .floating, retry: error?.canRetry == false ? nil : {
+                            Task { await viewModel.retryFailedDetail() }
+                        })
                     } else if case .refreshing = viewModel.detailState {
                         ProgressView(SpotiglassL10n.string("browser.refreshingDetail"))
                             .controlSize(.small)
@@ -200,40 +202,24 @@ struct PlaylistBrowserMainDetailColumn: View {
                             .padding(SpotiglassDesign.spacingM)
                     }
                 }
-                .overlay(alignment: .bottom) {
-                    if let toast = viewModel.trackMutationToast {
-                        Text(toast)
-                            .font(.callout.weight(.medium))
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, SpotiglassDesign.spacingM)
-                            .padding(.vertical, SpotiglassDesign.spacingS)
-                            .background(.regularMaterial, in: Capsule())
-                            .padding(.bottom, SpotiglassDesign.spacingL)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                            .task(id: toast) {
-                                try? await Task.sleep(nanoseconds: 2_400_000_000)
-                                if viewModel.trackMutationToast == toast {
-                                    viewModel.trackMutationToastText = nil
-                                }
-                            }
-                    }
-                }
             case let .empty(text):
                 let message = text.string
                 EmptyStateView(title: SpotiglassL10n.string("browser.noTracks.title"), message: message)
             case let .error(error):
                 if let locked = error.lockedPlaylist {
-                    FollowedPlaylistLockedView(info: locked, playbackViewModel: playbackViewModel)
+                    FollowedPlaylistLockedView(error: error, info: locked, playbackViewModel: playbackViewModel)
                 } else {
                     // The page that failed is asked again from here (#465), when asking
                     // again can help: not for "Sign in again" or "Access denied".
-                    ErrorStateView(error: error, retry: error.canRetry ? {
+                    ErrorPage(error: error, retry: error.canRetry ? {
                         Task { await viewModel.retryFailedDetail() }
                     } : nil)
                 }
             }
         }
+        // Over every state, loading and errors included: a toast set while the page loads
+        // used to wait for the rows and show up late (#608).
+        .toast($viewModel.trackMutationToast)
     }
 
     private func playlistDetailView(_ detail: PlaylistDetailViewModel) -> some View {

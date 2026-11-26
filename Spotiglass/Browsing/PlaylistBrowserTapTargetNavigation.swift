@@ -7,7 +7,7 @@ enum PlaylistBrowserTapTargetNavigation {
         origin: BrowserNavigationOrigin,
         selectArtist: @MainActor (String, BrowserNavigationOrigin, String?) async -> Void,
         resolveArtistID: (String) async throws -> String?,
-        showFailure: @MainActor (LocalizedText) -> Void
+        showFailure: @MainActor (DisplayError) -> Void
     ) async {
         if let id = target.id {
             await selectArtist(id, origin, target.name)
@@ -28,7 +28,7 @@ enum PlaylistBrowserTapTargetNavigation {
         origin: BrowserNavigationOrigin,
         selectAlbum: @MainActor (String, String, String, URL?, BrowserNavigationOrigin) async -> Void,
         resolveAlbumID: (String, String) async throws -> String?,
-        showFailure: @MainActor (LocalizedText) -> Void
+        showFailure: @MainActor (DisplayError) -> Void
     ) async {
         if let id = album.id {
             await selectAlbum(id, album.name, artistSubtitle, artworkURL, origin)
@@ -47,10 +47,15 @@ enum PlaylistBrowserTapTargetNavigation {
     private static func logFailure(
         _ error: Error,
         opening name: String,
-        showFailure: @MainActor (LocalizedText) -> Void
+        showFailure: @MainActor (DisplayError) -> Void
     ) async {
         guard !(error is CancellationError), !Task.isCancelled else { return }
-        SpotiglassLog.error(.browsing, "Looking up \(SpotiglassLog.personal(name)) to open it failed: \(SpotiglassLog.describe(error))")
-        await showFailure(LocalizedText(SpotiglassL10n.format("browser.tapTarget.openFailed", name)))
+        await showFailure(ErrorReporting.report(
+            error,
+            while: "looking up a name to open it",
+            in: .browsing,
+            context: [.private("name", name)],
+            showing: ErrorMessage(message: SpotiglassL10n.format("browser.tapTarget.openFailed", name))
+        ))
     }
 }

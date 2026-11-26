@@ -32,7 +32,10 @@ extension QueueViewModel {
         while true {
             guard shouldAllowQueueRequest(trigger: nextTrigger, allowsHiddenPanel: nextAllowsHiddenPanel) else { break }
             if let cooldownUntil = queueCooldownUntil, cooldownUntil > clock.now {
-                lastError = Self.rateLimitDisplayError(retryAfter: clock.now.duration(to: cooldownUntil).timeInterval)
+                let cooldown = Self.rateLimitDisplayError(retryAfter: clock.now.duration(to: cooldownUntil).timeInterval)
+                // Logged when the cooldown starts; each poll after that only updates the wait.
+                showRefreshFailure(lastError.map { shown in shown.with { $0 = cooldown } }
+                    ?? report(nil, while: "refreshing the queue during a rate-limit cooldown", level: .info, showing: cooldown))
                 pendingRefreshRequested = false
                 pendingRefreshAllowsHiddenPanel = false
                 pendingRefreshTrigger = .poll
@@ -60,10 +63,6 @@ extension QueueViewModel {
                 }
             } catch {
                 if requestGeneration == queueSessionGeneration, !isQueueSessionBoundary {
-                    // The banner reads in the app's language; the cause is kept here (#470).
-                    if !(error is CancellationError) {
-                        SpotiglassLog.error(.playback, "Queue refresh failed: \(String(describing: error))")
-                    }
                     if case let .rateLimited(retryAfter) = MusicPlaybackError.from(error)?.reason {
                         let fallback = max(1, min(defaultRateLimitCooldownSeconds, maxRateLimitCooldownSeconds))
                         let effectiveRetry = min(max(retryAfter ?? fallback, 1), maxRateLimitCooldownSeconds)
@@ -74,8 +73,9 @@ extension QueueViewModel {
                     // up here as a CancellationError or URLError.cancelled. Those
                     // are not real failures from the user's perspective, so don't
                     // surface them as a "Queue update failed" banner.
+                    // The banner reads in the app's language; the cause goes to the log (#470).
                     if let mapped = Self.displayError(for: error, service: provider.service) {
-                        lastError = mapped
+                        showRefreshFailure(report(error, while: "refreshing the queue", showing: mapped))
                     }
                     responseApplied = true
                 }
@@ -400,7 +400,7 @@ extension QueueViewModel {
     /// silent classes of error (cancellation from a superseded refresh).
     /// `service` is the player whose queue failed; it names the service when the error itself
     /// doesn't (a dropped connection).
-    static func displayError(for error: Error, service: MusicService = MusicServiceSelection.current) -> BrowsingDisplayError? {
+    static func displayError(for error: Error, service: MusicService = MusicServiceSelection.current) -> ErrorMessage? {
         if error is CancellationError {
             return nil
         }
@@ -408,7 +408,7 @@ extension QueueViewModel {
             return nil
         }
         guard let playbackError = MusicPlaybackError.from(error) else {
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.updateFailed.title"),
                 message: String(
                     format: SpotiglassL10n.string("error.queue.updateFailed.message"),
@@ -429,29 +429,29 @@ extension QueueViewModel {
         }
     }
 
-    private static func spotifyDisplayError(for error: MusicPlaybackError, original: Error) -> BrowsingDisplayError {
+    private static func spotifyDisplayError(for error: MusicPlaybackError, original: Error) -> ErrorMessage {
         switch error.reason {
         case .signInExpired:
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.signInAgain.title"),
                 message: SpotiglassL10n.string("error.queue.signInAgain.message"),
                 canRetry: false
             )
         case .missingPermission:
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.loadFailed.title"),
                 message: SpotiglassL10n.string("error.spotify.insufficientPermissions"),
                 canRetry: false,
                 diagnosticDetails: (original as? SpotifyAPIError)?.diagnosticDetails
             )
         case let .subscriptionRequired(message):
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.loadFailed.title"),
                 message: message ?? SpotiglassL10n.string("error.queue.loadFailed.message"),
                 canRetry: false
             )
         case let .rateLimited(retryAfter):
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.rateLimited.title"),
                 message: String(format: SpotiglassL10n.string("error.queue.rateLimited.message"), SpotifyRateLimitDisplay.retryAfterClause(seconds: retryAfter)),
                 canRetry: true,
@@ -460,7 +460,7 @@ extension QueueViewModel {
         case .network, .server, .notFound, .explicitContentRestricted, .failed:
             // `detail` is the error's debug text ("network(...)"): it goes to the details
             // disclosure, and the sentence is in the app's language (#470).
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.updateFailed.title"),
                 message: String(format: SpotiglassL10n.string("error.queue.updateFailed.message"), SpotifyAPIError.userMessage(for: original)),
                 canRetry: true,
@@ -469,34 +469,34 @@ extension QueueViewModel {
         }
     }
 
-    private static func appleMusicDisplayError(for error: MusicPlaybackError) -> BrowsingDisplayError {
+    private static func appleMusicDisplayError(for error: MusicPlaybackError) -> ErrorMessage {
         switch error.reason {
         case .signInExpired, .missingPermission:
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.loadFailed.title"),
                 message: SpotiglassL10n.string("error.playback.appleMusic.permission.message"),
                 canRetry: false
             )
         case .subscriptionRequired:
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.loadFailed.title"),
                 message: SpotiglassL10n.string("error.playback.appleMusic.subscription.message"),
                 canRetry: false
             )
         case .notFound:
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.updateFailed.title"),
                 message: SpotiglassL10n.string("error.playback.appleMusic.notPlayable"),
                 canRetry: false
             )
         case .explicitContentRestricted:
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.playback.appleMusic.explicit.title"),
                 message: SpotiglassL10n.string("error.playback.appleMusic.explicit.message"),
                 canRetry: false
             )
         case .rateLimited, .network, .server, .failed:
-            return BrowsingDisplayError(
+            return ErrorMessage(
                 title: SpotiglassL10n.string("error.queue.updateFailed.title"),
                 message: SpotiglassL10n.string("error.playback.appleMusic.failed"),
                 canRetry: true
@@ -522,9 +522,9 @@ extension QueueViewModel {
         return min(base, 10)
     }
 
-    private static func rateLimitDisplayError(retryAfter: TimeInterval) -> BrowsingDisplayError {
+    private static func rateLimitDisplayError(retryAfter: TimeInterval) -> ErrorMessage {
         let normalizedRetry = max(0, retryAfter)
-        return BrowsingDisplayError(
+        return ErrorMessage(
             title: SpotiglassL10n.string("error.queue.rateLimited.title"),
             message: String(format: SpotiglassL10n.string("error.queue.rateLimited.message"), SpotifyRateLimitDisplay.retryAfterClause(seconds: normalizedRetry)),
             canRetry: true,

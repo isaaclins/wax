@@ -252,7 +252,7 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
 
         try store.mutate { $0.appearance.language = .german }
         XCTAssertEqual(
-            message.string,
+            message.message,
             SpotiglassL10n.string("lyrics.error.musicOnly", locale: Locale(identifier: "de")),
             "The lyrics error stayed in the old language"
         )
@@ -264,14 +264,15 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
         SpotiglassL10n.settingsStore = store
         try store.mutate { $0.appearance.language = .english }
         let failedRequest: HomeSectionState<[TrackRowViewModel]> = PlaylistBrowserViewModel.homeSectionState(
-            for: SpotifyAPIError.server(statusCode: 503, message: nil, details: nil)
+            for: SpotifyAPIError.server(statusCode: 503, message: nil, details: nil),
+            while: "test"
         )
         guard case let .failed(message) = failedRequest else { return XCTFail("Expected a failed section") }
-        let english = message.string
+        let english = message.message
 
         try store.mutate { $0.appearance.language = .german }
-        XCTAssertNotEqual(message.string, english, "The Home section's error stayed in the old language")
-        XCTAssertEqual(message.string, SpotiglassL10n.string("error.spotify.serverProblem", locale: Locale(identifier: "de")))
+        XCTAssertNotEqual(message.message, english, "The Home section's error stayed in the old language")
+        XCTAssertEqual(message.message, SpotiglassL10n.string("error.spotify.serverProblem", locale: Locale(identifier: "de")))
     }
 
     /// A queued song whose artist has no name shows the stand-in, copied into the queue in
@@ -398,12 +399,12 @@ final class MainWindowLanguageSwitchTests: XCTestCase {
         viewModel.query = "song"
         viewModel.refresh()
         await viewModel.waitForSearchCompletion()
-        let english = try XCTUnwrap(viewModel.errorText)
+        let english = try XCTUnwrap(viewModel.error?.message)
 
         try store.mutate { $0.appearance.language = .german }
         viewModel.languageDidChange()
         await viewModel.waitForSearchCompletion()
-        let german = try XCTUnwrap(viewModel.errorText, "The switch hid the rate-limit error")
+        let german = try XCTUnwrap(viewModel.error?.message, "The switch hid the rate-limit error")
         XCTAssertNotEqual(german, english, "The palette's error stayed in the old language")
     }
 

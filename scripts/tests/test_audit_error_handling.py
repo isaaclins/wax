@@ -335,6 +335,65 @@ class RulesFailOnNewCode(Fixture):
         self.assertIn('SpotiglassSettingsStore.swift:6: [localized-text]', out)
         self.assertNotIn('SpotiglassSettingsStore.swift:4:', out)
 
+    def test_reporting_the_error_is_handling_it(self):
+        # The browser's load used to set `.error(displayError(for:))` and log nothing (#608).
+        self.write('Spotiglass/Browsing/Load.swift', '''\
+            func load() async {
+                do {
+                    try await api.load()
+                } catch {
+                    detailState = .error(Self.reportedError(error, while: "loading playlist songs"))
+                }
+                do {
+                    try await api.save()
+                } catch {
+                    toast = ErrorReporting.report(error, while: "saving", in: .browsing, showing: message)
+                }
+            }
+            ''')
+        self.assertClean()
+
+    def test_an_error_held_as_text_in_a_view_model(self):
+        # SpotiglassSettingsStore.lastError and the equalizer's save sheet before #608.
+        self.write('Spotiglass/Settings/Store.swift', '''\
+            final class Store: ObservableObject {
+                @Published var lastError: String?
+                @Published private(set) var saveFailure: LocalizedText?
+                private static var genericFailureMessage: String { "x" }
+                var errorDescription: String? { nil }
+                let shown: DisplayError?
+            }
+            ''')
+        code, out = self.audit()
+        self.assertEqual(code, 1, out)
+        self.assertIn('Spotiglass/Settings/Store.swift:2: [string-error]', out)
+        self.assertIn('Spotiglass/Settings/Store.swift:3: [string-error]', out)
+        self.assertNotIn('Store.swift:4:', out)
+        self.assertNotIn('Store.swift:5:', out)
+        self.assertNotIn('Store.swift:6:', out)
+
+    def test_a_view_state_error_held_as_text(self):
+        self.write('Spotiglass/Settings/Sheet.swift', '''\
+            struct Sheet: View {
+                @State private var saveSheetError: String?
+                @Binding var error: String?
+                var body: some View { EmptyView() }
+            }
+            ''')
+        code, out = self.audit()
+        self.assertEqual(code, 1, out)
+        self.assertIn('Sheet.swift:2: [string-error]', out)
+        self.assertIn('Sheet.swift:3: [string-error]', out)
+
+    def test_text_errors_outside_views_and_models_are_wire_data(self):
+        # An OAuth response's `error` field is what the server sent, not a screen.
+        self.write('Spotiglass/Auth/TokenResponse.swift', '''\
+            struct TokenErrorResponse: Decodable {
+                let error: String
+            }
+            ''')
+        self.assertClean()
+
     def test_ignored_core_audio_status(self):
         self.write('SpotiglassEQDriver/SpotiglassEQPlugin.cpp', '''\
             static void sync() {

@@ -56,7 +56,7 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         commandID: String = CommandPaletteCommandID.openSettings,
         onRecordingChange: @escaping (Bool) -> Void = { _ in },
         onCaptureConflict: @escaping (CommandShortcut, String) -> Void = { _, _ in },
-        onCaptureFailure: @escaping (LocalizedText) -> Void = { _ in },
+        onCaptureFailure: @escaping (DisplayError) -> Void = { _ in },
         onApplied: @escaping () -> Void = {},
         attachWindow: Bool = false
     ) throws -> (
@@ -164,17 +164,17 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         SpotiglassL10n.settingsStore = languageStore
         defer { SpotiglassL10n.settingsStore = nil }
         try languageStore.mutate { $0.appearance.language = .english }
-        var failure: LocalizedText?
+        var failure: DisplayError?
         let (_, keymap, view, _, _) = try makeHarness(onCaptureFailure: { failure = $0 })
 
         view.testing_beginKeyCapture()
         view.keyDown(with: keyEvent(virtualKey: 55, modifierFlags: [.command]))
-        XCTAssertEqual(failure?.string, SpotiglassL10n.string("palette.settings.recordingUnsupported"))
+        XCTAssertEqual(failure?.message, SpotiglassL10n.string("palette.settings.recordingUnsupported"))
 
         try languageStore.mutate { $0.appearance.language = .german }
         let german = SpotiglassL10n.string("palette.settings.recordingUnsupported", locale: Locale(identifier: "de"))
-        XCTAssertEqual(failure?.string, german, "The row's reason stayed in the old language")
-        XCTAssertEqual(keymap.lastError, german, "The pane's message stayed in the old language")
+        XCTAssertEqual(failure?.message, german, "The row's reason stayed in the old language")
+        XCTAssertEqual(keymap.lastError?.message, german, "The pane's message stayed in the old language")
     }
 
     /// A key that can't be used says why and keeps recording, so the next
@@ -183,7 +183,7 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
         var failure: String?
         var applied = 0
         let (_, keymap, view, _, _) = try makeHarness(
-            onCaptureFailure: { failure = $0.string },
+            onCaptureFailure: { failure = $0.message },
             onApplied: { applied += 1 }
         )
 
@@ -193,7 +193,7 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
 
         XCTAssertTrue(view.isRecording)
         XCTAssertEqual(failure, SpotiglassL10n.string("palette.settings.recordingUnsupported"))
-        XCTAssertEqual(keymap.lastError, failure)
+        XCTAssertEqual(keymap.lastError?.message, failure)
 
         // A key that becomes a shortcut but can't be stored (⌃F1) is no different.
         failure = nil
@@ -215,7 +215,7 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
     func testMenuOwnedShortcutShowsReasonAndKeepsRecording() throws {
         var failure: String?
         let (_, _, view, _, _) = try makeHarness(
-            onCaptureFailure: { failure = $0.string }
+            onCaptureFailure: { failure = $0.message }
         )
         view.testing_beginKeyCapture()
         view.keyDown(with: keyEvent(virtualKey: 124, modifierFlags: [.command]))
@@ -438,7 +438,7 @@ final class ZHotkeyRecorderFieldTests: XCTestCase {
             onApplied: {}
         )
         ViewTestHost.host(field.frame(width: 220, height: 32), size: CGSize(width: 240, height: 40))
-        field.keymapStore.lastErrorText = nil
+        field.keymapStore.lastError = nil
     }
 
     func testSwiftUIRepresentableMounts() throws {

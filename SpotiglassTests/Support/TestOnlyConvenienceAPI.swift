@@ -8,7 +8,7 @@ import Foundation
 
 extension PlaybackSessionViewModel {
     /// Unwraps the display error carried by ``connectionState``.
-    var connectionStateError: PlaybackDisplayError? {
+    var connectionStateError: DisplayError? {
         guard case let .error(error) = connectionState else { return nil }
         return error
     }

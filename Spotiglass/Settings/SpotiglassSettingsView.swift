@@ -313,18 +313,18 @@ struct SpotiglassSettingsView: View {
     @ViewBuilder
     private var settingsFileNotices: some View {
         if let failure = settingsStore.saveFailure {
-            SettingsFileNotice(text: failure.string)
+            ErrorBanner(error: failure)
                 .padding(.horizontal, SpotiglassDesign.spacingL)
                 .padding(.top, SpotiglassDesign.spacingS)
         }
         // A hand edit that doesn't parse: the settings in use stay until the file reads again.
-        if settingsStore.lastError != nil {
-            SettingsFileNotice(text: SpotiglassL10n.string("settings.file.reloadFailed"))
+        if let fileError = settingsStore.lastError {
+            ErrorBanner(error: fileError)
                 .padding(.horizontal, SpotiglassDesign.spacingL)
                 .padding(.top, SpotiglassDesign.spacingS)
         }
         if let notice = settingsStore.backupNotice {
-            SettingsFileNotice(text: notice.string) {
+            BannerLine(notice.message) {
                 if let copy = settingsStore.backupURL {
                     Button(SpotiglassL10n.string("settings.file.reveal")) {
                         NSWorkspace.shared.activateFileViewerSelecting([copy])
@@ -364,38 +364,6 @@ struct SpotiglassSettingsView: View {
         .padding(.horizontal, SpotiglassDesign.spacingL)
         .padding(.top, SpotiglassDesign.spacingM)
         .padding(.bottom, SpotiglassDesign.spacingS)
-    }
-}
-
-/// One calm line about the settings file, with its actions after it.
-struct SettingsFileNotice<Actions: View>: View {
-    let text: String
-    let actions: Actions
-
-    init(text: String, @ViewBuilder actions: () -> Actions) {
-        self.text = text
-        self.actions = actions()
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: SpotiglassDesign.spacingS) {
-            Image(systemName: "exclamationmark.triangle")
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            Text(text)
-                .font(.callout)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            actions
-                .buttonStyle(.link)
-                .font(.callout)
-        }
-        .accessibilityElement(children: .contain)
-    }
-}
-
-extension SettingsFileNotice where Actions == EmptyView {
-    init(text: String) {
-        self.init(text: text) { EmptyView() }
     }
 }
 

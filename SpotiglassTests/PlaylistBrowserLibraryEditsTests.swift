@@ -63,7 +63,7 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
 
         XCTAssertEqual(api.removals.map(\.uri), ["applemusic:song:-30"])
         XCTAssertEqual(api.removals.map(\.positions), [[1]])
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.format("playlist.mutation.removedFromPlaylist", Int64(1), "Spotiglass test"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.format("playlist.mutation.removedFromPlaylist", Int64(1), "Spotiglass test"))
     }
 
     func testRemoveFromSomeoneElsesPlaylistIsNotOffered() async {
@@ -82,7 +82,7 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
 
         await viewModel.removeRowsFromPlaylist([row("-30", position: 1)], playlistID: "-1", playlistName: "Spotiglass test")
 
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("appleMusic.edit.error.musicControlDenied"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.string("appleMusic.edit.error.musicControlDenied"))
     }
 
     // MARK: - Delete playlist
@@ -102,7 +102,7 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         XCTAssertNil(viewModel.playlistPendingDeletion)
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["-2"])
         XCTAssertEqual(viewModel.sidebarSelection, .home)
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.format("playlist.mutation.deletedPlaylist", "Spotiglass test"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.format("playlist.mutation.deletedPlaylist", "Spotiglass test"))
     }
 
     /// A deleted playlist leaves the back history: back names the place
@@ -161,7 +161,7 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         await viewModel.deletePlaylist(doomed)
 
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.id), ["-1"])
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("appleMusic.edit.error.notInMusicYet"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.string("appleMusic.edit.error.notInMusicYet"))
     }
 
     // MARK: - Albums
@@ -180,7 +180,7 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         api.error = AppleMusicLibraryEditError.requestFailed
         await viewModel.toggleAlbumInLibrary(albumID: "1440", albumName: "Computer World", confirmed: true)
         XCTAssertEqual(viewModel.savedAlbumState(for: "1440"), true, "the failed removal goes back")
-        XCTAssertEqual(viewModel.trackMutationToast, SpotiglassL10n.string("appleMusic.edit.error.requestFailed"))
+        XCTAssertEqual(viewModel.trackMutationToast?.text, SpotiglassL10n.string("appleMusic.edit.error.requestFailed"))
     }
 
     // MARK: - Removing from the library asks first
@@ -503,7 +503,7 @@ final class PlaylistBrowserLibraryEditsTests: XCTestCase {
         await viewModel.createPlaylistWithRows(name: "Spotiglass test", rows: [row("-30", position: 1)])
 
         XCTAssertEqual(viewModel.playlistState.currentValue?.map(\.title) ?? [], [])
-        XCTAssertEqual(viewModel.trackMutationToast, AppleMusicLibraryEditError.notEditable.localizedDescription)
+        XCTAssertEqual(viewModel.trackMutationToast?.text, AppleMusicLibraryEditError.notEditable.localizedDescription)
     }
 
     func testRemovingFromAPlaylistUpdatesItsSidebarCount() async {

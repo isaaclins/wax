@@ -198,7 +198,7 @@ final class AuthViewModel: ObservableObject {
 
     /// Why the last reconnect didn't finish, while the sign-in from before carries on. Settings
     /// shows it under Status until the next sign-in or sign-out.
-    @Published private(set) var reconnectFailure: AuthDisplayError?
+    @Published private(set) var reconnectFailure: DisplayError?
 
     private func restoreStateBeforeSignIn() {
         guard let restorePoint = signInRestorePoint else {
@@ -316,22 +316,18 @@ final class AuthViewModel: ObservableObject {
                restorePoint.state.hasSpotifySession || restorePoint.state == .refreshing(nil) {
                 // The reason still reaches the log; the session from before keeps working (or, at
                 // launch, its refresh is tried again).
-                SpotiglassLog.error(
-                    .auth,
-                    "Reconnect failed while \(step) (\(AuthFailureDescription.describe(error))); kept the previous sign-in, Connect works again in 2 s"
+                let shown = Self.report(
+                    error,
+                    while: "reconnecting (\(step)); kept the previous sign-in, Connect works again in 2 s"
                 )
                 if restorePoint.state.hasSpotifySession {
-                    reconnectFailure = Self.displayError(for: error)
+                    reconnectFailure = shown
                 }
                 restoreStateBeforeSignIn()
             } else {
                 // Nothing was working before (a failed refresh): show why this sign-in failed.
-                SpotiglassLog.error(
-                    .auth,
-                    "Sign-in failed while \(step) (\(AuthFailureDescription.describe(error))); showed the error, Connect works again in 2 s"
-                )
                 signInRestorePoint = nil
-                state = .failed(Self.displayError(for: error))
+                state = .failed(Self.report(error, while: "signing in (\(step)); Connect works again in 2 s"))
             }
         }
     }
@@ -352,11 +348,7 @@ final class AuthViewModel: ObservableObject {
             SpotiglassLog.info(.auth, "Signed out; deleted the saved sign-in and the cached library")
             state = .signedOut
         } catch {
-            SpotiglassLog.error(
-                .auth,
-                "Sign-out could not delete the saved sign-in (\(AuthFailureDescription.describe(error))); still signed in, showed the error"
-            )
-            state = .failed(Self.displayError(for: error))
+            state = .failed(Self.report(error, while: "signing out (deleting the saved sign-in); still signed in"))
         }
     }
 
@@ -510,7 +502,7 @@ final class AuthViewModel: ObservableObject {
             currentSession = nil
             await clearSignOutData()
             guard generation == authTransitionGeneration else { return SpotifyAPIError.unauthorized }
-            state = .failed(Self.displayError(for: error))
+            state = .failed(Self.report(error, level: .loggedWhereCaught, while: "showing a sign-in Spotify rejected"))
             return SpotifyAPIError.unauthorized
         case let .temporary(reason, retryAfter):
             // Every request waiting on the same refresh lands here; the first one settled it.
@@ -532,7 +524,7 @@ final class AuthViewModel: ObservableObject {
             schedulePausedRetry(after: cooldown)
             return SpotifySignInPausedError(pause: pause)
         case .other:
-            state = .failed(Self.displayError(for: error))
+            state = .failed(Self.report(error, level: .loggedWhereCaught, while: "showing a refresh that failed"))
             return SpotifyAPIError.unauthorized
         }
     }
@@ -684,13 +676,22 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    private static func displayError(for error: Error) -> AuthDisplayError {
-        // The sentence stays free of OAuth codes and socket steps. They are not
-        // dropped: each failure path logs them through `AuthFailureDescription`
-        // next to what it did about the failure (#186, #602).
-        // The error itself is kept, not its sentence: the sentence is looked up each time it
-        // is shown, so it follows a language switch (#571).
-        return AuthDisplayError(message: displayMessage(for: error))
+    /// Logs a sign-in failure once and returns what Connect or Settings shows (#608). The
+    /// sentence stays free of OAuth codes and socket steps; the log line has them through
+    /// `AuthFailureDescription` (#186, #602). The sentence is looked up each time it is shown,
+    /// so it follows a language switch (#571).
+    private static func report(_ error: Error, level: ErrorReporting.Level = .error, while operation: String) -> DisplayError {
+        ErrorReporting.report(
+            error,
+            while: operation,
+            in: .auth,
+            context: [.public("cause", AuthFailureDescription.describe(error))],
+            level: level,
+            showing: ErrorMessage(
+                title: SpotiglassL10n.string("app.connection.failed.title"),
+                message: displayMessage(for: error)
+            )
+        )
     }
 
     private static func displayMessage(for error: Error) -> String {

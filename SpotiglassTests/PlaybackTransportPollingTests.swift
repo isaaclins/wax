@@ -219,7 +219,7 @@ final class PlaybackTransportPollingTests: XCTestCase {
         guard case let .error(error) = viewModel.connectionState else {
             return XCTFail("A missing playback scope must surface an actionable transport error")
         }
-        XCTAssertEqual(error.recoveryAction, .reauthenticate)
+        XCTAssertEqual(error.action, .reauthenticate)
         XCTAssertEqual(error.message, SpotiglassL10n.string("error.spotify.insufficientPermissions"))
         XCTAssertNil(viewModel.currentNowPlaying)
         XCTAssertFalse(viewModel.isPlaybackTransportReady)
@@ -253,7 +253,7 @@ final class PlaybackTransportPollingTests: XCTestCase {
         guard case let .error(error) = viewModel.connectionState else {
             return XCTFail("The 401 left the bar on \(viewModel.connectionState)")
         }
-        XCTAssertEqual(error.recoveryAction, .reauthenticate)
+        XCTAssertEqual(error.action, .reauthenticate)
         XCTAssertEqual(error.title, SpotiglassL10n.string("error.playback.signInAgain.title"))
         XCTAssertFalse(viewModel.shouldRunTransportPolling(), "the player is still read after the 401")
     }

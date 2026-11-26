@@ -13,7 +13,7 @@ struct PlaylistBrowserSidebar: View {
     var pinnedBindingFailed: Bool = false
     var retryPinnedBinding: (() -> Void)? = nil
     /// Says the pins file could not be fully read and names the copy kept of it (#597).
-    var pinnedFileNotice: String? = nil
+    var pinnedFileNotice: DisplayError? = nil
 
     let likedSongsStubRow: PlaylistRowViewModel
     let playlistSummaryFromRow: (PlaylistRowViewModel) -> MusicPlaylistSummary
@@ -62,11 +62,7 @@ struct PlaylistBrowserSidebar: View {
                         }
                     }
                     if let pinnedFileNotice {
-                        Text(pinnedFileNotice)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(4)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        ErrorBanner(error: pinnedFileNotice)
                     }
                 } header: {
                     Text(SpotiglassL10n.string("browser.library"))
@@ -106,7 +102,9 @@ struct PlaylistBrowserSidebar: View {
             }
             .overlay(alignment: .bottom) {
                 if case let .staleCache(_, error) = viewModel.playlistState {
-                    StaleCacheBanner(error: error)
+                    ErrorBanner(error: error, style: .floating, retry: error?.canRetry == false ? nil : {
+                        Task { await viewModel.refreshPlaylists(trigger: .userInitiated) }
+                    })
                 } else if case .refreshing = viewModel.playlistState {
                     ProgressView(SpotiglassL10n.string("browser.refreshingPlaylists"))
                         .controlSize(.small)

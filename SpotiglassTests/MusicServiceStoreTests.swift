@@ -540,7 +540,7 @@ final class MusicServiceStoreTests: XCTestCase {
         store.followSpotifySignIn(states)
 
         states.send(.signingIn)
-        states.send(.failed(AuthDisplayError(message: "nope")))
+        states.send(.failed(DisplayError.reported(ErrorMessage(message: "nope"))))
         states.send(.signedOut)
         states.send(.refreshing(nil))
 

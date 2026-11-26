@@ -8,15 +8,12 @@ struct PlaylistsSidebarSectionHeader: View {
             // The sidebar's own header style, the same as Library's (#444).
             Text(SpotiglassL10n.string("browser.playlists"))
             switch playlistState {
-            case let .staleCache(_, error):
-                let caption = Self.cachedDataCaption(for: error)
-                Text(caption)
+            case .staleCache:
+                // Why it's from before is the banner's job at the bottom of the list (#608);
+                // saying it here too showed the same failure twice.
+                Text(SpotiglassL10n.string("browser.cachedData"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .help(caption)
             case .refreshing:
                 Text(SpotiglassL10n.string("browser.refreshing"))
                     .font(.caption)
@@ -27,14 +24,6 @@ struct PlaylistsSidebarSectionHeader: View {
         }
     }
 
-    /// Stale data without a reason is just a shrug. When the refresh failed for a known
-    /// reason, say so here rather than leaving the user to guess why the list is old.
-    static func cachedDataCaption(for error: BrowsingDisplayError?) -> String {
-        guard let reason = error?.message, reason.isEmpty == false else {
-            return SpotiglassL10n.string("browser.cachedData")
-        }
-        return String(format: SpotiglassL10n.string("browser.cachedData.reason"), reason)
-    }
 }
 
 struct PlaylistsSidebarSectionContent: View {
@@ -71,7 +60,9 @@ struct PlaylistsSidebarSectionContent: View {
                 let message = text.string
                 EmptyStateView(title: SpotiglassL10n.string("browser.noPlaylists.title"), message: message)
             case let .error(error):
-                ErrorStateView(error: error)
+                ErrorPage(error: error, retry: error.canRetry ? {
+                    Task { await viewModel.refreshPlaylists(trigger: .userInitiated) }
+                } : nil)
             }
         }
         .onChange(of: viewModel.sidebarSelection) { _, newSelection in

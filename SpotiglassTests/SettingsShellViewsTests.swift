@@ -79,7 +79,7 @@ final class SettingsShellViewsTests: XCTestCase {
         let url = dir.appendingPathComponent("settings.json")
         try Data(#"{"version":1,"keybinds":["#.utf8).write(to: url)
         let store = SpotiglassSettingsStore(fileURL: url)
-        let copyLine = try XCTUnwrap(store.backupNotice?.string)
+        let copyLine = try XCTUnwrap(store.backupNotice?.message)
 
         try Data(#"{"version":2,"appearance":{"#.utf8).write(to: url)
         store.reloadFromDisk()
@@ -87,7 +87,7 @@ final class SettingsShellViewsTests: XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: dir.path)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dir.path) }
         store.update { $0.appearance.colorScheme = .dark }
-        let saveLine = try XCTUnwrap(store.saveFailure?.string)
+        let saveLine = try XCTUnwrap(store.saveFailure?.message)
 
         let manager = CommandPaletteManager()
         let auth = AuthViewModel(

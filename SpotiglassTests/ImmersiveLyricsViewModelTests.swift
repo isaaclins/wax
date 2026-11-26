@@ -53,7 +53,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
             XCTFail("expected .failed, got \(vm.phase)")
             return
         }
-        XCTAssertTrue(message.string.contains("music tracks"))
+        XCTAssertTrue(message.message.contains("music tracks"))
     }
 
     func testPreloadThenLoadUsesSingleNetworkFetch() async {
@@ -103,7 +103,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         guard case let .failed(message) = vm.phase else {
             return XCTFail("expected current track failure, got \(vm.phase)")
         }
-        XCTAssertTrue(message.string.contains("No lyrics"))
+        XCTAssertTrue(message.message.contains("No lyrics"))
         XCTAssertEqual(disk.load(trackKey: "cancelled-A"), .unsyncedPlain(["Track A"]))
         XCTAssertNil(disk.loadTrackBackoffMetadata(trackKey: "cancelled-A"))
         XCTAssertEqual(
@@ -215,7 +215,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         guard case let .failed(message) = vm.phase else {
             return XCTFail("expected .failed, got \(vm.phase)")
         }
-        XCTAssertTrue(message.string.contains("No lyrics"))
+        XCTAssertTrue(message.message.contains("No lyrics"))
     }
 
     // MARK: - Failure backoff classification
@@ -323,7 +323,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
         guard case let .failed(message) = vm.phase else {
             return XCTFail("expected .failed, got \(vm.phase)")
         }
-        XCTAssertTrue(message.string.contains("rate limited"))
+        XCTAssertTrue(message.message.contains("rate limited"))
     }
 
     func testTrackBackoffMetadataPersistsToDisk() async throws {
@@ -494,7 +494,7 @@ final class ImmersiveLyricsViewModelTests: XCTestCase {
             XCTFail("expected .failed, got \(vm.phase)", file: file, line: line)
             return nil
         }
-        return message.string
+        return message.message
     }
 
     private func temporaryDiskCache() throws -> (LyricsDiskCache, URL) {

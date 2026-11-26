@@ -40,7 +40,7 @@ macOS has no Dynamic Type for Mac apps, so Wax has none either. Most text uses t
 ## What doesn't work yet
 
 - Many surfaces outside Settings and the track list are custom-built rather than standard Mac controls. They have labels and actions, but VoiceOver and Full Keyboard Access may not move through them as smoothly as through a native app ([#173](https://github.com/isaaclins/wax/issues/173)).
-- Error messages show up in different ways in different places, so one can appear without being announced the same way as another ([#608](https://github.com/isaaclins/wax/issues/608)).
+- A banner that appears over a list (data from before, a search that answered in part) isn't announced by VoiceOver when it appears; you find it when you move to it. Short notes at the bottom of the window are announced.
 - Lyrics don't follow the macOS text size; they only follow their own setting in **Settings → Appearance**.
 - I haven't checked Wax with Voice Control or Switch Control.
 

@@ -137,9 +137,9 @@ final class SpotifyAuthModelsCoverageTests: XCTestCase {
     }
 
     func testAuthDisplayErrorEqualityIgnoresID() {
-        let a = AuthDisplayError(message: "Same")
-        let b = AuthDisplayError(message: "Same")
-        let c = AuthDisplayError(message: "Different")
+        let a = DisplayError.reported(ErrorMessage(message: "Same"))
+        let b = DisplayError.reported(ErrorMessage(message: "Same"))
+        let c = DisplayError.reported(ErrorMessage(message: "Different"))
         XCTAssertEqual(a, b)
         XCTAssertNotEqual(a, c)
     }

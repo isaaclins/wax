@@ -45,8 +45,9 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         case idle
         case loading
         case ready(FetchedLyrics)
-        /// Looked up when shown, so an open lyrics view follows a language switch (#548).
-        case failed(LocalizedText)
+        /// Reported when it failed; looked up when shown, so an open lyrics view follows a
+        /// language switch (#548, #608).
+        case failed(DisplayError)
     }
 
     @Published private(set) var phase: Phase = .idle
@@ -163,7 +164,13 @@ final class ImmersiveLyricsViewModel: ObservableObject {
 
     private func load(track: PlaybackNowPlaying, generation: Int, honoursBackoff: Bool) async {
         guard let tid = track.lyricsTrackKey else {
-            phase = .failed(LocalizedText(SpotiglassL10n.string("lyrics.error.musicOnly")))
+            phase = .failed(Self.report(
+                nil,
+                while: "loading lyrics for something that isn't a song",
+                level: .info,
+                action: nil,
+                SpotiglassL10n.string("lyrics.error.musicOnly")
+            ))
             return
         }
 
@@ -178,8 +185,13 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             return
         }
         if honoursBackoff, isWithinBackoffCooldown(trackId: tid) {
-            SpotiglassLog.info(.api, "Lyrics not fetched: this song failed before and waits \(remainingCooldownDescription(trackId: tid)); showed that")
-            phase = .failed(cooldownMessage(trackId: tid))
+            let cooldown = cooldownMessage(trackId: tid)
+            phase = .failed(Self.report(
+                nil,
+                while: "loading lyrics for a song that failed before (waits \(remainingCooldownDescription(trackId: tid)))",
+                level: .info,
+                cooldown.string
+            ))
             // Lyrics reopened during a connection wait: the song still loads once it ends or the network is back.
             if let metadata = Self.backoffMetadata[tid], metadata.failureClass == .network {
                 waitForConnection(track: track, generation: generation, until: metadata.nextEligibleFetchAt)
@@ -197,16 +209,18 @@ final class ImmersiveLyricsViewModel: ObservableObject {
         } catch let failure as LrcLibClient.Failure {
             guard isCurrentLoad(generation) else { return }
             registerFailureBackoff(trackId: tid, failure: failure)
-            phase = .failed(LocalizedText(failure.userFacingMessage))
+            // `LrcLibClient` logged the request and its status; no lyrics is no failure.
+            phase = .failed(Self.report(failure, while: "loading lyrics", level: .info, failure.userFacingMessage))
         } catch let error where Self.isConnectionFailure(error) {
             guard isCurrentLoad(generation) else { return }
             // `LrcLibClient` logged the request; this is what the app does about it.
             let (count, wait) = registerNetworkBackoff(trackId: tid)
-            SpotiglassLog.info(
-                .api,
-                "Lyrics failed (network, \(SpotiglassLog.describe(error))) \(count) time(s) for this song; showed the connection error, no new fetch for \(Int(wait.rounded())) s or until the network is back"
-            )
-            phase = .failed(LocalizedText(SpotiglassL10n.string("lyrics.error.network")))
+            phase = .failed(Self.report(
+                error,
+                while: "loading lyrics (network, \(count) time(s) for this song; no new fetch for \(Int(wait.rounded())) s or until the network is back)",
+                level: .info,
+                SpotiglassL10n.string("lyrics.error.network")
+            ))
             waitForConnection(track: track, generation: generation, until: now().addingTimeInterval(wait))
         } catch {
             guard isCurrentLoad(generation) else { return }
@@ -214,8 +228,25 @@ final class ImmersiveLyricsViewModel: ObservableObject {
             // for a reader waiting on lyrics (#157). `LrcLibClient` logged it; the
             // backoff logs what the app does about it.
             registerFailureBackoff(trackId: tid, failure: nil)
-            phase = .failed(LocalizedText(SpotiglassL10n.string("lyrics.error.http")))
+            phase = .failed(Self.report(error, while: "loading lyrics", SpotiglassL10n.string("lyrics.error.http")))
         }
+    }
+
+    /// Logs a lyrics failure once and returns what the lyrics column shows (#608).
+    private static func report(
+        _ error: Error?,
+        while operation: String,
+        level: ErrorReporting.Level = .error,
+        action: ErrorMessage.Action? = .retry,
+        _ message: @autoclosure @escaping () -> String
+    ) -> DisplayError {
+        ErrorReporting.report(
+            error,
+            while: operation,
+            in: .api,
+            level: level,
+            showing: ErrorMessage(message: message(), action: action)
+        )
     }
 
     /// The request never reached the lyrics service: offline, timed out, DNS, connection lost,
