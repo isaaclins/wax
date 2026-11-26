@@ -12280,6 +12280,28 @@
         }
       }
     },
+    "queue.autoplay.help.off.spotify": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autoplay einschalten, damit es nach der Warteschlange weitergeht: mit Titeln der Künstler aus deiner Warteschlange und von Künstlern, die mit ihnen in deinen eigenen Playlists stehen. Spotify lässt diese App seine eigenen Titelvorschläge nicht nutzen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on Autoplay to keep playing once the queue ends, with songs by the artists in your queue and by artists that share your own playlists with them. Spotify doesn’t let this app use its own song suggestions."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activa la reproducción automática para seguir al acabar la cola, con canciones de los artistas de tu cola y de artistas que están con ellos en tus propias listas. Spotify no deja que esta app use sus propias sugerencias."
+          }
+        }
+      }
+    },
     "queue.autoplay.help.on": {
       "localizations": {
         "de": {
@@ -12298,6 +12320,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Se siguen añadiendo canciones parecidas al final de la cola. Haz clic para desactivar la reproducción automática; las canciones en cola se quedan."
+          }
+        }
+      }
+    },
+    "queue.autoplay.help.on.spotify": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sobald nichts anderes mehr zu spielen ist, folgt ein Titel eines Künstlers aus deiner Warteschlange oder deinen Playlists. So landet er nie vor dem Rest eines Albums oder zwischen Titeln, die du eingereiht hast. Klicken schaltet Autoplay aus, die Titel in der Warteschlange bleiben."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once nothing else is left to play, a song by an artist from your queue or your playlists comes next, so it never lands before the rest of an album or between songs you queued. Click to turn Autoplay off, and queued songs stay."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando no queda nada más por sonar, sigue una canción de un artista de tu cola o tus listas, así nunca queda antes del resto de un álbum ni entre canciones que pusiste en cola. Haz clic para desactivar la reproducción automática; las canciones en cola se quedan."
           }
         }
       }
@@ -12474,6 +12518,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "Añade canciones parecidas al final"
+          }
+        }
+      }
+    },
+    "queue.autoplay.status.on.spotify": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Danach Künstler aus Warteschlange und Playlists"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Then artists from your queue and playlists"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luego artistas de tu cola y tus listas"
           }
         }
       }

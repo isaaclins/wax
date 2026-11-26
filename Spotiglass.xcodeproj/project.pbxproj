@@ -65,6 +65,7 @@
 		SRC00000000000000000000B2 /* MusicAppLibraryScripting.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC00000000000000000800B2 /* MusicAppLibraryScripting.swift */; };
 		SRC00000000000000000000B1 /* AppleMusicCloudLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC00000000000000000800B1 /* AppleMusicCloudLibrary.swift */; };
 		F61300000000000000000002 /* AppleMusicAutoplaySource.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61300000000000000000102 /* AppleMusicAutoplaySource.swift */; };
+		F61700000000000000000001 /* SpotifyAutoplaySource.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61700000000000000000101 /* SpotifyAutoplaySource.swift */; };
 		SRC00000000000000000000B0 /* AppleMusicLibraryEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRC00000000000000000800B0 /* AppleMusicLibraryEditor.swift */; };
 		C30000000000000000000003 /* SpotifyAPIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30000000000000000000013 /* SpotifyAPIError.swift */; };
 		C30000000000000000000004 /* SpotifyDTOs+Paging.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30000000000000000000014 /* SpotifyDTOs+Paging.swift */; };
@@ -362,6 +363,7 @@
 		TST00000000000000000000FD /* PlaybackSessionViewModelCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000100FD /* PlaybackSessionViewModelCoreTests.swift */; };
 		TST00000000000000000000FE /* QueueViewModelCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000100FE /* QueueViewModelCoreTests.swift */; };
 		F61300000000000000000003 /* QueueAutoplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61300000000000000000103 /* QueueAutoplayTests.swift */; };
+		F61700000000000000000002 /* SpotifyAutoplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61700000000000000000102 /* SpotifyAutoplayTests.swift */; };
 		F62800000000000000000006 /* QueueRemovalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F62800000000000000000005 /* QueueRemovalTests.swift */; };
 		TST00000000000000000000FF /* PlaylistBrowserDisplayErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000100FF /* PlaylistBrowserDisplayErrorTests.swift */; };
 		TST00000000000000000001 /* TestTemporaryDirectories.swift in Sources */ = {isa = PBXBuildFile; fileRef = TST00000000000000000051 /* TestTemporaryDirectories.swift */; };
@@ -589,6 +591,7 @@
 		SRC00000000000000000800B2 /* MusicAppLibraryScripting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicAppLibraryScripting.swift; sourceTree = "<group>"; };
 		SRC00000000000000000800B1 /* AppleMusicCloudLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicCloudLibrary.swift; sourceTree = "<group>"; };
 		F61300000000000000000102 /* AppleMusicAutoplaySource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicAutoplaySource.swift; sourceTree = "<group>"; };
+		F61700000000000000000101 /* SpotifyAutoplaySource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyAutoplaySource.swift; sourceTree = "<group>"; };
 		SRC00000000000000000800B0 /* AppleMusicLibraryEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleMusicLibraryEditor.swift; sourceTree = "<group>"; };
 		C30000000000000000000013 /* SpotifyAPIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyAPIError.swift; sourceTree = "<group>"; };
 		C30000000000000000000014 /* SpotifyDTOs+Paging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SpotifyDTOs+Paging.swift"; sourceTree = "<group>"; };
@@ -946,6 +949,7 @@
 		TST00000000000000000100FD /* PlaybackSessionViewModelCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSessionViewModelCoreTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000100FE /* QueueViewModelCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueViewModelCoreTests.swift; sourceTree = "<group>"; };
 		F61300000000000000000103 /* QueueAutoplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueAutoplayTests.swift; sourceTree = "<group>"; };
+		F61700000000000000000102 /* SpotifyAutoplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotifyAutoplayTests.swift; sourceTree = "<group>"; };
 		F62800000000000000000005 /* QueueRemovalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueRemovalTests.swift; sourceTree = "<group>"; };
 		TST00000000000000000100FF /* PlaylistBrowserDisplayErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistBrowserDisplayErrorTests.swift; sourceTree = "<group>"; };
 		TST0000000000000000010101 /* LibrarySidebarOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySidebarOrderTests.swift; sourceTree = "<group>"; };
@@ -1153,6 +1157,7 @@
 				SRC00000000000000000800B2 /* MusicAppLibraryScripting.swift */,
 				SRC00000000000000000800B1 /* AppleMusicCloudLibrary.swift */,
 				F61300000000000000000102 /* AppleMusicAutoplaySource.swift */,
+				F61700000000000000000101 /* SpotifyAutoplaySource.swift */,
 				SRC00000000000000000800B0 /* AppleMusicLibraryEditor.swift */,
 				C30000000000000000000019 /* SpotifyAPIClient+CurrentUser.swift */,
 				C3000000000000000000001a /* SpotifyAPIClient+Playlists.swift */,
@@ -1342,6 +1347,7 @@
 				TST00000000000000000100FF /* PlaylistBrowserDisplayErrorTests.swift */,
 				TST00000000000000000100FE /* QueueViewModelCoreTests.swift */,
 				F61300000000000000000103 /* QueueAutoplayTests.swift */,
+				F61700000000000000000102 /* SpotifyAutoplayTests.swift */,
 				F62800000000000000000005 /* QueueRemovalTests.swift */,
 				TST00000000000000000100FD /* PlaybackSessionViewModelCoreTests.swift */,
 				TST00000000000000000100FC /* PlaylistBrowserLikedSongsCoverageTests.swift */,
@@ -1933,6 +1939,7 @@
 				SRC00000000000000000000B2 /* MusicAppLibraryScripting.swift in Sources */,
 				SRC00000000000000000000B1 /* AppleMusicCloudLibrary.swift in Sources */,
 				F61300000000000000000002 /* AppleMusicAutoplaySource.swift in Sources */,
+				F61700000000000000000001 /* SpotifyAutoplaySource.swift in Sources */,
 				SRC00000000000000000000B0 /* AppleMusicLibraryEditor.swift in Sources */,
 				C30000000000000000000009 /* SpotifyAPIClient+CurrentUser.swift in Sources */,
 				C3000000000000000000000a /* SpotifyAPIClient+Playlists.swift in Sources */,
@@ -2248,6 +2255,7 @@
 				TST00000000000000000000FF /* PlaylistBrowserDisplayErrorTests.swift in Sources */,
 				TST00000000000000000000FE /* QueueViewModelCoreTests.swift in Sources */,
 				F61300000000000000000003 /* QueueAutoplayTests.swift in Sources */,
+				F61700000000000000000002 /* SpotifyAutoplayTests.swift in Sources */,
 				F62800000000000000000006 /* QueueRemovalTests.swift in Sources */,
 				TST00000000000000000000FD /* PlaybackSessionViewModelCoreTests.swift in Sources */,
 				TST00000000000000000000FC /* PlaylistBrowserLikedSongsCoverageTests.swift in Sources */,

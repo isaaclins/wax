@@ -55,10 +55,37 @@ protocol QueueAutoplaySource: AnyObject {
 /// a song at the very end, after everything already queued.
 @MainActor
 protocol QueueAutoplayPlayer: AnyObject {
-    func autoplayUpcomingTracks() async throws -> [MusicTrack]
+    func autoplayUpcoming() async throws -> QueueAutoplayUpcoming
     /// `isWanted` is asked right before the queue changes, so an add still waiting when
     /// Autoplay is turned off leaves the queue alone.
     func autoplayAppend(_ track: MusicTrack, isWanted: @escaping @MainActor () -> Bool) async throws
+}
+
+/// What is queued after the current song. Spotify's queue also holds podcast episodes: they
+/// steer nothing, but they are still ahead, so a song added then would play before them.
+struct QueueAutoplayUpcoming: Equatable {
+    /// Every item ahead, songs and episodes, in the order they play.
+    var items: [MusicPlaybackItem]
+
+    init(items: [MusicPlaybackItem]) {
+        self.items = items
+    }
+
+    var tracks: [MusicTrack] {
+        items.compactMap { item in
+            if case let .track(track) = item { return track }
+            return nil
+        }
+    }
+
+    /// Right after a song change Spotify can still answer with the queue from before it, which
+    /// lists the song that just started first. That song is playing, not ahead.
+    func withoutPlaying(_ playingKeys: Set<String>) -> QueueAutoplayUpcoming {
+        guard case let .track(first) = items.first,
+            !QueueAutoplayIdentity.keys(first).isDisjoint(with: playingKeys)
+        else { return self }
+        return QueueAutoplayUpcoming(items: Array(items.dropFirst()))
+    }
 }
 
 /// The same song under different IDs (a library copy and its catalog song, or another edition)
@@ -102,6 +129,42 @@ enum QueueAutoplayIdentity {
             base = String(base[..<dash.lowerBound])
         }
         return normalized(base)
+    }
+}
+
+/// The recent queue's artists, as every service's source weighs them.
+enum QueueAutoplayArtistWeights {
+    struct WeightedArtist: Equatable {
+        let name: String
+        /// The service's artist ID when the source can use it.
+        var idHint: String?
+        var weight: Double
+    }
+
+    /// The recent queue's artists, most weighted first; each song's weight goes to its first
+    /// artist, who leads the song. `idHint` keeps the seed's first artist ID when it is one the
+    /// source can use.
+    static func weights(
+        _ seeds: [QueueAutoplaySeed],
+        idHint: (String) -> Bool = { _ in false }
+    ) -> [WeightedArtist] {
+        var artists: [WeightedArtist] = []
+        for seed in seeds {
+            guard let name = seed.artists.first?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+                continue
+            }
+            let key = QueueAutoplayIdentity.normalized(name)
+            let hint = seed.artistIDs.first.flatMap { idHint($0) ? $0 : nil }
+            if let index = artists.firstIndex(where: { QueueAutoplayIdentity.normalized($0.name) == key }) {
+                artists[index].weight += seed.weight
+                if artists[index].idHint == nil { artists[index].idHint = hint }
+            } else {
+                artists.append(WeightedArtist(name: name, idHint: hint, weight: seed.weight))
+            }
+        }
+        return artists.enumerated()
+            .sorted { $0.element.weight != $1.element.weight ? $0.element.weight > $1.element.weight : $0.offset < $1.offset }
+            .map(\.element)
     }
 }
 
@@ -216,6 +279,8 @@ final class QueueAutoplay: ObservableObject {
     let windowSize: Int
     /// The weight of a song Autoplay added itself, against 1 for one the listener picked.
     let addedSongWeight: Double
+    /// The service whose queue this fills, so the app can say what its songs come from.
+    let service: MusicService?
     /// Sends after songs were added, so every window's queue panel shows them.
     let queueChanged = PassthroughSubject<Void, Never>()
 
@@ -272,6 +337,7 @@ final class QueueAutoplay: ObservableObject {
         fillTarget: Int = 8,
         windowSize: Int = 20,
         addedSongWeight: Double = 0.5,
+        service: MusicService? = nil,
         now: @escaping () -> ContinuousClock.Instant = { ContinuousClock.now },
         songCommandSent: @escaping @MainActor () -> SongCommand? = {
             SongCommand(named: PlaybackTrace.shared.songCommand(within: AppleMusicSongChange.commandWindow))
@@ -284,6 +350,7 @@ final class QueueAutoplay: ObservableObject {
         self.fillTarget = fillTarget
         self.windowSize = windowSize
         self.addedSongWeight = addedSongWeight
+        self.service = service
         status = source != nil && flag.isOn ? .on : .off
         needsFill = source != nil && flag.isOn
     }
@@ -291,22 +358,45 @@ final class QueueAutoplay: ObservableObject {
     /// The service's one Autoplay follows its player for the whole app, with or without a
     /// window open: every window's queue panel shows this same object, so two windows never
     /// add a song each for the same new song.
+    /// `spotifyCatalog` is what Spotify's Autoplay reads; without one (previews) Spotify has
+    /// no Autoplay.
     static func forService(
         _ service: MusicService,
         session: PlaybackSessionViewModel,
-        provider: any MusicPlaybackProvider
+        provider: any MusicPlaybackProvider,
+        spotifyCatalog: (any SpotifyAutoplayCatalog)? = nil
     ) -> QueueAutoplay {
-        let autoplay = QueueAutoplay(source: source(for: service))
+        let autoplay = QueueAutoplay(
+            source: source(for: service, spotifyCatalog: spotifyCatalog),
+            fillTarget: fillTarget(for: service),
+            service: service
+        )
         autoplay.follow(session, provider: provider)
         return autoplay
     }
 
     /// Where each service's Autoplay songs come from. Spotify closed its recommendation and
-    /// related-artist endpoints to apps like this one in November 2024, so it has none yet.
-    static func source(for service: MusicService) -> (any QueueAutoplaySource)? {
+    /// related-artist endpoints to apps like this one, so its songs come from search and the
+    /// listener's own playlists (#617).
+    static func source(
+        for service: MusicService,
+        spotifyCatalog: (any SpotifyAutoplayCatalog)?
+    ) -> (any QueueAutoplaySource)? {
         switch service {
         case .appleMusic: AppleMusicAutoplaySource()
-        case .spotify: nil
+        case .spotify: spotifyCatalog.map { SpotifyAutoplaySource(catalog: $0) }
+        }
+    }
+
+    /// How many songs Autoplay keeps queued after the current one. Spotify's queue has one
+    /// place to add to: after the songs queued by hand but before the rest of the album or
+    /// playlist that plays. So on Spotify Autoplay adds only once nothing else is left to
+    /// play, one song at a time, and its songs never land ahead of the album's or between
+    /// songs the listener queued (#617).
+    static func fillTarget(for service: MusicService) -> Int {
+        switch service {
+        case .appleMusic: 8
+        case .spotify: 1
         }
     }
 
@@ -462,8 +552,11 @@ final class QueueAutoplay: ObservableObject {
             let owedNow = owed
             needsFill = false
             let upcoming: [MusicTrack]
+            let itemsAhead: Int
             do {
-                upcoming = try await player.autoplayUpcomingTracks()
+                let queued = try await player.autoplayUpcoming().withoutPlaying(currentKeys)
+                upcoming = queued.tracks
+                itemsAhead = queued.items.count
             } catch {
                 guard !Task.isCancelled else { return }
                 status = .failed
@@ -475,7 +568,7 @@ final class QueueAutoplay: ObservableObject {
             knownTracks = Dictionary(upcoming.map { ($0.uri, $0) }, uniquingKeysWith: { first, _ in first })
             // Only what keeps ``fillTarget`` songs ahead: a long list still ahead gets nothing
             // added, so the player's queue isn't touched while it plays (#735).
-            let want = fillTarget - upcoming.count
+            let want = fillTarget - itemsAhead
             guard want > 0 else {
                 owed = max(0, owed - owedNow)
                 continue
@@ -521,7 +614,8 @@ final class QueueAutoplay: ObservableObject {
                 guard isEnabled, !Task.isCancelled else { return }
                 // The queue may have changed while the suggestions loaded: a song added by hand
                 // meanwhile, or a new song playing, isn't added again.
-                if let queuedNow = try? await player.autoplayUpcomingTracks() {
+                // try?: if this second read fails, the queue read at the start of the look stands.
+                if let queuedNow = try? await player.autoplayUpcoming().tracks {
                     guard isEnabled, !Task.isCancelled else { return }
                     let taken = queuedNow.reduce(into: heardKeys.union(currentKeys).union(removedKeys)) {
                         $0.formUnion(QueueAutoplayIdentity.keys($1))
@@ -632,11 +726,8 @@ final class ProviderQueueAutoplayPlayer: QueueAutoplayPlayer {
         self.deviceID = deviceID
     }
 
-    func autoplayUpcomingTracks() async throws -> [MusicTrack] {
-        try await provider.fetchQueue().queue.compactMap { item in
-            if case let .track(track) = item { return track }
-            return nil
-        }
+    func autoplayUpcoming() async throws -> QueueAutoplayUpcoming {
+        QueueAutoplayUpcoming(items: try await provider.fetchQueue().queue)
     }
 
     func autoplayAppend(_ track: MusicTrack, isWanted: @escaping @MainActor () -> Bool) async throws {

@@ -646,11 +646,6 @@
     "code": "} catch { … guard !Task.isCancelled else { return }"
   },
   {
-    "file": "Spotiglass/Playback/QueueAutoplay.swift",
-    "rule": "try-reason",
-    "code": "if let queuedNow = try? await player.autoplayUpcomingTracks() {"
-  },
-  {
     "file": "Spotiglass/Playback/QueueViewModel+Enqueue.swift",
     "rule": "catch-drops-error",
     "code": "} catch { … _ = await MainActor.run { self?.enqueueRetryTasks.removeValue(forKey: key) }"
