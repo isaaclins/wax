@@ -19,12 +19,9 @@ final class CommandPaletteKeymapStore: ObservableObject {
     /// left out of the shortcuts in use but stay in the file, so one bad row costs only
     /// itself and the next shortcut recorded doesn't delete the others (#597).
     @Published private(set) var unusableRows: [CommandPaletteKeyBinding] = []
-    /// Shown at the top of Settings › Keyboard while ``unusableRows`` isn't empty.
-    var unusableRowsText: LocalizedText? {
-        guard !unusableRows.isEmpty else { return nil }
-        let count = unusableRows.count
-        return LocalizedText(SpotiglassL10n.format("keymap.unusableRows", count), comparedBy: "keymap.unusableRows|\(count)")
-    }
+    /// Shown at the top of Settings › Keyboard while ``unusableRows`` isn't empty; reported
+    /// once each time the rows left out change (#608).
+    @Published private(set) var unusableRowsNotice: DisplayError?
 
     let settingsStore: SpotiglassSettingsStore
 
@@ -258,26 +255,31 @@ final class CommandPaletteKeymapStore: ObservableObject {
     private func applyFromStore(_ keybinds: [CommandPaletteKeyBinding]) {
         var usable: [CommandShortcut: [CommandPaletteKeyBinding]] = [:]
         var unusable: [CommandPaletteKeyBinding] = []
+        var reasons: [String] = []
         for (index, binding) in keybinds.enumerated() {
-            do {
-                let shortcuts = try Self.shortcuts(of: binding)
+            // A row that can't be used is set aside; why goes into the one report below.
+            switch Result(catching: { try Self.shortcuts(of: binding) }) {
+            case let .success(shortcuts):
                 for shortcut in shortcuts {
                     usable[shortcut, default: []].append(binding)
                 }
-            } catch {
+            case let .failure(error):
                 unusable.append(binding)
-                if !unusableRows.contains(binding) {
-                    SpotiglassLog.error(
-                        SpotiglassLog.settings,
-                        "Shortcut row \(index) in \(fileURL.path) (command \(binding.command), keys \(binding.keystrokes)) can't be used and stays in the file unused: \(error)"
-                    )
-                }
+                reasons.append("row \(index) (command \(binding.command), keys \(binding.keystrokes)): \(error)")
             }
         }
         bindings = usable
         editorText = Self.editorTextRepresentation(keybinds)
         if unusable != unusableRows {
             unusableRows = unusable
+            let count = unusable.count
+            unusableRowsNotice = unusable.isEmpty ? nil : ErrorReporting.report(
+                nil,
+                while: "reading shortcut rows (left out of the shortcuts in use, kept in the file)",
+                in: .settings,
+                context: [.public("file", fileURL.path), .public("rows", reasons.joined(separator: "; "))],
+                showing: ErrorMessage(message: SpotiglassL10n.format("keymap.unusableRows", count))
+            )
         }
         // A load that worked replaces any earlier error; a failed reload sets its own after this.
         lastError = nil

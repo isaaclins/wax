@@ -349,7 +349,7 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
 
         XCTAssertEqual(store.primaryShortcut(for: CommandPaletteCommandID.toggleQueue), try CommandShortcut(keystroke: "shift-cmd-8"))
         XCTAssertEqual(store.unusableRows, [fromNewerBuild])
-        XCTAssertNotNil(store.unusableRowsText)
+        XCTAssertNotNil(store.unusableRowsNotice)
         // One row reads as one, not "1 saved shortcuts".
         for (language, one, other) in [
             ("en", "One saved shortcut", "2 saved shortcuts"),
@@ -371,11 +371,15 @@ final class CommandPaletteKeymapStoreTests: XCTestCase {
         XCTAssertTrue(saved.contains(custom), "the custom shortcut is gone")
         XCTAssertTrue(saved.contains(fromNewerBuild), "the newer build's row is gone")
         XCTAssertTrue(saved.contains { $0.command == CommandPaletteCommandID.openSettings && $0.keystrokes == ["shift-cmd-9"] })
-        XCTAssertNotNil(store.unusableRowsText, "the notice stays while the row does")
+        XCTAssertNotNil(store.unusableRowsNotice, "the notice stays while the row does")
 
         try store.clearBinding(commandID: CommandPaletteCommandID.openSettings)
         let afterClear = try JSONDecoder().decode(SpotiglassSettingsFile.self, from: try Data(contentsOf: url)).keybinds
         XCTAssertEqual(afterClear, [custom, fromNewerBuild])
+        // Shown and logged through one report, once: two saves later the same row is not logged again (#608).
+        let logged = try SpotiglassLogReader.lines(containing: url.path).filter { $0.contains("reading shortcut rows") }
+        XCTAssertEqual(logged.count, 1, "\(logged)")
+        XCTAssertTrue(logged.first?.contains("keys [\"cmd-unknown\"]") == true, "\(logged)")
     }
 
     /// A new row typed into the advanced editor is still checked: only rows that were already

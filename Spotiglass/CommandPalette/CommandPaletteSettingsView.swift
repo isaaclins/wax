@@ -70,8 +70,8 @@ struct CommandPaletteSettingsView: View {
                     .font(.title2.weight(.semibold))
             }
 
-            if let unusable = keymapStore.unusableRowsText {
-                BannerLine(unusable.string)
+            if let unusable = keymapStore.unusableRowsNotice {
+                ErrorBanner(error: unusable)
             }
 
             // No instruction line: each field says what to do itself (#541).

@@ -188,12 +188,6 @@ struct BannerLine<Actions: View>: View {
     }
 }
 
-extension BannerLine where Actions == EmptyView {
-    init(_ string: String) {
-        self.init(string) { EmptyView() }
-    }
-}
-
 /// What a toast says: an action that went through, or one that failed (reported).
 enum ToastMessage: Equatable {
     case done(LocalizedText)
