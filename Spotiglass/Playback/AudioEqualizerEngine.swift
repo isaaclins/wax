@@ -130,6 +130,8 @@ final class AudioEqualizerEngine: ObservableObject {
     /// Control Center or another app.
     private var forwardingTargetPickedDuringRouteChange: String?
     private var outputDevicePickedDuringRouteChange: AudioObjectID?
+    /// Waiting for the running route change to end, such as a driver removal pressed during "Starting…".
+    private var routeChangeEndWaiters: [CheckedContinuation<Void, Never>] = []
 
     /// Where the slow parts of a route change run: the helper install, the
     /// wait for coreaudiod to list the EQ device and the wait for the router.
@@ -354,6 +356,22 @@ final class AudioEqualizerEngine: ObservableObject {
                 SpotiglassLog.error(.settings, "Could not save the EQ switch as off before removing the driver: \(error.localizedDescription)")
             }
         }
+        guard isStarting else {
+            releaseOutputAndRemoveDriver()
+            return
+        }
+        // A switch-on or output change is still running on the route queue and
+        // owns the controller until it ends (#604). It sees the switch off then
+        // and stops; the removal goes on after that.
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            // Checked again here: the change may have ended before this task ran.
+            if isStarting { await withCheckedContinuation { routeChangeEndWaiters.append($0) } }
+            releaseOutputAndRemoveDriver()
+        }
+    }
+
+    private func releaseOutputAndRemoveDriver() {
         do {
             if routeState.isEngaged {
                 do {
@@ -594,6 +612,11 @@ final class AudioEqualizerEngine: ObservableObject {
         let pickedDevice = outputDevicePickedDuringRouteChange
         forwardingTargetPickedDuringRouteChange = nil
         outputDevicePickedDuringRouteChange = nil
+        defer {
+            let waiters = routeChangeEndWaiters
+            routeChangeEndWaiters = []
+            waiters.forEach { $0.resume() }
+        }
         if let settingsStore = observedSettingsStore, !settingsStore.settings.equalizer.enabled,
            routeState.isEngaged {
             do {

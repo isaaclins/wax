@@ -571,6 +571,8 @@ final class EqualizerHALPluginTests: XCTestCase {
         let engine = AudioEqualizerEngine(pluginController: controller)
         engine.observe(settingsStore: settingsStore)
         try settingsStore.mutate { $0.equalizer.enabled = true }
+        // The start runs off the main actor (#604).
+        await waitForRoute(of: engine) { $0.isLive }
         XCTAssertEqual(output.current, output.virtualID)
         XCTAssertTrue(engine.isRunning)
 
@@ -659,6 +661,8 @@ final class EqualizerHALPluginTests: XCTestCase {
         let engine = AudioEqualizerEngine(pluginController: controller)
         engine.observe(settingsStore: settingsStore)
         try settingsStore.mutate { $0.equalizer.enabled = true }
+        // The start runs off the main actor (#604).
+        await waitForRoute(of: engine) { $0.isLive }
         XCTAssertEqual(output.current, output.virtualID)
 
         originalIsPlugged = false
@@ -695,7 +699,7 @@ final class EqualizerHALPluginTests: XCTestCase {
     /// silent. Quitting now puts the sound back and keeps the switch on, so the
     /// next launch brings the equalizer back.
     @MainActor
-    func testQuittingWithTheEqualizerOnPutsTheSoundBack() throws {
+    func testQuittingWithTheEqualizerOnPutsTheSoundBack() async throws {
         let output = FakeMacOutput()
         output.routerStatus = .ready(targetUID: output.originalUID)
         let controller = makeController(for: output)
@@ -704,6 +708,8 @@ final class EqualizerHALPluginTests: XCTestCase {
         let engine = AudioEqualizerEngine(pluginController: controller)
         engine.observe(settingsStore: settingsStore)
         try settingsStore.mutate { $0.equalizer.enabled = true }
+        // The start runs off the main actor (#604).
+        await waitForRoute(of: engine) { $0.isLive }
         XCTAssertEqual(output.current, output.virtualID)
 
         engine.releaseOutputForQuit()
@@ -1166,6 +1172,10 @@ final class EqualizerHALPluginTests: XCTestCase {
             try EqualizerFileDriverInstaller(fileManager: .default)
                 .installDriver(sourceURL: sourceURL, destinationURL: destinationURL)
         }
+
+        func removeDriver(destinationURL: URL) throws {
+            try EqualizerFileDriverInstaller(fileManager: .default).removeDriver(destinationURL: destinationURL)
+        }
     }
 
     /// Switching the equalizer on froze the whole app with a beachball while the helper or
@@ -1229,6 +1239,34 @@ final class EqualizerHALPluginTests: XCTestCase {
         await waitForRoute(of: engine) { $0 == .disabled }
 
         XCTAssertEqual(output.current, output.originalID, "the sound stayed on the EQ device with the switch off")
+        XCTAssertFalse(settingsStore.settings.equalizer.enabled)
+    }
+
+    /// "Remove equalizer driver" pressed while the equalizer was still starting ran next to the
+    /// start on the controller: the driver was deleted, then the start installed it again.
+    @MainActor
+    func testRemovingTheDriverWhileTheEqualizerIsStartingWaitsForTheStart() async throws {
+        let output = FakeMacOutput()
+        output.routerStatus = .ready(targetUID: output.originalUID)
+        let installer = HeldDriverInstaller()
+        let controller = makeController(for: output, driverInstaller: installer)
+        let engine = AudioEqualizerEngine(pluginController: controller)
+        let settingsStore = try ViewTestHost.makeSettingsStore()
+        engine.observe(settingsStore: settingsStore)
+        try settingsStore.mutate { $0.equalizer.enabled = true }
+        await waitForRoute(of: engine) { $0 == .starting(targetUID: nil) }
+
+        engine.removeDriver(settingsStore: settingsStore)
+        XCTAssertTrue(engine.isRemovingDriver, "the button showed no progress straight away")
+        XCTAssertEqual(engine.routeState, .starting(targetUID: nil),
+                       "the removal went ahead on the controller while the start was still running")
+        installer.letItFinish()
+        await waitForTheRemovalToFinish(on: engine)
+
+        XCTAssertFalse(controller.isInstalled, "the start put the driver back after it was removed")
+        XCTAssertTrue(engine.driverWasRemoved)
+        XCTAssertEqual(engine.routeState, .disabled)
+        XCTAssertEqual(output.current, output.originalID)
         XCTAssertFalse(settingsStore.settings.equalizer.enabled)
     }
 
